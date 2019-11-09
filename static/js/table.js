@@ -1,6 +1,5 @@
 function contructTable(species) {
   d3.csv(`static/documents/python_list_operations.csv`).then(function(data) {
-    var tableData = data;
 
     // Select the table header tag
     var thead = d3.select("thead");
@@ -17,7 +16,7 @@ function contructTable(species) {
     var tbody = d3.select("tbody");
     tbody.html("");
 
-    tableData.forEach(event => {
+    data.forEach(event => {
       //Create new row for each warning
       var row = tbody.append("tr");
       Object.entries(event).forEach(function([key, value]) {

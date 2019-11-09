@@ -1,0 +1,609 @@
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Gathering-HTML-Table-Data">Gathering HTML Table Data<a class="anchor-link" href="#Gathering-HTML-Table-Data">&#182;</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>This example will extract data for the 2019 Houston Astros player statistics from Baseball-Reference.com.  Since the data is not available in a downloadable format, the following webscraping method will be used to gather this information.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="static/images/website.png"></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Import-Python-Libraries">Import Python Libraries<a class="anchor-link" href="#Import-Python-Libraries">&#182;</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[1]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">import</span> <span class="nn">lxml.html</span> <span class="k">as</span> <span class="nn">lh</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[2]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Store website in a url variable</span>
+<span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;https://www.baseball-reference.com/teams/HOU/2019.shtml&quot;</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[3]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Use the request method on the url</span>
+<span class="n">req</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[4]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Store the contents of the website using the html lxml.html parser lh</span>
+<span class="n">doc</span> <span class="o">=</span> <span class="n">lh</span><span class="o">.</span><span class="n">fromstring</span><span class="p">(</span><span class="n">req</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[5]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1">#Parse data that is stored between HTML table row tags &lt;tr&gt;..&lt;/tr&gt;</span>
+<span class="n">tr_elements</span> <span class="o">=</span> <span class="n">doc</span><span class="o">.</span><span class="n">xpath</span><span class="p">(</span><span class="s1">&#39;//tr&#39;</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="static/images/table_tr.png"></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h5 id="Quality-control">Quality control<a class="anchor-link" href="#Quality-control">&#182;</a></h5>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[6]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Confirm that you are gathering tabular data</span>
+<span class="c1"># You can do that by inspecting the length of </span>
+<span class="c1"># the rows by using a list comprehension</span>
+<span class="c1"># make sure that each row has the same number of columns</span>
+<span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">T</span><span class="p">)</span> <span class="k">for</span> <span class="n">T</span> <span class="ow">in</span> <span class="n">tr_elements</span><span class="p">[:</span><span class="mi">10</span><span class="p">]]</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[6]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>[28, 28, 28, 28, 28, 28, 28, 28, 28, 28]</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h5 id="Save-the-header-row">Save the header row<a class="anchor-link" href="#Save-the-header-row">&#182;</a></h5>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[7]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1">#Create empty list</span>
+<span class="n">table_data</span><span class="o">=</span><span class="p">[]</span>
+<span class="n">i</span><span class="o">=</span><span class="mi">0</span>
+<span class="c1">#For each row, store each first element (header) and an empty list</span>
+<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tr_elements</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+    <span class="n">i</span><span class="o">+=</span><span class="mi">1</span>
+
+    <span class="c1">#lxlm text_content() method extracts text values</span>
+    <span class="n">name</span><span class="o">=</span><span class="n">t</span><span class="o">.</span><span class="n">text_content</span><span class="p">()</span>
+    <span class="c1">#Check you are gathering the header information with print statement</span>
+    <span class="c1">#This is optional   </span>
+    <span class="nb">print</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">name</span><span class="p">)</span> 
+    
+    <span class="c1">#use the List .append() method to add the text from each row</span>
+    <span class="c1">#into the empty list col you created</span>
+    <span class="n">table_data</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,[]))</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>1 Rk
+2 Pos
+3 Name
+4 Age
+5 G
+6 PA
+7 AB
+8 R
+9 H
+10 2B
+11 3B
+12 HR
+13 RBI
+14 SB
+15 CS
+16 BB
+17 SO
+18 BA
+19 OBP
+20 SLG
+21 OPS
+22 OPS+
+23 TB
+24 GDP
+25 HBP
+26 SH
+27 SF
+28 IBB
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h5 id="Save-the-data-rows">Save the data rows<a class="anchor-link" href="#Save-the-data-rows">&#182;</a></h5>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[8]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># The header data was stored in the first row </span>
+<span class="c1"># From above code(index 0 = tr_elements[0])</span>
+<span class="c1"># data is stored on the second row onwards</span>
+<span class="c1"># Use a for loop to eterate through the reamining tr elements</span>
+<span class="c1"># Make sure that each row is tabular, if not break out</span>
+<span class="c1"># For tabular data (row with equal columms) </span>
+<span class="c1"># Store the data into your table_data list.</span>
+<span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">tr_elements</span><span class="p">)):</span>
+    
+    <span class="c1">#T is our j&#39;th row</span>
+    <span class="n">T</span><span class="o">=</span><span class="n">tr_elements</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+    
+    <span class="c1">#Count the number of columns in the table and assign to variable</span>
+    <span class="c1">#In this example, we have 28 columns with data     </span>
+    <span class="n">col_nbr</span> <span class="o">=</span> <span class="mi">28</span>
+    
+    <span class="c1">#If row is not of size 28 (# columns), </span>
+    <span class="c1">#the //tr data is not from our table </span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">T</span><span class="p">)</span><span class="o">!=</span><span class="n">col_nbr</span><span class="p">:</span>
+        <span class="k">break</span>
+    
+    <span class="c1">#i is the index of our column</span>
+    <span class="n">i</span><span class="o">=</span><span class="mi">0</span>
+    
+    <span class="c1">#Iterate through each element of the row</span>
+    <span class="c1">#This for loop uses the lxlm .iterchildren() method</span>
+    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">T</span><span class="o">.</span><span class="n">iterchildren</span><span class="p">():</span>
+        <span class="c1">#This code uses the lxlm .text_content() method         </span>
+        <span class="n">data</span><span class="o">=</span><span class="n">t</span><span class="o">.</span><span class="n">text_content</span><span class="p">()</span> 
+        
+        <span class="c1">#Check if row is empty</span>
+        <span class="k">if</span> <span class="n">i</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">:</span>
+        <span class="c1">#Convert any numerical value to integers</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">data</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="k">except</span><span class="p">:</span>
+                <span class="k">pass</span>
+        <span class="c1">#Append the data to the empty list of the i&#39;th column</span>
+        <span class="n">table_data</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="c1">#Increment i for the next column</span>
+        <span class="n">i</span><span class="o">+=</span><span class="mi">1</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[9]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Quality control - confirm that you gathered columns with equal rows</span>
+<span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">C</span><span class="p">)</span> <span class="k">for</span> <span class="p">(</span><span class="n">title</span><span class="p">,</span><span class="n">C</span><span class="p">)</span> <span class="ow">in</span> <span class="n">table_data</span><span class="p">]</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[9]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>[52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52,
+ 52]</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h5 id="Save-data-into-a-pandas-dataframe">Save data into a pandas dataframe<a class="anchor-link" href="#Save-data-into-a-pandas-dataframe">&#182;</a></h5>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[10]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Create the dataframe</span>
+<span class="n">Dict</span><span class="o">=</span><span class="p">{</span><span class="n">title</span><span class="p">:</span><span class="n">column</span> <span class="k">for</span> <span class="p">(</span><span class="n">title</span><span class="p">,</span><span class="n">column</span><span class="p">)</span> <span class="ow">in</span> <span class="n">table_data</span><span class="p">}</span>
+<span class="n">df</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">Dict</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[11]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Inspect dataframe</span>
+<span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[11]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Rk</th>
+      <th>Pos</th>
+      <th>Name</th>
+      <th>Age</th>
+      <th>G</th>
+      <th>PA</th>
+      <th>AB</th>
+      <th>R</th>
+      <th>H</th>
+      <th>2B</th>
+      <th>...</th>
+      <th>OBP</th>
+      <th>SLG</th>
+      <th>OPS</th>
+      <th>OPS+</th>
+      <th>TB</th>
+      <th>GDP</th>
+      <th>HBP</th>
+      <th>SH</th>
+      <th>SF</th>
+      <th>IBB</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1</td>
+      <td>C</td>
+      <td>Robinson Chirinos</td>
+      <td>35</td>
+      <td>114</td>
+      <td>437</td>
+      <td>366</td>
+      <td>57</td>
+      <td>87</td>
+      <td>22</td>
+      <td>...</td>
+      <td>.347</td>
+      <td>.443</td>
+      <td>.790</td>
+      <td>105</td>
+      <td>162</td>
+      <td>11</td>
+      <td>13</td>
+      <td>2</td>
+      <td>5</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2</td>
+      <td>1B</td>
+      <td>Yuli Gurriel</td>
+      <td>35</td>
+      <td>144</td>
+      <td>612</td>
+      <td>564</td>
+      <td>85</td>
+      <td>168</td>
+      <td>40</td>
+      <td>...</td>
+      <td>.343</td>
+      <td>.541</td>
+      <td>.884</td>
+      <td>126</td>
+      <td>305</td>
+      <td>12</td>
+      <td>5</td>
+      <td>0</td>
+      <td>6</td>
+      <td>2</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>3</td>
+      <td>2B</td>
+      <td>Jose Altuve</td>
+      <td>29</td>
+      <td>124</td>
+      <td>548</td>
+      <td>500</td>
+      <td>89</td>
+      <td>149</td>
+      <td>27</td>
+      <td>...</td>
+      <td>.353</td>
+      <td>.550</td>
+      <td>.903</td>
+      <td>131</td>
+      <td>275</td>
+      <td>19</td>
+      <td>3</td>
+      <td>1</td>
+      <td>3</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>4</td>
+      <td>SS</td>
+      <td>Carlos Correa</td>
+      <td>24</td>
+      <td>75</td>
+      <td>321</td>
+      <td>280</td>
+      <td>42</td>
+      <td>78</td>
+      <td>16</td>
+      <td>...</td>
+      <td>.358</td>
+      <td>.568</td>
+      <td>.926</td>
+      <td>137</td>
+      <td>159</td>
+      <td>8</td>
+      <td>2</td>
+      <td>0</td>
+      <td>4</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>5</td>
+      <td>3B</td>
+      <td>Alex Bregman</td>
+      <td>25</td>
+      <td>156</td>
+      <td>690</td>
+      <td>554</td>
+      <td>122</td>
+      <td>164</td>
+      <td>37</td>
+      <td>...</td>
+      <td>.423</td>
+      <td>.592</td>
+      <td>1.015</td>
+      <td>162</td>
+      <td>328</td>
+      <td>9</td>
+      <td>9</td>
+      <td>0</td>
+      <td>8</td>
+      <td>2</td>
+    </tr>
+  </tbody>
+</table>
+<p>5 rows × 28 columns</p>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h5 id="Save-dataframe-to-csv-file">Save dataframe to csv file<a class="anchor-link" href="#Save-dataframe-to-csv-file">&#182;</a></h5>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[12]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s2">&quot;2019_houston_astros&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span> 
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+ 
+
