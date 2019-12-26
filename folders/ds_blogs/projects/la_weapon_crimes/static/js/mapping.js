@@ -115,9 +115,9 @@ function initializeCrimeMap() {
       popupContent += '<br>';
       popupContent += '<b>Crime Reported</b>: ' + random_subset[i].Crime_Code;
       popupContent += '<br>';
-      popupContent += '<b>Date Reported</b>: ' + random_subset[i].Date_Reported;
+      popupContent += '<b>Date Reported</b>: ' + random_subset[i].Date;
       popupContent += '<br>';
-      popupContent += '<b>Area Name</b>: ' + random_subset[i].Area_Name;
+      popupContent += '<b>Area Name</b>: ' + random_subset[i].Area;
       popupContent += '<br>';
       popupContent += '<b>Victim Age</b>: ' + random_subset[i].Vict_Age;
       popupContent += '<br>';
@@ -125,7 +125,7 @@ function initializeCrimeMap() {
       popupContent += '<br>';
       popupContent += '<b>Victim Ethnicity</b>: ' + random_subset[i].Vict_Desc;
       popupContent += '<br>';
-      popupContent += '<b>Status of Case</b>: ' + random_subset[i].Status_Desc;
+      popupContent += '<b>Status of Case</b>: ' + random_subset[i].Status;
 
       // var popupText = 'test ' + random_subset[i].Weapon_Desc;
 
@@ -182,9 +182,9 @@ function updateCrimeMAP(newSelection) {
       popupContent += '<br>';
       popupContent += '<b>Crime Reported</b>: ' + random_subset[i].Crime_Code;
       popupContent += '<br>';
-      popupContent += '<b>Date Reported</b>: ' + random_subset[i].Date_Reported;
+      popupContent += '<b>Date Reported</b>: ' + random_subset[i].Date;
       popupContent += '<br>';
-      popupContent += '<b>Area Name</b>: ' + random_subset[i].Area_Name;
+      popupContent += '<b>Area Name</b>: ' + random_subset[i].Area;
       popupContent += '<br>';
       popupContent += '<b>Victim Age</b>: ' + random_subset[i].Vict_Age;
       popupContent += '<br>';
@@ -192,7 +192,7 @@ function updateCrimeMAP(newSelection) {
       popupContent += '<br>';
       popupContent += '<b>Victim Ethnicity</b>: ' + random_subset[i].Vict_Desc;
       popupContent += '<br>';
-      popupContent += '<b>Status of Case</b>: ' + random_subset[i].Status_Desc;
+      popupContent += '<b>Status of Case</b>: ' + random_subset[i].Status;
 
       // STEP 3D1 - EXTRACTED DATA ASSIGNED TO VARIABLES
       var markerLocation = new L.LatLng(lat, lng);
