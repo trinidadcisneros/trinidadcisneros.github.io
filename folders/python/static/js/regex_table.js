@@ -1,5 +1,7 @@
 function contructTable() {
-  d3.csv(`static/documents/python_dictionary.csv`).then(function(data) {
+  d3.csv(`static/documents/regex_metacharacters.csv`).then(function(data) {
+    console.log(data);
+    
     // Select the table header tag
     var thead = d3.select("thead");
     thead.html("");
