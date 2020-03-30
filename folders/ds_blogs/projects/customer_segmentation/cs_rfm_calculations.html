@@ -1,0 +1,1972 @@
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Customer-Segmentation-using-Recency,-Frequency,-and-Monetary-Segmentation">Customer Segmentation using Recency, Frequency, and Monetary Segmentation<a class="anchor-link" href="#Customer-Segmentation-using-Recency,-Frequency,-and-Monetary-Segmentation">&#182;</a></h1><ul>
+<li>Recency (R) is based on the last purchase</li>
+<li>Frequency (F) is based on how many purchases have been made in the last 12 months</li>
+<li>Monetary Value (M) is based on how much customer spent in last 12 months</li>
+<li>RFM can be grouped by percentiles</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Goals">Goals<a class="anchor-link" href="#Goals">&#182;</a></h1><h2 id="1.-Calculate-Recency,-Frequency,-and-Monetary-Value">1. Calculate Recency, Frequency, and Monetary Value<a class="anchor-link" href="#1.-Calculate-Recency,-Frequency,-and-Monetary-Value">&#182;</a></h2><h2 id="2.-Building-Recency,-Frequency,-Monetary-segments">2. Building Recency, Frequency, Monetary segments<a class="anchor-link" href="#2.-Building-Recency,-Frequency,-Monetary-segments">&#182;</a></h2><h2 id="3.-Analyze-RFM-Segments">3. Analyze RFM Segments<a class="anchor-link" href="#3.-Analyze-RFM-Segments">&#182;</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Import-Modules">Import Modules<a class="anchor-link" href="#Import-Modules">&#182;</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[21]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Data Manipulation Libraries: Standard dataframes and array libraries</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">pandas</span> <span class="k">import</span> <span class="n">ExcelWriter</span>
+<span class="kn">from</span> <span class="nn">pandas</span> <span class="k">import</span> <span class="n">ExcelFile</span>
+<span class="c1"># from datetime import datetime</span>
+<span class="kn">import</span> <span class="nn">datetime</span> <span class="k">as</span> <span class="nn">dt</span>
+
+<span class="c1"># Data Visualization Libraries:</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">seaborn</span> <span class="k">as</span> <span class="nn">sns</span>
+
+<span class="c1"># ignore all future warnings</span>
+<span class="kn">from</span> <span class="nn">warnings</span> <span class="k">import</span> <span class="n">simplefilter</span>
+<span class="n">simplefilter</span><span class="p">(</span><span class="n">action</span><span class="o">=</span><span class="s1">&#39;ignore&#39;</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="ne">FutureWarning</span><span class="p">)</span>
+
+<span class="c1"># Displaying plots in jupter notebook</span>
+<span class="o">%</span><span class="k">matplotlib</span> inline
+<span class="c1"># Displaying pandas columns and rows</span>
+<span class="n">pd</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="s1">&#39;display.max_rows&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<span class="n">pd</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="s1">&#39;display.max_columns&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Import-Data">Import Data<a class="anchor-link" href="#Import-Data">&#182;</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[2]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># import data</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_excel</span><span class="p">(</span><span class="s2">&quot;filepath/online_retail.xlsx&quot;</span><span class="p">,</span> <span class="n">sheet_name</span><span class="o">=</span><span class="s2">&quot;Online Retail&quot;</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Clean-Data">Clean Data<a class="anchor-link" href="#Clean-Data">&#182;</a></h1><ul>
+<li>Inspect Datatypes</li>
+<li>Drop missing values in key column</li>
+<li>Change datatypes as needed</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[22]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">df</span><span class="o">.</span><span class="n">dtypes</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[22]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>InvoiceNo              object
+StockCode              object
+Description            object
+Quantity                int64
+InvoiceDate    datetime64[ns]
+UnitPrice             float64
+CustomerID            float64
+Country                object
+dtype: object</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[23]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">df</span><span class="o">.</span><span class="n">describe</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[23]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Quantity</th>
+      <th>UnitPrice</th>
+      <th>CustomerID</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>count</th>
+      <td>406829</td>
+      <td>406829</td>
+      <td>406829</td>
+    </tr>
+    <tr>
+      <th>mean</th>
+      <td>12</td>
+      <td>3</td>
+      <td>15288</td>
+    </tr>
+    <tr>
+      <th>std</th>
+      <td>249</td>
+      <td>69</td>
+      <td>1714</td>
+    </tr>
+    <tr>
+      <th>min</th>
+      <td>-80995</td>
+      <td>0</td>
+      <td>12346</td>
+    </tr>
+    <tr>
+      <th>25%</th>
+      <td>2</td>
+      <td>1</td>
+      <td>13953</td>
+    </tr>
+    <tr>
+      <th>50%</th>
+      <td>5</td>
+      <td>2</td>
+      <td>15152</td>
+    </tr>
+    <tr>
+      <th>75%</th>
+      <td>12</td>
+      <td>4</td>
+      <td>16791</td>
+    </tr>
+    <tr>
+      <th>max</th>
+      <td>80995</td>
+      <td>38970</td>
+      <td>18287</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Note:-Many-missing-values-in-the-CustomerID-Column"><font color="blue">Note: </font>Many missing values in the <code>CustomerID</code> Column<a class="anchor-link" href="#Note:-Many-missing-values-in-the-CustomerID-Column">&#182;</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[12]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Drop rows that have missing customerID values</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;CustomerID&#39;</span><span class="p">])</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[24]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Convert customerID column to integers, need to convert to string first</span>
+<span class="n">df</span><span class="o">.</span><span class="n">astype</span><span class="p">({</span><span class="s1">&#39;CustomerID&#39;</span><span class="p">:</span> <span class="s1">&#39;str&#39;</span><span class="p">})</span><span class="o">.</span><span class="n">dtypes</span>
+<span class="n">df</span><span class="o">.</span><span class="n">astype</span><span class="p">({</span><span class="s1">&#39;CustomerID&#39;</span><span class="p">:</span> <span class="s1">&#39;int&#39;</span><span class="p">})</span><span class="o">.</span><span class="n">dtypes</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[24]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>InvoiceNo              object
+StockCode              object
+Description            object
+Quantity                int64
+InvoiceDate    datetime64[ns]
+UnitPrice             float64
+CustomerID              int64
+Country                object
+dtype: object</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Part-1:-Calculate-Recency,-Frequency,-and-Monteary-Value"><font color="blue">Part 1: Calculate Recency, Frequency, and Monteary Value</font><a class="anchor-link" href="#Part-1:-Calculate-Recency,-Frequency,-and-Monteary-Value">&#182;</a></h1><ul>
+<li>Step 1: Define time period and filter data accordingly</li>
+<li>Step 2: Calculate the sales revenue for each transaction</li>
+<li>Step 3: Calculate the Recency, Frequency, Monetary Value for a specific day</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Step-1:-Filter-Data-to-Specific-Time-Period">Step 1: Filter Data to Specific Time Period<a class="anchor-link" href="#Step-1:-Filter-Data-to-Specific-Time-Period">&#182;</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[14]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Create a subset of the dataframe that is filtered for most recent year of activity</span>
+<span class="n">subset_df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;InvoiceDate&#39;</span><span class="p">]</span><span class="o">&gt;</span><span class="s1">&#39;2010-12-10&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[15]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Confirm subset dates</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Min: </span><span class="si">{}</span><span class="s1">; Max: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">subset_df</span><span class="o">.</span><span class="n">InvoiceDate</span><span class="p">),</span>
+                              <span class="nb">max</span><span class="p">(</span><span class="n">subset_df</span><span class="o">.</span><span class="n">InvoiceDate</span><span class="p">)))</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Min: 2010-12-10 09:33:00; Max: 2011-12-09 12:50:00
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Step-2:-Calculate-the-Sales-Revenue-per-Transaction">Step 2: Calculate the Sales Revenue per Transaction<a class="anchor-link" href="#Step-2:-Calculate-the-Sales-Revenue-per-Transaction">&#182;</a></h1><ul>
+<li>This is calculated by <code>Quantity</code> * <code>UnitPrice</code></li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[25]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Create a sales revenue column named &lt;code&gt;TotalSum&lt;/code&gt;</span>
+<span class="n">subset_df</span><span class="p">[</span><span class="s2">&quot;TotalSum&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">subset_df</span><span class="p">[</span><span class="s2">&quot;Quantity&quot;</span><span class="p">]</span><span class="o">*</span><span class="n">subset_df</span><span class="p">[</span><span class="s2">&quot;UnitPrice&quot;</span><span class="p">]</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[27]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Inspect updated dataframe</span>
+<span class="n">subset_df</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[27]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>InvoiceNo</th>
+      <th>StockCode</th>
+      <th>Description</th>
+      <th>Quantity</th>
+      <th>InvoiceDate</th>
+      <th>UnitPrice</th>
+      <th>CustomerID</th>
+      <th>Country</th>
+      <th>TotalSum</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>22523</th>
+      <td>538172</td>
+      <td>21562</td>
+      <td>HAWAIIAN GRASS SKIRT</td>
+      <td>12</td>
+      <td>2010-12-10 09:33:00</td>
+      <td>1</td>
+      <td>15805</td>
+      <td>United Kingdom</td>
+      <td>15</td>
+    </tr>
+    <tr>
+      <th>22524</th>
+      <td>538172</td>
+      <td>79321</td>
+      <td>CHILLI LIGHTS</td>
+      <td>8</td>
+      <td>2010-12-10 09:33:00</td>
+      <td>5</td>
+      <td>15805</td>
+      <td>United Kingdom</td>
+      <td>40</td>
+    </tr>
+    <tr>
+      <th>22525</th>
+      <td>538172</td>
+      <td>22041</td>
+      <td>RECORD FRAME 7" SINGLE SIZE</td>
+      <td>12</td>
+      <td>2010-12-10 09:33:00</td>
+      <td>3</td>
+      <td>15805</td>
+      <td>United Kingdom</td>
+      <td>31</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Step-3:-Calculate-the-Recency,-Frequency,-and-Monetary-Metrics-for-a-snapshot-date-in-dataset">Step 3: Calculate the Recency, Frequency, and Monetary Metrics for a snapshot date in dataset<a class="anchor-link" href="#Step-3:-Calculate-the-Recency,-Frequency,-and-Monetary-Metrics-for-a-snapshot-date-in-dataset">&#182;</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[28]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Create snapshot_day</span>
+<span class="n">snapshot_date</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">subset_df</span><span class="o">.</span><span class="n">InvoiceDate</span><span class="p">)</span> <span class="o">+</span> <span class="n">dt</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[29]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Display date</span>
+<span class="n">snapshot_date</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[29]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>Timestamp(&#39;2011-12-10 12:50:00&#39;)</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[36]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Aggregate data (Recent day &quot;snapshot_date&quot; - last transaction)</span>
+<span class="n">rfm_data</span> <span class="o">=</span> <span class="n">subset_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;CustomerID&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">agg</span><span class="p">({</span>
+    <span class="s1">&#39;InvoiceDate&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="p">(</span><span class="n">snapshot_date</span> <span class="o">-</span> <span class="n">x</span><span class="o">.</span><span class="n">max</span><span class="p">())</span><span class="o">.</span><span class="n">days</span><span class="p">,</span>
+    <span class="s1">&#39;InvoiceNo&#39;</span> <span class="p">:</span> <span class="s1">&#39;count&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;TotalSum&#39;</span> <span class="p">:</span> <span class="s1">&#39;sum&#39;</span><span class="p">})</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[37]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Inspect data</span>
+<span class="n">rfm_data</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[37]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>InvoiceDate</th>
+      <th>InvoiceNo</th>
+      <th>TotalSum</th>
+    </tr>
+    <tr>
+      <th>CustomerID</th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>12346</th>
+      <td>326</td>
+      <td>2</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>12347</th>
+      <td>2</td>
+      <td>151</td>
+      <td>3598</td>
+    </tr>
+    <tr>
+      <th>12348</th>
+      <td>75</td>
+      <td>31</td>
+      <td>1797</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="Notice-invoice-date-is-not-longer-an-actual-date-datatype,-but-an-integer-that-represents-the-number-of-dates-since-the-last-invoice-date">Notice invoice date is not longer an actual date datatype, but an integer that represents the number of dates since the last invoice date<a class="anchor-link" href="#Notice-invoice-date-is-not-longer-an-actual-date-datatype,-but-an-integer-that-represents-the-number-of-dates-since-the-last-invoice-date">&#182;</a></h4><ul>
+<li>CustomerID 12346 hasn't been a customer in almost a year, has had two transcations, but spent $0.00</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[39]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Inspecting this customer we see that they made a purchase</span>
+<span class="c1"># But then received a refund</span>
+<span class="n">subset_df</span><span class="p">[</span><span class="n">subset_df</span><span class="p">[</span><span class="s2">&quot;CustomerID&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">12346</span><span class="p">]</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[39]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>InvoiceNo</th>
+      <th>StockCode</th>
+      <th>Description</th>
+      <th>Quantity</th>
+      <th>InvoiceDate</th>
+      <th>UnitPrice</th>
+      <th>CustomerID</th>
+      <th>Country</th>
+      <th>TotalSum</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>61619</th>
+      <td>541431</td>
+      <td>23166</td>
+      <td>MEDIUM CERAMIC TOP STORAGE JAR</td>
+      <td>74215</td>
+      <td>2011-01-18 10:01:00</td>
+      <td>1</td>
+      <td>12346</td>
+      <td>United Kingdom</td>
+      <td>77184</td>
+    </tr>
+    <tr>
+      <th>61624</th>
+      <td>C541433</td>
+      <td>23166</td>
+      <td>MEDIUM CERAMIC TOP STORAGE JAR</td>
+      <td>-74215</td>
+      <td>2011-01-18 10:17:00</td>
+      <td>1</td>
+      <td>12346</td>
+      <td>United Kingdom</td>
+      <td>-77184</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[40]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Rename columns for easier interpretation</span>
+<span class="n">rfm_data</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;InvoiceDate&#39;</span> <span class="p">:</span> <span class="s1">&#39;Recency&#39;</span><span class="p">,</span>
+                          <span class="s1">&#39;InvoiceNo&#39;</span> <span class="p">:</span> <span class="s1">&#39;Frequency&#39;</span><span class="p">,</span>
+                          <span class="s1">&#39;TotalSum&#39;</span><span class="p">:</span> <span class="s1">&#39;Monetary Value&#39;</span><span class="p">},</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[33]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Inspect the relabeled data</span>
+<span class="n">rfm_data</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[33]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Recency</th>
+      <th>Frequency</th>
+      <th>Monetary Value</th>
+    </tr>
+    <tr>
+      <th>CustomerID</th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>12346</th>
+      <td>326</td>
+      <td>2</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>12347</th>
+      <td>2</td>
+      <td>151</td>
+      <td>3598</td>
+    </tr>
+    <tr>
+      <th>12348</th>
+      <td>75</td>
+      <td>31</td>
+      <td>1797</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Part-II:-Building-Recency,-Frequency,-Monetary-segments"><font color="blue">Part II: Building Recency, Frequency, Monetary segments</font><a class="anchor-link" href="#Part-II:-Building-Recency,-Frequency,-Monetary-segments">&#182;</a></h1><ul>
+<li>Step 1: Define quartile ranges for recency, frequency, and monetary segments</li>
+<li>Step 2: Assign each instance in dataframe a quartile value</li>
+<li>Step 3: Build and Assign an RFM Segment and RFM Score to each instance in dataframe</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Step-1:-Define-Quartile-Range">Step 1: Define Quartile Range<a class="anchor-link" href="#Step-1:-Define-Quartile-Range">&#182;</a></h1><ul>
+<li>Sort customers based on metric</li>
+<li>Break customers into a pre-defined number of groups of equal size</li>
+<li>Assign a label to each group</li>
+<li>Method used in this post will rely on percentiles
+<br><br>
+<b>Pandas Methods</b></li>
+<li>Pandas' method <code>pd.qcut()</code> Discretize variable into equal-sized buckets based on rank or based on sample quantiles.</li>
+<li><code>pandas.qcut(x, q, labels=None, retbins: bool = False, precision: int = 3, duplicates: str = 'raise')</code></li>
+<li>Documentation: <a href="https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.qcut.html">https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.qcut.html</a>
+<br><br></li>
+<li>Each instance will be assigned a quartile based on its value using the <code>dataframe.assign()</code> method.</li>
+<li><code>DataFrame.assign(self, **kwargs)</code></li>
+<li>Documentation: <a href="https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.assign.html">https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.assign.html</a></li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Step-1a:-Define-Recency-quartile-labels">Step 1a: Define Recency quartile labels<a class="anchor-link" href="#Step-1a:-Define-Recency-quartile-labels">&#182;</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[41]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># The recency column will be divided into four equal-sized bins, and will start from 4 and end in 0</span>
+<span class="n">r_labels</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">r_labels</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[41]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>range(4, 0, -1)</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Step-1b:-Create-an-array-using-the-pd.qcut-method">Step 1b: Create an array using the pd.qcut method<a class="anchor-link" href="#Step-1b:-Create-an-array-using-the-pd.qcut-method">&#182;</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[46]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Create a series that contains the quartile assignment for each instance in the dataset &#39;Recency&#39; column</span>
+<span class="n">r_quartiles</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">qcut</span><span class="p">(</span><span class="n">rfm_data</span><span class="p">[</span><span class="s2">&quot;Recency&quot;</span><span class="p">],</span> <span class="mi">4</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">r_labels</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[47]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Inspect subset of data</span>
+<span class="n">r_quartiles</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[47]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>CustomerID
+12346    1
+12347    4
+12348    2
+12349    3
+12350    1
+Name: Recency, dtype: category
+Categories (4, int64): [4 &lt; 3 &lt; 2 &lt; 1]</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Step-1c:-Add-Recency-quartile-assignment-to-dataset-using-the-dataframe.assign()-method">Step 1c: Add Recency quartile assignment to dataset using the dataframe.assign() method<a class="anchor-link" href="#Step-1c:-Add-Recency-quartile-assignment-to-dataset-using-the-dataframe.assign()-method">&#182;</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[50]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Add Recency quartile assignment to dataset using the dataframe.assign() method</span>
+<span class="n">rfm_data</span> <span class="o">=</span> <span class="n">rfm_data</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">R</span> <span class="o">=</span> <span class="n">r_quartiles</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[51]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Inspect subset of data with the new R quartile column</span>
+<span class="n">rfm_data</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[51]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Recency</th>
+      <th>Frequency</th>
+      <th>Monetary Value</th>
+      <th>R</th>
+    </tr>
+    <tr>
+      <th>CustomerID</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>12346</th>
+      <td>326</td>
+      <td>2</td>
+      <td>0</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>12347</th>
+      <td>2</td>
+      <td>151</td>
+      <td>3598</td>
+      <td>4</td>
+    </tr>
+    <tr>
+      <th>12348</th>
+      <td>75</td>
+      <td>31</td>
+      <td>1797</td>
+      <td>2</td>
+    </tr>
+    <tr>
+      <th>12349</th>
+      <td>19</td>
+      <td>73</td>
+      <td>1758</td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <th>12350</th>
+      <td>310</td>
+      <td>17</td>
+      <td>334</td>
+      <td>1</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Repeat-Steps-1a-1c-for-Frequency-and-Monetary-Values">Repeat Steps 1a-1c for Frequency and Monetary Values<a class="anchor-link" href="#Repeat-Steps-1a-1c-for-Frequency-and-Monetary-Values">&#182;</a></h2><ul>
+<li>The quartile values for these two metrics will be in ascending order</li>
+<li>The rankings will be as such: 1 &gt; 2 &gt; 3 &gt; 4</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Step-1a:-Define-quartile-labels">Step 1a: Define quartile labels<a class="anchor-link" href="#Step-1a:-Define-quartile-labels">&#182;</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[54]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Frequency labels</span>
+<span class="n">f_labels</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">5</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[55]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># motenary labels</span>
+<span class="n">m_labels</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">5</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Step-1b:-Create-arrays-using-the-pd.qcut-method">Step 1b: Create arrays using the pd.qcut method<a class="anchor-link" href="#Step-1b:-Create-arrays-using-the-pd.qcut-method">&#182;</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[57]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Assign a frequency quantile to each instance</span>
+<span class="n">f_quantiles</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">qcut</span><span class="p">(</span><span class="n">rfm_data</span><span class="p">[</span><span class="s2">&quot;Frequency&quot;</span><span class="p">],</span> <span class="mi">4</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">f_labels</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[59]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Assign a monetary value quantile to each instance</span>
+<span class="n">m_quantiles</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">qcut</span><span class="p">(</span><span class="n">rfm_data</span><span class="p">[</span><span class="s2">&quot;Monetary Value&quot;</span><span class="p">],</span> <span class="mi">4</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">m_labels</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Step-1c:-Add-Frequency-and-Monetary-quartile-assignment-to-dataset-using-the-dataframe.assign()-method">Step 1c: Add Frequency and Monetary quartile assignment to dataset using the dataframe.assign() method<a class="anchor-link" href="#Step-1c:-Add-Frequency-and-Monetary-quartile-assignment-to-dataset-using-the-dataframe.assign()-method">&#182;</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[60]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Assign a frequency quantile to each instance</span>
+<span class="n">rfm_data</span> <span class="o">=</span> <span class="n">rfm_data</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">F</span> <span class="o">=</span> <span class="n">f_quantiles</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[61]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Assign a monetary value quantile to each instance</span>
+<span class="n">rfm_data</span> <span class="o">=</span> <span class="n">rfm_data</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">M</span> <span class="o">=</span> <span class="n">m_quantiles</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[63]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Inspect updated dataframe</span>
+<span class="n">rfm_data</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[63]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Recency</th>
+      <th>Frequency</th>
+      <th>Monetary Value</th>
+      <th>R</th>
+      <th>F</th>
+      <th>M</th>
+    </tr>
+    <tr>
+      <th>CustomerID</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>12346</th>
+      <td>326</td>
+      <td>2</td>
+      <td>0</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>12347</th>
+      <td>2</td>
+      <td>151</td>
+      <td>3598</td>
+      <td>4</td>
+      <td>4</td>
+      <td>4</td>
+    </tr>
+    <tr>
+      <th>12348</th>
+      <td>75</td>
+      <td>31</td>
+      <td>1797</td>
+      <td>2</td>
+      <td>2</td>
+      <td>4</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Inspect-Data:-"><font color="blue">Inspect Data: </font><a class="anchor-link" href="#Inspect-Data:-">&#182;</a></h3><p><b>Recency Quartile (last invoice date from snapshot date) <code>R</code>: </b></p>
+<ul>
+<li>1 is the lowest quartile ranking for this metric</li>
+<li>Customer 12346 was assigned a "1" because they have not made a purchase in nearly a year</li>
+<li>Customer 12347 was assigned a "4" because they recently made a purchase (2 days ago from the snap shot date)</li>
+</ul>
+<p><b>Frequency Quartile (number of invoices per customer) <code>F</code>: </b></p>
+<ul>
+<li>4 is the highest quartile ranking for this metric</li>
+<li>Customer 12346 was assigned a "1" because they had two transactions</li>
+<li>Customer 12347 was assigned a "4" because they had more than 150 transactions</li>
+</ul>
+<p><b>Monetary Value Quartile (To amount spent) <code>M</code>: </b></p>
+<ul>
+<li>4 is the highest quartile ranking for this metric</li>
+<li>Customer 12346 was assigned a "1" because they did not spend any money, they received a refund.</li>
+<li>Customer 12347 was assigned a "4" because they spent a high amount of $3598.00</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Step-2:-Build-RFM-Segment-and-RFM-Score">Step 2: Build RFM Segment and RFM Score<a class="anchor-link" href="#Step-2:-Build-RFM-Segment-and-RFM-Score">&#182;</a></h1><ul>
+<li>Final step in the RFM Segmentation pipieline</li>
+<li>The RFM Segment is a concatenation of the RFM quartile values intended to make it easier to inspect</li>
+<li>The RFM Score is a sum of these values, and the higher an RFM Score, the more active a customer is for a company.</li>
+</ul>
+<p><b>Steps: </b></p>
+<ul>
+<li>Step 2a: Create a function that concatenates the 'R', 'F', 'M' values</li>
+<li>Step 2b: Add an <code>RFM_Segment</code> column to dataframe by sing the <code>dataframe.apply()</code> method.<br><ul>
+<li>This method will apply the concatenation function to each row in the dataframe</li>
+<li>Then assign that value to the newly created <code>RFM_Segment</code> column for that instance.</li>
+</ul>
+</li>
+<li>Step 2c: Add an <code>RFM_Score</code> column to dataframe by sing the <code>dataframe.sum()</code> method.<ul>
+<li>This method will to sum the values for the 'R', 'F', 'M' in each each row</li>
+<li>Then assign that value to the newly created <code>RFM_Score</code> column for that instance.</li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[67]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Step 2a: Function that concatenates the R, F, M values</span>
+<span class="k">def</span> <span class="nf">join_rfm</span><span class="p">(</span><span class="n">x</span><span class="p">):</span> <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="s1">&#39;R&#39;</span><span class="p">])</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="s1">&#39;F&#39;</span><span class="p">])</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="s1">&#39;M&#39;</span><span class="p">])</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[68]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Step 2b: Applies function to dataframe and creates a new column</span>
+<span class="n">rfm_data</span><span class="p">[</span><span class="s1">&#39;RFM_Segment&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rfm_data</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">join_rfm</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[69]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Step 2c: Creates a new column that contains the sum of the R, F, M values</span>
+<span class="n">rfm_data</span><span class="p">[</span><span class="s1">&#39;RFM_Score&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rfm_data</span><span class="p">[[</span><span class="s1">&#39;R&#39;</span><span class="p">,</span><span class="s1">&#39;F&#39;</span><span class="p">,</span><span class="s1">&#39;M&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[70]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Inpect data</span>
+<span class="n">rfm_data</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[70]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Recency</th>
+      <th>Frequency</th>
+      <th>Monetary Value</th>
+      <th>R</th>
+      <th>F</th>
+      <th>M</th>
+      <th>RFM_Segment</th>
+      <th>RFM_Score</th>
+    </tr>
+    <tr>
+      <th>CustomerID</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>12346</th>
+      <td>326</td>
+      <td>2</td>
+      <td>0</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>111</td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <th>12347</th>
+      <td>2</td>
+      <td>151</td>
+      <td>3598</td>
+      <td>4</td>
+      <td>4</td>
+      <td>4</td>
+      <td>444</td>
+      <td>12</td>
+    </tr>
+    <tr>
+      <th>12348</th>
+      <td>75</td>
+      <td>31</td>
+      <td>1797</td>
+      <td>2</td>
+      <td>2</td>
+      <td>4</td>
+      <td>224</td>
+      <td>8</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Inspect-Data:-"><font color="blue">Inspect Data: </font><a class="anchor-link" href="#Inspect-Data:-">&#182;</a></h3><p><b><code>RFM_Segment</code>: </b></p>
+<ul>
+<li>This is just a concatenation of three column values</li>
+<li>Customer 12346 was assigned a "111" because they have not made a purchase in nearly a year, had few transcations, and has spent very little</li>
+<li>Customer 12347 was assigned a "444" because they have made a recent purchase, have had many transcations, and has spent more.</li>
+</ul>
+<p><b><code>RFM_Score</code>: </b></p>
+<ul>
+<li>Sum of the R, F, M values</li>
+<li>The min score is 3, the max is 12</li>
+<li>A 3 score is not very active customer</li>
+<li>A 12 score is very active customer</li>
+<li>Customer 12346 was assigned a "3" because they had 1 for each RFM value. Not active customer.</li>
+<li>Customer 12347 was assigned a "12" because they had 4 for each RFM value. Very active customer.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Part-III:-Analyze-RFM-segments"><font color="blue">Part III: Analyze RFM segments</font><a class="anchor-link" href="#Part-III:-Analyze-RFM-segments">&#182;</a></h1><ul>
+<li>a) Identify the largest RFM Segment</li>
+<li>b) Display summary metrics per RFM Score</li>
+<li>c) Group into names segments</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="a)-Identify-the-largest-RFM-Segments">a) Identify the largest RFM Segments<a class="anchor-link" href="#a)-Identify-the-largest-RFM-Segments">&#182;</a></h1><p><b>Use:</b></p>
+<ul>
+<li><code>dataframe.groupby()</code>: Group DataFrame using a mapper or by a Series of columns</li>
+<li><code>dataframe.size()</code>: Return an int representing the number of elements in this object.</li>
+<li><code>dataframe.sort_values()</code>: Sort by the values along either axis. </li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[71]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># .size() function is used to get an int representing the number of elements in this object.</span>
+<span class="n">rfm_data</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s1">&#39;RFM_Segment&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">size</span><span class="p">()</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)[:</span><span class="mi">10</span><span class="p">]</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[71]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>RFM_Segment
+444    462
+111    389
+122    199
+344    197
+211    176
+222    170
+333    168
+233    158
+433    154
+322    118
+dtype: int64</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Inspect-Data:-"><font color="blue">Inspect Data: </font><a class="anchor-link" href="#Inspect-Data:-">&#182;</a></h3><ul>
+<li>444 has the highest number of customers at 462</li>
+<li>111 has the 2nd highest numbr of custoemrs at 389</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="b)-Display-summary-metrics-per-RFM-Score">b) Display summary metrics per RFM Score<a class="anchor-link" href="#b)-Display-summary-metrics-per-RFM-Score">&#182;</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[72]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">rfm_data</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s1">&#39;RFM_Score&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">agg</span><span class="p">({</span>
+    <span class="s1">&#39;Recency&#39;</span><span class="p">:</span> <span class="s1">&#39;mean&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Frequency&#39;</span><span class="p">:</span> <span class="s1">&#39;mean&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Monetary Value&#39;</span> <span class="p">:</span> <span class="p">[</span><span class="s1">&#39;mean&#39;</span><span class="p">,</span> <span class="s1">&#39;count&#39;</span><span class="p">]})</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[72]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead tr th {
+        text-align: left;
+    }
+
+    .dataframe thead tr:last-of-type th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Recency</th>
+      <th>Frequency</th>
+      <th colspan="2" halign="left">Monetary Value</th>
+    </tr>
+    <tr>
+      <th></th>
+      <th>mean</th>
+      <th>mean</th>
+      <th>mean</th>
+      <th>count</th>
+    </tr>
+    <tr>
+      <th>RFM_Score</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>3</th>
+      <td>248</td>
+      <td>8</td>
+      <td>106</td>
+      <td>389</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>163</td>
+      <td>14</td>
+      <td>221</td>
+      <td>376</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>147</td>
+      <td>21</td>
+      <td>350</td>
+      <td>503</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>87</td>
+      <td>28</td>
+      <td>484</td>
+      <td>460</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>80</td>
+      <td>39</td>
+      <td>725</td>
+      <td>438</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>57</td>
+      <td>55</td>
+      <td>954</td>
+      <td>464</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>44</td>
+      <td>77</td>
+      <td>1355</td>
+      <td>403</td>
+    </tr>
+    <tr>
+      <th>10</th>
+      <td>30</td>
+      <td>113</td>
+      <td>1796</td>
+      <td>443</td>
+    </tr>
+    <tr>
+      <th>11</th>
+      <td>20</td>
+      <td>191</td>
+      <td>3942</td>
+      <td>358</td>
+    </tr>
+    <tr>
+      <th>12</th>
+      <td>7</td>
+      <td>364</td>
+      <td>8571</td>
+      <td>462</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Inspect-Data:-"><font color="blue">Inspect Data: </font><a class="anchor-link" href="#Inspect-Data:-">&#182;</a></h3><p><b>Min RFM_Segment at <code>3</code>: </b></p>
+<ul>
+<li>Mean Recency is 248 days</li>
+<li>Mean Frequency is around 8 invoices</li>
+<li>Mean Monetary Value is 106 dollars in purchases</li>
+</ul>
+<p><b>Max RFM_Segment at <code>12</code>: </b></p>
+<ul>
+<li>Mean Recency is 7 days</li>
+<li>Mean Frequency is around 364 invoices</li>
+<li>Mean Monetary Value is over 8500 dollars in purchases</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="c)-Group-into-named-segments">c) Group into named segments<a class="anchor-link" href="#c)-Group-into-named-segments">&#182;</a></h1><p>This is a method to add a descriptive tag for each segment to make it easier to read<br></p>
+<p>Steps:<br></p>
+<ul>
+<li>Step 1: Create segmentation labeling function</li>
+<li>Step 2: Apply function to dataframe</li>
+<li>Step 3: Display summary metrics for RFM</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Step-1:-Create-segmentation-labeling-function">Step 1: Create segmentation labeling function<a class="anchor-link" href="#Step-1:-Create-segmentation-labeling-function">&#182;</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[73]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">segment_name</span><span class="p">(</span><span class="n">df</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;RFM_Score&#39;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">9</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;Gold&#39;</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;RFM_Score&#39;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">5</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;RFM_Score&#39;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">9</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s1">&#39;Silver&#39;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;Bronze&#39;</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Step-2:-Apply-function-to-dataframe">Step 2: Apply function to dataframe<a class="anchor-link" href="#Step-2:-Apply-function-to-dataframe">&#182;</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[75]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">rfm_data</span><span class="p">[</span><span class="s2">&quot;General_Segment&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rfm_data</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">segment_name</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Step-3:-Display-summary-metrics-by-segmentation-label">Step 3: Display summary metrics by segmentation label<a class="anchor-link" href="#Step-3:-Display-summary-metrics-by-segmentation-label">&#182;</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[85]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">rfm_data</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s1">&#39;General_Segment&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">agg</span><span class="p">({</span>
+    <span class="s1">&#39;Recency&#39;</span><span class="p">:</span> <span class="s1">&#39;mean&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Frequency&#39;</span><span class="p">:</span> <span class="s1">&#39;mean&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;Monetary Value&#39;</span> <span class="p">:</span> <span class="p">[</span><span class="s1">&#39;mean&#39;</span><span class="p">,</span> <span class="s1">&#39;count&#39;</span><span class="p">]})</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[85]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead tr th {
+        text-align: left;
+    }
+
+    .dataframe thead tr:last-of-type th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Recency</th>
+      <th>Frequency</th>
+      <th colspan="2" halign="left">Monetary Value</th>
+    </tr>
+    <tr>
+      <th></th>
+      <th>mean</th>
+      <th>mean</th>
+      <th>mean</th>
+      <th>count</th>
+    </tr>
+    <tr>
+      <th>General_Segment</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>Bronze</th>
+      <td>206</td>
+      <td>11</td>
+      <td>163</td>
+      <td>765</td>
+    </tr>
+    <tr>
+      <th>Gold</th>
+      <td>25</td>
+      <td>191</td>
+      <td>4029</td>
+      <td>1666</td>
+    </tr>
+    <tr>
+      <th>Silver</th>
+      <td>94</td>
+      <td>35</td>
+      <td>621</td>
+      <td>1865</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+ 
+
