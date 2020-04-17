@@ -1,0 +1,1329 @@
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Goals:-"><font color="blue">Goals: </font><a class="anchor-link" href="#Goals:-">&#182;</a></h1><ol>
+    <li>Break out dates into year, month, and day</li>
+    <li>Break a date into other component parts</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Import-Dependencies">Import Dependencies<a class="anchor-link" href="#Import-Dependencies">&#182;</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[1]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="k">import</span> <span class="n">create_engine</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="n">pd</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="s1">&#39;display.max_rows&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<span class="n">pd</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="s1">&#39;display.max_columns&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[2]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Connect to sqlite database</span>
+<span class="n">engine</span> <span class="o">=</span> <span class="n">create_engine</span><span class="p">(</span><span class="s1">&#39;mysql+pymysql://xxx:xxx@xxxx/calendar&#39;</span><span class="p">,</span> <span class="n">pool_recycle</span><span class="o">=</span><span class="mi">3600</span><span class="p">)</span>
+<span class="n">conn</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[3]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Confirm connection by printing tables</span>
+<span class="n">engine</span><span class="o">.</span><span class="n">table_names</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[3]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>[&#39;calendartable&#39;]</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 2px solid black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Examine-Data">Examine Data<a class="anchor-link" href="#Examine-Data">&#182;</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[4]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># View a few instances of the data</span>
+<span class="n">sql_view_data</span> <span class="o">=</span> <span class="s2">&quot;SELECT * FROM calendartable LIMIT 3;&quot;</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[5]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Run query</span>
+<span class="n">data_view</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="n">sql_view_data</span><span class="p">,</span> <span class="n">conn</span><span class="p">)</span>
+<span class="c1"># Displaying data</span>
+<span class="n">data_view</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[5]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>DateKey</th>
+      <th>Date</th>
+      <th>Day</th>
+      <th>DayOfWeek</th>
+      <th>DayName</th>
+      <th>IsWeekend</th>
+      <th>DayOfWeekInMonth</th>
+      <th>CalendarDayOfYear</th>
+      <th>WeekOfMonth</th>
+      <th>CalendarWeekOfYear</th>
+      <th>CalendarMonth</th>
+      <th>MonthName</th>
+      <th>CalendarQuarter</th>
+      <th>CalendarQuarterName</th>
+      <th>CalendarYear</th>
+      <th>FirstDayOfMonth</th>
+      <th>LastDayOfMonth</th>
+      <th>FirstDayOfWeek</th>
+      <th>LastDayOfWeek</th>
+      <th>FirstDayOfQuarter</th>
+      <th>LastDayOfQuarter</th>
+      <th>CalendarFirstDayOfYear</th>
+      <th>CalendarLastDayOfYear</th>
+      <th>FirstDayOfNextMonth</th>
+      <th>CalendarFirstDayOfNextYear</th>
+      <th>FiscalDayOfYear</th>
+      <th>FiscalWeekOfYear</th>
+      <th>FiscalMonth</th>
+      <th>FiscalQuarter</th>
+      <th>FiscalQuarterName</th>
+      <th>FiscalYear</th>
+      <th>FiscalFirstDayOfYear</th>
+      <th>FiscalLastDayOfYear</th>
+      <th>FiscalFirstDayOfNextYear</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>20000101</td>
+      <td>2000-01-01</td>
+      <td>1</td>
+      <td>7</td>
+      <td>Saturday</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>January</td>
+      <td>1</td>
+      <td>Q1</td>
+      <td>2000</td>
+      <td>2000-01-01</td>
+      <td>2000-01-31</td>
+      <td>2000-01-01</td>
+      <td>2000-01-01</td>
+      <td>2000-01-01</td>
+      <td>2000-03-31</td>
+      <td>2000-01-01</td>
+      <td>2000-12-31</td>
+      <td>2000-02-01</td>
+      <td>2001-01-01</td>
+      <td>185</td>
+      <td>27</td>
+      <td>7</td>
+      <td>3</td>
+      <td>Q3</td>
+      <td>1999</td>
+      <td>1999-07-01</td>
+      <td>2000-06-30</td>
+      <td>2000-07-01</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>20000102</td>
+      <td>2000-01-02</td>
+      <td>2</td>
+      <td>1</td>
+      <td>Sunday</td>
+      <td>1</td>
+      <td>1</td>
+      <td>2</td>
+      <td>2</td>
+      <td>2</td>
+      <td>1</td>
+      <td>January</td>
+      <td>1</td>
+      <td>Q1</td>
+      <td>2000</td>
+      <td>2000-01-01</td>
+      <td>2000-01-31</td>
+      <td>2000-01-02</td>
+      <td>2000-01-08</td>
+      <td>2000-01-01</td>
+      <td>2000-03-31</td>
+      <td>2000-01-01</td>
+      <td>2000-12-31</td>
+      <td>2000-02-01</td>
+      <td>2001-01-01</td>
+      <td>186</td>
+      <td>28</td>
+      <td>7</td>
+      <td>3</td>
+      <td>Q3</td>
+      <td>1999</td>
+      <td>1999-07-01</td>
+      <td>2000-06-30</td>
+      <td>2000-07-01</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>20000103</td>
+      <td>2000-01-03</td>
+      <td>3</td>
+      <td>2</td>
+      <td>Monday</td>
+      <td>0</td>
+      <td>1</td>
+      <td>3</td>
+      <td>2</td>
+      <td>2</td>
+      <td>1</td>
+      <td>January</td>
+      <td>1</td>
+      <td>Q1</td>
+      <td>2000</td>
+      <td>2000-01-01</td>
+      <td>2000-01-31</td>
+      <td>2000-01-02</td>
+      <td>2000-01-08</td>
+      <td>2000-01-01</td>
+      <td>2000-03-31</td>
+      <td>2000-01-01</td>
+      <td>2000-12-31</td>
+      <td>2000-02-01</td>
+      <td>2001-01-01</td>
+      <td>187</td>
+      <td>28</td>
+      <td>7</td>
+      <td>3</td>
+      <td>Q3</td>
+      <td>1999</td>
+      <td>1999-07-01</td>
+      <td>2000-06-30</td>
+      <td>2000-07-01</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 2px solid black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Break-out-the-year,-month,-and-day-from-a-date">Break out the year, month, and day from a date<a class="anchor-link" href="#Break-out-the-year,-month,-and-day-from-a-date">&#182;</a></h1><p>The following functions extract parts of a date:</p>
+<ul>
+<li><code>YEAR()</code>: returns the year for a given date.</li>
+<li><code>MONTH()</code>: returns the month for the date within a range of 1 to 12 ( January to December).</li>
+<li><code>DAY()</code>: returns the day of the month for a specified date.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[6]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">sql_expample_1</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">SELECT</span>
+<span class="s2">CURDATE() AS CurrentDate,</span>
+<span class="s2">YEAR(CURDATE()) AS TheYear,</span>
+<span class="s2">MONTH(CURDATE()) AS TheMonth,</span>
+<span class="s2">DAY(CURDATE()) AS TheDay;&quot;&quot;&quot;</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[7]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Run query</span>
+<span class="n">view</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="n">sql_expample_1</span><span class="p">,</span> <span class="n">conn</span><span class="p">)</span>
+<span class="c1"># Displaying data</span>
+<span class="n">view</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[7]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>CurrentDate</th>
+      <th>TheYear</th>
+      <th>TheMonth</th>
+      <th>TheDay</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>2020-04-16</td>
+      <td>2020</td>
+      <td>4</td>
+      <td>16</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-style: 3px dotted;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Break-out-the-year,-month,-and-day-from-a-date-column-in-an-SQL-Table">Break out the year, month, and day from a date column in an SQL Table<a class="anchor-link" href="#Break-out-the-year,-month,-and-day-from-a-date-column-in-an-SQL-Table">&#182;</a></h1><p><br>
+<code>SELECT YEAR(Date) AS Year_method, MONTH(Date) AS Month_method, DAY(Date) AS Day_method
+FROM table;</code></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[8]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">sql_example2</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">SELECT Date, YEAR(Date) AS Year_method, MONTH(Date) AS Month_method, DAY(Date) AS Day_method</span>
+<span class="s2">FROM calendartable</span>
+<span class="s2">LIMIT 5</span>
+<span class="s2">;&quot;&quot;&quot;</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[9]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Run query</span>
+<span class="n">view</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="n">sql_example2</span><span class="p">,</span> <span class="n">conn</span><span class="p">)</span>
+<span class="c1"># Displaying data</span>
+<span class="n">view</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[9]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Date</th>
+      <th>Year_method</th>
+      <th>Month_method</th>
+      <th>Day_method</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>2000-01-01</td>
+      <td>2000</td>
+      <td>1</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2000-01-02</td>
+      <td>2000</td>
+      <td>1</td>
+      <td>2</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>2000-01-03</td>
+      <td>2000</td>
+      <td>1</td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>2000-01-04</td>
+      <td>2000</td>
+      <td>1</td>
+      <td>4</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>2000-01-05</td>
+      <td>2000</td>
+      <td>1</td>
+      <td>5</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 2px solid black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Break-a-date-and-time-into-component-parts-using-DATE_FORMAT('date',-format)">Break a date and time into component parts using <code>DATE_FORMAT('date', format)</code><a class="anchor-link" href="#Break-a-date-and-time-into-component-parts-using-DATE_FORMAT('date',-format)">&#182;</a></h1><ul>
+<li><p><code>YEAR()</code>, <code>MONTH()</code>, and <code>DAY()</code> are helpful but often we will need to break a date into other components, such as:<br><br></p>
+<ul>
+ <li>Name of Day: <code>DATE_FORMAT('date', '%%W')</code></li>      
+ <li>Day of the week: <code>DATE_FORMAT('date', '%%w')</code></li>
+ <li>The Month: <code>DATE_FORMAT('date', '%%M')</code></li>
+ <li>The Week of the Year: <code>DATE_FORMAT('date', '%%u')</code> </li>
+ <li>The Year of the Week: <code>DATE_FORMAT('date', '%%u')</code></li>
+</ul></li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[10]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">sql_example3</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">SELECT STR_TO_DATE(&#39;2020-08-06 05:17:36&#39;,&#39;</span><span class="si">%%</span><span class="s2">Y-</span><span class="si">%%</span><span class="s2">m-</span><span class="si">%%</span><span class="s2">d </span><span class="si">%%</span><span class="s2">H:</span><span class="si">%%</span><span class="s2">i:</span><span class="si">%%</span><span class="s2">s&#39;) AS Mars_landing,</span>
+<span class="s2">DATE_FORMAT(&#39;2020-08-06 05:17:36&#39;, &#39;</span><span class="si">%%</span><span class="s2">W&#39;) AS TheDayName,</span>
+<span class="s2">DATE_FORMAT(&#39;2020-08-06 05:17:36&#39;, &#39;</span><span class="si">%%</span><span class="s2">w&#39;) AS TheDayofWeek,</span>
+<span class="s2">DATE_FORMAT(&#39;2020-08-06 05:17:36&#39;, &#39;</span><span class="si">%%</span><span class="s2">M&#39;) AS TheMonth,</span>
+<span class="s2">DATE_FORMAT(&#39;2020-08-06 05:17:36&#39;, &#39;</span><span class="si">%%</span><span class="s2">u&#39;) AS TheWeekofYear,</span>
+<span class="s2">DATE_FORMAT(&#39;2020-08-06 05:17:36&#39;, &#39;</span><span class="si">%%</span><span class="s2">x&#39;) AS TheYearforWeek</span>
+<span class="s2">;&quot;&quot;&quot;</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[11]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Run query</span>
+<span class="n">view</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="n">sql_example3</span><span class="p">,</span> <span class="n">conn</span><span class="p">)</span>
+<span class="c1"># Displaying data</span>
+<span class="n">view</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[11]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Mars_landing</th>
+      <th>TheDayName</th>
+      <th>TheDayofWeek</th>
+      <th>TheMonth</th>
+      <th>TheWeekofYear</th>
+      <th>TheYearforWeek</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>2020-08-06 05:17:36</td>
+      <td>Thursday</td>
+      <td>4</td>
+      <td>August</td>
+      <td>32</td>
+      <td>2020</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-style: 3px dotted;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Break-out-the-year,-month,-and-day-from-a-date-column-in-an-SQL-Table-using-DATE_FORMAT()">Break out the year, month, and day from a date column in an SQL Table using <code>DATE_FORMAT()</code><a class="anchor-link" href="#Break-out-the-year,-month,-and-day-from-a-date-column-in-an-SQL-Table-using-DATE_FORMAT()">&#182;</a></h1><p><br>
+<code>SELECT Date, DATE_FORMAT(Date, '%%W') AS TheDayName, 
+DATE_FORMAT(Date, '%%w') AS TheDayofWeek, 
+DATE_FORMAT(Date, '%%M') AS TheMonth, 
+DATE_FORMAT(Date, '%%u') AS TheWeekofYear,
+DATE_FORMAT(Date, '%%x') AS TheYearforWeek
+FROM table LIMIT 5;</code></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[12]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">sql_example4</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">SELECT Date, </span>
+<span class="s2">DATE_FORMAT(Date, &#39;</span><span class="si">%%</span><span class="s2">W&#39;) AS TheDayName, </span>
+<span class="s2">DATE_FORMAT(Date, &#39;</span><span class="si">%%</span><span class="s2">w&#39;) AS TheDayofWeek, </span>
+<span class="s2">DATE_FORMAT(Date, &#39;</span><span class="si">%%</span><span class="s2">M&#39;) AS TheMonth, </span>
+<span class="s2">DATE_FORMAT(Date, &#39;</span><span class="si">%%</span><span class="s2">u&#39;) AS TheWeekofYear,</span>
+<span class="s2">DATE_FORMAT(Date, &#39;</span><span class="si">%%</span><span class="s2">x&#39;) AS TheYearforWeek</span>
+<span class="s2">FROM calendartable LIMIT 5;</span>
+<span class="s2">;&quot;&quot;&quot;</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[13]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Run query</span>
+<span class="n">view</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="n">sql_example4</span><span class="p">,</span> <span class="n">conn</span><span class="p">)</span>
+<span class="c1"># Displaying data</span>
+<span class="n">view</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[13]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Date</th>
+      <th>TheDayName</th>
+      <th>TheDayofWeek</th>
+      <th>TheMonth</th>
+      <th>TheWeekofYear</th>
+      <th>TheYearforWeek</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>2000-01-01</td>
+      <td>Saturday</td>
+      <td>6</td>
+      <td>January</td>
+      <td>00</td>
+      <td>1999</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2000-01-02</td>
+      <td>Sunday</td>
+      <td>0</td>
+      <td>January</td>
+      <td>00</td>
+      <td>1999</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>2000-01-03</td>
+      <td>Monday</td>
+      <td>1</td>
+      <td>January</td>
+      <td>01</td>
+      <td>2000</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>2000-01-04</td>
+      <td>Tuesday</td>
+      <td>2</td>
+      <td>January</td>
+      <td>01</td>
+      <td>2000</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>2000-01-05</td>
+      <td>Wednesday</td>
+      <td>3</td>
+      <td>January</td>
+      <td>01</td>
+      <td>2000</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 2px solid black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Break-a-date-and-time-into-component-parts-using-DAY__()-functions">Break a date and time into component parts using <code>DAY__()</code> functions<a class="anchor-link" href="#Break-a-date-and-time-into-component-parts-using-DAY__()-functions">&#182;</a></h1><ul>
+    <li>Name of Day: <code>DAYNAME(date)</code></li>      
+    <li>Day of the week: <code>DAYOFWEEK(date)</code></li>
+    <li>The Month: <code>DAYOFMONTH(date)</code></li>
+    <li>The Day of the Year: <code>DAYOFYEAR(date)</code> </li>
+</ul>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[14]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">sql_example5</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">SELECT STR_TO_DATE(&#39;2020-08-06 05:17:36&#39;,&#39;</span><span class="si">%%</span><span class="s2">Y-</span><span class="si">%%</span><span class="s2">m-</span><span class="si">%%</span><span class="s2">d </span><span class="si">%%</span><span class="s2">H:</span><span class="si">%%</span><span class="s2">i:</span><span class="si">%%</span><span class="s2">s&#39;) AS Mars_landing,</span>
+<span class="s2">DAYNAME(&#39;2020-08-06 05:17:36&#39;) AS TheDay,</span>
+<span class="s2">DAYOFWEEK(&#39;2020-08-06 05:17:36&#39;) AS TheWeek,</span>
+<span class="s2">DAYOFMONTH(&#39;2020-08-06 05:17:36&#39;) AS TheMonth,</span>
+<span class="s2">DAYOFYEAR(&#39;2020-08-06 05:17:36&#39;) AS TheYear</span>
+<span class="s2">;&quot;&quot;&quot;</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[15]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Run query</span>
+<span class="n">view</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="n">sql_example5</span><span class="p">,</span> <span class="n">conn</span><span class="p">)</span>
+<span class="c1"># Displaying data</span>
+<span class="n">view</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[15]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Mars_landing</th>
+      <th>TheDay</th>
+      <th>TheWeek</th>
+      <th>TheMonth</th>
+      <th>TheYear</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>2020-08-06 05:17:36</td>
+      <td>Thursday</td>
+      <td>5</td>
+      <td>6</td>
+      <td>219</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-style: 3px dotted;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Break-a-date-and-time-into-component-parts-using-DAY__()-functions-on-a-date-column-in-an-SQL-Table">Break a date and time into component parts using <code>DAY__()</code> functions on a date column in an SQL Table<a class="anchor-link" href="#Break-a-date-and-time-into-component-parts-using-DAY__()-functions-on-a-date-column-in-an-SQL-Table">&#182;</a></h1><p><code>SELECT Date ,
+DAYNAME(Date) AS TheDay,
+DAYOFWEEK(Date) AS TheWeek,
+DAYOFMONTH(Date) AS TheMonth,
+DAYOFYEAR(Date) AS TheYear
+FROM calendartable
+LIMIT 5;</code></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[16]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">sql_example6</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">SELECT Date ,</span>
+<span class="s2">DAYNAME(Date) AS TheDay,</span>
+<span class="s2">DAYOFWEEK(Date) AS TheWeek,</span>
+<span class="s2">DAYOFMONTH(Date) AS TheMonth,</span>
+<span class="s2">DAYOFYEAR(Date) AS TheYear</span>
+<span class="s2">FROM calendartable</span>
+<span class="s2">LIMIT 5;&quot;&quot;&quot;</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[17]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Run query</span>
+<span class="n">view</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="n">sql_example6</span><span class="p">,</span> <span class="n">conn</span><span class="p">)</span>
+<span class="c1"># Displaying data</span>
+<span class="n">view</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[17]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Date</th>
+      <th>TheDay</th>
+      <th>TheWeek</th>
+      <th>TheMonth</th>
+      <th>TheYear</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>2000-01-01</td>
+      <td>Saturday</td>
+      <td>7</td>
+      <td>1</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2000-01-02</td>
+      <td>Sunday</td>
+      <td>1</td>
+      <td>2</td>
+      <td>2</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>2000-01-03</td>
+      <td>Monday</td>
+      <td>2</td>
+      <td>3</td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>2000-01-04</td>
+      <td>Tuesday</td>
+      <td>3</td>
+      <td>4</td>
+      <td>4</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>2000-01-05</td>
+      <td>Wednesday</td>
+      <td>4</td>
+      <td>5</td>
+      <td>5</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 2px solid black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Break-a-date-and-time-into-component-parts-using-EXTRACT(unit-FROM-date)-functions">Break a date and time into component parts using <code>EXTRACT(unit FROM date)</code> functions<a class="anchor-link" href="#Break-a-date-and-time-into-component-parts-using-EXTRACT(unit-FROM-date)-functions">&#182;</a></h1><ul>
+<li>'Unit' Relies on temporal interval</li>
+<li><p>Temporal Interval Documentation: <a href="https://dev.mysql.com/doc/refman/8.0/en/expressions.html#temporal-intervals">https://dev.mysql.com/doc/refman/8.0/en/expressions.html#temporal-intervals</a></p>
+<ul>
+ <li>Year: <code>EXTRACT(YEAR FROM 'date')</code></li>      
+ <li>Year Month (YEARS-MONTHS): <code>EXTRACT(YEAR_MONTH FROM 'date')</code></li>
+ <li>Day: <code>EXTRACT(DAY FROM 'date')</code></li>
+ <li>Quarter: <code>EXTRACT(QUARTER FROM 'date')</code></li>
+ <li>Day Minutes (HOURS:MINUTES): <code>EXTRACT(DAY_MINUTE FROM 'date')</code></li>
+</ul></li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[18]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">sql_example7</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">SELECT STR_TO_DATE(&#39;2020-08-06 05:17:36&#39;,&#39;</span><span class="si">%%</span><span class="s2">Y-</span><span class="si">%%</span><span class="s2">m-</span><span class="si">%%</span><span class="s2">d </span><span class="si">%%</span><span class="s2">H:</span><span class="si">%%</span><span class="s2">i:</span><span class="si">%%</span><span class="s2">s&#39;) AS Mars_landing,</span>
+<span class="s2">EXTRACT(YEAR FROM &#39;2020-08-06 05:17:36&#39;) AS Year,</span>
+<span class="s2">EXTRACT(YEAR_MONTH FROM &#39;2020-08-06 05:17:36&#39;) AS YearMonth,</span>
+<span class="s2">EXTRACT(DAY FROM&#39;2020-08-06 05:17:36&#39;) AS Day,</span>
+<span class="s2">EXTRACT(QUARTER FROM &#39;2020-08-06 05:17:36&#39;) AS Quarter,</span>
+<span class="s2">EXTRACT(DAY_MINUTE FROM &#39;2020-08-06 05:17:36&#39;) AS DayMinutes</span>
+<span class="s2">;&quot;&quot;&quot;</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[19]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Run query</span>
+<span class="n">view</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="n">sql_example7</span><span class="p">,</span> <span class="n">conn</span><span class="p">)</span>
+<span class="c1"># Displaying data</span>
+<span class="n">view</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[19]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Mars_landing</th>
+      <th>Year</th>
+      <th>YearMonth</th>
+      <th>Day</th>
+      <th>Quarter</th>
+      <th>DayMinutes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>2020-08-06 05:17:36</td>
+      <td>2020</td>
+      <td>202008</td>
+      <td>6</td>
+      <td>3</td>
+      <td>60517</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-style: 3px dotted;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Extract-Date-Parts-From-Attribute-in-SQL-Table-using-EXTRACT(UNIT,-DATE)-function">Extract Date Parts From Attribute in SQL Table using <code>EXTRACT(UNIT, DATE)</code> function<a class="anchor-link" href="#Extract-Date-Parts-From-Attribute-in-SQL-Table-using-EXTRACT(UNIT,-DATE)-function">&#182;</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[20]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">sql_example8</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">SELECT Date,</span>
+<span class="s2">EXTRACT(YEAR FROM Date) AS Year,</span>
+<span class="s2">EXTRACT(YEAR_MONTH FROM Date) AS YearMonth,</span>
+<span class="s2">EXTRACT(DAY FROM Date) AS Day,</span>
+<span class="s2">EXTRACT(QUARTER FROM Date) AS Quarter</span>
+<span class="s2">FROM calendartable</span>
+<span class="s2">LIMIT 5;&quot;&quot;&quot;</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[21]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Run query</span>
+<span class="n">view</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_sql</span><span class="p">(</span><span class="n">sql_example8</span><span class="p">,</span> <span class="n">conn</span><span class="p">)</span>
+<span class="c1"># Displaying data</span>
+<span class="n">view</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[21]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Date</th>
+      <th>Year</th>
+      <th>YearMonth</th>
+      <th>Day</th>
+      <th>Quarter</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>2000-01-01</td>
+      <td>2000</td>
+      <td>200001</td>
+      <td>1</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2000-01-02</td>
+      <td>2000</td>
+      <td>200001</td>
+      <td>2</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>2000-01-03</td>
+      <td>2000</td>
+      <td>200001</td>
+      <td>3</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>2000-01-04</td>
+      <td>2000</td>
+      <td>200001</td>
+      <td>4</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>2000-01-05</td>
+      <td>2000</td>
+      <td>200001</td>
+      <td>5</td>
+      <td>1</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+ 
+
