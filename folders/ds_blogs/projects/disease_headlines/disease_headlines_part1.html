@@ -1,0 +1,1152 @@
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<div style="border:2px solid black; padding:10px">
+
+# <font color="blue">Objective: </font>Extract City and Country Information from News Headlines
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Import-Dependencies">Import Dependencies<a class="anchor-link" href="#Import-Dependencies">&#182;</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[1]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">unidecode</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="c1"># Geolocation information</span>
+<span class="kn">from</span> <span class="nn">geonamescache</span> <span class="k">import</span> <span class="n">GeonamesCache</span>
+
+<span class="c1"># ignore all future warnings</span>
+<span class="kn">from</span> <span class="nn">warnings</span> <span class="k">import</span> <span class="n">simplefilter</span>
+<span class="n">simplefilter</span><span class="p">(</span><span class="n">action</span><span class="o">=</span><span class="s1">&#39;ignore&#39;</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="ne">FutureWarning</span><span class="p">)</span>
+
+<span class="c1"># Displaying pandas columns and rows</span>
+<span class="n">pd</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="s1">&#39;display.max_rows&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<span class="n">pd</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="s1">&#39;display.max_columns&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 2px solid black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Import-Data">Import Data<a class="anchor-link" href="#Import-Data">&#182;</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[2]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">file</span> <span class="o">=</span> <span class="s2">&quot;data/headlines.txt&quot;</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[3]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">headline_file</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">file</span><span class="p">,</span><span class="s1">&#39;r&#39;</span><span class="p">)</span>
+<span class="n">headlines</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+             <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">headline_file</span><span class="o">.</span><span class="n">readlines</span><span class="p">()]</span>
+<span class="n">num_headlines</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">headlines</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;</span><span class="si">{num_headlines}</span><span class="s2"> headines have been loaded&quot;</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>650 headines have been loaded
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 2px solid black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Function-to-great-regexes-for-matching">Function to great regexes for matching<a class="anchor-link" href="#Function-to-great-regexes-for-matching">&#182;</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[4]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">data_to_regex</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+    <span class="c1"># ASCII transliterations of Unicode text</span>
+    <span class="n">decoded_name</span> <span class="o">=</span> <span class="n">unidecode</span><span class="o">.</span><span class="n">unidecode</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+    <span class="c1"># If the name is not already in ASCII characters, then it will convert it</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="o">!=</span> <span class="n">decoded_name</span><span class="p">:</span>
+        <span class="n">regex</span> <span class="o">=</span> <span class="n">fr</span><span class="s1">&#39;</span><span class="se">\b</span><span class="s1">(</span><span class="si">{name}</span><span class="s1">|</span><span class="si">{decoded_name}</span><span class="s1">)</span><span class="se">\b</span><span class="s1">&#39;</span>
+    <span class="c1"># if it is already in ASCII characters, then it</span>
+    <span class="c1"># returns it as a regular expression pattern objects, which can be used for pattern matching</span>
+    <span class="c1"># flags=re.IGNORECASE ignores case    </span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">regex</span> <span class="o">=</span> <span class="n">fr</span><span class="s1">&#39;</span><span class="se">\b</span><span class="si">{name}</span><span class="se">\b</span><span class="s1">&#39;</span>
+    <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">regex</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="n">re</span><span class="o">.</span><span class="n">IGNORECASE</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 2px solid black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Create-lists-that-contain-city-and-country-names-using-GeonamesCache()">Create lists that contain city and country names using <code>GeonamesCache()</code><a class="anchor-link" href="#Create-lists-that-contain-city-and-country-names-using-GeonamesCache()">&#182;</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[5]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Instantiate GeonamesCache()</span>
+<span class="n">gc</span> <span class="o">=</span> <span class="n">GeonamesCache</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Create-lists-that-contain-Country-and-City-information-from-gc">Create lists that contain Country and City information from <code>gc</code><a class="anchor-link" href="#Create-lists-that-contain-Country-and-City-information-from-gc">&#182;</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[6]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Use a list comprehension to create a list that contains contries inforation from &lt;code&gt;gc.get_countries().values()&lt;/code&gt;</span>
+<span class="n">countries</span> <span class="o">=</span> <span class="p">[</span><span class="n">country</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">country</span> <span class="ow">in</span> <span class="n">gc</span><span class="o">.</span><span class="n">get_countries</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[7]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Use a list comprehension to create a list that contains city inforation from &lt;code&gt;gc.get_countries().values()&lt;/code&gt;</span>
+<span class="n">cities</span> <span class="o">=</span> <span class="p">[</span><span class="n">city</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">city</span> <span class="ow">in</span> <span class="n">gc</span><span class="o">.</span><span class="n">get_cities</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Use-a-Dictionary-Comprehension-and-the-data_to_regex()-function-to-map-country-and-city-names-to-regexes">Use a Dictionary Comprehension and the <code>data_to_regex()</code> function to map country and city names to regexes<a class="anchor-link" href="#Use-a-Dictionary-Comprehension-and-the-data_to_regex()-function-to-map-country-and-city-names-to-regexes">&#182;</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[8]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># This dictionary comprehension will iterate through the countries list, </span>
+<span class="c1"># Assign this value as the element, and then feed the same element to the &lt;code&gt;name_to_regex()&lt;/code&gt;</span>
+<span class="c1"># The output is the key</span>
+<span class="n">country_to_name</span> <span class="o">=</span> <span class="p">{</span><span class="n">data_to_regex</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="p">:</span> <span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">countries</span><span class="p">}</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[9]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># This dictionary comprehension will iterate through the cities list, </span>
+<span class="c1"># Assign this value as the element, and then feed the same element to the &lt;code&gt;name_to_regex()&lt;/code&gt;</span>
+<span class="c1"># The output is the key</span>
+<span class="n">city_to_name</span> <span class="o">=</span> <span class="p">{</span><span class="n">data_to_regex</span><span class="p">(</span><span class="n">name</span><span class="p">):</span> <span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">cities</span><span class="p">}</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 2px solid black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Create-Dataframe-from-Extracted-Locations-in-Headlines">Create Dataframe from Extracted Locations in Headlines<a class="anchor-link" href="#Create-Dataframe-from-Extracted-Locations-in-Headlines">&#182;</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Function-that-will-compare-each-headline-and-will-either-return-the-name-of-the-country-or-city,-or-if-it-is-not-present,-it-will-return-none">Function that will compare each headline and will either return the name of the country or city, or if it is not present, it will return none<a class="anchor-link" href="#Function-that-will-compare-each-headline-and-will-either-return-the-name-of-the-country-or-city,-or-if-it-is-not-present,-it-will-return-none">&#182;</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[10]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Function takes in a string, and a dictionary to compare</span>
+<span class="k">def</span> <span class="nf">get_data_in_text</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">dictionary</span><span class="p">):</span>
+    <span class="c1"># iterate through each key and value pair in the dictionary (name of the country or city, and the regex object)</span>
+    <span class="k">for</span> <span class="n">regex</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">dictionary</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span>
+                              <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+    <span class="c1"># each individual regex object is used to see if it matches with the text</span>
+    <span class="c1"># if it is found, then it will return the text</span>
+        <span class="k">if</span> <span class="n">regex</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">text</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">name</span>
+    <span class="c1"># if it is not found, then None will be returned</span>
+    <span class="k">return</span> <span class="kc">None</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[11]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Creates a list of matched countries that has either the country name or none for headlines without countries</span>
+<span class="n">matched_countries</span> <span class="o">=</span> <span class="p">[</span><span class="n">get_data_in_text</span><span class="p">(</span><span class="n">headline</span><span class="p">,</span> <span class="n">country_to_name</span><span class="p">)</span>
+                     <span class="k">for</span> <span class="n">headline</span> <span class="ow">in</span> <span class="n">headlines</span><span class="p">]</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[12]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Creates a list of matched cities that has the names of cities in headlines or &#39;none&#39; if missing</span>
+<span class="n">matched_cities</span> <span class="o">=</span> <span class="p">[</span><span class="n">get_data_in_text</span><span class="p">(</span><span class="n">headline</span><span class="p">,</span> <span class="n">city_to_name</span><span class="p">)</span>
+                  <span class="k">for</span> <span class="n">headline</span> <span class="ow">in</span> <span class="n">headlines</span><span class="p">]</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[13]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Create a pandas dataframe with this information</span>
+<span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;Headline&#39;</span><span class="p">:</span> <span class="n">headlines</span><span class="p">,</span> <span class="s1">&#39;City&#39;</span><span class="p">:</span> <span class="n">matched_cities</span><span class="p">,</span>
+        <span class="s1">&#39;Country&#39;</span><span class="p">:</span> <span class="n">matched_countries</span><span class="p">}</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[14]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[14]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Headline</th>
+      <th>City</th>
+      <th>Country</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>Zika Outbreak Hits Miami</td>
+      <td>Miami</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>Could Zika Reach New York City?</td>
+      <td>New York City</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>First Case of Zika in Miami Beach</td>
+      <td>Miami</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>Mystery Virus Spreads in Recife, Brazil</td>
+      <td>Recife</td>
+      <td>Brazil</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>Dallas man comes down with case of Zika</td>
+      <td>Dallas</td>
+      <td>None</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 2px solid black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Evaluate-Data">Evaluate Data<a class="anchor-link" href="#Evaluate-Data">&#182;</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[15]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">df</span><span class="o">.</span><span class="n">describe</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[15]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Headline</th>
+      <th>City</th>
+      <th>Country</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>count</th>
+      <td>650</td>
+      <td>619</td>
+      <td>15</td>
+    </tr>
+    <tr>
+      <th>unique</th>
+      <td>647</td>
+      <td>510</td>
+      <td>10</td>
+    </tr>
+    <tr>
+      <th>top</th>
+      <td>Spanish Flu Spreading through Madrid</td>
+      <td>Of</td>
+      <td>Brazil</td>
+    </tr>
+    <tr>
+      <th>freq</th>
+      <td>2</td>
+      <td>45</td>
+      <td>3</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<div style="border:1px solid black; padding:10px">
+<font color="blue">Note:</font><br>
+There seems to be an error with in the City top value. Of is not a city.
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Evaluate-the-Of-error-in-the-dataset">Evaluate the <code>Of</code> error in the dataset<a class="anchor-link" href="#Evaluate-the-Of-error-in-the-dataset">&#182;</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[16]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;City&quot;</span><span class="p">]</span><span class="o">==</span><span class="s1">&#39;Of&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[16]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Headline</th>
+      <th>City</th>
+      <th>Country</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>53</th>
+      <td>Case of Measles Reported in Vancouver</td>
+      <td>Of</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <th>74</th>
+      <td>Authorities are Worried about the Spread of Br...</td>
+      <td>Of</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <th>80</th>
+      <td>Authorities are Worried about the Spread of Ma...</td>
+      <td>Of</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <th>84</th>
+      <td>Rochester authorities confirmed the spread of ...</td>
+      <td>Of</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <th>109</th>
+      <td>Tokyo Encounters Severe Symptoms of Meningitis</td>
+      <td>Of</td>
+      <td>None</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<div style="border:1px solid black; padding:10px">
+<font color="blue">Note:</font><br>
+There are 45 (7%) instances that have 'Of' listed as a City. This is a mistake. <br>
+    These headlines have real cities that are not captured.
+    Some headline may have more than one city listed.
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 2px solid black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Fix-Erroneaous-City-Output">Fix Erroneaous City Output<a class="anchor-link" href="#Fix-Erroneaous-City-Output">&#182;</a></h1><ul>
+<li>Create a function that returns a set containing all the cities listed in a headline.</li>
+<li>Apply function to city column and create a new column that contains all the cities found in a given headline</li>
+<li>Create a new column that contains the count of the number of cities counted in a headline</li>
+<li>Determine the number of headlines with more than one city</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[17]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># The headlines will be a parameter</span>
+<span class="k">def</span> <span class="nf">get_cities_in_headline</span><span class="p">(</span><span class="n">headline</span><span class="p">):</span>
+    <span class="c1"># Create an empty set (sets do not contain duplicates)</span>
+    <span class="n">cities_in_headline</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="c1"># Iterate through each city_to_name dictionary that was created earlier</span>
+    <span class="k">for</span> <span class="n">regex</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">city_to_name</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="c1"># Use regex.search() to find all instances in the headline that match        </span>
+        <span class="n">match</span> <span class="o">=</span> <span class="n">regex</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">headline</span><span class="p">)</span>
+    <span class="c1"># if there is a match (True)   </span>
+        <span class="k">if</span> <span class="n">match</span><span class="p">:</span>
+                <span class="c1"># then it will check if the first index character is uppercase      </span>
+            <span class="k">if</span> <span class="n">headline</span><span class="p">[</span><span class="n">match</span><span class="o">.</span><span class="n">start</span><span class="p">()]</span><span class="o">.</span><span class="n">isupper</span><span class="p">():</span>
+                <span class="c1"># If it is uppercase, it will add the name to the set</span>
+                <span class="n">cities_in_headline</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+    <span class="c1">#  Return the set</span>
+    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">cities_in_headline</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[18]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Apply the get_cities_in_headline(headline) to the df and create a new column</span>
+<span class="n">df</span><span class="p">[</span><span class="s1">&#39;Cities&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;Headline&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">get_cities_in_headline</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[19]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Then create a new column that counts the number of cities listed in each headline</span>
+<span class="n">df</span><span class="p">[</span><span class="s1">&#39;Num_cities&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;Cities&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="nb">len</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[20]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Filter dataframe for those headlines with more than 1 city</span>
+<span class="n">df_multiple_cities</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="o">.</span><span class="n">Num_cities</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">]</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[21]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">num_rows</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">df_multiple_cities</span><span class="o">.</span><span class="n">shape</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;</span><span class="si">{num_rows}</span><span class="s2"> headlines match multiple cities&quot;</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>69 headlines match multiple cities
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Update-the-City-column-that-contains-more-than-1-entry,-and-restrict-that-entry-to-the-name-of-the-city-that-has-the-longest-name.">Update the City column that contains more than 1 entry, and restrict that entry to the name of the city that has the longest name.<a class="anchor-link" href="#Update-the-City-column-that-contains-more-than-1-entry,-and-restrict-that-entry-to-the-name-of-the-city-that-has-the-longest-name.">&#182;</a></h1><ul>
+<li>This will remove the 'Of' or incomplete cities</li>
+<li>Create a function that returns the longest name in the cities</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[22]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Function takes in the cities parameter (this column has either just a city, or cities listed)</span>
+<span class="k">def</span> <span class="nf">get_longest_city</span><span class="p">(</span><span class="n">cities</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">cities</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">cities</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="nb">len</span><span class="p">)</span>
+<span class="c1"># if there is not city in cities (some headlines only have countries), then return none</span>
+    <span class="k">return</span> <span class="kc">None</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[23]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Apply the get_longest_city function to the cities column and assign output to the city column</span>
+<span class="n">df</span><span class="p">[</span><span class="s1">&#39;City&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;Cities&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">get_longest_city</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Evaluate-the-Country-Data">Evaluate the Country Data<a class="anchor-link" href="#Evaluate-the-Country-Data">&#182;</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[24]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># create a countries dataframe that filters out all instances in the original dataframe that had None for country</span>
+<span class="n">df_countries</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="o">.</span><span class="n">Country</span><span class="o">.</span><span class="n">notnull</span><span class="p">()][[</span><span class="s1">&#39;City&#39;</span><span class="p">,</span>
+                                         <span class="s1">&#39;Country&#39;</span><span class="p">,</span>
+                                         <span class="s1">&#39;Headline&#39;</span><span class="p">]]</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df_countries</span><span class="o">.</span><span class="n">to_string</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>             City    Country                                           Headline
+           Recife     Brazil            Mystery Virus Spreads in Recife, Brazil
+ Ho Chi Minh City    Vietnam     Zika cases in Vietnam&#39;s Ho Chi Minh City surge
+          Bangkok   Thailand                     Thailand-Zika Virus in Bangkok
+       Piracicaba     Brazil                Zika outbreak in Piracicaba, Brazil
+            Klang   Malaysia                   Zika surfaces in Klang, Malaysia
+   Guatemala City  Guatemala  Rumors about Meningitis spreading in Guatemala...
+      Belize City     Belize                 Belize City under threat from Zika
+         Campinas     Brazil                   Student sick in Campinas, Brazil
+      Mexico City     Mexico               Zika outbreak spreads to Mexico City
+    Kota Kinabalu   Malaysia           New Zika Case in Kota Kinabalu, Malaysia
+      Johor Bahru   Malaysia                 Zika reaches Johor Bahru, Malaysia
+        Hong Kong  Hong Kong                    Norovirus Exposure in Hong Kong
+      Panama City     Panama                    Outbreak of Zika in Panama City
+        Singapore  Singapore                  Zika cases in Singapore reach 393
+      Panama City     Panama             Panama City’s first Zika related death
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Identify-Instances-with-no-data-(no-country-or-city-name)">Identify Instances with no data (no country or city name)<a class="anchor-link" href="#Identify-Instances-with-no-data-(no-country-or-city-name)">&#182;</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[25]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">df_unmatched</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="o">.</span><span class="n">City</span><span class="o">.</span><span class="n">isnull</span><span class="p">()]</span>
+<span class="n">num_unmatched</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">df_unmatched</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;</span><span class="si">{num_unmatched}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df_unmatched</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">10</span><span class="p">)[[</span><span class="s1">&#39;Headline&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>39
+[[&#39;Louisiana Zika cases up to 26&#39;]
+ [&#39;Zika infects pregnant woman in Cebu&#39;]
+ [&#39;Spanish Flu Sighted in Antigua&#39;]
+ [&#39;Zika case reported in Oton&#39;]
+ [&#39;Hillsborough uses innovative trap against Zika 20 minutes ago&#39;]
+ [&#39;Maka City Experiences Influenza Outbreak&#39;]
+ [&#39;West Nile Virus Outbreak in Saint Johns&#39;]
+ [&#39;Malaria Exposure in Sussex&#39;]
+ [&#39;Greenwich Establishes Zika Task Force&#39;]
+ [&#39;Will West Nile Virus vaccine help Parsons?&#39;]]
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<div style="border:1px solid black; padding:10px">
+<font color="blue">Note:</font><br>
+There are 39 (6-7%) instances that have a city that could not be matched to the GeoNamesCache.<br>
+These instances will be dropped in this analysis.
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[26]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="o">~</span><span class="n">df</span><span class="o">.</span><span class="n">City</span><span class="o">.</span><span class="n">isnull</span><span class="p">()][[</span><span class="s1">&#39;City&#39;</span><span class="p">,</span> <span class="s1">&#39;Headline&#39;</span><span class="p">,</span> <span class="s1">&#39;Country&#39;</span><span class="p">]]</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 2px solid black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Get-and-Assign-the-Latitude-and-Longitude-to-each-instance-in-dataframe-using-get_cities_by_name(city)">Get and Assign the Latitude and Longitude to each instance in dataframe using <code>get_cities_by_name(city)</code><a class="anchor-link" href="#Get-and-Assign-the-Latitude-and-Longitude-to-each-instance-in-dataframe-using-get_cities_by_name(city)">&#182;</a></h1><ul>
+<li>method can be used to return the coordinates of the city input</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[27]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Create two empty lists for the coodinates</span>
+<span class="n">latitudes</span><span class="p">,</span> <span class="n">longitudes</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[28]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Use a for loop to iterate through each value of the city column (each city)</span>
+<span class="k">for</span> <span class="n">city_name</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">City</span><span class="o">.</span><span class="n">values</span><span class="p">:</span>
+    <span class="c1"># Get the city with the largest population size</span>
+    <span class="n">city</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">gc</span><span class="o">.</span><span class="n">get_cities_by_name</span><span class="p">(</span><span class="n">city_name</span><span class="p">),</span>
+              <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">values</span><span class="p">())[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;population&#39;</span><span class="p">])</span>
+    <span class="c1"># Get the first instance of this list</span>
+    <span class="n">city</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">city</span><span class="o">.</span><span class="n">values</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="c1"># Extracts the coordinates and appends to list</span>
+    <span class="n">latitudes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">city</span><span class="p">[</span><span class="s1">&#39;latitude&#39;</span><span class="p">])</span>
+    <span class="n">longitudes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">city</span><span class="p">[</span><span class="s1">&#39;longitude&#39;</span><span class="p">])</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[29]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Use the dataframe.assign() method to create two new columns and add the values there</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">Latitude</span><span class="o">=</span><span class="n">latitudes</span><span class="p">,</span> <span class="n">Longitude</span><span class="o">=</span><span class="n">longitudes</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Inspect-Data">Inspect Data<a class="anchor-link" href="#Inspect-Data">&#182;</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[30]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt output_prompt">Out[30]:</div>
+
+
+
+<div class="output_html rendered_html output_subarea output_execute_result">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>City</th>
+      <th>Headline</th>
+      <th>Country</th>
+      <th>Latitude</th>
+      <th>Longitude</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>Miami</td>
+      <td>Zika Outbreak Hits Miami</td>
+      <td>None</td>
+      <td>25.77427</td>
+      <td>-80.19366</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>New York City</td>
+      <td>Could Zika Reach New York City?</td>
+      <td>None</td>
+      <td>40.71427</td>
+      <td>-74.00597</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>Miami Beach</td>
+      <td>First Case of Zika in Miami Beach</td>
+      <td>None</td>
+      <td>25.79065</td>
+      <td>-80.13005</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>Recife</td>
+      <td>Mystery Virus Spreads in Recife, Brazil</td>
+      <td>Brazil</td>
+      <td>-8.05389</td>
+      <td>-34.88111</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>Dallas</td>
+      <td>Dallas man comes down with case of Zika</td>
+      <td>None</td>
+      <td>32.78306</td>
+      <td>-96.80667</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[31]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Store variables</span>
+<span class="o">%</span><span class="k">store</span> df
+<span class="o">%</span><span class="k">store</span> gc
+<span class="o">%</span><span class="k">store</span> headlines
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+    <div class="prompt"></div>
+
+
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Stored &#39;df&#39; (DataFrame)
+Stored &#39;gc&#39; (GeonamesCache)
+Stored &#39;headlines&#39; (list)
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 2px solid black;">
+</div>
+</div>
+</div>
+ 
+
