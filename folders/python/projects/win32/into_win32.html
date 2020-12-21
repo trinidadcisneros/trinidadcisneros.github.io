@@ -1,0 +1,312 @@
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<div style="font-size:16px; border:1px solid black; padding:10px">
+    <center><h1>Introduction</h1></center>
+    <ul><br>
+        <li>Python can create common Microsoft Office files (Word, Excel, PowerPoint)</li><br>
+        <li>The Python package <strong>pywin32</strong> is a powerful “Python for Windows Extensions” that allows easy access to the Window’s Component Object Model (COM) and control Microsoft applications.</li><br>
+        <li>pywin32 allows you to control the Windows applications from another program.</li><br>
+        <li>The pywin32 package has been around for more than 20 years, a good resourcce is the book "Python Programming On Win32: Help for Windows Programmers" by Andy Robinson, Mark Hammond. ISBN 9781565926219</li><br>
+        <li><font color="red">To date, this method only works on a PC, it does not work for Mac</font></li><br>
+        <li>Pywin32 Installation information (12/20/20) <a href="https://pypi.org/project/pywin32/">pywin32 PyPi</a></li>
+    </ul>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 3px solid Black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<div style="font-size:16px; border:1px solid black; padding:10px">
+    <center><h1>This project details</h1>
+    In this project I will demonstrate how to use python to carry out a mail merge operation that will let you email specific individuals in a csv file and customize the email to include specific information. The other solution this code provides is the ability to email more than one person in a single email.  Traditional mail merge using word only lets you email one person at at time. That means you cannot carbon copy or blind carbon copy multiple people. This method gets around that.<br><br>
+        In this hypothetical situation, we have a list of customers that have past due payments and we want to email them with specific information on their account. Some accounts have more than one user, so those other individuals will be included.
+    </center>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 3px solid Black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<div style="font-size:16px; border:1px solid black; padding:10px">
+    <center><h1>Goals</h1></center>
+    <ul><strong>Demonstrate how to use python to:</strong><br>
+        <li>Send mass mailings that combines an email template and personalized fields that customized emails for specific senders</li><br>
+        <li>Replace the use of Word and Excel Mail Merge</li><br>
+        <li>Can email multiple Individuals in the same email unlike the word mail merge method.</li><br>
+        <li>filter a csv file and email only specific instances (individuals) based on a conditional statement.
+        </li><br>
+        <li><font color="red">To date, Only works on PC, does not work for Mac</font></li>
+    </ul>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="Import-Dependencies">Import Dependencies<a class="anchor-link" href="#Import-Dependencies">&#182;</a></h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Operating system processing</span>
+<span class="kn">import</span> <span class="nn">os</span>
+
+<span class="c1"># Dataframe processing</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="c1"># String manipulation</span>
+<span class="kn">import</span> <span class="nn">re</span>
+
+<span class="c1"># Microsoft Outlook interface </span>
+<span class="c1"># This will only work on PC, so uncomment below</span>
+<span class="c1"># import win32com.client as win32</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 3px solid Black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<div style="font-size:16px; border:1px solid black; padding:10px">
+<h1>Import and Filter data</h1>
+    <ul>
+        <li>
+        Use pands to import csv file (you can use an excel file too, just use the right import function.</li><br>
+        <li>
+        Each column header should be the 'field' you would typically use in a traditional mail merge.</li><br> 
+        <li>
+        In this example, we will use a boolean column to help filter the instances we want to email</li><br>       
+    </ul>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># import csv file</span>
+<span class="n">file</span><span class="o">=</span> <span class="s2">&quot;data.csv&quot;</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># doublecheck field information</span>
+<span class="c1"># this will be the column header in csv file</span>
+<span class="n">df</span><span class="o">.</span><span class="n">columns</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Filter for instancess that need to be contacted</span>
+<span class="n">df_email</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;NeedsNotification&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;Yes&#39;</span><span class="p">]</span>
+<span class="n">df_email</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 3px solid Black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1>Draft Email in a function</h1>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">sendEmail</span><span class="p">(</span><span class="n">df</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+        <span class="n">outlook</span> <span class="o">=</span> <span class="n">win32</span><span class="o">.</span><span class="n">Dispatch</span><span class="p">(</span><span class="s1">&#39;outlook.application&#39;</span><span class="p">)</span>
+        <span class="n">mail</span> <span class="o">=</span> <span class="n">outlook</span><span class="o">.</span><span class="n">CreateItem</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">mail</span><span class="o">.</span><span class="n">To</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">{contact1}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">contact1</span><span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s1">&#39;Email1&#39;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">notna</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;Email2&#39;</span><span class="p">]):</span>
+            <span class="n">mail</span><span class="o">.</span><span class="n">CC</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">{contact2}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">contact2</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;Email2&#39;</span><span class="p">])</span> 
+        <span class="n">mail</span><span class="o">.</span><span class="n">Subject</span> <span class="o">=</span> <span class="s1">&#39;[Payment Due] - </span><span class="si">{Amount}</span><span class="s1"> Missing Documentation&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">Amount</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;Amount&#39;</span><span class="p">])</span>
+        <span class="n">mail</span><span class="o">.</span><span class="n">Body</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="n">mail</span><span class="o">.</span><span class="n">HTMLBody</span> <span class="o">=</span> <span class="s1">&#39;&#39;&#39;&lt;h3&gt;Dear </span><span class="si">{Name}</span><span class="s1">&lt;/h3&gt;&lt;br&gt;</span>
+<span class="s1">        This email is to inform you that you currently have &lt;strong&gt;$</span><span class="si">{Amount}</span><span class="s1">&lt;/strong&gt; due &lt;em&gt;</span><span class="si">{Date}</span><span class="s1">&lt;/em&gt;.&lt;br&gt;&lt;br&gt;</span>
+<span class="s1">        We appreciate that you have been a member since </span><span class="si">{YearStart}</span><span class="s1">.&lt;br&gt;&lt;br&gt;</span>
+<span class="s1">        We look forward to your continued business. Would you plese confirm that we use the following payment method on file: &lt;strong&gt;</span><span class="si">{PaymentMethod}</span><span class="s1">&lt;/strong&gt;.</span>
+<span class="s1">        &lt;br&gt;</span>
+<span class="s1">        </span><span class="si">{Comment}</span><span class="s1">&lt;br&gt;&lt;br&gt;</span>
+<span class="s1">        Feel free to contact us if you have any questions.&lt;br&gt;</span>
+<span class="s1">                            Thank you&lt;br&gt;</span>
+<span class="s1">                            Data Sleuth LLC&lt;br&gt;</span>
+<span class="s1">                            Customer Service Rep&lt;br&gt;</span>
+<span class="s1">                            Ph: 555-555-5555&lt;br&gt;</span>
+<span class="s1">                            &#39;&#39;&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">Name</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;Name&#39;</span><span class="p">],</span> <span class="n">Name2</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;Name2&#39;</span><span class="p">],</span> <span class="n">Amount</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;Amount&#39;</span><span class="p">],</span> <span class="n">Date</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;Date&#39;</span><span class="p">],</span> <span class="n">YearStart</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;YearStart&#39;</span><span class="p">],</span> <span class="n">PaymentMethod</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;PaymentMethod&#39;</span><span class="p">],</span> <span class="n">Comment</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;Comment&#39;</span><span class="p">])</span>
+        
+        <span class="c1"># To attach a file to the email (optional):</span>
+        <span class="n">attachment</span>  <span class="o">=</span> <span class="s2">&quot;invoice.pdf&quot;</span>
+        <span class="n">mail</span><span class="o">.</span><span class="n">Attachments</span><span class="o">.</span><span class="n">Add</span><span class="p">(</span><span class="n">attachment</span><span class="p">)</span>
+
+        <span class="n">mail</span><span class="o">.</span><span class="n">Send</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 3px solid Black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># run function: mail merge will be performed and email sent out.</span>
+<span class="n">sendEmail</span><span class="p">(</span><span class="n">df_email</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 3px solid Black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<div style="font-size:16px; border:1px solid black; padding:10px">
+    <center><h1>Code explained</h1></center>
+    <ul>
+        <li><code>for index, row in df.iterrows():</code><br>
+        This code iterates through each row in a pandas dataframe.
+        </li>
+        <br>
+        <li>
+            <code>outlook = win32.Dispatch('outlook.application')</code><br>
+            <code>mail = outlook.CreateItem(0)</code><br>
+        These two lines of code create an outlook object.
+        </li>
+        <br>
+        <li>
+            <code>mail.To = '{contact1}'.format(contact1= row['Email1'])</code>
+            <br>
+        You indicate which email to send in the "To" field.
+            <br>
+        Using <code>'{}'.format()</code> method to add fields into the email. The format()
+        method formats the specified value(s) and inserts the values inside the string's
+        placeholder.
+            <br>
+            You could use: <code>f'{}'</code> method.
+        </li>
+        <br>
+        <li><code>if pd.notna(row['Email2']):
+            mail.CC = '{contact2}'.format(contact2=row['Email2']) </code><br>
+        This code checks if there is a second contact that needs to be included, if there is then it will add it to the <em>cc</em> field. You can always do the same for the <code>mail.To</code> field.
+        </li>            
+        <br>
+        <li>
+            <code>mail.Subject = '[Payment Due] - {Amount} Missing Documentation'.format(Amount=row['Amount'])
+            </code>
+            This code will add the subject line information. Note I use the .format() method and insert the variable name within the curly braces and then invoke it in the format parameter using variable=row['variable']
+        </li>
+        <br>
+        <li>
+            <code>mail.Body = ''</code><br>
+            This code creates an empty body where the body of the email will be inserted.
+        </li>
+        <br>
+        <li>
+            <code>mail.HTMLBody = '''...'''</code><br>
+            This code is the actual content and variable are included using the format() method.
+        </li>
+        <br> 
+        <li>
+            <code>attachment  = "invoice.pdf"</code><br>
+            In case you want to include an attachment, this code will assign the file to a variable. You will need to provide the right filepath depending on where the file resides.
+        </li>
+        <br>
+        <li>
+            <code>mail.Attachments.Add(attachment)</code><br>
+            This actually attaches the file to the email.
+        </li>
+        <br> 
+        <li>
+            <code>mail.Send()</code><br>
+            This will send the email.
+        </li>
+        <br>         
+    </ul>
+</div>
+</div>
+</div>
+</div>
+ 
+
