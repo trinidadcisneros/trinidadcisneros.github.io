@@ -1,16 +1,18 @@
 // Import latest MathJax library
 var script = document.createElement('script');
 
-script.src = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js";
+    script.src = 
+"https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js";
 
-document.head.appendChild(script);
+    document.head.appendChild(script);
 
 // Imports the polyfill library that helps mathjax render on various broswers, including older ones
 var script2 = document.createElement('script');
 
-script2.src = "https://polyfill.io/v3/polyfill.min.js?features=es6";
+    script2.src = 
+"https://polyfill.io/v3/polyfill.min.js?features=es6";
 
-document.head.appendChild(script2);
+    document.head.appendChild(script2);
 
 MathJax = {
     tex: {
