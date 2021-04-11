@@ -19,7 +19,8 @@ MathJax = {
         inlineMath: [['$', '$'], ['\\(', '\\)']]
     },
     svg: {
-        fontCache: 'global'
+        fontCache: 'global',
+        linebreaks: {automatic: true}
     }
 };
 
