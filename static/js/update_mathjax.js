@@ -18,20 +18,13 @@ MathJax = {
     tex: {
         inlineMath: [['$', '$'], ['\\(', '\\)']]
     },
+    "HTML-CSS" : { linebreaks : { automatic : true } },
+    CommonHTML : { linebreaks : { automatic : true } },
     svg: {
         fontCache: 'global',
         linebreaks: {automatic: true}
     }
 };
-
-// Function to update typeset for mathjax code in jupyter notebook div
-// Waits 2 seconds for notebook to be loaded, then typesets.
-// Placed in HTML Header
-// setTimeout(function () {
-//     const node = document.getElementById('#jnotebook');
-//     MathJax.typesetPromise();
-//   }, 500);
-//   console.log('setTimeout Completed');
 
 // Function to update typeset for mathjax code in jupyter notebook div
 // Waits 10th for notebook to be loaded, then typesets.
