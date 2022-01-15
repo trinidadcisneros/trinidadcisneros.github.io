@@ -3,7 +3,7 @@
 <head><meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>model_tuning_data_splitting_in_r</title><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
+<title>resampling_techniques_in_r</title><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
 
 <style type="text/css">
   pre { line-height: 125%; }
@@ -13096,7 +13096,7 @@ div#notebook {
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 style="color:blue;">Keywords: R programming, Model Tuning, Data Splitting, AppliedPredictiveModeling</h2>
+<h2 style="color:blue;">Keywords: R programming, Model Tuning, Resampling Techniques, k-fold CV, LOOCV, Bootstrap,   AppliedPredictiveModeling</h2>
 </div>
 </div>
 </div>
@@ -13114,7 +13114,7 @@ div#notebook {
 <center><h1>Post Goals:</h1></center><br>
     <hr style="border-top: 2px dashed black;"><br>
     <p style="font-size:22px;">
-        Discuss model tuning and data splitting using the AppliedPredictiveModeling R library. 
+        Discuss some key resampling techniques used in model prediction using the the R programming and the  AppliedPredictiveModeling library. 
     </p><br><br>
 </div>
 </div>
@@ -13134,9 +13134,11 @@ div#notebook {
 <center><h1>Post Outline:</h1></center>
     <hr style="border-top: 2px dashed black;">
     <ol>
-        <li><a href="#objective1">Introduction to Model Tuning.</a></li><br>
-        <li><a href="#objective2">Data Splitting.</a></li><br>
-        <li><a href="#objective3">Demonstrate how to perform these Model Tuning and Data Splitting using the <code>caret</code> and <code>AppliedPredictiveModeling</code> R packages.</a></li><br>
+        <li><a href="#objective1">Introduction to Predictive Modeling Resampling Techniques.</a></li><br>
+        <li><a href="#objective2">k-Fold Cross Validation.</a></li><br>
+        <li><a href="#objective3">Leave-one-Out Cross Validation (LOOCV).</a></li><br>
+        <li><a href="#objective4">Bootstrap Resampling Method.</a></li><br>
+        <li><a href="#objective5">Demonstrate how to perform k-Fold CV, LOOCV, and Bootstrapping resampling using the <code>caret</code> and <code>AppliedPredictiveModeling</code> R packages.</a></li><br>
 <!--         <li><a href="#objective4">z-test on a population proportion.</a></li><br> -->
     </ol>
 </div>
@@ -13153,15 +13155,21 @@ div#notebook {
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<div id="objective1" class="alert alert-block alert-warning" style="font-size:16px; border:1px solid black; padding:10px"><center><h1><br><font color="blue">Introduction to Model Tuning.</font></h1></center><br>
+<div id="objective1" class="alert alert-block alert-warning" style="font-size:16px; border:1px solid black; padding:10px"><center><h1><br><font color="blue">Introduction to Predictive Modeling Resampling Techniques.</font></h1></center><br>
 </div>
 <div style="font-size:16px; border:1px solid black; padding:10px">
     <ul><strong><u>The basics</u></strong>
-        <li>Some predictive models typically have important parameters that have to be specified during the training procedure</li><br>
-        <li>Parameters that cannot be obtained using an analytic formula are called tuning parameters.</li><br>
-        <li>Tuning parameters control model complexity and how well it can generalize to new data.</li><br>
-        <li>Model tuning is the process of searching for the optimal parameters values and generally involves testing the model performance across various parameter values.</li><br>
-        <li>There are several methods for model turning.</li><br>
+        <li>Resampling is a method used in model performance evaluation.</li><br>
+        <li>Resampling involves using samples from the data to fit a model, and the remaining data is used to evaluate the efficacy and performance of the model.</li><br>
+        <li>This process is conducted many times and the metrics used to test model performance is aggregated and summarized.</li><br>
+        <li>This post will provide a brief introduction to some common resampling techniques:
+            <ul><br>
+                <li>k-fold cross-validation</li><br>
+                <li>Leave-one-Out Cross Validation</li><br>
+                <li>Bootstrapping</li><br>
+            </ul>
+        </li><br>
+<!--         <li></li><br> -->
     </ul>
 </div>
 </div>
@@ -13177,14 +13185,17 @@ div#notebook {
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<div id="objective2" class="alert alert-block alert-warning" style="font-size:16px; border:1px solid black; padding:10px"><center><h1><br><font color="blue">Data Splitting.</font></h1></center><br>
+<div id="objective2" class="alert alert-block alert-warning" style="font-size:16px; border:1px solid black; padding:10px"><center><h1><br><font color="blue">k-Fold Cross Validation.</font></h1></center><br>
 </div>
 <div style="font-size:16px; border:1px solid black; padding:10px">
     <ul><strong><u>The basics</u></strong>
-        <li>Training a predictive model usually involves splitting the data into two groups, a training and test set.</li><br>
-        <li>The training set is used to train the model, while the test (or validation) set is used to determine the performance of the model.</li><br>
-        <li>When the number of instances is small, resampling methods such as cross-validation can be used.</li><br>
-        <li>When the data is split, there are several methods, such as nonrandom, random, and stratified random sampling.</li><br>
+        <li>Is a data partitioning strategy that splits the data into a specified (k) number of roughly equal size groups.</li><br>
+        <li>All but the first partition data set is used to build the predictive model.</li><br>
+        <li>The cross validation refers to the the process of using the partition data to the model.</li><br>        
+        <li>The first partition dataset used to test the model's performance is called the first fold.</li><br>
+        <li>The mean and standard error are generally used to estimate the performance of the model</li><br>
+        <li>There is no hard rule on the number of partitions used, and the decision depends on the model complexity, the size of the dataset, and the computational resources available.</li><br>
+        <li>Common k partitions include 3, 5, or 10.</li><br>        
     </ul>
 </div>
 </div>
@@ -13200,7 +13211,56 @@ div#notebook {
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<div id="objective3" class="alert alert-block alert-warning" style="font-size:16px; border:1px solid black; padding:10px"><center><h1><br><font color="blue">Demonstrate how to perform these Model Tuning and Data Splitting using the <code>caret</code> and <code>AppliedPredictiveModeling</code> R packages.</font></h1></center><br>
+<div id="objective3" class="alert alert-block alert-warning" style="font-size:16px; border:1px solid black; padding:10px"><center><h1><br><font color="blue">Leave-one-Out Cross Validation (LOOCV).</font></h1></center><br>
+</div>
+<div style="font-size:16px; border:1px solid black; padding:10px">
+    <ul><strong><u>The basics</u></strong>
+        <li>Is a configuration of the k-Fold cross-validation, where k is the set of number of partitions used to split the dataset.</li><br>
+        <li>Leave-one-out cross validation (LOOCV) is considered an extreme version of the k-fold cross validation and is computationally heavy.</li><br>
+        <li>LOOCV requires that the predictive model be performed and evluated multiple times for each training set.</li><br>
+        <li>Each row of data is used in model creation, and this creates a more robust estimate of the model performance.</li><br>
+        <li>This method is ideal for smaller datasets and should not be used on larger datasets.</li><br>        
+    </ul>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 5px solid black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<div id="objective4" class="alert alert-block alert-warning" style="font-size:16px; border:1px solid black; padding:10px"><center><h1><br><font color="blue">Bootstrap Resampling Method.</font></h1></center><br>
+</div>
+<div style="font-size:16px; border:1px solid black; padding:10px">
+    <ul><strong><u>The basics</u></strong>
+        <li>Bootstrap is a resampling technique by constructing many samples from the same dataset.</li><br>
+        <li>Resampling involves drawing a random sample from the data (with replacement), and is used to build the model.</li><br>
+        <li>The data that is not sampled is referred to as the "out-of-bag" data.</li><br>
+        <li>The performance of the model is tested the "out-of-bag" data.</li><br>
+        <li>This is performed multiple times and the performance metrics are aggregated.</li><br>
+        <li>The key parameters of bootstrap resampling is the sample size, the number of repititions.</li><br>
+    </ul>
+</div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border-top: 5px solid black;">
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<div id="objective4" class="alert alert-block alert-warning" style="font-size:16px; border:1px solid black; padding:10px"><center><h1><br><font color="blue">Demonstrate how to perform k-Fold CV resampling using the <code>caret</code> and <code>AppliedPredictiveModeling</code> R packages.</font></h1></center><br>
 </div>
 <div style="font-size:16px; border:1px solid black; padding:10px">
     <ul><strong><u>AppliedPredictiveModeling package</u></strong>
@@ -13229,71 +13289,30 @@ div#notebook {
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[1]:</div>
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># install packages</span>
-<span class="n">install</span><span class="o">.</span><span class="n">packages</span><span class="p">(</span><span class="n">c</span><span class="p">(</span><span class="s2">&quot;caret&quot;</span><span class="p">,</span> <span class="s2">&quot;corrplot&quot;</span><span class="p">,</span> <span class="s2">&quot;e1071&quot;</span><span class="p">,</span> <span class="s2">&quot;lattice&quot;</span><span class="p">,</span> <span class="s2">&quot;AppliedPredictiveModeling&quot;</span><span class="p">))</span>
+<div class=" highlight hl-r"><pre><span></span><span class="c1"># install packages</span>
+<span class="nf">install.packages</span><span class="p">(</span><span class="nf">c</span><span class="p">(</span><span class="s">&quot;caret&quot;</span><span class="p">,</span> <span class="s">&quot;corrplot&quot;</span><span class="p">,</span> <span class="s">&quot;e1071&quot;</span><span class="p">,</span> <span class="s">&quot;lattice&quot;</span><span class="p">,</span> <span class="s">&quot;AppliedPredictiveModeling&quot;</span><span class="p">))</span>
 </pre></div>
 
     </div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-    <div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>
-The downloaded binary packages are in
-	/var/folders/0d/xqmptt6x035b25m88r2ffc9m0000gn/T//RtmpxU5u9j/downloaded_packages
-</pre>
-</div>
-</div>
-
 </div>
 </div>
 
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[2]:</div>
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Load the library</span>
-<span class="n">library</span><span class="p">(</span><span class="n">AppliedPredictiveModeling</span><span class="p">)</span>
-<span class="nb">set</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-<span class="n">library</span><span class="p">(</span><span class="n">caret</span><span class="p">)</span>
+<div class=" highlight hl-r"><pre><span></span><span class="c1"># Load the library</span>
+<span class="nf">library</span><span class="p">(</span><span class="n">AppliedPredictiveModeling</span><span class="p">)</span>
+<span class="nf">set.seed</span><span class="p">(</span><span class="m">1</span><span class="p">)</span>
+<span class="nf">library</span><span class="p">(</span><span class="n">caret</span><span class="p">)</span>
 </pre></div>
 
     </div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-    <div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stderr output_text">
-<pre>Loading required package: ggplot2
-
-Loading required package: lattice
-
-</pre>
-</div>
-</div>
-
 </div>
 </div>
 
@@ -13307,48 +13326,17 @@ Loading required package: lattice
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[3]:</div>
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Load and inspect the data and print out the predictors, classes</span>
-<span class="n">data</span><span class="p">(</span><span class="n">twoClassData</span><span class="p">)</span>
-<span class="nb">str</span><span class="p">(</span><span class="n">predictors</span><span class="p">)</span>
-<span class="nb">str</span><span class="p">(</span><span class="n">classes</span><span class="p">)</span>
-<span class="n">nrow</span><span class="p">(</span><span class="n">predictors</span><span class="p">)</span>
+<div class=" highlight hl-r"><pre><span></span><span class="c1"># Load and inspect the data and print out the predictors, classes</span>
+<span class="nf">data</span><span class="p">(</span><span class="n">twoClassData</span><span class="p">)</span>
+<span class="nf">str</span><span class="p">(</span><span class="n">predictors</span><span class="p">)</span>
+<span class="nf">str</span><span class="p">(</span><span class="n">classes</span><span class="p">)</span>
+<span class="nf">nrow</span><span class="p">(</span><span class="n">predictors</span><span class="p">)</span>
 </pre></div>
 
     </div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-    <div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>&#39;data.frame&#39;:	208 obs. of  2 variables:
- $ PredictorA: num  0.158 0.655 0.706 0.199 0.395 ...
- $ PredictorB: num  0.1609 0.4918 0.6333 0.0881 0.4152 ...
- Factor w/ 2 levels &#34;Class1&#34;,&#34;Class2&#34;: 2 2 2 2 2 2 2 2 2 2 ...
-</pre>
-</div>
-</div>
-
-<div class="output_area">
-
-    <div class="prompt"></div>
-
-
-
-<div class="output_html rendered_html output_subarea ">208</div>
-
-</div>
-
 </div>
 </div>
 
@@ -13366,56 +13354,15 @@ Loading required package: lattice
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[4]:</div>
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">trainingRows</span> <span class="o">&lt;-</span> <span class="n">createDataPartition</span><span class="p">(</span><span class="n">classes</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="mf">.80</span><span class="p">,</span> <span class="nb">list</span><span class="o">=</span> <span class="n">FALSE</span><span class="p">)</span>
-<span class="n">head</span><span class="p">(</span><span class="n">trainingRows</span><span class="p">)</span>
-<span class="n">nrow</span><span class="p">(</span><span class="n">trainingRows</span><span class="p">)</span>
+<div class=" highlight hl-r"><pre><span></span><span class="n">trainingRows</span> <span class="o">&lt;-</span> <span class="nf">createDataPartition</span><span class="p">(</span><span class="n">classes</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">.</span><span class="m">80</span><span class="p">,</span> <span class="n">list</span><span class="o">=</span> <span class="kc">FALSE</span><span class="p">)</span>
+<span class="nf">head</span><span class="p">(</span><span class="n">trainingRows</span><span class="p">)</span>
+<span class="nf">nrow</span><span class="p">(</span><span class="n">trainingRows</span><span class="p">)</span>
 </pre></div>
 
     </div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-    <div class="prompt"></div>
-
-
-
-<div class="output_html rendered_html output_subarea "><table class="dataframe">
-<caption>A matrix: 6 × 1 of type int</caption>
-<thead>
-	<tr><th scope=col>Resample1</th></tr>
-</thead>
-<tbody>
-	<tr><td>1</td></tr>
-	<tr><td>2</td></tr>
-	<tr><td>3</td></tr>
-	<tr><td>7</td></tr>
-	<tr><td>8</td></tr>
-	<tr><td>9</td></tr>
-</tbody>
-</table>
-</div>
-
-</div>
-
-<div class="output_area">
-
-    <div class="prompt"></div>
-
-
-
-<div class="output_html rendered_html output_subarea ">167</div>
-
-</div>
-
 </div>
 </div>
 
@@ -13429,10 +13376,10 @@ Loading required package: lattice
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[5]:</div>
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">trainPredictors</span> <span class="o">&lt;-</span> <span class="n">predictors</span><span class="p">[</span><span class="n">trainingRows</span><span class="p">,</span> <span class="p">]</span>
+<div class=" highlight hl-r"><pre><span></span><span class="n">trainPredictors</span> <span class="o">&lt;-</span> <span class="n">predictors</span><span class="p">[</span><span class="n">trainingRows</span><span class="p">,</span> <span class="p">]</span>
 <span class="n">trainClasses</span> <span class="o">&lt;-</span> <span class="n">classes</span><span class="p">[</span><span class="n">trainingRows</span><span class="p">]</span>
 </pre></div>
 
@@ -13453,40 +13400,17 @@ Loading required package: lattice
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[6]:</div>
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Do the same for the test set using negative integers.</span>
+<div class=" highlight hl-r"><pre><span></span><span class="c1"># Do the same for the test set using negative integers.</span>
 <span class="n">testPredictors</span> <span class="o">&lt;-</span> <span class="n">predictors</span><span class="p">[</span><span class="o">-</span><span class="n">trainingRows</span><span class="p">,</span> <span class="p">]</span>
 <span class="n">testClasses</span> <span class="o">&lt;-</span> <span class="n">classes</span><span class="p">[</span><span class="o">-</span><span class="n">trainingRows</span><span class="p">]</span>
-<span class="nb">str</span><span class="p">(</span><span class="n">trainPredictors</span><span class="p">)</span>
-<span class="nb">str</span><span class="p">(</span><span class="n">testPredictors</span><span class="p">)</span>
+<span class="nf">str</span><span class="p">(</span><span class="n">trainPredictors</span><span class="p">)</span>
+<span class="nf">str</span><span class="p">(</span><span class="n">testPredictors</span><span class="p">)</span>
 </pre></div>
 
     </div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-    <div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>&#39;data.frame&#39;:	167 obs. of  2 variables:
- $ PredictorA: num  0.1582 0.6552 0.706 0.0658 0.3086 ...
- $ PredictorB: num  0.161 0.492 0.633 0.179 0.28 ...
-&#39;data.frame&#39;:	41 obs. of  2 variables:
- $ PredictorA: num  0.1992 0.3952 0.425 0.0847 0.2909 ...
- $ PredictorB: num  0.0881 0.4152 0.2988 0.0548 0.3021 ...
-</pre>
-</div>
-</div>
-
 </div>
 </div>
 
@@ -13511,53 +13435,16 @@ Loading required package: lattice
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[7]:</div>
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="nb">set</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-<span class="n">repeatedSplits</span> <span class="o">&lt;-</span> <span class="n">createDataPartition</span><span class="p">(</span><span class="n">trainClasses</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="mf">.80</span><span class="p">,</span> <span class="n">times</span> <span class="o">=</span> <span class="mi">3</span><span class="p">)</span>
-<span class="nb">str</span><span class="p">(</span><span class="n">repeatedSplits</span><span class="p">)</span>
-<span class="n">repeatedSplits</span><span class="err">$</span><span class="n">Resample1</span>
+<div class=" highlight hl-r"><pre><span></span><span class="nf">set.seed</span><span class="p">(</span><span class="m">1</span><span class="p">)</span>
+<span class="n">repeatedSplits</span> <span class="o">&lt;-</span> <span class="nf">createDataPartition</span><span class="p">(</span><span class="n">trainClasses</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">.</span><span class="m">80</span><span class="p">,</span> <span class="n">times</span> <span class="o">=</span> <span class="m">3</span><span class="p">)</span>
+<span class="nf">str</span><span class="p">(</span><span class="n">repeatedSplits</span><span class="p">)</span>
+<span class="n">repeatedSplits</span><span class="o">$</span><span class="n">Resample1</span>
 </pre></div>
 
     </div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-    <div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>List of 3
- $ Resample1: int [1:135] 1 2 3 4 6 7 9 10 11 12 ...
- $ Resample2: int [1:135] 1 2 3 4 5 6 7 9 10 11 ...
- $ Resample3: int [1:135] 1 2 3 4 5 7 8 9 11 12 ...
-</pre>
-</div>
-</div>
-
-<div class="output_area">
-
-    <div class="prompt"></div>
-
-
-
-<div class="output_html rendered_html output_subarea "><style>
-.list-inline {list-style: none; margin:0; padding: 0}
-.list-inline>li {display: inline-block}
-.list-inline>li:not(:last-child)::after {content: "\00b7"; padding: 0 .5ex}
-</style>
-<ol class=list-inline><li>1</li><li>2</li><li>3</li><li>4</li><li>6</li><li>7</li><li>9</li><li>10</li><li>11</li><li>12</li><li>13</li><li>14</li><li>15</li><li>16</li><li>17</li><li>19</li><li>20</li><li>21</li><li>22</li><li>24</li><li>26</li><li>27</li><li>28</li><li>29</li><li>30</li><li>32</li><li>33</li><li>34</li><li>35</li><li>36</li><li>37</li><li>38</li><li>39</li><li>40</li><li>41</li><li>42</li><li>43</li><li>46</li><li>48</li><li>49</li><li>51</li><li>53</li><li>56</li><li>57</li><li>58</li><li>59</li><li>60</li><li>61</li><li>62</li><li>63</li><li>64</li><li>65</li><li>66</li><li>67</li><li>69</li><li>70</li><li>71</li><li>72</li><li>74</li><li>75</li><li>76</li><li>77</li><li>78</li><li>79</li><li>80</li><li>84</li><li>85</li><li>87</li><li>89</li><li>90</li><li>91</li><li>92</li><li>94</li><li>95</li><li>96</li><li>98</li><li>99</li><li>100</li><li>101</li><li>102</li><li>103</li><li>104</li><li>106</li><li>110</li><li>111</li><li>112</li><li>113</li><li>115</li><li>116</li><li>117</li><li>118</li><li>119</li><li>120</li><li>121</li><li>122</li><li>123</li><li>125</li><li>126</li><li>128</li><li>129</li><li>130</li><li>131</li><li>132</li><li>133</li><li>134</li><li>135</li><li>136</li><li>137</li><li>138</li><li>139</li><li>140</li><li>141</li><li>142</li><li>143</li><li>145</li><li>146</li><li>147</li><li>148</li><li>149</li><li>150</li><li>151</li><li>152</li><li>153</li><li>154</li><li>155</li><li>156</li><li>157</li><li>159</li><li>160</li><li>162</li><li>163</li><li>164</li><li>165</li><li>166</li><li>167</li></ol>
-</div>
-
-</div>
-
 </div>
 </div>
 
@@ -13565,7 +13452,7 @@ Loading required package: lattice
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h1 id="Resampling-Procedure-with-To-create-indicators-for-10-fold-cross-validation--using-createFolds-and-createMultiFolds">Resampling Procedure with To create indicators for 10-fold cross-validation  using createFolds and createMultiFolds<a class="anchor-link" href="#Resampling-Procedure-with-To-create-indicators-for-10-fold-cross-validation--using-createFolds-and-createMultiFolds">&#182;</a></h1><ul>
+<h1>Resampling Procedure with to create indicators for <font color="blue">k-Fold Validation</font> with 10-fold cross-validation using createFolds and createMultiFolds</h1><ul>
 <li>createFolds (for k-fold cross-validation)</li>
 <li>createMultiFolds (for repeated cross-validation)</li>
 </ul>
@@ -13575,12 +13462,12 @@ Loading required package: lattice
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[8]:</div>
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="nb">set</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-<span class="n">cvSplits</span> <span class="o">&lt;-</span> <span class="n">createFolds</span><span class="p">(</span><span class="n">trainClasses</span><span class="p">,</span> <span class="n">k</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">returnTrain</span> <span class="o">=</span> <span class="n">TRUE</span><span class="p">)</span>
-<span class="nb">str</span><span class="p">(</span><span class="n">cvSplits</span><span class="p">)</span>
+<div class=" highlight hl-r"><pre><span></span><span class="nf">set.seed</span><span class="p">(</span><span class="m">1</span><span class="p">)</span>
+<span class="n">cvSplits</span> <span class="o">&lt;-</span> <span class="nf">createFolds</span><span class="p">(</span><span class="n">trainClasses</span><span class="p">,</span> <span class="n">k</span> <span class="o">=</span> <span class="m">10</span><span class="p">,</span> <span class="n">returnTrain</span> <span class="o">=</span> <span class="kc">TRUE</span><span class="p">)</span>
+<span class="nf">str</span><span class="p">(</span><span class="n">cvSplits</span><span class="p">)</span>
 <span class="n">cvSplits</span>
 </pre></div>
 
@@ -13588,212 +13475,38 @@ Loading required package: lattice
 </div>
 </div>
 
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-    <div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>List of 10
- $ Fold01: int [1:150] 1 2 4 5 6 7 8 10 11 13 ...
- $ Fold02: int [1:150] 1 2 3 4 6 7 8 9 10 11 ...
- $ Fold03: int [1:150] 1 3 4 5 6 7 8 9 10 11 ...
- $ Fold04: int [1:150] 1 2 3 4 5 6 7 8 9 10 ...
- $ Fold05: int [1:150] 2 3 4 5 6 7 8 9 10 11 ...
- $ Fold06: int [1:150] 1 2 3 4 5 6 7 8 9 11 ...
- $ Fold07: int [1:150] 1 2 3 4 5 6 7 9 10 12 ...
- $ Fold08: int [1:151] 1 2 3 4 5 6 8 9 10 11 ...
- $ Fold09: int [1:151] 1 2 3 5 6 7 8 9 10 11 ...
- $ Fold10: int [1:151] 1 2 3 4 5 7 8 9 10 11 ...
-</pre>
-</div>
-</div>
-
-<div class="output_area">
-
-    <div class="prompt"></div>
-
-
-
-<div class="output_html rendered_html output_subarea "><dl>
-	<dt>$Fold01</dt>
-		<dd><style>
-.list-inline {list-style: none; margin:0; padding: 0}
-.list-inline>li {display: inline-block}
-.list-inline>li:not(:last-child)::after {content: "\00b7"; padding: 0 .5ex}
-</style>
-<ol class=list-inline><li>1</li><li>2</li><li>4</li><li>5</li><li>6</li><li>7</li><li>8</li><li>10</li><li>11</li><li>13</li><li>14</li><li>16</li><li>17</li><li>18</li><li>19</li><li>20</li><li>21</li><li>22</li><li>23</li><li>24</li><li>25</li><li>26</li><li>27</li><li>28</li><li>29</li><li>30</li><li>31</li><li>32</li><li>34</li><li>35</li><li>36</li><li>37</li><li>38</li><li>39</li><li>40</li><li>41</li><li>42</li><li>43</li><li>46</li><li>47</li><li>48</li><li>49</li><li>50</li><li>51</li><li>52</li><li>53</li><li>54</li><li>55</li><li>56</li><li>57</li><li>58</li><li>60</li><li>61</li><li>62</li><li>63</li><li>64</li><li>65</li><li>66</li><li>67</li><li>68</li><li>69</li><li>70</li><li>71</li><li>72</li><li>73</li><li>74</li><li>75</li><li>76</li><li>77</li><li>78</li><li>79</li><li>80</li><li>82</li><li>84</li><li>85</li><li>86</li><li>87</li><li>88</li><li>89</li><li>90</li><li>91</li><li>92</li><li>93</li><li>94</li><li>95</li><li>96</li><li>97</li><li>98</li><li>99</li><li>100</li><li>101</li><li>102</li><li>103</li><li>104</li><li>105</li><li>106</li><li>107</li><li>108</li><li>109</li><li>110</li><li>111</li><li>113</li><li>114</li><li>115</li><li>116</li><li>117</li><li>118</li><li>119</li><li>120</li><li>123</li><li>124</li><li>125</li><li>126</li><li>127</li><li>128</li><li>130</li><li>131</li><li>132</li><li>133</li><li>134</li><li>135</li><li>136</li><li>137</li><li>138</li><li>139</li><li>140</li><li>141</li><li>142</li><li>143</li><li>144</li><li>145</li><li>146</li><li>147</li><li>148</li><li>149</li><li>150</li><li>151</li><li>154</li><li>155</li><li>156</li><li>157</li><li>158</li><li>159</li><li>161</li><li>162</li><li>163</li><li>164</li><li>165</li><li>166</li><li>167</li></ol>
-</dd>
-	<dt>$Fold02</dt>
-		<dd><style>
-.list-inline {list-style: none; margin:0; padding: 0}
-.list-inline>li {display: inline-block}
-.list-inline>li:not(:last-child)::after {content: "\00b7"; padding: 0 .5ex}
-</style>
-<ol class=list-inline><li>1</li><li>2</li><li>3</li><li>4</li><li>6</li><li>7</li><li>8</li><li>9</li><li>10</li><li>11</li><li>12</li><li>13</li><li>14</li><li>15</li><li>16</li><li>17</li><li>18</li><li>19</li><li>20</li><li>22</li><li>23</li><li>24</li><li>25</li><li>26</li><li>27</li><li>28</li><li>29</li><li>30</li><li>31</li><li>33</li><li>34</li><li>35</li><li>36</li><li>37</li><li>38</li><li>39</li><li>40</li><li>41</li><li>42</li><li>43</li><li>44</li><li>45</li><li>46</li><li>49</li><li>50</li><li>51</li><li>52</li><li>53</li><li>54</li><li>55</li><li>56</li><li>58</li><li>59</li><li>60</li><li>61</li><li>63</li><li>64</li><li>65</li><li>66</li><li>67</li><li>68</li><li>69</li><li>70</li><li>71</li><li>72</li><li>74</li><li>75</li><li>76</li><li>77</li><li>78</li><li>79</li><li>80</li><li>81</li><li>83</li><li>84</li><li>85</li><li>86</li><li>87</li><li>88</li><li>89</li><li>90</li><li>91</li><li>92</li><li>93</li><li>94</li><li>95</li><li>97</li><li>98</li><li>99</li><li>100</li><li>101</li><li>102</li><li>103</li><li>104</li><li>105</li><li>106</li><li>107</li><li>108</li><li>109</li><li>110</li><li>112</li><li>113</li><li>115</li><li>117</li><li>118</li><li>120</li><li>121</li><li>122</li><li>123</li><li>125</li><li>126</li><li>127</li><li>128</li><li>129</li><li>130</li><li>131</li><li>132</li><li>133</li><li>134</li><li>135</li><li>136</li><li>137</li><li>138</li><li>139</li><li>140</li><li>141</li><li>143</li><li>144</li><li>145</li><li>146</li><li>147</li><li>148</li><li>149</li><li>150</li><li>151</li><li>152</li><li>153</li><li>154</li><li>155</li><li>156</li><li>157</li><li>159</li><li>160</li><li>161</li><li>162</li><li>163</li><li>164</li><li>165</li><li>166</li><li>167</li></ol>
-</dd>
-	<dt>$Fold03</dt>
-		<dd><style>
-.list-inline {list-style: none; margin:0; padding: 0}
-.list-inline>li {display: inline-block}
-.list-inline>li:not(:last-child)::after {content: "\00b7"; padding: 0 .5ex}
-</style>
-<ol class=list-inline><li>1</li><li>3</li><li>4</li><li>5</li><li>6</li><li>7</li><li>8</li><li>9</li><li>10</li><li>11</li><li>12</li><li>13</li><li>14</li><li>15</li><li>16</li><li>17</li><li>18</li><li>19</li><li>20</li><li>21</li><li>22</li><li>23</li><li>24</li><li>25</li><li>26</li><li>27</li><li>28</li><li>29</li><li>30</li><li>31</li><li>32</li><li>33</li><li>34</li><li>35</li><li>36</li><li>38</li><li>39</li><li>41</li><li>42</li><li>43</li><li>44</li><li>45</li><li>46</li><li>47</li><li>48</li><li>49</li><li>50</li><li>51</li><li>52</li><li>54</li><li>55</li><li>56</li><li>57</li><li>58</li><li>59</li><li>61</li><li>62</li><li>63</li><li>64</li><li>65</li><li>66</li><li>67</li><li>68</li><li>69</li><li>71</li><li>72</li><li>73</li><li>76</li><li>77</li><li>78</li><li>79</li><li>80</li><li>81</li><li>82</li><li>83</li><li>84</li><li>85</li><li>86</li><li>88</li><li>89</li><li>90</li><li>91</li><li>92</li><li>94</li><li>95</li><li>96</li><li>97</li><li>98</li><li>99</li><li>100</li><li>101</li><li>102</li><li>103</li><li>104</li><li>105</li><li>106</li><li>107</li><li>108</li><li>109</li><li>111</li><li>112</li><li>113</li><li>114</li><li>115</li><li>116</li><li>117</li><li>118</li><li>119</li><li>121</li><li>122</li><li>123</li><li>124</li><li>126</li><li>127</li><li>128</li><li>129</li><li>130</li><li>131</li><li>133</li><li>134</li><li>136</li><li>137</li><li>138</li><li>139</li><li>140</li><li>141</li><li>142</li><li>143</li><li>144</li><li>145</li><li>146</li><li>147</li><li>148</li><li>149</li><li>150</li><li>151</li><li>152</li><li>153</li><li>154</li><li>155</li><li>156</li><li>158</li><li>160</li><li>161</li><li>162</li><li>163</li><li>164</li><li>165</li><li>166</li><li>167</li></ol>
-</dd>
-	<dt>$Fold04</dt>
-		<dd><style>
-.list-inline {list-style: none; margin:0; padding: 0}
-.list-inline>li {display: inline-block}
-.list-inline>li:not(:last-child)::after {content: "\00b7"; padding: 0 .5ex}
-</style>
-<ol class=list-inline><li>1</li><li>2</li><li>3</li><li>4</li><li>5</li><li>6</li><li>7</li><li>8</li><li>9</li><li>10</li><li>11</li><li>12</li><li>14</li><li>15</li><li>16</li><li>17</li><li>18</li><li>20</li><li>21</li><li>22</li><li>23</li><li>24</li><li>25</li><li>26</li><li>27</li><li>29</li><li>30</li><li>31</li><li>32</li><li>33</li><li>34</li><li>35</li><li>37</li><li>38</li><li>40</li><li>41</li><li>42</li><li>43</li><li>44</li><li>45</li><li>46</li><li>47</li><li>48</li><li>49</li><li>50</li><li>51</li><li>52</li><li>53</li><li>54</li><li>55</li><li>56</li><li>57</li><li>58</li><li>59</li><li>60</li><li>62</li><li>64</li><li>65</li><li>66</li><li>68</li><li>69</li><li>70</li><li>71</li><li>72</li><li>73</li><li>74</li><li>75</li><li>76</li><li>77</li><li>78</li><li>80</li><li>81</li><li>82</li><li>83</li><li>86</li><li>87</li><li>88</li><li>89</li><li>90</li><li>93</li><li>94</li><li>95</li><li>96</li><li>97</li><li>98</li><li>99</li><li>100</li><li>101</li><li>102</li><li>103</li><li>104</li><li>105</li><li>106</li><li>107</li><li>108</li><li>109</li><li>110</li><li>111</li><li>112</li><li>114</li><li>116</li><li>117</li><li>118</li><li>119</li><li>120</li><li>121</li><li>122</li><li>123</li><li>124</li><li>125</li><li>126</li><li>127</li><li>128</li><li>129</li><li>130</li><li>131</li><li>132</li><li>134</li><li>135</li><li>136</li><li>137</li><li>138</li><li>139</li><li>140</li><li>141</li><li>142</li><li>143</li><li>144</li><li>145</li><li>146</li><li>147</li><li>148</li><li>149</li><li>150</li><li>151</li><li>152</li><li>153</li><li>154</li><li>155</li><li>156</li><li>157</li><li>158</li><li>159</li><li>160</li><li>161</li><li>162</li><li>163</li><li>164</li><li>165</li><li>166</li></ol>
-</dd>
-	<dt>$Fold05</dt>
-		<dd><style>
-.list-inline {list-style: none; margin:0; padding: 0}
-.list-inline>li {display: inline-block}
-.list-inline>li:not(:last-child)::after {content: "\00b7"; padding: 0 .5ex}
-</style>
-<ol class=list-inline><li>2</li><li>3</li><li>4</li><li>5</li><li>6</li><li>7</li><li>8</li><li>9</li><li>10</li><li>11</li><li>12</li><li>13</li><li>14</li><li>15</li><li>16</li><li>17</li><li>18</li><li>19</li><li>21</li><li>23</li><li>24</li><li>25</li><li>27</li><li>28</li><li>29</li><li>30</li><li>31</li><li>32</li><li>33</li><li>34</li><li>35</li><li>36</li><li>37</li><li>38</li><li>39</li><li>40</li><li>41</li><li>42</li><li>43</li><li>44</li><li>45</li><li>46</li><li>47</li><li>48</li><li>49</li><li>50</li><li>51</li><li>52</li><li>53</li><li>54</li><li>55</li><li>57</li><li>59</li><li>60</li><li>61</li><li>62</li><li>63</li><li>64</li><li>65</li><li>66</li><li>67</li><li>69</li><li>70</li><li>71</li><li>73</li><li>74</li><li>75</li><li>76</li><li>77</li><li>78</li><li>79</li><li>80</li><li>81</li><li>82</li><li>83</li><li>84</li><li>85</li><li>86</li><li>87</li><li>88</li><li>89</li><li>90</li><li>91</li><li>92</li><li>93</li><li>95</li><li>96</li><li>97</li><li>98</li><li>99</li><li>100</li><li>101</li><li>102</li><li>103</li><li>106</li><li>107</li><li>108</li><li>109</li><li>110</li><li>111</li><li>112</li><li>113</li><li>114</li><li>115</li><li>116</li><li>118</li><li>119</li><li>120</li><li>121</li><li>122</li><li>123</li><li>124</li><li>125</li><li>127</li><li>128</li><li>129</li><li>130</li><li>131</li><li>132</li><li>133</li><li>134</li><li>135</li><li>136</li><li>137</li><li>138</li><li>139</li><li>140</li><li>141</li><li>142</li><li>143</li><li>144</li><li>145</li><li>147</li><li>148</li><li>149</li><li>150</li><li>151</li><li>152</li><li>153</li><li>154</li><li>155</li><li>156</li><li>157</li><li>158</li><li>159</li><li>160</li><li>161</li><li>163</li><li>164</li><li>167</li></ol>
-</dd>
-	<dt>$Fold06</dt>
-		<dd><style>
-.list-inline {list-style: none; margin:0; padding: 0}
-.list-inline>li {display: inline-block}
-.list-inline>li:not(:last-child)::after {content: "\00b7"; padding: 0 .5ex}
-</style>
-<ol class=list-inline><li>1</li><li>2</li><li>3</li><li>4</li><li>5</li><li>6</li><li>7</li><li>8</li><li>9</li><li>11</li><li>12</li><li>13</li><li>14</li><li>15</li><li>16</li><li>17</li><li>19</li><li>20</li><li>21</li><li>22</li><li>23</li><li>24</li><li>25</li><li>26</li><li>27</li><li>28</li><li>30</li><li>32</li><li>33</li><li>35</li><li>36</li><li>37</li><li>39</li><li>40</li><li>41</li><li>42</li><li>43</li><li>44</li><li>45</li><li>46</li><li>47</li><li>48</li><li>49</li><li>50</li><li>51</li><li>52</li><li>53</li><li>54</li><li>55</li><li>56</li><li>57</li><li>58</li><li>59</li><li>60</li><li>61</li><li>62</li><li>63</li><li>64</li><li>65</li><li>67</li><li>68</li><li>69</li><li>70</li><li>72</li><li>73</li><li>74</li><li>75</li><li>76</li><li>77</li><li>78</li><li>79</li><li>80</li><li>81</li><li>82</li><li>83</li><li>84</li><li>85</li><li>86</li><li>87</li><li>88</li><li>89</li><li>90</li><li>91</li><li>92</li><li>93</li><li>94</li><li>95</li><li>96</li><li>97</li><li>98</li><li>99</li><li>100</li><li>102</li><li>103</li><li>104</li><li>105</li><li>108</li><li>109</li><li>110</li><li>111</li><li>112</li><li>113</li><li>114</li><li>115</li><li>116</li><li>117</li><li>118</li><li>119</li><li>120</li><li>121</li><li>122</li><li>124</li><li>125</li><li>126</li><li>127</li><li>128</li><li>129</li><li>130</li><li>132</li><li>133</li><li>134</li><li>135</li><li>136</li><li>137</li><li>139</li><li>140</li><li>141</li><li>142</li><li>145</li><li>146</li><li>147</li><li>148</li><li>149</li><li>150</li><li>151</li><li>152</li><li>153</li><li>154</li><li>155</li><li>157</li><li>158</li><li>159</li><li>160</li><li>161</li><li>162</li><li>163</li><li>164</li><li>165</li><li>166</li><li>167</li></ol>
-</dd>
-	<dt>$Fold07</dt>
-		<dd><style>
-.list-inline {list-style: none; margin:0; padding: 0}
-.list-inline>li {display: inline-block}
-.list-inline>li:not(:last-child)::after {content: "\00b7"; padding: 0 .5ex}
-</style>
-<ol class=list-inline><li>1</li><li>2</li><li>3</li><li>4</li><li>5</li><li>6</li><li>7</li><li>9</li><li>10</li><li>12</li><li>13</li><li>14</li><li>15</li><li>16</li><li>17</li><li>18</li><li>19</li><li>20</li><li>21</li><li>22</li><li>26</li><li>27</li><li>28</li><li>29</li><li>30</li><li>31</li><li>32</li><li>33</li><li>34</li><li>35</li><li>36</li><li>37</li><li>38</li><li>39</li><li>40</li><li>41</li><li>43</li><li>44</li><li>45</li><li>46</li><li>47</li><li>48</li><li>49</li><li>50</li><li>51</li><li>52</li><li>53</li><li>54</li><li>55</li><li>56</li><li>57</li><li>58</li><li>59</li><li>60</li><li>61</li><li>62</li><li>63</li><li>64</li><li>66</li><li>67</li><li>68</li><li>69</li><li>70</li><li>71</li><li>72</li><li>73</li><li>74</li><li>75</li><li>76</li><li>78</li><li>79</li><li>80</li><li>81</li><li>82</li><li>83</li><li>84</li><li>85</li><li>87</li><li>88</li><li>90</li><li>91</li><li>92</li><li>93</li><li>94</li><li>95</li><li>96</li><li>97</li><li>98</li><li>99</li><li>100</li><li>101</li><li>102</li><li>104</li><li>105</li><li>106</li><li>107</li><li>108</li><li>109</li><li>110</li><li>111</li><li>112</li><li>113</li><li>114</li><li>115</li><li>116</li><li>117</li><li>118</li><li>119</li><li>120</li><li>121</li><li>122</li><li>123</li><li>124</li><li>125</li><li>126</li><li>127</li><li>128</li><li>129</li><li>131</li><li>132</li><li>133</li><li>135</li><li>136</li><li>137</li><li>138</li><li>139</li><li>140</li><li>141</li><li>142</li><li>143</li><li>144</li><li>145</li><li>146</li><li>149</li><li>150</li><li>152</li><li>153</li><li>154</li><li>155</li><li>156</li><li>157</li><li>158</li><li>159</li><li>160</li><li>161</li><li>162</li><li>164</li><li>165</li><li>166</li><li>167</li></ol>
-</dd>
-	<dt>$Fold08</dt>
-		<dd><style>
-.list-inline {list-style: none; margin:0; padding: 0}
-.list-inline>li {display: inline-block}
-.list-inline>li:not(:last-child)::after {content: "\00b7"; padding: 0 .5ex}
-</style>
-<ol class=list-inline><li>1</li><li>2</li><li>3</li><li>4</li><li>5</li><li>6</li><li>8</li><li>9</li><li>10</li><li>11</li><li>12</li><li>13</li><li>14</li><li>15</li><li>16</li><li>17</li><li>18</li><li>19</li><li>20</li><li>21</li><li>22</li><li>23</li><li>24</li><li>25</li><li>26</li><li>27</li><li>28</li><li>29</li><li>30</li><li>31</li><li>32</li><li>33</li><li>34</li><li>35</li><li>36</li><li>37</li><li>38</li><li>39</li><li>40</li><li>41</li><li>42</li><li>43</li><li>44</li><li>45</li><li>47</li><li>48</li><li>51</li><li>53</li><li>55</li><li>56</li><li>57</li><li>58</li><li>59</li><li>60</li><li>61</li><li>62</li><li>63</li><li>64</li><li>65</li><li>66</li><li>67</li><li>68</li><li>69</li><li>70</li><li>71</li><li>72</li><li>73</li><li>74</li><li>75</li><li>77</li><li>79</li><li>80</li><li>81</li><li>82</li><li>83</li><li>84</li><li>85</li><li>86</li><li>87</li><li>88</li><li>89</li><li>90</li><li>91</li><li>92</li><li>93</li><li>94</li><li>95</li><li>96</li><li>98</li><li>100</li><li>101</li><li>102</li><li>103</li><li>104</li><li>105</li><li>106</li><li>107</li><li>109</li><li>110</li><li>111</li><li>112</li><li>113</li><li>114</li><li>115</li><li>116</li><li>117</li><li>119</li><li>120</li><li>121</li><li>122</li><li>123</li><li>124</li><li>125</li><li>126</li><li>127</li><li>128</li><li>129</li><li>130</li><li>131</li><li>132</li><li>133</li><li>134</li><li>135</li><li>138</li><li>139</li><li>141</li><li>142</li><li>143</li><li>144</li><li>145</li><li>146</li><li>147</li><li>148</li><li>149</li><li>150</li><li>151</li><li>152</li><li>153</li><li>154</li><li>155</li><li>156</li><li>157</li><li>158</li><li>159</li><li>160</li><li>162</li><li>163</li><li>164</li><li>165</li><li>166</li><li>167</li></ol>
-</dd>
-	<dt>$Fold09</dt>
-		<dd><style>
-.list-inline {list-style: none; margin:0; padding: 0}
-.list-inline>li {display: inline-block}
-.list-inline>li:not(:last-child)::after {content: "\00b7"; padding: 0 .5ex}
-</style>
-<ol class=list-inline><li>1</li><li>2</li><li>3</li><li>5</li><li>6</li><li>7</li><li>8</li><li>9</li><li>10</li><li>11</li><li>12</li><li>13</li><li>15</li><li>16</li><li>17</li><li>18</li><li>19</li><li>20</li><li>21</li><li>22</li><li>23</li><li>24</li><li>25</li><li>26</li><li>27</li><li>28</li><li>29</li><li>31</li><li>32</li><li>33</li><li>34</li><li>36</li><li>37</li><li>38</li><li>39</li><li>40</li><li>42</li><li>43</li><li>44</li><li>45</li><li>46</li><li>47</li><li>48</li><li>49</li><li>50</li><li>52</li><li>53</li><li>54</li><li>55</li><li>56</li><li>57</li><li>58</li><li>59</li><li>60</li><li>61</li><li>62</li><li>63</li><li>64</li><li>65</li><li>66</li><li>67</li><li>68</li><li>70</li><li>71</li><li>72</li><li>73</li><li>74</li><li>75</li><li>76</li><li>77</li><li>78</li><li>79</li><li>81</li><li>82</li><li>83</li><li>84</li><li>85</li><li>86</li><li>87</li><li>89</li><li>90</li><li>91</li><li>92</li><li>93</li><li>94</li><li>95</li><li>96</li><li>97</li><li>98</li><li>99</li><li>101</li><li>102</li><li>103</li><li>104</li><li>105</li><li>106</li><li>107</li><li>108</li><li>110</li><li>111</li><li>112</li><li>113</li><li>114</li><li>115</li><li>116</li><li>117</li><li>118</li><li>119</li><li>120</li><li>121</li><li>122</li><li>123</li><li>124</li><li>125</li><li>126</li><li>127</li><li>128</li><li>129</li><li>130</li><li>131</li><li>132</li><li>133</li><li>134</li><li>135</li><li>136</li><li>137</li><li>138</li><li>140</li><li>142</li><li>143</li><li>144</li><li>146</li><li>147</li><li>148</li><li>150</li><li>151</li><li>152</li><li>153</li><li>154</li><li>155</li><li>156</li><li>157</li><li>158</li><li>159</li><li>160</li><li>161</li><li>162</li><li>163</li><li>165</li><li>166</li><li>167</li></ol>
-</dd>
-	<dt>$Fold10</dt>
-		<dd><style>
-.list-inline {list-style: none; margin:0; padding: 0}
-.list-inline>li {display: inline-block}
-.list-inline>li:not(:last-child)::after {content: "\00b7"; padding: 0 .5ex}
-</style>
-<ol class=list-inline><li>1</li><li>2</li><li>3</li><li>4</li><li>5</li><li>7</li><li>8</li><li>9</li><li>10</li><li>11</li><li>12</li><li>13</li><li>14</li><li>15</li><li>18</li><li>19</li><li>20</li><li>21</li><li>22</li><li>23</li><li>24</li><li>25</li><li>26</li><li>28</li><li>29</li><li>30</li><li>31</li><li>32</li><li>33</li><li>34</li><li>35</li><li>36</li><li>37</li><li>38</li><li>39</li><li>40</li><li>41</li><li>42</li><li>44</li><li>45</li><li>46</li><li>47</li><li>48</li><li>49</li><li>50</li><li>51</li><li>52</li><li>53</li><li>54</li><li>56</li><li>57</li><li>58</li><li>59</li><li>60</li><li>61</li><li>62</li><li>63</li><li>65</li><li>66</li><li>67</li><li>68</li><li>69</li><li>70</li><li>71</li><li>72</li><li>73</li><li>74</li><li>75</li><li>76</li><li>77</li><li>78</li><li>79</li><li>80</li><li>81</li><li>82</li><li>83</li><li>84</li><li>85</li><li>86</li><li>87</li><li>88</li><li>89</li><li>91</li><li>92</li><li>93</li><li>94</li><li>96</li><li>97</li><li>99</li><li>100</li><li>101</li><li>103</li><li>104</li><li>105</li><li>106</li><li>107</li><li>108</li><li>109</li><li>110</li><li>111</li><li>112</li><li>113</li><li>114</li><li>115</li><li>116</li><li>117</li><li>118</li><li>119</li><li>120</li><li>121</li><li>122</li><li>123</li><li>124</li><li>125</li><li>126</li><li>129</li><li>130</li><li>131</li><li>132</li><li>133</li><li>134</li><li>135</li><li>136</li><li>137</li><li>138</li><li>139</li><li>140</li><li>141</li><li>142</li><li>143</li><li>144</li><li>145</li><li>146</li><li>147</li><li>148</li><li>149</li><li>151</li><li>152</li><li>153</li><li>156</li><li>157</li><li>158</li><li>159</li><li>160</li><li>161</li><li>162</li><li>163</li><li>164</li><li>165</li><li>166</li><li>167</li></ol>
-</dd>
-</dl>
-</div>
-
-</div>
-
-</div>
-</div>
-
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[9]:</div>
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># Get the first set of row numbers from the list.</span>
-<span class="n">fold1</span> <span class="o">&lt;-</span> <span class="n">cvSplits</span><span class="p">[[</span><span class="mi">1</span><span class="p">]]</span>
-<span class="n">length</span><span class="p">(</span><span class="n">fold1</span><span class="p">)</span>
+<div class=" highlight hl-r"><pre><span></span><span class="c1"># Get the first set of row numbers from the list.</span>
+<span class="n">fold1</span> <span class="o">&lt;-</span> <span class="n">cvSplits</span><span class="p">[[</span><span class="m">1</span><span class="p">]]</span>
+<span class="nf">length</span><span class="p">(</span><span class="n">fold1</span><span class="p">)</span>
 <span class="c1"># or</span>
-<span class="n">fold11</span><span class="o">=</span><span class="n">cvSplits</span><span class="err">$</span><span class="n">Fold01</span>
-<span class="n">length</span><span class="p">(</span><span class="n">fold11</span><span class="p">)</span>
+<span class="n">fold11</span><span class="o">=</span><span class="n">cvSplits</span><span class="o">$</span><span class="n">Fold01</span>
+<span class="nf">length</span><span class="p">(</span><span class="n">fold11</span><span class="p">)</span>
 </pre></div>
 
     </div>
 </div>
 </div>
 
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-    <div class="prompt"></div>
-
-
-
-<div class="output_html rendered_html output_subarea ">150</div>
-
-</div>
-
-<div class="output_area">
-
-    <div class="prompt"></div>
-
-
-
-<div class="output_html rendered_html output_subarea ">150</div>
-
-</div>
-
-</div>
-</div>
-
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[10]:</div>
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="c1">## To get the first 90% of the data (the fold):</span>
+<div class=" highlight hl-r"><pre><span></span><span class="c1">## To get the first 90% of the data (the fold):</span>
 <span class="n">cvPredictors1</span> <span class="o">&lt;-</span> <span class="n">trainPredictors</span><span class="p">[</span><span class="n">fold1</span><span class="p">,]</span>
 <span class="n">cvClasses1</span> <span class="o">&lt;-</span> <span class="n">trainClasses</span><span class="p">[</span><span class="n">fold1</span><span class="p">]</span>
-<span class="n">nrow</span><span class="p">(</span><span class="n">trainPredictors</span><span class="p">)</span>
-<span class="n">nrow</span><span class="p">(</span><span class="n">cvPredictors1</span><span class="p">)</span>
+<span class="nf">nrow</span><span class="p">(</span><span class="n">trainPredictors</span><span class="p">)</span>
+<span class="nf">nrow</span><span class="p">(</span><span class="n">cvPredictors1</span><span class="p">)</span>
 </pre></div>
 
     </div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-    <div class="prompt"></div>
-
-
-
-<div class="output_html rendered_html output_subarea ">167</div>
-
-</div>
-
-<div class="output_area">
-
-    <div class="prompt"></div>
-
-
-
-<div class="output_html rendered_html output_subarea ">150</div>
-
-</div>
-
 </div>
 </div>
 
