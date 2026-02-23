@@ -1,0 +1,2133 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>02_data_preparation</title>
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 20px;
+    background: #fff;
+    color: #333;
+    line-height: 1.6;
+}
+.cell {
+    margin-bottom: 16px;
+    border-left: 3px solid #e0e0e0;
+    padding-left: 12px;
+}
+.markdown-cell {
+    border-left-color: #4CAF50;
+}
+.markdown-cell h1 { font-size: 1.8em; border-bottom: 2px solid #eee; padding-bottom: 8px; }
+.markdown-cell h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+.markdown-cell h3 { font-size: 1.25em; }
+.markdown-cell h4 { font-size: 1.1em; }
+.code-cell {
+    border-left-color: #2196F3;
+}
+.cell-label {
+    font-family: monospace;
+    font-size: 0.85em;
+    color: #999;
+    margin-bottom: 4px;
+}
+pre.code-input {
+    background: #f5f7fa;
+    border: 1px solid #e1e4e8;
+    border-radius: 4px;
+    padding: 12px;
+    overflow-x: auto;
+    font-size: 0.9em;
+    line-height: 1.45;
+}
+pre.code-output {
+    background: #fafafa;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 12px;
+    overflow-x: auto;
+    font-size: 0.85em;
+    color: #555;
+}
+pre.code-error {
+    background: #fff5f5;
+    border: 1px solid #fcc;
+    border-radius: 4px;
+    padding: 12px;
+    overflow-x: auto;
+    font-size: 0.85em;
+    color: #c00;
+}
+.output-html {
+    overflow-x: auto;
+    margin: 8px 0;
+}
+.output-html table {
+    border-collapse: collapse;
+    margin: 8px 0;
+    font-size: 0.9em;
+}
+.output-html table th, .output-html table td {
+    border: 1px solid #ddd;
+    padding: 6px 10px;
+    text-align: left;
+}
+.output-html table th {
+    background: #f5f7fa;
+    font-weight: 600;
+}
+.output-html table tr:nth-child(even) {
+    background: #fafafa;
+}
+.output-image {
+    margin: 8px 0;
+}
+.output-image img {
+    max-width: 100%;
+    height: auto;
+}
+code {
+    font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+}
+blockquote {
+    border-left: 4px solid #dfe2e5;
+    padding: 0 16px;
+    color: #6a737d;
+    margin: 0;
+}
+</style>
+</head>
+<body>
+<div class="cell markdown-cell"><h1>Phase 2: Data Preparation</h1>
+<br>
+<h2>OB-GYN Provider Network Analysis</h2>
+<br>
+<p>---</p>
+<br>
+<h3>Objective</h3>
+<br>
+<p>Transform raw datasets from Phase 1 into clean, analysis-ready files. This notebook handles the most computationally intensive step of the project — filtering 11 GB and 2.9 GB files down to the OB-GYN subset and classifying all providers in the network.</p>
+<br>
+<h3>Steps</h3>
+<br>
+<p>1. <strong>Load reference data</strong> — NUCC taxonomy (full provider classification) and CDC WONDER exports</p>
+<p>2. <strong>Extract OB-GYN providers from NPPES</strong> — Chunked scan of 11 GB file, filtering on 207V taxonomy codes across all 15 taxonomy slots</p>
+<p>3. <strong>Filter CMS edge list to OB-GYN pairs</strong> — Chunked scan of 2.9 GB file, keeping only edges where at least one provider is OB-GYN</p>
+<p>4. <strong>Classify non-OB-GYN providers</strong> — Second chunked NPPES pass to look up the specialty of every non-OB-GYN provider that appears in our edge list</p>
+<p>5. <strong>Enrich edge list with provider details</strong> — Merge specialty, city, state, ZIP onto both sides of each provider pair</p>
+<p>6. <strong>Compute county-level maternal morbidity rates</strong> — Join CDC WONDER birth and morbidity counts</p>
+<p>7. <strong>Export clean datasets</strong> to <code>data/outputs/</code></p>
+<br>
+<h3>Outputs</h3>
+<br>
+<p>| File | Description |</p>
+<p>|------|-------------|</p>
+<p>| <code>obgyn_providers.csv</code> | All OB-GYN NPIs with practice location and sub-specialty |</p>
+<p>| <code>other_providers.csv</code> | Non-OB-GYN NPIs that appear in the edge list, with their NUCC classification and specialization |</p>
+<p>| <code>obgyn_edges.csv</code> | CMS shared patient pairs (at least one OB-GYN) with full provider details on both sides |</p>
+<p>| <code>county_morbidity_rates.csv</code> | County-level maternal morbidity rates (morbidity births / total births) |</p>
+<br>
+<h3>Performance Notes</h3>
+<br>
+<ul>
+<li>NPPES (11 GB, ~8M rows): Two chunked passes — first for OB-GYN extraction, second for non-OB-GYN lookup</li>
+<li>CMS (2.9 GB, ~49M rows): Read in chunks of 500,000 rows, filtering against the OB-GYN NPI set</li>
+<li>Expected runtime: 15–30 minutes depending on disk speed</li>
+</ul>
+<br>
+<p>---</p></div><div class="cell markdown-cell"><h2>1. Setup</h2></div><div class="cell code-cell"><div class="cell-label">In [1]:</div><pre class="code-input"><code>import pandas as pd
+import numpy as np
+from pathlib import Path
+from io import StringIO
+from datetime import datetime
+import time
+import warnings
+warnings.filterwarnings(&#x27;ignore&#x27;, category=pd.errors.DtypeWarning)
+
+print(f&quot;Notebook executed: {datetime.now().strftime(&#x27;%Y-%m-%d %H:%M:%S&#x27;)}&quot;)
+print(f&quot;pandas version: {pd.__version__}&quot;)
+print(f&quot;numpy version: {np.__version__}&quot;)</code></pre><pre class="code-output">Notebook executed: 2026-02-22 18:14:43
+pandas version: 2.3.3
+numpy version: 1.26.4
+</pre></div><div class="cell code-cell"><div class="cell-label">In [2]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# FILE PATHS
+# -------------------------------------------------------------------
+
+RAW_DIR = Path(&quot;../data/inputs/raw&quot;)
+OUTPUT_DIR = Path(&quot;../data/outputs&quot;)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+# Inputs (from Phase 1)
+CMS_FILE = RAW_DIR / &quot;cms_shared_patient&quot; / &quot;pspp2015_60.csv&quot;
+NPPES_FILE = RAW_DIR / &quot;nppes&quot; / &quot;npidata_pfile_20050523-20260208.csv&quot;
+NUCC_FILE = RAW_DIR / &quot;nucc_taxonomy&quot; / &quot;nucc_taxonomy_151.csv&quot;
+CDC_BIRTHS_FILE = RAW_DIR / &quot;cdc_wonder&quot; / &quot;cdc_wonder_2016_births_by_county.csv&quot;
+CDC_MORBIDITY_FILE = RAW_DIR / &quot;cdc_wonder&quot; / &quot;cdc_wonder_2016_maternal_morbidity_by_county.csv&quot;
+
+# Outputs
+OBGYN_PROVIDERS_OUT = OUTPUT_DIR / &quot;obgyn_providers.csv&quot;
+OTHER_PROVIDERS_OUT = OUTPUT_DIR / &quot;other_providers.csv&quot;
+OBGYN_EDGES_OUT = OUTPUT_DIR / &quot;obgyn_edges.csv&quot;
+COUNTY_MORBIDITY_OUT = OUTPUT_DIR / &quot;county_morbidity_rates.csv&quot;
+
+# Verify inputs exist
+for name, fpath in [(&quot;CMS&quot;, CMS_FILE), (&quot;NPPES&quot;, NPPES_FILE), (&quot;NUCC&quot;, NUCC_FILE),
+                     (&quot;CDC Births&quot;, CDC_BIRTHS_FILE), (&quot;CDC Morbidity&quot;, CDC_MORBIDITY_FILE)]:
+    status = &quot;FOUND&quot; if fpath.exists() else &quot;MISSING&quot;
+    print(f&quot;  {name:&lt;20} {status}&quot;)
+
+print(f&quot;\nOutput directory: {OUTPUT_DIR.resolve()}&quot;)</code></pre><pre class="code-output">  CMS                  FOUND
+  NPPES                FOUND
+  NUCC                 FOUND
+  CDC Births           FOUND
+  CDC Morbidity        FOUND
+
+Output directory: /Users/trinidadcisneros/Documents/Development/Coding/bitterscientist.com/bitterscientist.com/folders/ds_blogs/projects/network_analysis/maternal_network/data/outputs
+</pre></div><div class="cell markdown-cell"><p>---</p>
+<br>
+<h2>2. Load Reference Data</h2></div><div class="cell markdown-cell"><h3>2a. NUCC Taxonomy — OB-GYN Codes (207V Family)</h3></div><div class="cell code-cell"><div class="cell-label">In [3]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# LOAD: NUCC Taxonomy — full lookup + OB-GYN codes
+# -------------------------------------------------------------------
+
+nucc_df = pd.read_csv(NUCC_FILE, dtype=str)
+
+# --- Full taxonomy lookup (for classifying ALL providers later) ---
+# Build a dictionary: taxonomy_code -&gt; (Type, Classification, Specialization)
+NUCC_LOOKUP = {}
+for _, row in nucc_df.iterrows():
+    code = row[&quot;Code&quot;]
+    NUCC_LOOKUP[code] = {
+        &quot;type&quot;: row[&quot;Type&quot;] if pd.notna(row[&quot;Type&quot;]) else &quot;&quot;,
+        &quot;classification&quot;: row[&quot;Classification&quot;] if pd.notna(row[&quot;Classification&quot;]) else &quot;&quot;,
+        &quot;specialization&quot;: row[&quot;Specialization&quot;] if pd.notna(row[&quot;Specialization&quot;]) else &quot;&quot;
+    }
+
+print(f&quot;Full NUCC taxonomy: {len(NUCC_LOOKUP):,} codes loaded&quot;)
+
+# --- OB-GYN subset (207V family) ---
+obgyn_taxonomy = nucc_df[nucc_df[&quot;Code&quot;].str.startswith(&quot;207V&quot;, na=False)].copy()
+
+# Build a lookup dictionary: taxonomy code -&gt; sub-specialty label
+obgyn_taxonomy[&quot;label&quot;] = obgyn_taxonomy.apply(
+    lambda r: r[&quot;Specialization&quot;] if pd.notna(r[&quot;Specialization&quot;]) else r[&quot;Classification&quot;],
+    axis=1
+)
+OBGYN_CODE_SET = set(obgyn_taxonomy[&quot;Code&quot;])
+OBGYN_CODE_LABELS = dict(zip(obgyn_taxonomy[&quot;Code&quot;], obgyn_taxonomy[&quot;label&quot;]))
+
+print(f&quot;OB-GYN taxonomy codes: {len(OBGYN_CODE_SET)}&quot;)
+print()
+for code, label in sorted(OBGYN_CODE_LABELS.items()):
+    print(f&quot;  {code}  {label}&quot;)</code></pre><pre class="code-output">Full NUCC taxonomy: 838 codes loaded
+OB-GYN taxonomy codes: 10
+
+  207V00000X  Obstetrics &amp; Gynecology
+  207VB0002X  Obesity Medicine
+  207VC0200X  Critical Care Medicine
+  207VE0102X  Reproductive Endocrinology
+  207VF0040X  Female Pelvic Medicine and Reconstructive Surgery
+  207VG0400X  Gynecology
+  207VH0002X  Hospice and Palliative Medicine
+  207VM0101X  Maternal &amp; Fetal Medicine
+  207VX0000X  Obstetrics
+  207VX0201X  Gynecologic Oncology
+</pre></div><div class="cell markdown-cell"><h3>2b. CDC WONDER — Births & Maternal Morbidity by County</h3></div><div class="cell code-cell"><div class="cell-label">In [4]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# HELPER: Load CDC WONDER export (same as Phase 1)
+# -------------------------------------------------------------------
+
+def load_cdc_wonder(filepath):
+    &quot;&quot;&quot;Load a CDC WONDER export, stopping at the metadata separator.&quot;&quot;&quot;
+    lines = []
+    with open(filepath, &#x27;r&#x27;) as f:
+        for line in f:
+            if line.startswith(&#x27;&quot;---&#x27;):
+                break
+            lines.append(line)
+    
+    # Detect delimiter from header line
+    header = lines[0]
+    delimiter = &#x27;\t&#x27; if &#x27;\t&#x27; in header else &#x27;,&#x27;
+    
+    return pd.read_csv(StringIO(&#x27;&#x27;.join(lines)), sep=delimiter, dtype=str)</code></pre></div><div class="cell code-cell"><div class="cell-label">In [5]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# LOAD: CDC WONDER exports
+# -------------------------------------------------------------------
+
+cdc_births = load_cdc_wonder(CDC_BIRTHS_FILE)
+cdc_morbidity = load_cdc_wonder(CDC_MORBIDITY_FILE)
+
+print(f&quot;CDC Births:    {len(cdc_births):,} rows, columns: {list(cdc_births.columns)}&quot;)
+print(f&quot;CDC Morbidity: {len(cdc_morbidity):,} rows, columns: {list(cdc_morbidity.columns)}&quot;)</code></pre><pre class="code-output">CDC Births:    627 rows, columns: [&#x27;Notes&#x27;, &#x27;County of Residence&#x27;, &#x27;County of Residence Code&#x27;, &#x27;Births&#x27;]
+CDC Morbidity: 578 rows, columns: [&#x27;Notes&#x27;, &#x27;County of Residence&#x27;, &#x27;County of Residence Code&#x27;, &#x27;Births&#x27;]
+</pre></div><div class="cell markdown-cell"><p>---</p>
+<br>
+<h2>3. Extract OB-GYN Providers from NPPES</h2>
+<br>
+<p>The NPPES file is ~11 GB with ~8 million provider records and 330 columns. We read it in chunks of 100,000 rows, loading only the 22 columns we need. For each chunk, we check all 15 taxonomy code slots — a provider is flagged as OB-GYN if <strong>any</strong> of their taxonomy codes starts with <code>207V</code>.</p>
+<br>
+<p><strong>Filtering logic:</strong></p>
+<ul>
+<li>Entity Type Code = <code>1</code> (Individual providers only; organizations excluded)</li>
+<li>At least one of <code>Healthcare Provider Taxonomy Code_1</code> through <code>_15</code> is in the 207V family</li>
+</ul></div><div class="cell code-cell"><div class="cell-label">In [6]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# DEFINE: NPPES columns to load
+# -------------------------------------------------------------------
+
+TAXONOMY_COLS = [f&quot;Healthcare Provider Taxonomy Code_{i}&quot; for i in range(1, 16)]
+
+NPPES_USE_COLS = [
+    &quot;NPI&quot;,
+    &quot;Entity Type Code&quot;,
+    &quot;Provider Last Name (Legal Name)&quot;,
+    &quot;Provider First Name&quot;,
+    &quot;Provider Business Practice Location Address City Name&quot;,
+    &quot;Provider Business Practice Location Address State Name&quot;,
+    &quot;Provider Business Practice Location Address Postal Code&quot;,
+] + TAXONOMY_COLS
+
+print(f&quot;Loading {len(NPPES_USE_COLS)} columns from NPPES...&quot;)</code></pre><pre class="code-output">Loading 22 columns from NPPES...
+</pre></div><div class="cell code-cell"><div class="cell-label">In [7]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# EXTRACT: OB-GYN providers via chunked read
+# -------------------------------------------------------------------
+# This cell processes ~11 GB in chunks. Expected runtime: 5-10 minutes.
+# -------------------------------------------------------------------
+
+CHUNK_SIZE = 100_000
+obgyn_chunks = []
+total_rows = 0
+total_obgyn = 0
+
+t0 = time.time()
+print(f&quot;Scanning NPPES file ({NPPES_FILE.stat().st_size / (1024**3):.1f} GB)...&quot;)
+print(f&quot;Chunk size: {CHUNK_SIZE:,} rows&quot;)
+print()
+
+reader = pd.read_csv(
+    NPPES_FILE,
+    usecols=NPPES_USE_COLS,
+    dtype=str,
+    chunksize=CHUNK_SIZE,
+    low_memory=False
+)
+
+for i, chunk in enumerate(reader):
+    total_rows += len(chunk)
+    
+    # Filter to individual providers only (Entity Type Code = 1)
+    individuals = chunk[chunk[&quot;Entity Type Code&quot;] == &quot;1&quot;].copy()
+    
+    if len(individuals) == 0:
+        continue
+    
+    # Check if ANY of the 15 taxonomy code slots contains a 207V code
+    is_obgyn = pd.Series(False, index=individuals.index)
+    for col in TAXONOMY_COLS:
+        is_obgyn = is_obgyn | individuals[col].str.startswith(&quot;207V&quot;, na=False)
+    
+    obgyn_in_chunk = individuals[is_obgyn]
+    
+    if len(obgyn_in_chunk) &gt; 0:
+        obgyn_chunks.append(obgyn_in_chunk)
+        total_obgyn += len(obgyn_in_chunk)
+    
+    # Progress update every 10 chunks
+    if (i + 1) % 10 == 0:
+        elapsed = time.time() - t0
+        rate = total_rows / elapsed
+        print(f&quot;  Chunk {i+1:&gt;4}: {total_rows:&gt;10,} rows scanned | &quot;
+              f&quot;{total_obgyn:&gt;6,} OB-GYN found | &quot;
+              f&quot;{elapsed:.0f}s elapsed | {rate:,.0f} rows/s&quot;)
+
+elapsed = time.time() - t0
+print(f&quot;\nDone in {elapsed:.1f}s&quot;)
+print(f&quot;Total rows scanned: {total_rows:,}&quot;)
+print(f&quot;OB-GYN providers found: {total_obgyn:,}&quot;)</code></pre><pre class="code-output">Scanning NPPES file (10.4 GB)...
+Chunk size: 100,000 rows
+
+  Chunk   10:  1,000,000 rows scanned | 22,337 OB-GYN found | 11s elapsed | 93,251 rows/s
+  Chunk   20:  2,000,000 rows scanned | 33,268 OB-GYN found | 22s elapsed | 91,002 rows/s
+  Chunk   30:  3,000,000 rows scanned | 41,132 OB-GYN found | 32s elapsed | 92,366 rows/s
+  Chunk   40:  4,000,000 rows scanned | 46,997 OB-GYN found | 44s elapsed | 90,814 rows/s
+  Chunk   50:  5,000,000 rows scanned | 51,976 OB-GYN found | 56s elapsed | 89,891 rows/s
+  Chunk   60:  6,000,000 rows scanned | 56,069 OB-GYN found | 67s elapsed | 89,247 rows/s
+  Chunk   70:  7,000,000 rows scanned | 58,897 OB-GYN found | 79s elapsed | 88,499 rows/s
+  Chunk   80:  8,000,000 rows scanned | 59,720 OB-GYN found | 91s elapsed | 88,231 rows/s
+  Chunk   90:  9,000,000 rows scanned | 60,337 OB-GYN found | 103s elapsed | 87,369 rows/s
+
+Done in 107.4s
+Total rows scanned: 9,368,082
+OB-GYN providers found: 60,422
+</pre></div><div class="cell code-cell"><div class="cell-label">In [8]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# COMBINE: Merge all OB-GYN chunks into a single DataFrame
+# -------------------------------------------------------------------
+
+obgyn_providers_raw = pd.concat(obgyn_chunks, ignore_index=True)
+print(f&quot;Combined OB-GYN providers: {len(obgyn_providers_raw):,} rows&quot;)
+
+# Verify no duplicate NPIs
+n_dupes = obgyn_providers_raw[&quot;NPI&quot;].duplicated().sum()
+print(f&quot;Duplicate NPIs: {n_dupes:,}&quot;)
+if n_dupes &gt; 0:
+    print(&quot;Dropping duplicates (keeping first occurrence)...&quot;)
+    obgyn_providers_raw = obgyn_providers_raw.drop_duplicates(subset=&quot;NPI&quot;, keep=&quot;first&quot;)
+    print(f&quot;After dedup: {len(obgyn_providers_raw):,} rows&quot;)</code></pre><pre class="code-output">Combined OB-GYN providers: 60,422 rows
+Duplicate NPIs: 0
+</pre></div><div class="cell code-cell"><div class="cell-label">In [9]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# RESHAPE: Identify primary OB-GYN taxonomy code and sub-specialty
+# -------------------------------------------------------------------
+# A provider may have multiple taxonomy codes across 15 slots.
+# We identify the FIRST 207V code found (reading slots 1-15 in order)
+# as their &quot;primary&quot; OB-GYN taxonomy code.
+# -------------------------------------------------------------------
+
+def get_primary_obgyn_code(row):
+    &quot;&quot;&quot;Return the first 207V taxonomy code found across all 15 slots.&quot;&quot;&quot;
+    for col in TAXONOMY_COLS:
+        val = row[col]
+        if pd.notna(val) and val.startswith(&quot;207V&quot;):
+            return val
+    return None
+
+obgyn_providers_raw[&quot;primary_obgyn_code&quot;] = obgyn_providers_raw.apply(
+    get_primary_obgyn_code, axis=1
+)
+
+# Map to human-readable sub-specialty label
+obgyn_providers_raw[&quot;obgyn_subspecialty&quot;] = (
+    obgyn_providers_raw[&quot;primary_obgyn_code&quot;].map(OBGYN_CODE_LABELS)
+)
+
+print(&quot;Sub-specialty distribution:&quot;)
+print(obgyn_providers_raw[&quot;obgyn_subspecialty&quot;].value_counts().to_string())</code></pre><pre class="code-output">Sub-specialty distribution:
+obgyn_subspecialty
+Obstetrics &amp; Gynecology                              48586
+Gynecology                                            4115
+Maternal &amp; Fetal Medicine                             2243
+Obstetrics                                            1633
+Reproductive Endocrinology                            1490
+Gynecologic Oncology                                  1477
+Female Pelvic Medicine and Reconstructive Surgery      656
+Hospice and Palliative Medicine                        100
+Critical Care Medicine                                  41
+Obesity Medicine                                        25
+</pre></div><div class="cell code-cell"><div class="cell-label">In [10]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# CLEAN: Rename columns for downstream use and extract 5-digit ZIP
+# -------------------------------------------------------------------
+
+obgyn_providers = obgyn_providers_raw[[
+    &quot;NPI&quot;,
+    &quot;Provider Last Name (Legal Name)&quot;,
+    &quot;Provider First Name&quot;,
+    &quot;primary_obgyn_code&quot;,
+    &quot;obgyn_subspecialty&quot;,
+    &quot;Provider Business Practice Location Address City Name&quot;,
+    &quot;Provider Business Practice Location Address State Name&quot;,
+    &quot;Provider Business Practice Location Address Postal Code&quot;,
+]].copy()
+
+obgyn_providers.columns = [
+    &quot;npi&quot;, &quot;last_name&quot;, &quot;first_name&quot;, &quot;taxonomy_code&quot;, &quot;subspecialty&quot;,
+    &quot;city&quot;, &quot;state&quot;, &quot;zip_raw&quot;
+]
+
+# Extract 5-digit ZIP (NPPES may include ZIP+4 as 9 digits)
+obgyn_providers[&quot;zip5&quot;] = obgyn_providers[&quot;zip_raw&quot;].str[:5]
+
+print(f&quot;OB-GYN provider table: {len(obgyn_providers):,} rows x {len(obgyn_providers.columns)} cols&quot;)
+print(f&quot;\nColumns: {list(obgyn_providers.columns)}&quot;)
+print(f&quot;\nState distribution (top 10):&quot;)
+print(obgyn_providers[&quot;state&quot;].value_counts().head(10).to_string())
+print(f&quot;\nSample:&quot;)
+display(obgyn_providers.head(10))</code></pre><pre class="code-output">OB-GYN provider table: 60,422 rows x 9 cols
+
+Columns: [&#x27;npi&#x27;, &#x27;last_name&#x27;, &#x27;first_name&#x27;, &#x27;taxonomy_code&#x27;, &#x27;subspecialty&#x27;, &#x27;city&#x27;, &#x27;state&#x27;, &#x27;zip_raw&#x27;, &#x27;zip5&#x27;]
+
+State distribution (top 10):
+state
+CA    6655
+TX    4611
+NY    4474
+FL    3628
+PA    2642
+IL    2586
+MI    2125
+OH    2081
+NC    2010
+GA    1905
+
+Sample:
+</pre><div class="output-html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>npi</th>
+      <th>last_name</th>
+      <th>first_name</th>
+      <th>taxonomy_code</th>
+      <th>subspecialty</th>
+      <th>city</th>
+      <th>state</th>
+      <th>zip_raw</th>
+      <th>zip5</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1487657532</td>
+      <td>HUEBERT</td>
+      <td>ALLISON</td>
+      <td>207V00000X</td>
+      <td>Obstetrics &amp; Gynecology</td>
+      <td>TULSA</td>
+      <td>OK</td>
+      <td>741352527</td>
+      <td>74135</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>1396748349</td>
+      <td>GRUNERT</td>
+      <td>GEORGE</td>
+      <td>207VE0102X</td>
+      <td>Reproductive Endocrinology</td>
+      <td>HOUSTON</td>
+      <td>TX</td>
+      <td>770632313</td>
+      <td>77063</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>1861495814</td>
+      <td>SMITH</td>
+      <td>FRANCISCO</td>
+      <td>207VX0201X</td>
+      <td>Gynecologic Oncology</td>
+      <td>NAPLES</td>
+      <td>FL</td>
+      <td>341101497</td>
+      <td>34110</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>1003819046</td>
+      <td>NYLANDER</td>
+      <td>BARBARA</td>
+      <td>207VG0400X</td>
+      <td>Gynecology</td>
+      <td>NASHVILLE</td>
+      <td>TN</td>
+      <td>372031513</td>
+      <td>37203</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>1932102969</td>
+      <td>HELFER</td>
+      <td>TAMARA</td>
+      <td>207V00000X</td>
+      <td>Obstetrics &amp; Gynecology</td>
+      <td>CARMEL</td>
+      <td>IN</td>
+      <td>460323008</td>
+      <td>46032</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>1578566501</td>
+      <td>LA</td>
+      <td>BAO QUOC</td>
+      <td>207V00000X</td>
+      <td>Obstetrics &amp; Gynecology</td>
+      <td>HOUSTON</td>
+      <td>TX</td>
+      <td>77024</td>
+      <td>77024</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>1922001957</td>
+      <td>PRESLEY</td>
+      <td>RICHARD</td>
+      <td>207V00000X</td>
+      <td>Obstetrics &amp; Gynecology</td>
+      <td>NASHVILLE</td>
+      <td>TN</td>
+      <td>372032023</td>
+      <td>37203</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>1649273673</td>
+      <td>KOPCZYNSKI</td>
+      <td>TODD</td>
+      <td>207V00000X</td>
+      <td>Obstetrics &amp; Gynecology</td>
+      <td>CHARLOTTE</td>
+      <td>NC</td>
+      <td>282179422</td>
+      <td>28217</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>1760485817</td>
+      <td>MORAN</td>
+      <td>SAM</td>
+      <td>207V00000X</td>
+      <td>Obstetrics &amp; Gynecology</td>
+      <td>NASHVILLE</td>
+      <td>TN</td>
+      <td>372031838</td>
+      <td>37203</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>1811990864</td>
+      <td>GULLETT</td>
+      <td>JAMES</td>
+      <td>207V00000X</td>
+      <td>Obstetrics &amp; Gynecology</td>
+      <td>HOUSTON</td>
+      <td>TX</td>
+      <td>770542935</td>
+      <td>77054</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div><div class="cell code-cell"><div class="cell-label">In [11]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# BUILD: NPI set for CMS filtering
+# -------------------------------------------------------------------
+
+OBGYN_NPI_SET = set(obgyn_providers[&quot;npi&quot;])
+print(f&quot;OB-GYN NPI set size: {len(OBGYN_NPI_SET):,}&quot;)
+print(f&quot;Sample NPIs: {list(OBGYN_NPI_SET)[:5]}&quot;)</code></pre><pre class="code-output">OB-GYN NPI set size: 60,422
+Sample NPIs: [&#x27;1083619852&#x27;, &#x27;1033266879&#x27;, &#x27;1699424028&#x27;, &#x27;1639594641&#x27;, &#x27;1184663585&#x27;]
+</pre></div><div class="cell markdown-cell"><p>---</p>
+<br>
+<h2>4. Filter CMS Edge List to OB-GYN Pairs</h2>
+<br>
+<p>The CMS Shared Patient Patterns file has ~49 million provider pair rows. We scan it in chunks and keep only rows where <strong>at least one</strong> of the two NPIs (<code>npi1</code> or <code>npi2</code>) is in our OB-GYN provider set. This captures:</p>
+<br>
+<ul>
+<li><strong>OB-GYN ↔ OB-GYN pairs</strong> — referrals within the OB-GYN specialty</li>
+<li><strong>OB-GYN ↔ Non-OB-GYN pairs</strong> — cross-specialty referrals (e.g., OB-GYN to MFM, to anesthesiology, to neonatology)</li>
+</ul>
+<br>
+<p>We also add a flag column <code>edge_type</code> to distinguish these two categories for downstream analysis.</p></div><div class="cell code-cell"><div class="cell-label">In [12]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# FILTER: CMS edges via chunked read
+# -------------------------------------------------------------------
+# This cell processes ~2.9 GB in chunks. Expected runtime: 3-8 minutes.
+# -------------------------------------------------------------------
+
+CMS_CHUNK_SIZE = 500_000
+edge_chunks = []
+total_rows = 0
+total_kept = 0
+
+t0 = time.time()
+print(f&quot;Scanning CMS Shared Patient Patterns ({CMS_FILE.stat().st_size / (1024**3):.1f} GB)...&quot;)
+print(f&quot;Chunk size: {CMS_CHUNK_SIZE:,} rows&quot;)
+print(f&quot;Filtering against {len(OBGYN_NPI_SET):,} OB-GYN NPIs&quot;)
+print()
+
+reader = pd.read_csv(
+    CMS_FILE,
+    dtype={&quot;npi1&quot;: str, &quot;npi2&quot;: str},
+    chunksize=CMS_CHUNK_SIZE
+)
+
+for i, chunk in enumerate(reader):
+    total_rows += len(chunk)
+    
+    # Keep rows where at least one NPI is OB-GYN
+    npi1_match = chunk[&quot;npi1&quot;].isin(OBGYN_NPI_SET)
+    npi2_match = chunk[&quot;npi2&quot;].isin(OBGYN_NPI_SET)
+    matched = chunk[npi1_match | npi2_match].copy()
+    
+    if len(matched) &gt; 0:
+        # Classify edge type
+        both_obgyn = matched[&quot;npi1&quot;].isin(OBGYN_NPI_SET) &amp; matched[&quot;npi2&quot;].isin(OBGYN_NPI_SET)
+        matched[&quot;edge_type&quot;] = np.where(both_obgyn, &quot;obgyn_obgyn&quot;, &quot;obgyn_other&quot;)
+        edge_chunks.append(matched)
+        total_kept += len(matched)
+    
+    # Progress update every 10 chunks
+    if (i + 1) % 10 == 0:
+        elapsed = time.time() - t0
+        rate = total_rows / elapsed
+        print(f&quot;  Chunk {i+1:&gt;4}: {total_rows:&gt;12,} rows scanned | &quot;
+              f&quot;{total_kept:&gt;8,} edges kept | &quot;
+              f&quot;{elapsed:.0f}s elapsed | {rate:,.0f} rows/s&quot;)
+
+elapsed = time.time() - t0
+print(f&quot;\nDone in {elapsed:.1f}s&quot;)
+print(f&quot;Total rows scanned: {total_rows:,}&quot;)
+print(f&quot;OB-GYN edges kept: {total_kept:,} ({total_kept/total_rows*100:.2f}%)&quot;)</code></pre><pre class="code-output">Scanning CMS Shared Patient Patterns (2.8 GB)...
+Chunk size: 500,000 rows
+Filtering against 60,422 OB-GYN NPIs
+
+  Chunk   10:    5,000,000 rows scanned |   25,133 edges kept | 7s elapsed | 725,455 rows/s
+  Chunk   20:   10,000,000 rows scanned |   51,209 edges kept | 13s elapsed | 757,389 rows/s
+  Chunk   30:   15,000,000 rows scanned |   77,682 edges kept | 19s elapsed | 775,187 rows/s
+  Chunk   40:   20,000,000 rows scanned |  104,427 edges kept | 27s elapsed | 738,876 rows/s
+  Chunk   50:   25,000,000 rows scanned |  128,631 edges kept | 33s elapsed | 749,264 rows/s
+  Chunk   60:   30,000,000 rows scanned |  155,012 edges kept | 39s elapsed | 763,246 rows/s
+  Chunk   70:   35,000,000 rows scanned |  178,572 edges kept | 45s elapsed | 778,447 rows/s
+  Chunk   80:   40,000,000 rows scanned |  201,004 edges kept | 51s elapsed | 782,942 rows/s
+  Chunk   90:   45,000,000 rows scanned |  223,448 edges kept | 57s elapsed | 789,986 rows/s
+
+Done in 62.7s
+Total rows scanned: 49,335,361
+OB-GYN edges kept: 243,052 (0.49%)
+</pre></div><div class="cell code-cell"><div class="cell-label">In [13]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# COMBINE: Merge all edge chunks
+# -------------------------------------------------------------------
+
+obgyn_edges_raw = pd.concat(edge_chunks, ignore_index=True)
+print(f&quot;Combined OB-GYN edges: {len(obgyn_edges_raw):,} rows&quot;)
+
+# Edge type distribution
+print(f&quot;\nEdge type distribution:&quot;)
+print(obgyn_edges_raw[&quot;edge_type&quot;].value_counts().to_string())
+
+# Basic statistics
+print(f&quot;\nShared patient statistics (benecount):&quot;)
+print(obgyn_edges_raw[&quot;benecount&quot;].describe().to_string())
+
+print(f&quot;\nUnique NPIs in edge list:&quot;)
+unique_npi1 = set(obgyn_edges_raw[&quot;npi1&quot;])
+unique_npi2 = set(obgyn_edges_raw[&quot;npi2&quot;])
+all_edge_npis = unique_npi1 | unique_npi2
+print(f&quot;  npi1 unique: {len(unique_npi1):,}&quot;)
+print(f&quot;  npi2 unique: {len(unique_npi2):,}&quot;)
+print(f&quot;  Combined unique: {len(all_edge_npis):,}&quot;)
+print(f&quot;  Of which are OB-GYN: {len(all_edge_npis &amp; OBGYN_NPI_SET):,}&quot;)</code></pre><pre class="code-output">Combined OB-GYN edges: 243,052 rows
+
+Edge type distribution:
+edge_type
+obgyn_other    239300
+obgyn_obgyn      3752
+
+Shared patient statistics (benecount):
+count    243052.000000
+mean         28.196020
+std          33.943759
+min          11.000000
+25%          13.000000
+50%          18.000000
+75%          29.000000
+max        2426.000000
+
+Unique NPIs in edge list:
+  npi1 unique: 61,720
+  npi2 unique: 62,881
+  Combined unique: 71,955
+  Of which are OB-GYN: 25,427
+</pre></div><div class="cell markdown-cell"><p>---</p>
+<br>
+<h2>5. Classify Non-OB-GYN Providers</h2>
+<br>
+<p>We now know which non-OB-GYN NPIs appear in our edge list (i.e., they share patients with at least one OB-GYN). To classify them by specialty, we do a <strong>second chunked pass</strong> through the NPPES file, this time looking up only those non-OB-GYN NPIs and extracting their primary taxonomy code. We then map that taxonomy code to the NUCC classification hierarchy (Type → Classification → Specialization).</p></div><div class="cell code-cell"><div class="cell-label">In [14]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# IDENTIFY: Non-OB-GYN NPIs that need classification
+# -------------------------------------------------------------------
+
+# Collect all unique NPIs from edges that are NOT in our OB-GYN set
+all_edge_npis = set(obgyn_edges_raw[&quot;npi1&quot;]) | set(obgyn_edges_raw[&quot;npi2&quot;])
+non_obgyn_npis_needed = all_edge_npis - OBGYN_NPI_SET
+
+print(f&quot;Total unique NPIs in edge list:   {len(all_edge_npis):,}&quot;)
+print(f&quot;Of which are OB-GYN:              {len(all_edge_npis &amp; OBGYN_NPI_SET):,}&quot;)
+print(f&quot;Non-OB-GYN NPIs to look up:       {len(non_obgyn_npis_needed):,}&quot;)</code></pre><pre class="code-output">Total unique NPIs in edge list:   71,955
+Of which are OB-GYN:              25,427
+Non-OB-GYN NPIs to look up:       46,528
+</pre></div><div class="cell code-cell"><div class="cell-label">In [15]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# EXTRACT: Non-OB-GYN provider details via second chunked NPPES pass
+# -------------------------------------------------------------------
+# This is similar to the OB-GYN pass but we filter on a specific set
+# of ~46K non-OB-GYN NPIs instead of taxonomy codes.
+# Expected runtime: 5-10 minutes.
+# -------------------------------------------------------------------
+
+other_chunks = []
+total_rows = 0
+total_found = 0
+
+t0 = time.time()
+print(f&quot;Second NPPES pass: looking up {len(non_obgyn_npis_needed):,} non-OB-GYN NPIs...&quot;)
+print(f&quot;Chunk size: {CHUNK_SIZE:,} rows&quot;)
+print()
+
+reader = pd.read_csv(
+    NPPES_FILE,
+    usecols=NPPES_USE_COLS,
+    dtype=str,
+    chunksize=CHUNK_SIZE,
+    low_memory=False
+)
+
+for i, chunk in enumerate(reader):
+    total_rows += len(chunk)
+    
+    # Filter to NPIs in our non-OB-GYN set
+    matched = chunk[chunk[&quot;NPI&quot;].isin(non_obgyn_npis_needed)]
+    
+    if len(matched) &gt; 0:
+        other_chunks.append(matched)
+        total_found += len(matched)
+    
+    # Progress update every 10 chunks
+    if (i + 1) % 10 == 0:
+        elapsed = time.time() - t0
+        rate = total_rows / elapsed
+        print(f&quot;  Chunk {i+1:&gt;4}: {total_rows:&gt;10,} rows scanned | &quot;
+              f&quot;{total_found:&gt;6,} found | &quot;
+              f&quot;{elapsed:.0f}s elapsed | {rate:,.0f} rows/s&quot;)
+
+elapsed = time.time() - t0
+print(f&quot;\nDone in {elapsed:.1f}s&quot;)
+print(f&quot;Total rows scanned: {total_rows:,}&quot;)
+print(f&quot;Non-OB-GYN providers found: {total_found:,}&quot;)
+print(f&quot;Not found in NPPES: {len(non_obgyn_npis_needed) - total_found:,} (may be organizations or deactivated NPIs)&quot;)</code></pre><pre class="code-output">Second NPPES pass: looking up 46,528 non-OB-GYN NPIs...
+Chunk size: 100,000 rows
+
+  Chunk   10:  1,000,000 rows scanned | 28,485 found | 10s elapsed | 103,862 rows/s
+  Chunk   20:  2,000,000 rows scanned | 37,147 found | 19s elapsed | 106,545 rows/s
+  Chunk   30:  3,000,000 rows scanned | 43,491 found | 28s elapsed | 107,315 rows/s
+  Chunk   40:  4,000,000 rows scanned | 45,849 found | 37s elapsed | 107,326 rows/s
+  Chunk   50:  5,000,000 rows scanned | 46,527 found | 47s elapsed | 107,300 rows/s
+  Chunk   60:  6,000,000 rows scanned | 46,527 found | 56s elapsed | 107,234 rows/s
+  Chunk   70:  7,000,000 rows scanned | 46,527 found | 65s elapsed | 106,957 rows/s
+  Chunk   80:  8,000,000 rows scanned | 46,527 found | 75s elapsed | 107,003 rows/s
+  Chunk   90:  9,000,000 rows scanned | 46,527 found | 84s elapsed | 107,283 rows/s
+
+Done in 87.3s
+Total rows scanned: 9,368,082
+Non-OB-GYN providers found: 46,527
+Not found in NPPES: 1 (may be organizations or deactivated NPIs)
+</pre></div><div class="cell code-cell"><div class="cell-label">In [16]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# CLASSIFY: Map non-OB-GYN providers to NUCC taxonomy
+# -------------------------------------------------------------------
+
+other_providers_raw = pd.concat(other_chunks, ignore_index=True)
+
+# Drop duplicates (a provider may appear in multiple chunks)
+other_providers_raw = other_providers_raw.drop_duplicates(subset=&quot;NPI&quot;, keep=&quot;first&quot;)
+print(f&quot;Unique non-OB-GYN providers: {len(other_providers_raw):,}&quot;)
+
+# Get primary taxonomy code (first non-null taxonomy slot)
+def get_primary_taxonomy(row):
+    &quot;&quot;&quot;Return the first taxonomy code found across all 15 slots.&quot;&quot;&quot;
+    for col in TAXONOMY_COLS:
+        val = row[col]
+        if pd.notna(val) and val.strip():
+            return val.strip()
+    return None
+
+other_providers_raw[&quot;primary_taxonomy_code&quot;] = other_providers_raw.apply(
+    get_primary_taxonomy, axis=1
+)
+
+# Map to NUCC classification hierarchy
+other_providers_raw[&quot;nucc_type&quot;] = other_providers_raw[&quot;primary_taxonomy_code&quot;].apply(
+    lambda x: NUCC_LOOKUP.get(x, {}).get(&quot;type&quot;, &quot;Unknown&quot;) if pd.notna(x) else &quot;Unknown&quot;
+)
+other_providers_raw[&quot;nucc_classification&quot;] = other_providers_raw[&quot;primary_taxonomy_code&quot;].apply(
+    lambda x: NUCC_LOOKUP.get(x, {}).get(&quot;classification&quot;, &quot;Unknown&quot;) if pd.notna(x) else &quot;Unknown&quot;
+)
+other_providers_raw[&quot;nucc_specialization&quot;] = other_providers_raw[&quot;primary_taxonomy_code&quot;].apply(
+    lambda x: NUCC_LOOKUP.get(x, {}).get(&quot;specialization&quot;, &quot;&quot;) if pd.notna(x) else &quot;&quot;
+)
+
+print(f&quot;\nTop 20 provider types (NUCC Type):&quot;)
+print(other_providers_raw[&quot;nucc_type&quot;].value_counts().head(20).to_string())
+
+print(f&quot;\nTop 20 classifications:&quot;)
+print(other_providers_raw[&quot;nucc_classification&quot;].value_counts().head(20).to_string())</code></pre><pre class="code-output">Unique non-OB-GYN providers: 46,527
+
+Top 20 provider types (NUCC Type):
+nucc_type
+Allopathic &amp; Osteopathic Physicians                                             32242
+Physician Assistants &amp; Advanced Practice Nursing Providers                       2918
+Hospitals                                                                        2675
+Ambulatory Health Care Facilities                                                1778
+Unknown                                                                          1419
+Other Service Providers                                                          1140
+Laboratories                                                                      831
+Podiatric Medicine &amp; Surgery Service Providers                                    692
+Transportation Services                                                           657
+Agencies                                                                          518
+Eye and Vision Services Providers                                                 258
+Hospital Units                                                                    242
+Student, Health Care                                                              236
+Nursing &amp; Custodial Care Facilities                                               212
+Behavioral Health &amp; Social Service Providers                                      145
+Nursing Service Providers                                                         137
+Suppliers                                                                         126
+Respiratory, Developmental, Rehabilitative and Restorative Service Providers      118
+Chiropractic Providers                                                             50
+Technologists, Technicians &amp; Other Technical Service Providers                     35
+
+Top 20 classifications:
+nucc_classification
+Radiology                      11474
+Internal Medicine               9122
+Family Medicine                 2686
+Pathology                       2632
+General Acute Care Hospital     2584
+Clinic/Center                   1778
+Nurse Practitioner              1679
+Unknown                         1419
+Emergency Medicine              1088
+Specialist                      1062
+Ophthalmology                    944
+Physician Assistant              806
+Clinical Medical Laboratory      795
+Anesthesiology                   720
+Dermatology                      711
+Podiatrist                       692
+Ambulance                        631
+Surgery                          541
+Urology                          438
+Psychiatry &amp; Neurology           391
+</pre></div><div class="cell code-cell"><div class="cell-label">In [17]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# CLEAN: Build other_providers table for export and merge
+# -------------------------------------------------------------------
+
+other_providers = other_providers_raw[[
+    &quot;NPI&quot;,
+    &quot;Entity Type Code&quot;,
+    &quot;Provider Last Name (Legal Name)&quot;,
+    &quot;Provider First Name&quot;,
+    &quot;primary_taxonomy_code&quot;,
+    &quot;nucc_type&quot;,
+    &quot;nucc_classification&quot;,
+    &quot;nucc_specialization&quot;,
+    &quot;Provider Business Practice Location Address City Name&quot;,
+    &quot;Provider Business Practice Location Address State Name&quot;,
+    &quot;Provider Business Practice Location Address Postal Code&quot;,
+]].copy()
+
+other_providers.columns = [
+    &quot;npi&quot;, &quot;entity_type_code&quot;, &quot;last_name&quot;, &quot;first_name&quot;, &quot;taxonomy_code&quot;,
+    &quot;provider_type&quot;, &quot;classification&quot;, &quot;specialization&quot;,
+    &quot;city&quot;, &quot;state&quot;, &quot;zip_raw&quot;
+]
+
+# Label entity types: 1 = Individual, 2 = Organization
+other_providers[&quot;entity_type&quot;] = other_providers[&quot;entity_type_code&quot;].map({
+    &quot;1&quot;: &quot;Individual&quot;, &quot;2&quot;: &quot;Organization&quot;
+}).fillna(&quot;Unknown&quot;)
+
+# Extract 5-digit ZIP
+other_providers[&quot;zip5&quot;] = other_providers[&quot;zip_raw&quot;].str[:5]
+
+print(f&quot;Non-OB-GYN provider table: {len(other_providers):,} rows x {len(other_providers.columns)} cols&quot;)
+print(f&quot;\nEntity type breakdown:&quot;)
+print(other_providers[&quot;entity_type&quot;].value_counts().to_string())
+print(f&quot;\nIndividuals: {(other_providers[&#x27;entity_type&#x27;]==&#x27;Individual&#x27;).sum():,}&quot;)
+print(f&quot;Organizations: {(other_providers[&#x27;entity_type&#x27;]==&#x27;Organization&#x27;).sum():,}&quot;)
+print(f&quot;\nSample:&quot;)
+display(other_providers.head(10))</code></pre><pre class="code-output">Non-OB-GYN provider table: 46,527 rows x 13 cols
+
+Entity type breakdown:
+entity_type
+Individual      37114
+Organization     8031
+Unknown          1382
+
+Individuals: 37,114
+Organizations: 8,031
+
+Sample:
+</pre><div class="output-html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>npi</th>
+      <th>entity_type_code</th>
+      <th>last_name</th>
+      <th>first_name</th>
+      <th>taxonomy_code</th>
+      <th>provider_type</th>
+      <th>classification</th>
+      <th>specialization</th>
+      <th>city</th>
+      <th>state</th>
+      <th>zip_raw</th>
+      <th>entity_type</th>
+      <th>zip5</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1306849450</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>None</td>
+      <td>Unknown</td>
+      <td>Unknown</td>
+      <td></td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>Unknown</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>1114920261</td>
+      <td>1</td>
+      <td>THACKER</td>
+      <td>RICHARD</td>
+      <td>207R00000X</td>
+      <td>Allopathic &amp; Osteopathic Physicians</td>
+      <td>Internal Medicine</td>
+      <td></td>
+      <td>TALLAHASSEE</td>
+      <td>FL</td>
+      <td>323088417</td>
+      <td>Individual</td>
+      <td>32308</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>1073516027</td>
+      <td>1</td>
+      <td>CHANG</td>
+      <td>JOHN</td>
+      <td>207W00000X</td>
+      <td>Allopathic &amp; Osteopathic Physicians</td>
+      <td>Ophthalmology</td>
+      <td></td>
+      <td>PEARL RIVER</td>
+      <td>NY</td>
+      <td>109652029</td>
+      <td>Individual</td>
+      <td>10965</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>1033112081</td>
+      <td>1</td>
+      <td>FOGARTY</td>
+      <td>JOHN</td>
+      <td>207RP1001X</td>
+      <td>Allopathic &amp; Osteopathic Physicians</td>
+      <td>Internal Medicine</td>
+      <td>Pulmonary Disease</td>
+      <td>GREENVILLE</td>
+      <td>NC</td>
+      <td>278345704</td>
+      <td>Individual</td>
+      <td>27834</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>1346243375</td>
+      <td>2</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>282N00000X</td>
+      <td>Hospitals</td>
+      <td>General Acute Care Hospital</td>
+      <td></td>
+      <td>NEW BRUNSWICK</td>
+      <td>NJ</td>
+      <td>089011928</td>
+      <td>Organization</td>
+      <td>08901</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>1962405019</td>
+      <td>1</td>
+      <td>HAMAMI</td>
+      <td>ANWAR</td>
+      <td>207P00000X</td>
+      <td>Allopathic &amp; Osteopathic Physicians</td>
+      <td>Emergency Medicine</td>
+      <td></td>
+      <td>HUDSON</td>
+      <td>OH</td>
+      <td>44236</td>
+      <td>Individual</td>
+      <td>44236</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>1821091877</td>
+      <td>1</td>
+      <td>HASKELL</td>
+      <td>SUSAN</td>
+      <td>152W00000X</td>
+      <td>Eye and Vision Services Providers</td>
+      <td>Optometrist</td>
+      <td></td>
+      <td>PORTSMOUTH</td>
+      <td>NH</td>
+      <td>038017156</td>
+      <td>Individual</td>
+      <td>03801</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>1972506921</td>
+      <td>1</td>
+      <td>FAGUNDUS</td>
+      <td>DUNCAN</td>
+      <td>207RR0500X</td>
+      <td>Allopathic &amp; Osteopathic Physicians</td>
+      <td>Internal Medicine</td>
+      <td>Rheumatology</td>
+      <td>GREENVILLE</td>
+      <td>NC</td>
+      <td>278345704</td>
+      <td>Individual</td>
+      <td>27834</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>1821091869</td>
+      <td>1</td>
+      <td>BASS</td>
+      <td>PAOLA</td>
+      <td>207R00000X</td>
+      <td>Allopathic &amp; Osteopathic Physicians</td>
+      <td>Internal Medicine</td>
+      <td></td>
+      <td>DOTHAN</td>
+      <td>AL</td>
+      <td>363031928</td>
+      <td>Individual</td>
+      <td>36303</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>1497758437</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>None</td>
+      <td>Unknown</td>
+      <td>Unknown</td>
+      <td></td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>Unknown</td>
+      <td>NaN</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div><div class="cell markdown-cell"><p>---</p>
+<br>
+<h2>6. Enrich Edge List with Provider Details</h2>
+<br>
+<p>Merge provider details onto both sides of the edge list:</p>
+<ul>
+<li><strong>OB-GYN providers</strong>: sub-specialty, city, state, ZIP from the OB-GYN table</li>
+<li><strong>Non-OB-GYN providers</strong>: NUCC type, classification, specialization, city, state, ZIP from the other providers table</li>
+</ul>
+<br>
+<p>This means every edge now has full detail on BOTH sides — we can see exactly what type of specialist the OB-GYN is sharing patients with.</p></div><div class="cell code-cell"><div class="cell-label">In [18]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# MERGE: Provider details onto edge list (both OB-GYN and non-OB-GYN)
+# -------------------------------------------------------------------
+
+# --- OB-GYN lookup ---
+obgyn_lookup = obgyn_providers[[
+    &quot;npi&quot;, &quot;subspecialty&quot;, &quot;city&quot;, &quot;state&quot;, &quot;zip5&quot;
+]].copy()
+
+# --- Non-OB-GYN lookup (includes entity_type) ---
+other_lookup = other_providers[[
+    &quot;npi&quot;, &quot;entity_type&quot;, &quot;provider_type&quot;, &quot;classification&quot;, &quot;specialization&quot;, &quot;city&quot;, &quot;state&quot;, &quot;zip5&quot;
+]].copy()
+
+# Start with raw edges
+obgyn_edges = obgyn_edges_raw.copy()
+
+# --- Merge OB-GYN details for npi1 ---
+obgyn_edges = obgyn_edges.merge(
+    obgyn_lookup.rename(columns={
+        &quot;npi&quot;: &quot;npi1&quot;, &quot;subspecialty&quot;: &quot;npi1_subspecialty&quot;,
+        &quot;city&quot;: &quot;npi1_city&quot;, &quot;state&quot;: &quot;npi1_state&quot;, &quot;zip5&quot;: &quot;npi1_zip5&quot;
+    }),
+    on=&quot;npi1&quot;, how=&quot;left&quot;
+)
+
+# --- Merge OB-GYN details for npi2 ---
+obgyn_edges = obgyn_edges.merge(
+    obgyn_lookup.rename(columns={
+        &quot;npi&quot;: &quot;npi2&quot;, &quot;subspecialty&quot;: &quot;npi2_subspecialty&quot;,
+        &quot;city&quot;: &quot;npi2_city&quot;, &quot;state&quot;: &quot;npi2_state&quot;, &quot;zip5&quot;: &quot;npi2_zip5&quot;
+    }),
+    on=&quot;npi2&quot;, how=&quot;left&quot;
+)
+
+# --- Merge non-OB-GYN details for npi1 ---
+obgyn_edges = obgyn_edges.merge(
+    other_lookup.rename(columns={
+        &quot;npi&quot;: &quot;npi1&quot;, &quot;entity_type&quot;: &quot;npi1_entity_type&quot;,
+        &quot;provider_type&quot;: &quot;npi1_other_type&quot;,
+        &quot;classification&quot;: &quot;npi1_other_classification&quot;,
+        &quot;specialization&quot;: &quot;npi1_other_specialization&quot;,
+        &quot;city&quot;: &quot;npi1_other_city&quot;, &quot;state&quot;: &quot;npi1_other_state&quot;, &quot;zip5&quot;: &quot;npi1_other_zip5&quot;
+    }),
+    on=&quot;npi1&quot;, how=&quot;left&quot;
+)
+
+# --- Merge non-OB-GYN details for npi2 ---
+obgyn_edges = obgyn_edges.merge(
+    other_lookup.rename(columns={
+        &quot;npi&quot;: &quot;npi2&quot;, &quot;entity_type&quot;: &quot;npi2_entity_type&quot;,
+        &quot;provider_type&quot;: &quot;npi2_other_type&quot;,
+        &quot;classification&quot;: &quot;npi2_other_classification&quot;,
+        &quot;specialization&quot;: &quot;npi2_other_specialization&quot;,
+        &quot;city&quot;: &quot;npi2_other_city&quot;, &quot;state&quot;: &quot;npi2_other_state&quot;, &quot;zip5&quot;: &quot;npi2_other_zip5&quot;
+    }),
+    on=&quot;npi2&quot;, how=&quot;left&quot;
+)
+
+# --- Consolidate: for each side, pick OB-GYN detail if available, else non-OB-GYN ---
+for side in [&quot;npi1&quot;, &quot;npi2&quot;]:
+    obgyn_edges[f&quot;{side}_specialty&quot;] = obgyn_edges[f&quot;{side}_subspecialty&quot;].fillna(
+        obgyn_edges[f&quot;{side}_other_classification&quot;]
+    )
+    for field in [&quot;city&quot;, &quot;state&quot;, &quot;zip5&quot;]:
+        obgyn_edges[f&quot;{side}_{field}_final&quot;] = obgyn_edges[f&quot;{side}_{field}&quot;].fillna(
+            obgyn_edges[f&quot;{side}_other_{field}&quot;]
+        )
+
+# --- Entity type for each side: OB-GYNs are always Individual (Entity Type 1) ---
+for side in [&quot;npi1&quot;, &quot;npi2&quot;]:
+    obgyn_edges[f&quot;{side}_entity&quot;] = np.where(
+        obgyn_edges[f&quot;{side}_subspecialty&quot;].notna(),
+        &quot;Individual&quot;,  # OB-GYN side is always individual
+        obgyn_edges[f&quot;{side}_entity_type&quot;]  # Non-OB-GYN side from lookup
+    )
+
+# --- Slim down columns ---
+keep_cols = [
+    &quot;npi1&quot;, &quot;npi2&quot;, &quot;paircount&quot;, &quot;benecount&quot;, &quot;samedaycount&quot;,
+    &quot;year&quot;, &quot;days&quot;, &quot;begdate&quot;, &quot;enddate&quot;, &quot;edge_type&quot;,
+    &quot;npi1_subspecialty&quot;, &quot;npi1_other_type&quot;, &quot;npi1_other_classification&quot;,
+    &quot;npi1_other_specialization&quot;, &quot;npi1_specialty&quot;, &quot;npi1_entity&quot;,
+    &quot;npi1_city_final&quot;, &quot;npi1_state_final&quot;, &quot;npi1_zip5_final&quot;,
+    &quot;npi2_subspecialty&quot;, &quot;npi2_other_type&quot;, &quot;npi2_other_classification&quot;,
+    &quot;npi2_other_specialization&quot;, &quot;npi2_specialty&quot;, &quot;npi2_entity&quot;,
+    &quot;npi2_city_final&quot;, &quot;npi2_state_final&quot;, &quot;npi2_zip5_final&quot;,
+]
+obgyn_edges = obgyn_edges[keep_cols].copy()
+
+obgyn_edges = obgyn_edges.rename(columns={
+    &quot;npi1_city_final&quot;: &quot;npi1_city&quot;, &quot;npi1_state_final&quot;: &quot;npi1_state&quot;, &quot;npi1_zip5_final&quot;: &quot;npi1_zip5&quot;,
+    &quot;npi2_city_final&quot;: &quot;npi2_city&quot;, &quot;npi2_state_final&quot;: &quot;npi2_state&quot;, &quot;npi2_zip5_final&quot;: &quot;npi2_zip5&quot;,
+})
+
+# --- Report entity type breakdown ---
+print(f&quot;Full edge list: {len(obgyn_edges):,} rows x {len(obgyn_edges.columns)} cols&quot;)
+
+# Entity type breakdown
+both_individual = (obgyn_edges[&quot;npi1_entity&quot;] == &quot;Individual&quot;) &amp; (obgyn_edges[&quot;npi2_entity&quot;] == &quot;Individual&quot;)
+has_org = (obgyn_edges[&quot;npi1_entity&quot;] == &quot;Organization&quot;) | (obgyn_edges[&quot;npi2_entity&quot;] == &quot;Organization&quot;)
+
+print(f&quot;\nEntity type breakdown:&quot;)
+print(f&quot;  Both Individual:           {both_individual.sum():,} edges ({both_individual.sum()/len(obgyn_edges)*100:.1f}%)&quot;)
+print(f&quot;  At least one Organization: {has_org.sum():,} edges ({has_org.sum()/len(obgyn_edges)*100:.1f}%)&quot;)
+
+# --- Filter to individual-to-individual only for network analysis ---
+obgyn_edges_individuals = obgyn_edges[both_individual].copy()
+obgyn_edges_orgs = obgyn_edges[~both_individual].copy()
+
+print(f&quot;\nIndividual-only edges (for network analysis): {len(obgyn_edges_individuals):,}&quot;)
+print(f&quot;Organization edges (excluded from network):     {len(obgyn_edges_orgs):,}&quot;)
+
+print(f&quot;\nTop 15 non-OB-GYN classifications (individual-to-individual only):&quot;)
+other_side = pd.concat([
+    obgyn_edges_individuals.loc[obgyn_edges_individuals[&quot;edge_type&quot;]==&quot;obgyn_other&quot;, &quot;npi1_other_classification&quot;],
+    obgyn_edges_individuals.loc[obgyn_edges_individuals[&quot;edge_type&quot;]==&quot;obgyn_other&quot;, &quot;npi2_other_classification&quot;]
+]).dropna()
+print(other_side.value_counts().head(15).to_string())
+
+display(obgyn_edges_individuals.head(5))</code></pre><pre class="code-output">Full edge list: 243,052 rows x 28 cols
+
+Entity type breakdown:
+  Both Individual:           105,891 edges (43.6%)
+  At least one Organization: 132,820 edges (54.6%)
+
+Individual-only edges (for network analysis): 105,891
+Organization edges (excluded from network):     137,161
+
+Top 15 non-OB-GYN classifications (individual-to-individual only):
+Radiology                 45854
+Internal Medicine         18947
+Pathology                  9059
+Family Medicine            4852
+Nurse Practitioner         3195
+Specialist                 2894
+Ophthalmology              1991
+Emergency Medicine         1788
+Physician Assistant        1563
+Dermatology                1559
+Podiatrist                 1348
+Anesthesiology             1170
+Surgery                     971
+Urology                     835
+Psychiatry &amp; Neurology      691
+</pre><div class="output-html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>npi1</th>
+      <th>npi2</th>
+      <th>paircount</th>
+      <th>benecount</th>
+      <th>samedaycount</th>
+      <th>year</th>
+      <th>days</th>
+      <th>begdate</th>
+      <th>enddate</th>
+      <th>edge_type</th>
+      <th>...</th>
+      <th>npi1_zip5</th>
+      <th>npi2_subspecialty</th>
+      <th>npi2_other_type</th>
+      <th>npi2_other_classification</th>
+      <th>npi2_other_specialization</th>
+      <th>npi2_specialty</th>
+      <th>npi2_entity</th>
+      <th>npi2_city</th>
+      <th>npi2_state</th>
+      <th>npi2_zip5</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>1</th>
+      <td>1003000480</td>
+      <td>1548451727</td>
+      <td>30</td>
+      <td>14</td>
+      <td>1</td>
+      <td>2015</td>
+      <td>60</td>
+      <td>1/1/2015</td>
+      <td>10/1/2015</td>
+      <td>obgyn_other</td>
+      <td>...</td>
+      <td>80045</td>
+      <td>Obstetrics &amp; Gynecology</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>Obstetrics &amp; Gynecology</td>
+      <td>Individual</td>
+      <td>DENVER</td>
+      <td>CO</td>
+      <td>80222</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>1003001363</td>
+      <td>1205912847</td>
+      <td>111</td>
+      <td>17</td>
+      <td>1</td>
+      <td>2015</td>
+      <td>60</td>
+      <td>1/1/2015</td>
+      <td>10/1/2015</td>
+      <td>obgyn_other</td>
+      <td>...</td>
+      <td>92243</td>
+      <td>Female Pelvic Medicine and Reconstructive Surgery</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>Female Pelvic Medicine and Reconstructive Surgery</td>
+      <td>Individual</td>
+      <td>EL CENTRO</td>
+      <td>CA</td>
+      <td>92243</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>1003002627</td>
+      <td>1043246499</td>
+      <td>137</td>
+      <td>14</td>
+      <td>1</td>
+      <td>2015</td>
+      <td>60</td>
+      <td>1/1/2015</td>
+      <td>10/1/2015</td>
+      <td>obgyn_other</td>
+      <td>...</td>
+      <td>77566</td>
+      <td>NaN</td>
+      <td>Allopathic &amp; Osteopathic Physicians</td>
+      <td>Anesthesiology</td>
+      <td></td>
+      <td>Anesthesiology</td>
+      <td>Individual</td>
+      <td>ANGLETON</td>
+      <td>TX</td>
+      <td>77515</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>1003002627</td>
+      <td>1073518031</td>
+      <td>63</td>
+      <td>17</td>
+      <td>21</td>
+      <td>2015</td>
+      <td>60</td>
+      <td>1/1/2015</td>
+      <td>10/1/2015</td>
+      <td>obgyn_other</td>
+      <td>...</td>
+      <td>77566</td>
+      <td>NaN</td>
+      <td>Allopathic &amp; Osteopathic Physicians</td>
+      <td>Pathology</td>
+      <td>Anatomic Pathology &amp; Clinical Pathology</td>
+      <td>Pathology</td>
+      <td>Individual</td>
+      <td>CONROE</td>
+      <td>TX</td>
+      <td>77304</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>1003002627</td>
+      <td>1215977145</td>
+      <td>93</td>
+      <td>21</td>
+      <td>5</td>
+      <td>2015</td>
+      <td>60</td>
+      <td>1/1/2015</td>
+      <td>10/1/2015</td>
+      <td>obgyn_other</td>
+      <td>...</td>
+      <td>77566</td>
+      <td>NaN</td>
+      <td>Allopathic &amp; Osteopathic Physicians</td>
+      <td>Internal Medicine</td>
+      <td></td>
+      <td>Internal Medicine</td>
+      <td>Individual</td>
+      <td>LAKE JACKSON</td>
+      <td>TX</td>
+      <td>77566</td>
+    </tr>
+  </tbody>
+</table>
+<p>5 rows × 28 columns</p>
+</div></div></div><div class="cell code-cell"><div class="cell-label">In [19]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# VALIDATE: Cross-state referrals check (now with full coverage)
+# -------------------------------------------------------------------
+
+both_states = obgyn_edges.dropna(subset=[&quot;npi1_state&quot;, &quot;npi2_state&quot;])
+same_state = (both_states[&quot;npi1_state&quot;] == both_states[&quot;npi2_state&quot;]).sum()
+cross_state = len(both_states) - same_state
+
+print(f&quot;Referral geography (where both providers have state info):&quot;)
+print(f&quot;  Same state:  {same_state:,} ({same_state/len(both_states)*100:.1f}%)&quot;)
+print(f&quot;  Cross state: {cross_state:,} ({cross_state/len(both_states)*100:.1f}%)&quot;)
+print(f&quot;  Total:       {len(both_states):,}&quot;)</code></pre><pre class="code-output">Referral geography (where both providers have state info):
+  Same state:  190,556 (79.8%)
+  Cross state: 48,156 (20.2%)
+  Total:       238,712
+</pre></div><div class="cell markdown-cell"><p>---</p>
+<br>
+<h2>7. Compute County-Level Maternal Morbidity Rates</h2>
+<br>
+<p>Join the two CDC WONDER files on <code>County of Residence Code</code> (FIPS) to compute:</p>
+<br>
+<p>$$\text{Morbidity Rate} = \frac{\text{Morbidity Births}}{\text{Total Births}}$$</p>
+<br>
+<p>Counties present in the births file but absent from the morbidity file are treated as having zero morbidity events (the count was either zero or suppressed below the reporting threshold).</p></div><div class="cell code-cell"><div class="cell-label">In [20]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# CLEAN: Prepare CDC WONDER data for join
+# -------------------------------------------------------------------
+
+def clean_cdc_data(df, value_col_name):
+    &quot;&quot;&quot;Clean a CDC WONDER DataFrame: drop notes, handle suppressed values.&quot;&quot;&quot;
+    out = df.copy()
+    
+    # Drop rows where County of Residence Code is missing or contains
+    # &#x27;Unidentified&#x27; grouping rows
+    out = out[out[&quot;County of Residence Code&quot;].notna()].copy()
+    
+    # Drop the Notes column (empty for data rows)
+    if &quot;Notes&quot; in out.columns:
+        out = out.drop(columns=[&quot;Notes&quot;])
+    
+    # Convert Births to numeric; &#x27;Suppressed&#x27; or non-numeric -&gt; NaN
+    out[value_col_name] = pd.to_numeric(out[&quot;Births&quot;], errors=&quot;coerce&quot;)
+    out = out.drop(columns=[&quot;Births&quot;])
+    
+    # Rename for clarity
+    out = out.rename(columns={
+        &quot;County of Residence&quot;: &quot;county_name&quot;,
+        &quot;County of Residence Code&quot;: &quot;fips&quot;
+    })
+    
+    return out
+
+births_clean = clean_cdc_data(cdc_births, &quot;total_births&quot;)
+morbidity_clean = clean_cdc_data(cdc_morbidity, &quot;morbidity_births&quot;)
+
+print(f&quot;Births clean:    {len(births_clean):,} rows&quot;)
+print(f&quot;Morbidity clean: {len(morbidity_clean):,} rows&quot;)
+
+# Show suppressed counts
+births_suppressed = births_clean[&quot;total_births&quot;].isna().sum()
+morbidity_suppressed = morbidity_clean[&quot;morbidity_births&quot;].isna().sum()
+print(f&quot;\nSuppressed values:&quot;)
+print(f&quot;  Births:    {births_suppressed} counties&quot;)
+print(f&quot;  Morbidity: {morbidity_suppressed} counties&quot;)</code></pre><pre class="code-output">Births clean:    626 rows
+Morbidity clean: 577 rows
+
+Suppressed values:
+  Births:    0 counties
+  Morbidity: 0 counties
+</pre></div><div class="cell code-cell"><div class="cell-label">In [21]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# JOIN: Compute morbidity rate by county
+# -------------------------------------------------------------------
+
+county_rates = births_clean.merge(
+    morbidity_clean[[&quot;fips&quot;, &quot;morbidity_births&quot;]],
+    on=&quot;fips&quot;,
+    how=&quot;left&quot;
+)
+
+# Counties in births but not morbidity -&gt; 0 morbidity births
+county_rates[&quot;morbidity_births&quot;] = county_rates[&quot;morbidity_births&quot;].fillna(0)
+
+# Compute rate (only where total_births is valid)
+county_rates[&quot;morbidity_rate&quot;] = (
+    county_rates[&quot;morbidity_births&quot;] / county_rates[&quot;total_births&quot;]
+)
+
+# Extract state abbreviation from county name (e.g., &#x27;Baldwin County, AL&#x27; -&gt; &#x27;AL&#x27;)
+county_rates[&quot;state&quot;] = county_rates[&quot;county_name&quot;].str.extract(r&quot;,\s*([A-Z]{2})$&quot;)
+
+print(f&quot;County morbidity rates: {len(county_rates):,} counties&quot;)
+print(f&quot;\nMorbidity rate statistics:&quot;)
+print(county_rates[&quot;morbidity_rate&quot;].describe().to_string())
+
+print(f&quot;\nTop 10 counties by morbidity rate:&quot;)
+top10 = county_rates.nlargest(10, &quot;morbidity_rate&quot;)[
+    [&quot;county_name&quot;, &quot;fips&quot;, &quot;total_births&quot;, &quot;morbidity_births&quot;, &quot;morbidity_rate&quot;]
+]
+display(top10)
+
+print(f&quot;\nBottom 10 counties by morbidity rate (excluding zero):&quot;)
+bottom10 = county_rates[county_rates[&quot;morbidity_rate&quot;] &gt; 0].nsmallest(10, &quot;morbidity_rate&quot;)[
+    [&quot;county_name&quot;, &quot;fips&quot;, &quot;total_births&quot;, &quot;morbidity_births&quot;, &quot;morbidity_rate&quot;]
+]
+display(bottom10)</code></pre><pre class="code-output">County morbidity rates: 626 counties
+
+Morbidity rate statistics:
+count    626.000000
+mean       0.013050
+std        0.008382
+min        0.000000
+25%        0.007919
+50%        0.012194
+75%        0.016830
+max        0.076811
+
+Top 10 counties by morbidity rate:
+</pre><div class="output-html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>county_name</th>
+      <th>fips</th>
+      <th>total_births</th>
+      <th>morbidity_births</th>
+      <th>morbidity_rate</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>487</th>
+      <td>Schuylkill County, PA</td>
+      <td>42107</td>
+      <td>1367</td>
+      <td>105.0</td>
+      <td>0.076811</td>
+    </tr>
+    <tr>
+      <th>351</th>
+      <td>Dona Ana County, NM</td>
+      <td>35013</td>
+      <td>2839</td>
+      <td>160.0</td>
+      <td>0.056358</td>
+    </tr>
+    <tr>
+      <th>593</th>
+      <td>Benton County, WA</td>
+      <td>53005</td>
+      <td>2759</td>
+      <td>145.0</td>
+      <td>0.052555</td>
+    </tr>
+    <tr>
+      <th>380</th>
+      <td>Suffolk County, NY</td>
+      <td>36103</td>
+      <td>15559</td>
+      <td>809.0</td>
+      <td>0.051996</td>
+    </tr>
+    <tr>
+      <th>361</th>
+      <td>Erie County, NY</td>
+      <td>36029</td>
+      <td>9916</td>
+      <td>448.0</td>
+      <td>0.045180</td>
+    </tr>
+    <tr>
+      <th>242</th>
+      <td>Carroll County, MD</td>
+      <td>24013</td>
+      <td>1737</td>
+      <td>75.0</td>
+      <td>0.043178</td>
+    </tr>
+    <tr>
+      <th>367</th>
+      <td>Niagara County, NY</td>
+      <td>36063</td>
+      <td>2139</td>
+      <td>86.0</td>
+      <td>0.040206</td>
+    </tr>
+    <tr>
+      <th>462</th>
+      <td>Beaver County, PA</td>
+      <td>42007</td>
+      <td>1676</td>
+      <td>67.0</td>
+      <td>0.039976</td>
+    </tr>
+    <tr>
+      <th>413</th>
+      <td>Cass County, ND</td>
+      <td>38017</td>
+      <td>2639</td>
+      <td>105.0</td>
+      <td>0.039788</td>
+    </tr>
+    <tr>
+      <th>359</th>
+      <td>Chautauqua County, NY</td>
+      <td>36013</td>
+      <td>1345</td>
+      <td>52.0</td>
+      <td>0.038662</td>
+    </tr>
+  </tbody>
+</table>
+</div></div><pre class="code-output">
+Bottom 10 counties by morbidity rate (excluding zero):
+</pre><div class="output-html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>county_name</th>
+      <th>fips</th>
+      <th>total_births</th>
+      <th>morbidity_births</th>
+      <th>morbidity_rate</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>579</th>
+      <td>Fairfax County, VA</td>
+      <td>51059</td>
+      <td>14525</td>
+      <td>32.0</td>
+      <td>0.002203</td>
+    </tr>
+    <tr>
+      <th>114</th>
+      <td>Osceola County, FL</td>
+      <td>12097</td>
+      <td>4328</td>
+      <td>10.0</td>
+      <td>0.002311</td>
+    </tr>
+    <tr>
+      <th>94</th>
+      <td>Brevard County, FL</td>
+      <td>12009</td>
+      <td>5273</td>
+      <td>16.0</td>
+      <td>0.003034</td>
+    </tr>
+    <tr>
+      <th>63</th>
+      <td>Stanislaus County, CA</td>
+      <td>06099</td>
+      <td>7862</td>
+      <td>24.0</td>
+      <td>0.003053</td>
+    </tr>
+    <tr>
+      <th>555</th>
+      <td>Nueces County, TX</td>
+      <td>48355</td>
+      <td>4738</td>
+      <td>15.0</td>
+      <td>0.003166</td>
+    </tr>
+    <tr>
+      <th>109</th>
+      <td>Marion County, FL</td>
+      <td>12083</td>
+      <td>3472</td>
+      <td>11.0</td>
+      <td>0.003168</td>
+    </tr>
+    <tr>
+      <th>36</th>
+      <td>Fresno County, CA</td>
+      <td>06019</td>
+      <td>15129</td>
+      <td>50.0</td>
+      <td>0.003305</td>
+    </tr>
+    <tr>
+      <th>92</th>
+      <td>Alachua County, FL</td>
+      <td>12001</td>
+      <td>2862</td>
+      <td>10.0</td>
+      <td>0.003494</td>
+    </tr>
+    <tr>
+      <th>123</th>
+      <td>Seminole County, FL</td>
+      <td>12117</td>
+      <td>4753</td>
+      <td>17.0</td>
+      <td>0.003577</td>
+    </tr>
+    <tr>
+      <th>540</th>
+      <td>Fort Bend County, TX</td>
+      <td>48157</td>
+      <td>9976</td>
+      <td>37.0</td>
+      <td>0.003709</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div><div class="cell markdown-cell"><p>---</p>
+<br>
+<h2>8. Export Clean Datasets</h2>
+<br>
+<p>Save all analysis-ready datasets to CSV for downstream analysis and visualization.</p></div><div class="cell code-cell"><div class="cell-label">In [22]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# EXPORT: Save analysis-ready files
+# -------------------------------------------------------------------
+
+# 1. OB-GYN Providers
+obgyn_providers.to_csv(OBGYN_PROVIDERS_OUT, index=False)
+print(f&quot;Saved: {OBGYN_PROVIDERS_OUT}&quot;)
+print(f&quot;  {len(obgyn_providers):,} rows x {len(obgyn_providers.columns)} cols&quot;)
+print(f&quot;  Size: {OBGYN_PROVIDERS_OUT.stat().st_size / (1024**2):.1f} MB&quot;)
+print()
+
+# 2. Non-OB-GYN Providers (with entity_type column)
+other_providers.to_csv(OTHER_PROVIDERS_OUT, index=False)
+print(f&quot;Saved: {OTHER_PROVIDERS_OUT}&quot;)
+print(f&quot;  {len(other_providers):,} rows x {len(other_providers.columns)} cols&quot;)
+print(f&quot;  Size: {OTHER_PROVIDERS_OUT.stat().st_size / (1024**2):.1f} MB&quot;)
+print()
+
+# 3. Full OB-GYN Edges (all entity types — for reference)
+obgyn_edges.to_csv(OBGYN_EDGES_OUT, index=False)
+print(f&quot;Saved: {OBGYN_EDGES_OUT}&quot;)
+print(f&quot;  {len(obgyn_edges):,} rows x {len(obgyn_edges.columns)} cols&quot;)
+print(f&quot;  Size: {OBGYN_EDGES_OUT.stat().st_size / (1024**2):.1f} MB&quot;)
+print()
+
+# 4. Individual-only edges (for network analysis in Phase 4+)
+OBGYN_EDGES_IND_OUT = OUTPUT_DIR / &quot;obgyn_edges_individuals.csv&quot;
+obgyn_edges_individuals.to_csv(OBGYN_EDGES_IND_OUT, index=False)
+print(f&quot;Saved: {OBGYN_EDGES_IND_OUT}&quot;)
+print(f&quot;  {len(obgyn_edges_individuals):,} rows x {len(obgyn_edges_individuals.columns)} cols&quot;)
+print(f&quot;  Size: {OBGYN_EDGES_IND_OUT.stat().st_size / (1024**2):.1f} MB&quot;)
+print()
+
+# 5. County Morbidity Rates
+county_rates.to_csv(COUNTY_MORBIDITY_OUT, index=False)
+print(f&quot;Saved: {COUNTY_MORBIDITY_OUT}&quot;)
+print(f&quot;  {len(county_rates):,} rows x {len(county_rates.columns)} cols&quot;)
+print(f&quot;  Size: {COUNTY_MORBIDITY_OUT.stat().st_size / 1024:.1f} KB&quot;)</code></pre><pre class="code-output">Saved: ../data/outputs/obgyn_providers.csv
+  60,422 rows x 9 cols
+  Size: 5.1 MB
+
+Saved: ../data/outputs/other_providers.csv
+  46,527 rows x 13 cols
+  Size: 6.0 MB
+
+Saved: ../data/outputs/obgyn_edges.csv
+  243,052 rows x 28 cols
+  Size: 58.4 MB
+
+Saved: ../data/outputs/obgyn_edges_individuals.csv
+  105,891 rows x 28 cols
+  Size: 25.8 MB
+
+Saved: ../data/outputs/county_morbidity_rates.csv
+  626 rows x 6 cols
+  Size: 37.1 KB
+</pre></div><div class="cell code-cell"><div class="cell-label">In [23]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# EXPORT: Save analysis-ready files
+# -------------------------------------------------------------------
+
+# 1. OB-GYN Providers
+obgyn_providers.to_csv(OBGYN_PROVIDERS_OUT, index=False)
+print(f&quot;Saved: {OBGYN_PROVIDERS_OUT}&quot;)
+print(f&quot;  {len(obgyn_providers):,} rows x {len(obgyn_providers.columns)} cols&quot;)
+print(f&quot;  Size: {OBGYN_PROVIDERS_OUT.stat().st_size / (1024**2):.1f} MB&quot;)
+print()
+
+# 2. OB-GYN Edges (enriched)
+obgyn_edges.to_csv(OBGYN_EDGES_OUT, index=False)
+print(f&quot;Saved: {OBGYN_EDGES_OUT}&quot;)
+print(f&quot;  {len(obgyn_edges):,} rows x {len(obgyn_edges.columns)} cols&quot;)
+print(f&quot;  Size: {OBGYN_EDGES_OUT.stat().st_size / (1024**2):.1f} MB&quot;)
+print()
+
+# 3. County Morbidity Rates
+county_rates.to_csv(COUNTY_MORBIDITY_OUT, index=False)
+print(f&quot;Saved: {COUNTY_MORBIDITY_OUT}&quot;)
+print(f&quot;  {len(county_rates):,} rows x {len(county_rates.columns)} cols&quot;)
+print(f&quot;  Size: {COUNTY_MORBIDITY_OUT.stat().st_size / 1024:.1f} KB&quot;)</code></pre><pre class="code-output">Saved: ../data/outputs/obgyn_providers.csv
+  60,422 rows x 9 cols
+  Size: 5.1 MB
+
+Saved: ../data/outputs/obgyn_edges.csv
+  243,052 rows x 28 cols
+  Size: 58.4 MB
+
+Saved: ../data/outputs/county_morbidity_rates.csv
+  626 rows x 6 cols
+  Size: 37.1 KB
+</pre></div><div class="cell markdown-cell"><p>---</p>
+<br>
+<h2>Phase 2 Summary</h2></div><div class="cell code-cell"><div class="cell-label">In [24]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# SUMMARY
+# -------------------------------------------------------------------
+
+print(&quot;=&quot; * 75)
+print(&quot;PHASE 2 — DATA PREPARATION SUMMARY&quot;)
+print(&quot;=&quot; * 75)
+
+print(f&quot;\nInputs processed:&quot;)
+print(f&quot;  NPPES:       ~{NPPES_FILE.stat().st_size / (1024**3):.0f} GB scanned (two passes)&quot;)
+print(f&quot;  CMS:         ~{CMS_FILE.stat().st_size / (1024**3):.0f} GB scanned&quot;)
+print(f&quot;  NUCC:        {len(nucc_df):,} taxonomy codes&quot;)
+print(f&quot;  CDC WONDER:  {len(cdc_births):,} + {len(cdc_morbidity):,} county records&quot;)
+
+print(f&quot;\nOutputs:&quot;)
+print(f&quot;  {&#x27;File&#x27;:&lt;40} {&#x27;Rows&#x27;:&gt;10} {&#x27;Cols&#x27;:&gt;6}&quot;)
+print(f&quot;  {&#x27;-&#x27;*60}&quot;)
+
+outputs_summary = [
+    (&quot;obgyn_providers.csv&quot;, obgyn_providers),
+    (&quot;other_providers.csv&quot;, other_providers),
+    (&quot;obgyn_edges.csv (all)&quot;, obgyn_edges),
+    (&quot;obgyn_edges_individuals.csv&quot;, obgyn_edges_individuals),
+    (&quot;county_morbidity_rates.csv&quot;, county_rates),
+]
+
+for name, df in outputs_summary:
+    print(f&quot;  {name:&lt;40} {len(df):&gt;10,} {len(df.columns):&gt;6}&quot;)
+
+print(f&quot;\nKey statistics:&quot;)
+print(f&quot;  OB-GYN providers:              {len(obgyn_providers):,}&quot;)
+print(f&quot;  Non-OB-GYN providers:          {len(other_providers):,}&quot;)
+print(f&quot;    Individuals:                 {(other_providers[&#x27;entity_type&#x27;]==&#x27;Individual&#x27;).sum():,}&quot;)
+print(f&quot;    Organizations:               {(other_providers[&#x27;entity_type&#x27;]==&#x27;Organization&#x27;).sum():,}&quot;)
+print(f&quot;  Total edges (all):             {len(obgyn_edges):,}&quot;)
+print(f&quot;  Individual-only edges:         {len(obgyn_edges_individuals):,}&quot;)
+print(f&quot;    OB-GYN ↔ OB-GYN:            {(obgyn_edges_individuals[&#x27;edge_type&#x27;]==&#x27;obgyn_obgyn&#x27;).sum():,}&quot;)
+print(f&quot;    OB-GYN ↔ Other Individual:   {(obgyn_edges_individuals[&#x27;edge_type&#x27;]==&#x27;obgyn_other&#x27;).sum():,}&quot;)
+print(f&quot;  Organization edges (excluded): {len(obgyn_edges_orgs):,}&quot;)
+print(f&quot;  Counties with rates:           {county_rates[&#x27;morbidity_rate&#x27;].notna().sum():,}&quot;)
+
+print(f&quot;\n{&#x27;=&#x27;*75}&quot;)
+print(f&quot;All outputs saved to: {OUTPUT_DIR.resolve()}&quot;)
+print(f&quot;Network analysis (Phase 4+) will use obgyn_edges_individuals.csv&quot;)
+print(f&quot;Ready to proceed to Phase 3: EDA &amp; Visualization (03_eda_visualization.ipynb)&quot;)</code></pre><pre class="code-output">===========================================================================
+PHASE 2 — DATA PREPARATION SUMMARY
+===========================================================================
+
+Inputs processed:
+  NPPES:       ~10 GB scanned (two passes)
+  CMS:         ~3 GB scanned
+  NUCC:        838 taxonomy codes
+  CDC WONDER:  627 + 578 county records
+
+Outputs:
+  File                                           Rows   Cols
+  ------------------------------------------------------------
+  obgyn_providers.csv                          60,422      9
+  other_providers.csv                          46,527     13
+  obgyn_edges.csv (all)                       243,052     28
+  obgyn_edges_individuals.csv                 105,891     28
+  county_morbidity_rates.csv                      626      6
+
+Key statistics:
+  OB-GYN providers:              60,422
+  Non-OB-GYN providers:          46,527
+    Individuals:                 37,114
+    Organizations:               8,031
+  Total edges (all):             243,052
+  Individual-only edges:         105,891
+    OB-GYN ↔ OB-GYN:            3,751
+    OB-GYN ↔ Other Individual:   102,140
+  Organization edges (excluded): 137,161
+  Counties with rates:           626
+
+===========================================================================
+All outputs saved to: /Users/trinidadcisneros/Documents/Development/Coding/bitterscientist.com/bitterscientist.com/folders/ds_blogs/projects/network_analysis/maternal_network/data/outputs
+Network analysis (Phase 4+) will use obgyn_edges_individuals.csv
+Ready to proceed to Phase 3: EDA &amp; Visualization (03_eda_visualization.ipynb)
+</pre></div><div class="cell code-cell"><div class="cell-label">In [25]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# EXPORT: Summary statistics table for Tableau
+# -------------------------------------------------------------------
+
+n_other_individual = (other_providers[&quot;entity_type&quot;] == &quot;Individual&quot;).sum()
+n_other_org = (other_providers[&quot;entity_type&quot;] == &quot;Organization&quot;).sum()
+
+summary_rows = [
+    {&quot;Category&quot;: &quot;Data Scope&quot;, &quot;Metric&quot;: &quot;OB-GYN Providers&quot;, &quot;Value&quot;: len(obgyn_providers), &quot;Detail&quot;: &quot;Individual providers with 207V taxonomy code&quot;},
+    {&quot;Category&quot;: &quot;Data Scope&quot;, &quot;Metric&quot;: &quot;Non-OB-GYN Individuals&quot;, &quot;Value&quot;: n_other_individual, &quot;Detail&quot;: &quot;Individual providers sharing patients with OB-GYNs&quot;},
+    {&quot;Category&quot;: &quot;Data Scope&quot;, &quot;Metric&quot;: &quot;Non-OB-GYN Organizations&quot;, &quot;Value&quot;: n_other_org, &quot;Detail&quot;: &quot;Facilities, hospitals, labs sharing patients with OB-GYNs&quot;},
+    {&quot;Category&quot;: &quot;Data Scope&quot;, &quot;Metric&quot;: &quot;Total Providers in Network&quot;, &quot;Value&quot;: len(obgyn_providers) + len(other_providers), &quot;Detail&quot;: &quot;All unique providers (individuals + organizations) in the edge list&quot;},
+    {&quot;Category&quot;: &quot;Data Scope&quot;, &quot;Metric&quot;: &quot;OB-GYN Subspecialties&quot;, &quot;Value&quot;: obgyn_providers[&quot;subspecialty&quot;].nunique(), &quot;Detail&quot;: &quot;Distinct 207V taxonomy classifications&quot;},
+    {&quot;Category&quot;: &quot;Data Scope&quot;, &quot;Metric&quot;: &quot;Non-OB-GYN Classifications&quot;, &quot;Value&quot;: other_providers[&quot;classification&quot;].nunique(), &quot;Detail&quot;: &quot;Distinct NUCC classifications for other providers&quot;},
+    {&quot;Category&quot;: &quot;Network&quot;, &quot;Metric&quot;: &quot;Total Edges (all)&quot;, &quot;Value&quot;: len(obgyn_edges), &quot;Detail&quot;: &quot;All provider pairs sharing &gt;= 11 Medicare patients within 60 days&quot;},
+    {&quot;Category&quot;: &quot;Network&quot;, &quot;Metric&quot;: &quot;Individual-to-Individual Edges&quot;, &quot;Value&quot;: len(obgyn_edges_individuals), &quot;Detail&quot;: &quot;Edges used for network analysis (organizations excluded)&quot;},
+    {&quot;Category&quot;: &quot;Network&quot;, &quot;Metric&quot;: &quot;OB-GYN to OB-GYN Edges&quot;, &quot;Value&quot;: (obgyn_edges_individuals[&quot;edge_type&quot;] == &quot;obgyn_obgyn&quot;).sum(), &quot;Detail&quot;: &quot;Both providers are OB-GYN individuals&quot;},
+    {&quot;Category&quot;: &quot;Network&quot;, &quot;Metric&quot;: &quot;OB-GYN to Other Individual Edges&quot;, &quot;Value&quot;: (obgyn_edges_individuals[&quot;edge_type&quot;] == &quot;obgyn_other&quot;).sum(), &quot;Detail&quot;: &quot;OB-GYN paired with a different individual specialist&quot;},
+    {&quot;Category&quot;: &quot;Outcomes&quot;, &quot;Metric&quot;: &quot;Counties with Morbidity Data&quot;, &quot;Value&quot;: county_rates[&quot;morbidity_rate&quot;].notna().sum(), &quot;Detail&quot;: &quot;CDC WONDER 2016 county-level maternal morbidity&quot;},
+    {&quot;Category&quot;: &quot;Outcomes&quot;, &quot;Metric&quot;: &quot;Total Births Tracked&quot;, &quot;Value&quot;: int(county_rates[&quot;total_births&quot;].sum()), &quot;Detail&quot;: &quot;Across all counties in the dataset&quot;},
+]
+
+summary_df = pd.DataFrame(summary_rows)
+summary_df[&quot;Value_Formatted&quot;] = summary_df[&quot;Value&quot;].apply(lambda x: f&quot;{x:,}&quot;)
+
+SUMMARY_OUT = OUTPUT_DIR / &quot;phase2_summary_stats.csv&quot;
+summary_df.to_csv(SUMMARY_OUT, index=False)
+print(f&quot;Saved: {SUMMARY_OUT}&quot;)
+display(summary_df[[&quot;Category&quot;, &quot;Metric&quot;, &quot;Value_Formatted&quot;, &quot;Detail&quot;]])</code></pre><pre class="code-output">Saved: ../data/outputs/phase2_summary_stats.csv
+</pre><div class="output-html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Category</th>
+      <th>Metric</th>
+      <th>Value_Formatted</th>
+      <th>Detail</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>Data Scope</td>
+      <td>OB-GYN Providers</td>
+      <td>60,422</td>
+      <td>Individual providers with 207V taxonomy code</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>Data Scope</td>
+      <td>Non-OB-GYN Individuals</td>
+      <td>37,114</td>
+      <td>Individual providers sharing patients with OB-...</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>Data Scope</td>
+      <td>Non-OB-GYN Organizations</td>
+      <td>8,031</td>
+      <td>Facilities, hospitals, labs sharing patients w...</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>Data Scope</td>
+      <td>Total Providers in Network</td>
+      <td>106,949</td>
+      <td>All unique providers (individuals + organizati...</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>Data Scope</td>
+      <td>OB-GYN Subspecialties</td>
+      <td>10</td>
+      <td>Distinct 207V taxonomy classifications</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>Data Scope</td>
+      <td>Non-OB-GYN Classifications</td>
+      <td>134</td>
+      <td>Distinct NUCC classifications for other providers</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>Network</td>
+      <td>Total Edges (all)</td>
+      <td>243,052</td>
+      <td>All provider pairs sharing &gt;= 11 Medicare pati...</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>Network</td>
+      <td>Individual-to-Individual Edges</td>
+      <td>105,891</td>
+      <td>Edges used for network analysis (organizations...</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>Network</td>
+      <td>OB-GYN to OB-GYN Edges</td>
+      <td>3,751</td>
+      <td>Both providers are OB-GYN individuals</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>Network</td>
+      <td>OB-GYN to Other Individual Edges</td>
+      <td>102,140</td>
+      <td>OB-GYN paired with a different individual spec...</td>
+    </tr>
+    <tr>
+      <th>10</th>
+      <td>Outcomes</td>
+      <td>Counties with Morbidity Data</td>
+      <td>626</td>
+      <td>CDC WONDER 2016 county-level maternal morbidity</td>
+    </tr>
+    <tr>
+      <th>11</th>
+      <td>Outcomes</td>
+      <td>Total Births Tracked</td>
+      <td>3,945,875</td>
+      <td>Across all counties in the dataset</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div><div class="cell markdown-cell"><p>---</p>
+<br>
+<h2>Next Steps</h2>
+<br>
+<p>Proceed to <strong><code>03_eda_visualization.ipynb</code></strong>:</p>
+<p>1. Distribution analysis — provider counts by state, sub-specialty, edge weight distributions</p>
+<p>2. Geographic coverage maps — where are OB-GYN providers concentrated vs. sparse?</p>
+<p>3. Network summary statistics — degree distributions, connected components</p>
+<p>4. Morbidity rate exploration — geographic variation, relationship to provider density</p>
+<p>5. Correlation analysis — early signal detection between network features and health outcomes</p></div>
+</body>
+</html>

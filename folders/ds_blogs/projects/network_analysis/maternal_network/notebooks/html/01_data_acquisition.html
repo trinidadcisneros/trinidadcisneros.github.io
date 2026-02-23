@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>01_data_acquisition</title>
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 20px;
+    background: #fff;
+    color: #333;
+    line-height: 1.6;
+}
+.cell {
+    margin-bottom: 16px;
+    border-left: 3px solid #e0e0e0;
+    padding-left: 12px;
+}
+.markdown-cell {
+    border-left-color: #4CAF50;
+}
+.markdown-cell h1 { font-size: 1.8em; border-bottom: 2px solid #eee; padding-bottom: 8px; }
+.markdown-cell h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+.markdown-cell h3 { font-size: 1.25em; }
+.markdown-cell h4 { font-size: 1.1em; }
+.code-cell {
+    border-left-color: #2196F3;
+}
+.cell-label {
+    font-family: monospace;
+    font-size: 0.85em;
+    color: #999;
+    margin-bottom: 4px;
+}
+pre.code-input {
+    background: #f5f7fa;
+    border: 1px solid #e1e4e8;
+    border-radius: 4px;
+    padding: 12px;
+    overflow-x: auto;
+    font-size: 0.9em;
+    line-height: 1.45;
+}
+pre.code-output {
+    background: #fafafa;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 12px;
+    overflow-x: auto;
+    font-size: 0.85em;
+    color: #555;
+}
+pre.code-error {
+    background: #fff5f5;
+    border: 1px solid #fcc;
+    border-radius: 4px;
+    padding: 12px;
+    overflow-x: auto;
+    font-size: 0.85em;
+    color: #c00;
+}
+.output-html {
+    overflow-x: auto;
+    margin: 8px 0;
+}
+.output-html table {
+    border-collapse: collapse;
+    margin: 8px 0;
+    font-size: 0.9em;
+}
+.output-html table th, .output-html table td {
+    border: 1px solid #ddd;
+    padding: 6px 10px;
+    text-align: left;
+}
+.output-html table th {
+    background: #f5f7fa;
+    font-weight: 600;
+}
+.output-html table tr:nth-child(even) {
+    background: #fafafa;
+}
+.output-image {
+    margin: 8px 0;
+}
+.output-image img {
+    max-width: 100%;
+    height: auto;
+}
+code {
+    font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+}
+blockquote {
+    border-left: 4px solid #dfe2e5;
+    padding: 0 16px;
+    color: #6a737d;
+    margin: 0;
+}
+</style>
+</head>
+<body>
+<div class="cell markdown-cell"><h1>Phase 1: Data Acquisition & Validation</h1>
+<br>
+<h2>Maternal Care Provider Network Analysis</h2>
+<br>
+<p>---</p>
+<br>
+<h3>Project Overview</h3>
+<br>
+<p>This notebook loads and validates all datasets required for our OB-GYN provider network analysis. The goal is to map maternal care provider referral networks across the U.S., identify regions with strong vs. fragmented care coordination, and overlay maternal health outcomes to reveal where virtual care models could fill the biggest gaps.</p>
+<br>
+<h3>Datasets</h3>
+<br>
+<p>| # | Dataset | File | Source | Study Period |</p>
+<p>|---|---------|------|--------|-------------|</p>
+<p>| 1 | CMS Physician Shared Patient Patterns | <code>pspp2015_60.csv</code> | <a href="https://www.nber.org/research/data/physician-shared-patient-patterns-data">NBER</a> | 2015, 60-day window |</p>
+<p>| 2 | NPPES NPI Bulk File | <code>npidata_pfile_20050523-20260208.csv</code> | <a href="https://download.cms.gov/nppes/NPI_Files.html">CMS</a> | Current (Feb 2026) |</p>
+<p>| 3 | NUCC Taxonomy Code Set | <code>nucc_taxonomy_151.csv</code> | <a href="https://www.nucc.org/">NUCC</a> | Version 15.1 (7/1/2015) |</p>
+<p>| 4a | CDC WONDER — Total Births by County | <code>cdc_wonder_2016_births_by_county.csv</code> | <a href="https://wonder.cdc.gov/natality-expanded-current.html">CDC WONDER</a> | 2016 |</p>
+<p>| 4b | CDC WONDER — Maternal Morbidity by County | <code>cdc_wonder_2016_maternal_morbidity_by_county.csv</code> | <a href="https://wonder.cdc.gov/natality-expanded-current.html">CDC WONDER</a> | 2016 |</p>
+<br>
+<h3>Study Period Rationale</h3>
+<br>
+<p>The CMS Shared Patient Patterns data (2009–2015) is the binding constraint. We use <strong>2015</strong> as the most recent and complete year. The <strong>60-day window</strong> captures referral-to-completion lag time — the realistic gap between when an OB-GYN refers a patient and when the specialist visit actually occurs. CDC WONDER data starts at <strong>2016</strong>, which aligns well since CDC natality statistics for a given year reflect births (and associated morbidity) from the prior reporting period.</p>
+<br>
+<h3>Assumptions & Limitations</h3>
+<br>
+<ul>
+<li><strong>NPPES Current vs. Historical:</strong> A 2015-era NPPES snapshot is not freely available from CMS or NBER. We use the current NPPES bulk file (Feb 2026) under the assumption that OB-GYN taxonomy codes (207V) have not changed and that the majority of established practices have stable locations.</li>
+<li><strong>NUCC Version 15.1 (7/1/2015):</strong> Selected to match the 2015 study period. OB-GYN taxonomy codes in the 207V family have been stable across versions.</li>
+<li><strong>Privacy Threshold:</strong> The CMS shared patient file excludes provider pairs with fewer than 11 shared patients, meaning very low-volume referral relationships are not captured.</li>
+<li><strong>County Population Threshold:</strong> CDC WONDER only reports county-level data for counties with populations >= 100,000 (per 2010 Census). Smaller counties are grouped as "Unidentified Counties" per state.</li>
+</ul>
+<br>
+<p>---</p></div><div class="cell markdown-cell"><h2>Setup</h2></div><div class="cell code-cell"><div class="cell-label">In [1]:</div><pre class="code-input"><code>import pandas as pd
+import numpy as np
+from pathlib import Path
+from io import StringIO
+from datetime import datetime
+
+print(f&quot;Notebook executed: {datetime.now().strftime(&#x27;%Y-%m-%d %H:%M:%S&#x27;)}&quot;)
+print(f&quot;pandas version: {pd.__version__}&quot;)
+print(f&quot;numpy version: {np.__version__}&quot;)</code></pre><pre class="code-output">Notebook executed: 2026-02-16 09:58:58
+pandas version: 2.3.3
+numpy version: 1.26.4
+</pre></div><div class="cell code-cell"><div class="cell-label">In [2]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# FILE PATHS
+# -------------------------------------------------------------------
+# All paths are relative to the notebooks/ directory.
+# Project structure:
+#   maternal_network/
+#   ├── notebooks/          &lt;- you are here
+#   ├── data/
+#   │   ├── inputs/raw/
+#   │   │   ├── cms_shared_patient/
+#   │   │   ├── nppes/
+#   │   │   ├── nucc_taxonomy/
+#   │   │   └── cdc_wonder/
+#   │   └── outputs/
+# -------------------------------------------------------------------
+
+RAW_DIR = Path(&quot;../data/inputs/raw&quot;)
+
+CMS_FILE = RAW_DIR / &quot;cms_shared_patient&quot; / &quot;pspp2015_60.csv&quot;
+NPPES_FILE = RAW_DIR / &quot;nppes&quot; / &quot;npidata_pfile_20050523-20260208.csv&quot;
+NUCC_FILE = RAW_DIR / &quot;nucc_taxonomy&quot; / &quot;nucc_taxonomy_151.csv&quot;
+CDC_BIRTHS_FILE = RAW_DIR / &quot;cdc_wonder&quot; / &quot;cdc_wonder_2016_births_by_county.csv&quot;
+CDC_MORBIDITY_FILE = RAW_DIR / &quot;cdc_wonder&quot; / &quot;cdc_wonder_2016_maternal_morbidity_by_county.csv&quot;
+
+# Verify all files exist
+all_files = {
+    &quot;CMS Shared Patient Patterns&quot;: CMS_FILE,
+    &quot;NPPES NPI Bulk File&quot;: NPPES_FILE,
+    &quot;NUCC Taxonomy Code Set&quot;: NUCC_FILE,
+    &quot;CDC WONDER — Births by County&quot;: CDC_BIRTHS_FILE,
+    &quot;CDC WONDER — Maternal Morbidity&quot;: CDC_MORBIDITY_FILE,
+}
+
+print(f&quot;{&#x27;Dataset&#x27;:&lt;40} {&#x27;Status&#x27;:&lt;10} {&#x27;Size&#x27;:&gt;12}&quot;)
+print(&quot;-&quot; * 65)
+for name, fpath in all_files.items():
+    if fpath.exists():
+        size = fpath.stat().st_size
+        if size &gt; 1024**3:
+            size_str = f&quot;{size / (1024**3):.2f} GB&quot;
+        elif size &gt; 1024**2:
+            size_str = f&quot;{size / (1024**2):.1f} MB&quot;
+        else:
+            size_str = f&quot;{size / 1024:.1f} KB&quot;
+        print(f&quot;{name:&lt;40} {&#x27;FOUND&#x27;:&lt;10} {size_str:&gt;12}&quot;)
+    else:
+        print(f&quot;{name:&lt;40} {&#x27;MISSING&#x27;:&lt;10} {&#x27;--&#x27;:&gt;12}&quot;)</code></pre><pre class="code-output">Dataset                                  Status             Size
+-----------------------------------------------------------------
+CMS Shared Patient Patterns              FOUND           2.83 GB
+NPPES NPI Bulk File                      FOUND          10.44 GB
+NUCC Taxonomy Code Set                   FOUND          425.0 KB
+CDC WONDER — Births by County            FOUND           24.0 KB
+CDC WONDER — Maternal Morbidity          FOUND           21.6 KB
+</pre></div><div class="cell markdown-cell"><p>---</p>
+<br>
+<h2>Dataset 1 — CMS Physician Shared Patient Patterns (2015, 60-Day Window)</h2>
+<br>
+<p><strong>File:</strong> <code>pspp2015_60.csv</code> (~2.9 GB)</p>
+<br>
+<p><strong>Description:</strong> Each row represents a pair of providers who shared at least 11 Medicare patients within a rolling 60-day window during 2015. A shared patient event occurs when a beneficiary receives a billed service from Provider A and subsequently from Provider B within 60 days.</p>
+<br>
+<p><strong>Data Dictionary:</strong></p>
+<br>
+<p>| Column | Type | Description |</p>
+<p>|--------|------|-------------|</p>
+<p>| <code>npi1</code> | string | NPI of the initial/referring provider |</p>
+<p>| <code>npi2</code> | string | NPI of the subsequent/referred-to provider |</p>
+<p>| <code>paircount</code> | int | Total shared patient encounters in the 60-day window |</p>
+<p>| <code>benecount</code> | int | Number of unique beneficiaries (patients) shared |</p>
+<p>| <code>samedaycount</code> | int | Number of same-day shared encounters |</p>
+<p>| <code>year</code> | int | Data year (2015) |</p>
+<p>| <code>days</code> | int | Time window in days (60) |</p>
+<p>| <code>begdate</code> | string | Window start date |</p>
+<p>| <code>enddate</code> | string | Window end date |</p></div><div class="cell code-cell"><div class="cell-label">In [3]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# LOAD SAMPLE: CMS Shared Patient Patterns (first 10 rows)
+# -------------------------------------------------------------------
+
+cms_sample = pd.read_csv(
+    CMS_FILE,
+    nrows=10,
+    dtype={&quot;npi1&quot;: str, &quot;npi2&quot;: str}
+)
+
+print(&quot;CMS Shared Patient Patterns — Sample (first 10 rows):&quot;)
+print(f&quot;Columns ({len(cms_sample.columns)}): {list(cms_sample.columns)}&quot;)
+display(cms_sample)
+print(&quot;\nData types:&quot;)
+print(cms_sample.dtypes)</code></pre><pre class="code-output">CMS Shared Patient Patterns — Sample (first 10 rows):
+Columns (9): [&#x27;npi1&#x27;, &#x27;npi2&#x27;, &#x27;paircount&#x27;, &#x27;benecount&#x27;, &#x27;samedaycount&#x27;, &#x27;year&#x27;, &#x27;days&#x27;, &#x27;begdate&#x27;, &#x27;enddate&#x27;]
+</pre><div class="output-html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>npi1</th>
+      <th>npi2</th>
+      <th>paircount</th>
+      <th>benecount</th>
+      <th>samedaycount</th>
+      <th>year</th>
+      <th>days</th>
+      <th>begdate</th>
+      <th>enddate</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1000000004</td>
+      <td>1790775229</td>
+      <td>13</td>
+      <td>12</td>
+      <td>13</td>
+      <td>2015</td>
+      <td>60</td>
+      <td>1/1/2015</td>
+      <td>10/1/2015</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>1000026017</td>
+      <td>1598773715</td>
+      <td>69</td>
+      <td>23</td>
+      <td>29</td>
+      <td>2015</td>
+      <td>60</td>
+      <td>1/1/2015</td>
+      <td>10/1/2015</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>1000310429</td>
+      <td>1144645573</td>
+      <td>87</td>
+      <td>12</td>
+      <td>36</td>
+      <td>2015</td>
+      <td>60</td>
+      <td>1/1/2015</td>
+      <td>10/1/2015</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>1003000126</td>
+      <td>1003951625</td>
+      <td>200</td>
+      <td>62</td>
+      <td>28</td>
+      <td>2015</td>
+      <td>60</td>
+      <td>1/1/2015</td>
+      <td>10/1/2015</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>1003000126</td>
+      <td>1003975400</td>
+      <td>67</td>
+      <td>27</td>
+      <td>3</td>
+      <td>2015</td>
+      <td>60</td>
+      <td>1/1/2015</td>
+      <td>10/1/2015</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>1003000126</td>
+      <td>1013051119</td>
+      <td>40</td>
+      <td>19</td>
+      <td>0</td>
+      <td>2015</td>
+      <td>60</td>
+      <td>1/1/2015</td>
+      <td>10/1/2015</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>1003000126</td>
+      <td>1013902600</td>
+      <td>42</td>
+      <td>23</td>
+      <td>2</td>
+      <td>2015</td>
+      <td>60</td>
+      <td>1/1/2015</td>
+      <td>10/1/2015</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>1003000126</td>
+      <td>1023027109</td>
+      <td>48</td>
+      <td>17</td>
+      <td>7</td>
+      <td>2015</td>
+      <td>60</td>
+      <td>1/1/2015</td>
+      <td>10/1/2015</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>1003000126</td>
+      <td>1023029964</td>
+      <td>20</td>
+      <td>13</td>
+      <td>1</td>
+      <td>2015</td>
+      <td>60</td>
+      <td>1/1/2015</td>
+      <td>10/1/2015</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>1003000126</td>
+      <td>1033187000</td>
+      <td>29</td>
+      <td>11</td>
+      <td>1</td>
+      <td>2015</td>
+      <td>60</td>
+      <td>1/1/2015</td>
+      <td>10/1/2015</td>
+    </tr>
+  </tbody>
+</table>
+</div></div><pre class="code-output">
+Data types:
+npi1            object
+npi2            object
+paircount        int64
+benecount        int64
+samedaycount     int64
+year             int64
+days             int64
+begdate         object
+enddate         object
+dtype: object
+</pre></div><div class="cell code-cell"><div class="cell-label">In [4]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# VALIDATE: Confirm expected columns
+# -------------------------------------------------------------------
+
+CMS_EXPECTED_COLS = [&quot;npi1&quot;, &quot;npi2&quot;, &quot;paircount&quot;, &quot;benecount&quot;, &quot;samedaycount&quot;,
+                     &quot;year&quot;, &quot;days&quot;, &quot;begdate&quot;, &quot;enddate&quot;]
+
+missing_cols = [c for c in CMS_EXPECTED_COLS if c not in cms_sample.columns]
+extra_cols = [c for c in cms_sample.columns if c not in CMS_EXPECTED_COLS]
+
+if not missing_cols:
+    print(f&quot;PASS: All {len(CMS_EXPECTED_COLS)} expected columns found.&quot;)
+else:
+    print(f&quot;FAIL: Missing columns: {missing_cols}&quot;)
+
+if extra_cols:
+    print(f&quot;NOTE: Extra columns found: {extra_cols}&quot;)</code></pre><pre class="code-output">PASS: All 9 expected columns found.
+</pre></div><div class="cell code-cell"><div class="cell-label">In [5]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# VALIDATE: Row count (memory-efficient line count)
+# -------------------------------------------------------------------
+
+print(&quot;Counting total rows (this may take 1-2 minutes for a 2.9 GB file)...&quot;)
+cms_row_count = sum(1 for _ in open(CMS_FILE)) - 1  # subtract header
+print(f&quot;Total data rows: {cms_row_count:,}&quot;)
+print(f&quot;File size: {CMS_FILE.stat().st_size / (1024**3):.2f} GB&quot;)</code></pre><pre class="code-output">Counting total rows (this may take 1-2 minutes for a 2.9 GB file)...
+Total data rows: 49,335,361
+File size: 2.83 GB
+</pre></div><div class="cell code-cell"><div class="cell-label">In [6]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# VALIDATE: Integrity checks
+# -------------------------------------------------------------------
+
+print(&quot;Integrity checks on sample:&quot;)
+print(f&quot;  NPI1 length (expect 10):          {cms_sample[&#x27;npi1&#x27;].str.len().unique()}&quot;)
+print(f&quot;  NPI2 length (expect 10):          {cms_sample[&#x27;npi2&#x27;].str.len().unique()}&quot;)
+print(f&quot;  Year values (expect 2015):        {cms_sample[&#x27;year&#x27;].unique()}&quot;)
+print(f&quot;  Days values (expect 60):          {cms_sample[&#x27;days&#x27;].unique()}&quot;)
+print(f&quot;  Min benecount (expect &gt;= 11):     {cms_sample[&#x27;benecount&#x27;].min()}&quot;)
+print(f&quot;  Null counts:&quot;)
+for col in cms_sample.columns:
+    n = cms_sample[col].isnull().sum()
+    if n &gt; 0:
+        print(f&quot;    {col}: {n}&quot;)
+    else:
+        print(f&quot;    {col}: 0&quot;)</code></pre><pre class="code-output">Integrity checks on sample:
+  NPI1 length (expect 10):          [10]
+  NPI2 length (expect 10):          [10]
+  Year values (expect 2015):        [2015]
+  Days values (expect 60):          [60]
+  Min benecount (expect &gt;= 11):     11
+  Null counts:
+    npi1: 0
+    npi2: 0
+    paircount: 0
+    benecount: 0
+    samedaycount: 0
+    year: 0
+    days: 0
+    begdate: 0
+    enddate: 0
+</pre></div><div class="cell markdown-cell"><p>---</p>
+<br>
+<h2>Dataset 2 — NPPES NPI Bulk File</h2>
+<br>
+<p><strong>File:</strong> <code>npidata_pfile_20050523-20260208.csv</code> (~11 GB, 300+ columns)</p>
+<br>
+<p><strong>Description:</strong> The complete registry of all U.S. healthcare providers assigned a National Provider Identifier. We only load the columns needed for this project to avoid memory issues.</p>
+<br>
+<p><strong>Key columns for this project:</strong></p>
+<br>
+<p>| Column | Type | Description |</p>
+<p>|--------|------|-------------|</p>
+<p>| <code>NPI</code> | string | National Provider Identifier (join key to CMS data) |</p>
+<p>| <code>Entity Type Code</code> | string | 1 = Individual, 2 = Organization |</p>
+<p>| <code>Provider Last Name (Legal Name)</code> | string | Provider surname |</p>
+<p>| <code>Provider First Name</code> | string | Provider first name |</p>
+<p>| <code>Healthcare Provider Taxonomy Code_1</code> through <code>_15</code> | string | Up to 15 specialty taxonomy codes |</p>
+<p>| <code>Provider Business Practice Location Address City Name</code> | string | Practice city |</p>
+<p>| <code>Provider Business Practice Location Address State Name</code> | string | Practice state |</p>
+<p>| <code>Provider Business Practice Location Address Postal Code</code> | string | Practice ZIP code |</p></div><div class="cell code-cell"><div class="cell-label">In [7]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# DEFINE: Columns to load from NPPES
+# -------------------------------------------------------------------
+
+NPPES_USE_COLS = [
+    &quot;NPI&quot;,
+    &quot;Entity Type Code&quot;,
+    &quot;Provider Last Name (Legal Name)&quot;,
+    &quot;Provider First Name&quot;,
+    &quot;Provider Business Practice Location Address City Name&quot;,
+    &quot;Provider Business Practice Location Address State Name&quot;,
+    &quot;Provider Business Practice Location Address Postal Code&quot;,
+] + [f&quot;Healthcare Provider Taxonomy Code_{i}&quot; for i in range(1, 16)]
+
+print(f&quot;Columns to load: {len(NPPES_USE_COLS)}&quot;)
+for col in NPPES_USE_COLS:
+    print(f&quot;  {col}&quot;)</code></pre><pre class="code-output">Columns to load: 22
+  NPI
+  Entity Type Code
+  Provider Last Name (Legal Name)
+  Provider First Name
+  Provider Business Practice Location Address City Name
+  Provider Business Practice Location Address State Name
+  Provider Business Practice Location Address Postal Code
+  Healthcare Provider Taxonomy Code_1
+  Healthcare Provider Taxonomy Code_2
+  Healthcare Provider Taxonomy Code_3
+  Healthcare Provider Taxonomy Code_4
+  Healthcare Provider Taxonomy Code_5
+  Healthcare Provider Taxonomy Code_6
+  Healthcare Provider Taxonomy Code_7
+  Healthcare Provider Taxonomy Code_8
+  Healthcare Provider Taxonomy Code_9
+  Healthcare Provider Taxonomy Code_10
+  Healthcare Provider Taxonomy Code_11
+  Healthcare Provider Taxonomy Code_12
+  Healthcare Provider Taxonomy Code_13
+  Healthcare Provider Taxonomy Code_14
+  Healthcare Provider Taxonomy Code_15
+</pre></div><div class="cell code-cell"><div class="cell-label">In [8]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# VALIDATE: Confirm our columns exist in the file header
+# -------------------------------------------------------------------
+
+nppes_header = pd.read_csv(NPPES_FILE, nrows=0, dtype=str, low_memory=False)
+print(f&quot;Total columns in NPPES file: {len(nppes_header.columns)}&quot;)
+
+missing = [c for c in NPPES_USE_COLS if c not in nppes_header.columns]
+if not missing:
+    print(f&quot;PASS: All {len(NPPES_USE_COLS)} required columns found.&quot;)
+else:
+    print(f&quot;FAIL: Missing columns: {missing}&quot;)</code></pre><pre class="code-output">Total columns in NPPES file: 330
+PASS: All 22 required columns found.
+</pre></div><div class="cell code-cell"><div class="cell-label">In [9]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# LOAD SAMPLE: NPPES (first 10 rows, selected columns only)
+# -------------------------------------------------------------------
+
+nppes_sample = pd.read_csv(
+    NPPES_FILE,
+    usecols=NPPES_USE_COLS,
+    nrows=10,
+    dtype=str,
+    low_memory=False
+)
+
+print(f&quot;NPPES — Sample (first 10 rows, {len(nppes_sample.columns)} columns):&quot;)
+display(nppes_sample)
+print(&quot;\nData types:&quot;)
+print(nppes_sample.dtypes)</code></pre><pre class="code-output">NPPES — Sample (first 10 rows, 22 columns):
+</pre><div class="output-html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>NPI</th>
+      <th>Entity Type Code</th>
+      <th>Provider Last Name (Legal Name)</th>
+      <th>Provider First Name</th>
+      <th>Provider Business Practice Location Address City Name</th>
+      <th>Provider Business Practice Location Address State Name</th>
+      <th>Provider Business Practice Location Address Postal Code</th>
+      <th>Healthcare Provider Taxonomy Code_1</th>
+      <th>Healthcare Provider Taxonomy Code_2</th>
+      <th>Healthcare Provider Taxonomy Code_3</th>
+      <th>...</th>
+      <th>Healthcare Provider Taxonomy Code_6</th>
+      <th>Healthcare Provider Taxonomy Code_7</th>
+      <th>Healthcare Provider Taxonomy Code_8</th>
+      <th>Healthcare Provider Taxonomy Code_9</th>
+      <th>Healthcare Provider Taxonomy Code_10</th>
+      <th>Healthcare Provider Taxonomy Code_11</th>
+      <th>Healthcare Provider Taxonomy Code_12</th>
+      <th>Healthcare Provider Taxonomy Code_13</th>
+      <th>Healthcare Provider Taxonomy Code_14</th>
+      <th>Healthcare Provider Taxonomy Code_15</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1679576722</td>
+      <td>1</td>
+      <td>WIEBE</td>
+      <td>DAVID</td>
+      <td>KEARNEY</td>
+      <td>NE</td>
+      <td>688472944</td>
+      <td>207X00000X</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>...</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>1588667638</td>
+      <td>1</td>
+      <td>PILCHER</td>
+      <td>WILLIAM</td>
+      <td>JACKSONVILLE</td>
+      <td>FL</td>
+      <td>322044736</td>
+      <td>207RC0000X</td>
+      <td>207RC0000X</td>
+      <td>NaN</td>
+      <td>...</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>1497758544</td>
+      <td>2</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>FAYETTEVILLE</td>
+      <td>NC</td>
+      <td>283044552</td>
+      <td>251G00000X</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>...</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>1306849450</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>...</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>1215930367</td>
+      <td>1</td>
+      <td>GRESSOT</td>
+      <td>LAURENT</td>
+      <td>HOUSTON</td>
+      <td>TX</td>
+      <td>770901243</td>
+      <td>174400000X</td>
+      <td>207RH0003X</td>
+      <td>NaN</td>
+      <td>...</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>1023011178</td>
+      <td>2</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NAPA</td>
+      <td>CA</td>
+      <td>945594515</td>
+      <td>251G00000X</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>...</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>1932102084</td>
+      <td>1</td>
+      <td>ADUSUMILLI</td>
+      <td>RAVI</td>
+      <td>TOLEDO</td>
+      <td>OH</td>
+      <td>436151753</td>
+      <td>207RC0000X</td>
+      <td>207RC0000X</td>
+      <td>NaN</td>
+      <td>...</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>1841293990</td>
+      <td>1</td>
+      <td>WORTSMAN</td>
+      <td>SUSAN</td>
+      <td>NEW YORK</td>
+      <td>NY</td>
+      <td>100102547</td>
+      <td>231H00000X</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>...</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>1750384806</td>
+      <td>1</td>
+      <td>BISBEE</td>
+      <td>ROBERT</td>
+      <td>LUBBOCK</td>
+      <td>TX</td>
+      <td>794151148</td>
+      <td>207R00000X</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>...</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>1669475711</td>
+      <td>1</td>
+      <td>SUNG</td>
+      <td>BIN</td>
+      <td>FULSHEAR</td>
+      <td>TX</td>
+      <td>774411548</td>
+      <td>208000000X</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>...</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+  </tbody>
+</table>
+<p>10 rows × 22 columns</p>
+</div></div><pre class="code-output">
+Data types:
+NPI                                                        object
+Entity Type Code                                           object
+Provider Last Name (Legal Name)                            object
+Provider First Name                                        object
+Provider Business Practice Location Address City Name      object
+Provider Business Practice Location Address State Name     object
+Provider Business Practice Location Address Postal Code    object
+Healthcare Provider Taxonomy Code_1                        object
+Healthcare Provider Taxonomy Code_2                        object
+Healthcare Provider Taxonomy Code_3                        object
+Healthcare Provider Taxonomy Code_4                        object
+Healthcare Provider Taxonomy Code_5                        object
+Healthcare Provider Taxonomy Code_6                        object
+Healthcare Provider Taxonomy Code_7                        object
+Healthcare Provider Taxonomy Code_8                        object
+Healthcare Provider Taxonomy Code_9                        object
+Healthcare Provider Taxonomy Code_10                       object
+Healthcare Provider Taxonomy Code_11                       object
+Healthcare Provider Taxonomy Code_12                       object
+Healthcare Provider Taxonomy Code_13                       object
+Healthcare Provider Taxonomy Code_14                       object
+Healthcare Provider Taxonomy Code_15                       object
+dtype: object
+</pre></div><div class="cell code-cell"><div class="cell-label">In [10]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# VALIDATE: Integrity checks
+# -------------------------------------------------------------------
+
+print(&quot;Integrity checks on NPPES sample:&quot;)
+print(f&quot;  NPI length (expect 10):       {nppes_sample[&#x27;NPI&#x27;].str.len().unique()}&quot;)
+print(f&quot;  Entity Type codes (1 or 2):   {nppes_sample[&#x27;Entity Type Code&#x27;].unique()}&quot;)
+print(f&quot;  States sample:                {nppes_sample[&#x27;Provider Business Practice Location Address State Name&#x27;].unique()}&quot;)
+print(f&quot;  Taxonomy Code_1 sample:       {nppes_sample[&#x27;Healthcare Provider Taxonomy Code_1&#x27;].unique()}&quot;)
+print(f&quot;  File size:                    {NPPES_FILE.stat().st_size / (1024**3):.2f} GB&quot;)</code></pre><pre class="code-output">Integrity checks on NPPES sample:
+  NPI length (expect 10):       [10]
+  Entity Type codes (1 or 2):   [&#x27;1&#x27; &#x27;2&#x27; nan]
+  States sample:                [&#x27;NE&#x27; &#x27;FL&#x27; &#x27;NC&#x27; nan &#x27;TX&#x27; &#x27;CA&#x27; &#x27;OH&#x27; &#x27;NY&#x27;]
+  Taxonomy Code_1 sample:       [&#x27;207X00000X&#x27; &#x27;207RC0000X&#x27; &#x27;251G00000X&#x27; nan &#x27;174400000X&#x27; &#x27;231H00000X&#x27;
+ &#x27;207R00000X&#x27; &#x27;208000000X&#x27;]
+  File size:                    10.44 GB
+</pre></div><div class="cell markdown-cell"><p>---</p>
+<br>
+<h2>Dataset 3 — NUCC Taxonomy Code Set (Version 15.1)</h2>
+<br>
+<p><strong>File:</strong> <code>nucc_taxonomy_151.csv</code></p>
+<br>
+<p><strong>Description:</strong> The National Uniform Claim Committee (NUCC) taxonomy code set maps each provider specialty to a standardized code. We use the 207V family to identify OB-GYN providers.</p>
+<br>
+<p><strong>Data Dictionary:</strong></p>
+<br>
+<p>| Column | Type | Description |</p>
+<p>|--------|------|-------------|</p>
+<p>| <code>Code</code> | string | Taxonomy code (e.g., <code>207V00000X</code>) |</p>
+<p>| <code>Type</code> | string | Broad provider type (e.g., "Allopathic & Osteopathic Physicians") |</p>
+<p>| <code>Classification</code> | string | Specialty classification (e.g., "Obstetrics & Gynecology") |</p>
+<p>| <code>Specialization</code> | string | Sub-specialty (e.g., "Maternal & Fetal Medicine") |</p>
+<p>| <code>Definition</code> | string | Description of the specialty |</p>
+<p>| <code>Notes</code> | string | Additional notes |</p></div><div class="cell code-cell"><div class="cell-label">In [11]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# LOAD: NUCC Taxonomy Code Set
+# -------------------------------------------------------------------
+
+nucc_df = pd.read_csv(NUCC_FILE, dtype=str)
+
+print(f&quot;NUCC Taxonomy Code Set loaded.&quot;)
+print(f&quot;Total taxonomy codes: {len(nucc_df):,}&quot;)
+print(f&quot;Columns: {list(nucc_df.columns)}&quot;)
+display(nucc_df.head())</code></pre><pre class="code-output">NUCC Taxonomy Code Set loaded.
+Total taxonomy codes: 838
+Columns: [&#x27;Code&#x27;, &#x27;Type&#x27;, &#x27;Classification&#x27;, &#x27;Specialization&#x27;, &#x27;Definition&#x27;, &#x27;Notes&#x27;]
+</pre><div class="output-html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Code</th>
+      <th>Type</th>
+      <th>Classification</th>
+      <th>Specialization</th>
+      <th>Definition</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>101Y00000X</td>
+      <td>Behavioral Health &amp; Social Service Providers</td>
+      <td>Counselor</td>
+      <td>NaN</td>
+      <td>A provider who is trained and educated in the ...</td>
+      <td>Sources: Abridged from definitions provided by...</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>101YA0400X</td>
+      <td>Behavioral Health &amp; Social Service Providers</td>
+      <td>Counselor</td>
+      <td>Addiction (Substance Use Disorder)</td>
+      <td>Definition to come...</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>101YM0800X</td>
+      <td>Behavioral Health &amp; Social Service Providers</td>
+      <td>Counselor</td>
+      <td>Mental Health</td>
+      <td>Definition to come...</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>101YP1600X</td>
+      <td>Behavioral Health &amp; Social Service Providers</td>
+      <td>Counselor</td>
+      <td>Pastoral</td>
+      <td>Definition to come...</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>101YP2500X</td>
+      <td>Behavioral Health &amp; Social Service Providers</td>
+      <td>Counselor</td>
+      <td>Professional</td>
+      <td>Definition to come...</td>
+      <td>NaN</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div><div class="cell code-cell"><div class="cell-label">In [12]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# VALIDATE: Filter to OB-GYN codes (207V family)
+# -------------------------------------------------------------------
+
+obgyn_codes = nucc_df[nucc_df[&quot;Code&quot;].str.startswith(&quot;207V&quot;, na=False)].copy()
+
+print(f&quot;OB-GYN taxonomy codes found (207V family): {len(obgyn_codes)}&quot;)
+print()
+display(obgyn_codes[[&quot;Code&quot;, &quot;Classification&quot;, &quot;Specialization&quot;]])</code></pre><pre class="code-output">OB-GYN taxonomy codes found (207V family): 10
+
+</pre><div class="output-html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Code</th>
+      <th>Classification</th>
+      <th>Specialization</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>282</th>
+      <td>207V00000X</td>
+      <td>Obstetrics &amp; Gynecology</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>283</th>
+      <td>207VB0002X</td>
+      <td>Obstetrics &amp; Gynecology</td>
+      <td>Obesity Medicine</td>
+    </tr>
+    <tr>
+      <th>284</th>
+      <td>207VC0200X</td>
+      <td>Obstetrics &amp; Gynecology</td>
+      <td>Critical Care Medicine</td>
+    </tr>
+    <tr>
+      <th>285</th>
+      <td>207VE0102X</td>
+      <td>Obstetrics &amp; Gynecology</td>
+      <td>Reproductive Endocrinology</td>
+    </tr>
+    <tr>
+      <th>286</th>
+      <td>207VF0040X</td>
+      <td>Obstetrics &amp; Gynecology</td>
+      <td>Female Pelvic Medicine and Reconstructive Surgery</td>
+    </tr>
+    <tr>
+      <th>287</th>
+      <td>207VG0400X</td>
+      <td>Obstetrics &amp; Gynecology</td>
+      <td>Gynecology</td>
+    </tr>
+    <tr>
+      <th>288</th>
+      <td>207VH0002X</td>
+      <td>Obstetrics &amp; Gynecology</td>
+      <td>Hospice and Palliative Medicine</td>
+    </tr>
+    <tr>
+      <th>289</th>
+      <td>207VM0101X</td>
+      <td>Obstetrics &amp; Gynecology</td>
+      <td>Maternal &amp; Fetal Medicine</td>
+    </tr>
+    <tr>
+      <th>290</th>
+      <td>207VX0000X</td>
+      <td>Obstetrics &amp; Gynecology</td>
+      <td>Obstetrics</td>
+    </tr>
+    <tr>
+      <th>291</th>
+      <td>207VX0201X</td>
+      <td>Obstetrics &amp; Gynecology</td>
+      <td>Gynecologic Oncology</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div><div class="cell markdown-cell"><p>---</p>
+<br>
+<h2>Dataset 4 — CDC WONDER Natality Expanded (2016)</h2>
+<br>
+<p><strong>Files:</strong></p>
+<ul>
+<li><code>cdc_wonder_2016_births_by_county.csv</code> — Total births per county (denominator)</li>
+<li><code>cdc_wonder_2016_maternal_morbidity_by_county.csv</code> — Births with at least one maternal morbidity event per county (numerator)</li>
+</ul>
+<br>
+<p><strong>Description:</strong> County-level birth counts from CDC WONDER, exported as tab-delimited files with metadata rows appended at the bottom (below a <code>"---"</code> separator). We use these two files to compute a <strong>maternal morbidity rate</strong> per county: morbidity births / total births.</p>
+<br>
+<p><strong>Maternal morbidity indicators included in "at least one checked":</strong></p>
+<ul>
+<li>Maternal Transfusion</li>
+<li>Third or Fourth Degree Perineal Laceration</li>
+<li>Ruptured Uterus</li>
+<li>Unplanned Hysterectomy</li>
+<li>Admission to Intensive Care Unit</li>
+</ul>
+<br>
+<p><strong>Data Dictionary (both files share the same structure):</strong></p>
+<br>
+<p>| Column | Description |</p>
+<p>|--------|-------------|</p>
+<p>| <code>Notes</code> | Metadata (usually empty for data rows) |</p>
+<p>| <code>County of Residence</code> | County and state name (e.g., "Baldwin County, AL") |</p>
+<p>| <code>County of Residence Code</code> | 5-digit FIPS code (e.g., "01003") |</p>
+<p>| <code>Births</code> | Count of births (total or morbidity, depending on file) |</p>
+<br>
+<p><strong>Note:</strong> Counties with population < 100,000 are grouped as "Unidentified Counties" per state. Suppressed values may appear where counts are too low.</p></div><div class="cell code-cell"><div class="cell-label">In [13]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# HELPER: Load CDC WONDER export
+# -------------------------------------------------------------------
+# CDC WONDER appends metadata rows below a &quot;---&quot; separator.
+# This function reads only the data rows above that line.
+# Delimiter is auto-detected (tab or comma) since CDC WONDER
+# exports may use either format despite the .csv extension.
+# -------------------------------------------------------------------
+
+def load_cdc_wonder(filepath):
+    &quot;&quot;&quot;Load a CDC WONDER export, stopping at the metadata separator.&quot;&quot;&quot;
+    lines = []
+    with open(filepath, &#x27;r&#x27;) as f:
+        for line in f:
+            if line.startswith(&#x27;&quot;---&#x27;):
+                break
+            lines.append(line)
+    
+    # Detect delimiter from header line
+    header = lines[0]
+    delimiter = &#x27;\t&#x27; if &#x27;\t&#x27; in header else &#x27;,&#x27;
+    
+    return pd.read_csv(StringIO(&#x27;&#x27;.join(lines)), sep=delimiter, dtype=str)</code></pre></div><div class="cell code-cell"><div class="cell-label">In [14]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# LOAD &amp; VALIDATE: CDC WONDER — Total Births by County (2016)
+# -------------------------------------------------------------------
+
+cdc_births = load_cdc_wonder(CDC_BIRTHS_FILE)
+
+print(f&quot;CDC WONDER — Total Births by County (2016):&quot;)
+print(f&quot;Rows: {len(cdc_births):,}&quot;)
+print(f&quot;Columns: {list(cdc_births.columns)}&quot;)
+display(cdc_births.head(10))
+
+# Check for non-numeric birth counts (suppressed or missing values)
+non_numeric = cdc_births[pd.to_numeric(cdc_births[&#x27;Births&#x27;], errors=&#x27;coerce&#x27;).isna()]
+print(f&quot;\nNon-numeric Births values: {len(non_numeric)} rows&quot;)
+if len(non_numeric) &gt; 0:
+    print(&quot;(These are likely &#x27;Suppressed&#x27; or &#x27;Not Applicable&#x27; — will be handled in Phase 2)&quot;)
+    display(non_numeric.head())</code></pre><pre class="code-output">CDC WONDER — Total Births by County (2016):
+Rows: 627
+Columns: [&#x27;Notes&#x27;, &#x27;County of Residence&#x27;, &#x27;County of Residence Code&#x27;, &#x27;Births&#x27;]
+</pre><div class="output-html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Notes</th>
+      <th>County of Residence</th>
+      <th>County of Residence Code</th>
+      <th>Births</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>NaN</td>
+      <td>Baldwin County, AL</td>
+      <td>01003</td>
+      <td>2247</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>NaN</td>
+      <td>Calhoun County, AL</td>
+      <td>01015</td>
+      <td>1357</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>NaN</td>
+      <td>Etowah County, AL</td>
+      <td>01055</td>
+      <td>1214</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>NaN</td>
+      <td>Houston County, AL</td>
+      <td>01069</td>
+      <td>1333</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>NaN</td>
+      <td>Jefferson County, AL</td>
+      <td>01073</td>
+      <td>8655</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>NaN</td>
+      <td>Lee County, AL</td>
+      <td>01081</td>
+      <td>1898</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>NaN</td>
+      <td>Madison County, AL</td>
+      <td>01089</td>
+      <td>4228</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>NaN</td>
+      <td>Mobile County, AL</td>
+      <td>01097</td>
+      <td>5504</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>NaN</td>
+      <td>Montgomery County, AL</td>
+      <td>01101</td>
+      <td>3139</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>NaN</td>
+      <td>Morgan County, AL</td>
+      <td>01103</td>
+      <td>1470</td>
+    </tr>
+  </tbody>
+</table>
+</div></div><pre class="code-output">
+Non-numeric Births values: 0 rows
+</pre></div><div class="cell code-cell"><div class="cell-label">In [15]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# LOAD &amp; VALIDATE: CDC WONDER — Maternal Morbidity by County (2016)
+# -------------------------------------------------------------------
+
+cdc_morbidity = load_cdc_wonder(CDC_MORBIDITY_FILE)
+
+print(f&quot;CDC WONDER — Maternal Morbidity by County (2016):&quot;)
+print(f&quot;Rows: {len(cdc_morbidity):,}&quot;)
+print(f&quot;Columns: {list(cdc_morbidity.columns)}&quot;)
+display(cdc_morbidity.head(10))
+
+# Check for non-numeric birth counts
+non_numeric = cdc_morbidity[pd.to_numeric(cdc_morbidity[&#x27;Births&#x27;], errors=&#x27;coerce&#x27;).isna()]
+print(f&quot;\nNon-numeric Births values: {len(non_numeric)} rows&quot;)
+if len(non_numeric) &gt; 0:
+    print(&quot;(These are likely &#x27;Suppressed&#x27; — will be handled in Phase 2)&quot;)
+    display(non_numeric.head())</code></pre><pre class="code-output">CDC WONDER — Maternal Morbidity by County (2016):
+Rows: 578
+Columns: [&#x27;Notes&#x27;, &#x27;County of Residence&#x27;, &#x27;County of Residence Code&#x27;, &#x27;Births&#x27;]
+</pre><div class="output-html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Notes</th>
+      <th>County of Residence</th>
+      <th>County of Residence Code</th>
+      <th>Births</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>NaN</td>
+      <td>Baldwin County, AL</td>
+      <td>01003</td>
+      <td>43</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>NaN</td>
+      <td>Calhoun County, AL</td>
+      <td>01015</td>
+      <td>16</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>NaN</td>
+      <td>Etowah County, AL</td>
+      <td>01055</td>
+      <td>11</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>NaN</td>
+      <td>Jefferson County, AL</td>
+      <td>01073</td>
+      <td>50</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>NaN</td>
+      <td>Lee County, AL</td>
+      <td>01081</td>
+      <td>26</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>NaN</td>
+      <td>Madison County, AL</td>
+      <td>01089</td>
+      <td>82</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>NaN</td>
+      <td>Mobile County, AL</td>
+      <td>01097</td>
+      <td>76</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>NaN</td>
+      <td>Montgomery County, AL</td>
+      <td>01101</td>
+      <td>27</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>NaN</td>
+      <td>Morgan County, AL</td>
+      <td>01103</td>
+      <td>28</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>NaN</td>
+      <td>Shelby County, AL</td>
+      <td>01117</td>
+      <td>17</td>
+    </tr>
+  </tbody>
+</table>
+</div></div><pre class="code-output">
+Non-numeric Births values: 0 rows
+</pre></div><div class="cell code-cell"><div class="cell-label">In [16]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# VALIDATE: Compare county coverage between the two CDC files
+# -------------------------------------------------------------------
+
+births_counties = set(cdc_births[&quot;County of Residence Code&quot;].dropna())
+morbidity_counties = set(cdc_morbidity[&quot;County of Residence Code&quot;].dropna())
+
+print(f&quot;Counties in births file:      {len(births_counties):,}&quot;)
+print(f&quot;Counties in morbidity file:   {len(morbidity_counties):,}&quot;)
+print(f&quot;Counties in both:             {len(births_counties &amp; morbidity_counties):,}&quot;)
+print(f&quot;In births only:               {len(births_counties - morbidity_counties):,}&quot;)
+print(f&quot;In morbidity only:            {len(morbidity_counties - births_counties):,}&quot;)
+
+if births_counties - morbidity_counties:
+    print(f&quot;\nNOTE: Counties in births but not in morbidity may have had zero&quot;)
+    print(f&quot;morbidity events or were suppressed due to small counts.&quot;)
+    print(f&quot;These will be treated as zero morbidity in Phase 2.&quot;)</code></pre><pre class="code-output">Counties in births file:      626
+Counties in morbidity file:   577
+Counties in both:             577
+In births only:               49
+In morbidity only:            0
+
+NOTE: Counties in births but not in morbidity may have had zero
+morbidity events or were suppressed due to small counts.
+These will be treated as zero morbidity in Phase 2.
+</pre></div><div class="cell markdown-cell"><p>---</p>
+<br>
+<h2>Data Acquisition Summary</h2></div><div class="cell code-cell"><div class="cell-label">In [17]:</div><pre class="code-input"><code># -------------------------------------------------------------------
+# SUMMARY: Final status report
+# -------------------------------------------------------------------
+
+print(&quot;=&quot; * 75)
+print(&quot;PHASE 1 — DATA ACQUISITION &amp; VALIDATION SUMMARY&quot;)
+print(&quot;=&quot; * 75)
+
+summary = [
+    (&quot;CMS Shared Patient Patterns&quot;, CMS_FILE,
+     f&quot;{cms_row_count:,} rows&quot;),
+    (&quot;NPPES NPI Bulk File&quot;, NPPES_FILE,
+     f&quot;{len(nppes_header.columns)} columns&quot;),
+    (&quot;NUCC Taxonomy Code Set (v15.1)&quot;, NUCC_FILE,
+     f&quot;{len(nucc_df):,} codes ({len(obgyn_codes)} OB-GYN)&quot;),
+    (&quot;CDC WONDER — Births&quot;, CDC_BIRTHS_FILE,
+     f&quot;{len(cdc_births):,} counties&quot;),
+    (&quot;CDC WONDER — Morbidity&quot;, CDC_MORBIDITY_FILE,
+     f&quot;{len(cdc_morbidity):,} counties&quot;),
+]
+
+print(f&quot;\n{&#x27;Dataset&#x27;:&lt;40} {&#x27;Size&#x27;:&gt;12} {&#x27;Detail&#x27;:&gt;25}&quot;)
+print(&quot;-&quot; * 75)
+
+all_ready = True
+for name, fpath, detail in summary:
+    if fpath.exists():
+        size = fpath.stat().st_size
+        if size &gt; 1024**3:
+            size_str = f&quot;{size / (1024**3):.2f} GB&quot;
+        elif size &gt; 1024**2:
+            size_str = f&quot;{size / (1024**2):.1f} MB&quot;
+        else:
+            size_str = f&quot;{size / 1024:.1f} KB&quot;
+        print(f&quot;{name:&lt;40} {size_str:&gt;12} {detail:&gt;25}&quot;)
+    else:
+        print(f&quot;{name:&lt;40} {&#x27;MISSING&#x27;:&gt;12} {&#x27;--&#x27;:&gt;25}&quot;)
+        all_ready = False
+
+print(&quot;-&quot; * 75)
+if all_ready:
+    print(&quot;\nAll datasets loaded and validated.&quot;)
+    print(&quot;Ready to proceed to Phase 2: Data Preparation (02_data_preparation.ipynb)&quot;)
+else:
+    print(&quot;\nSome datasets are missing. Complete downloads before proceeding.&quot;)</code></pre><pre class="code-output">===========================================================================
+PHASE 1 — DATA ACQUISITION &amp; VALIDATION SUMMARY
+===========================================================================
+
+Dataset                                          Size                    Detail
+---------------------------------------------------------------------------
+CMS Shared Patient Patterns                   2.83 GB           49,335,361 rows
+NPPES NPI Bulk File                          10.44 GB               330 columns
+NUCC Taxonomy Code Set (v15.1)               425.0 KB     838 codes (10 OB-GYN)
+CDC WONDER — Births                           24.0 KB              627 counties
+CDC WONDER — Morbidity                        21.6 KB              578 counties
+---------------------------------------------------------------------------
+
+All datasets loaded and validated.
+Ready to proceed to Phase 2: Data Preparation (02_data_preparation.ipynb)
+</pre></div><div class="cell markdown-cell"><p>---</p>
+<br>
+<h2>Next Steps</h2>
+<br>
+<p>Proceed to <strong><code>02_data_preparation.ipynb</code></strong>:</p>
+<p>1. Filter NPPES to OB-GYN providers using 207V taxonomy codes</p>
+<p>2. Filter the CMS shared patient edge list to only OB-GYN provider pairs</p>
+<p>3. Merge provider details (sub-specialty, practice location) onto both sides of each pair</p>
+<p>4. Compute county-level maternal morbidity rates from the CDC WONDER exports</p>
+<p>5. Export clean, analysis-ready datasets to <code>data/outputs/</code></p></div>
+</body>
+</html>
