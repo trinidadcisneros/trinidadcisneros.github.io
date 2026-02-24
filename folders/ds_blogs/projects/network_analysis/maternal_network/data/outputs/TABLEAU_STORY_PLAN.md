@@ -1,5 +1,5 @@
 # Tableau Story Plan: OB-GYN Provider Network Analysis
-## Prepared for Pomelo Care Recruiter Walkthrough
+## Portfolio Project Walkthrough
 
 ---
 
@@ -107,11 +107,11 @@
 ---
 
 ### SHEET 12 — Conclusion
-**Purpose:** So-what for Pomelo Care
+**Purpose:** Key takeaways and next steps
 **Files:**
 - `tableau_regression_conclusions.csv` → **Text Table** (key findings summary)
 - `tableau_key_numbers_summary.csv` → **Text Table** (reuse from Sheet 1 for bookend effect)
-**Tableau Notes:** Dashboard with conclusion text boxes. Key messages: (1) 80% of OB-GYNs are network-isolated. (2) Network structure alone doesn't predict outcomes — other factors at play. (3) 54 target counties represent opportunity for Pomelo's virtual care model. (4) This analysis framework can scale to other CMS datasets and time periods. Add a final callout: "Virtual care platforms like Pomelo can bridge the connectivity gaps this analysis reveals."
+**Tableau Notes:** Dashboard with conclusion text boxes. Key messages: (1) 80% of OB-GYNs are network-isolated. (2) Network structure alone doesn't predict outcomes — other factors at play. (3) 54 target counties represent opportunity for virtual care intervention. (4) This analysis framework can scale to other CMS datasets and time periods. Add a final callout: "Virtual care platforms can bridge the connectivity gaps this analysis reveals."
 
 ---
 
