@@ -1,92 +1,102 @@
 /**
- * video_lightbox.js
+ * video_lightbox.js — Inline video playback in the carousel
  *
- * Handles click-to-play for video slides in the carousel.
- * Clicking a .video-slide opens a full-screen lightbox overlay
- * with the video playing. Click the overlay or the X to close.
- *
- * Each video slide needs a data-video attribute pointing to the
- * video source file, e.g.:
- *   <div class="carousel-slide video-slide" data-video="static/images/reel/muay_thai.MP4">
+ * Clicking a video slide replaces the poster thumbnail with a
+ * <video> element that plays right inside the carousel slide.
+ * The carousel pauses on hover (CSS), so the user can watch
+ * without the strip moving. Clicking the video or pressing
+ * Escape stops playback and restores the poster image.
  */
 (function () {
-  // Attach click listeners to all video slides
   var slides = document.querySelectorAll('.video-slide[data-video]');
   if (!slides.length) return;
 
   for (var i = 0; i < slides.length; i++) {
-    slides[i].addEventListener('click', openLightbox);
+    slides[i].addEventListener('click', handleSlideClick);
   }
 
-  function openLightbox(e) {
+  function handleSlideClick(e) {
     e.preventDefault();
     e.stopPropagation();
 
-    var videoSrc = this.getAttribute('data-video');
+    var slide = this;
+
+    // If already playing, stop it
+    if (slide.classList.contains('playing')) {
+      stopVideo(slide);
+      return;
+    }
+
+    // Stop any other playing video first
+    var playing = document.querySelector('.video-slide.playing');
+    if (playing) stopVideo(playing);
+
+    var videoSrc = slide.getAttribute('data-video');
     if (!videoSrc) return;
 
-    // Pause carousel animation while lightbox is open
-    var track = document.querySelector('.carousel-track');
-    var savedAnimation = '';
-    if (track) {
-      savedAnimation = track.style.animationPlayState;
-      track.style.animationPlayState = 'paused';
-    }
+    // Hide poster image and play button, show video
+    var img = slide.querySelector('img');
+    var playBtn = slide.querySelector('.slide-play');
+    var label = slide.querySelector('.slide-label');
 
-    // Create overlay
-    var overlay = document.createElement('div');
-    overlay.className = 'video-lightbox';
+    if (img) img.style.display = 'none';
+    if (playBtn) playBtn.style.display = 'none';
+    if (label) label.style.display = 'none';
 
-    // Close button
-    var closeBtn = document.createElement('span');
-    closeBtn.className = 'video-lightbox-close';
-    closeBtn.innerHTML = '&times;';
-    overlay.appendChild(closeBtn);
-
-    // Video element
     var video = document.createElement('video');
     video.src = videoSrc;
-    video.controls = true;
     video.autoplay = true;
+    video.controls = true;
     video.playsInline = true;
-    video.style.outline = 'none';
-    overlay.appendChild(video);
+    video.className = 'inline-video';
+    video.style.width = '100%';
+    video.style.height = '100%';
+    video.style.objectFit = 'cover';
+    video.style.display = 'block';
+    video.style.position = 'absolute';
+    video.style.top = '0';
+    video.style.left = '0';
+    video.style.zIndex = '5';
+    video.style.background = '#000';
 
-    document.body.appendChild(overlay);
+    slide.appendChild(video);
+    slide.classList.add('playing');
 
-    // Prevent body scroll while lightbox is open
-    document.body.style.overflow = 'hidden';
+    // When video ends, restore poster
+    video.addEventListener('ended', function () {
+      stopVideo(slide);
+    });
 
-    // Close handlers
-    function closeLightbox() {
+    // Prevent click on video controls from toggling play/stop
+    video.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+    });
+  }
+
+  function stopVideo(slide) {
+    var video = slide.querySelector('.inline-video');
+    if (video) {
       video.pause();
       video.src = '';
-      document.body.removeChild(overlay);
-      document.body.style.overflow = '';
-      if (track) {
-        track.style.animationPlayState = savedAnimation || '';
-      }
+      slide.removeChild(video);
     }
 
-    closeBtn.addEventListener('click', function (ev) {
-      ev.stopPropagation();
-      closeLightbox();
-    });
+    var img = slide.querySelector('img');
+    var playBtn = slide.querySelector('.slide-play');
+    var label = slide.querySelector('.slide-label');
 
-    overlay.addEventListener('click', function (ev) {
-      // Only close if clicking the overlay background, not the video
-      if (ev.target === overlay) {
-        closeLightbox();
-      }
-    });
+    if (img) img.style.display = '';
+    if (playBtn) playBtn.style.display = '';
+    if (label) label.style.display = '';
 
-    // Close on Escape key
-    function onKeyDown(ev) {
-      if (ev.key === 'Escape' || ev.keyCode === 27) {
-        closeLightbox();
-        document.removeEventListener('keydown', onKeyDown);
-      }
-    }
-    document.addEventListener('keydown', onKeyDown);
+    slide.classList.remove('playing');
   }
+
+  // Escape key stops any playing video
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' || e.keyCode === 27) {
+      var playing = document.querySelector('.video-slide.playing');
+      if (playing) stopVideo(playing);
+    }
+  });
 })();
