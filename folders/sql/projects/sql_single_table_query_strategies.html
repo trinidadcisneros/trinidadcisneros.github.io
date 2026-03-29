@@ -13097,16 +13097,17 @@ div#notebook {
 <li><a href="#1-first-step-identify-the-pattern">First Step: Identify the Pattern</a></li>
 <li><a href="#2-decision-tree-5-second-version">Decision Tree (5-Second Version)</a></li>
 <li><a href="#3-pattern-library-with-examples">Pattern Library with Examples</a><ul>
-<li><a href="#pattern-a-compare-rows">A. Compare Rows</a> — LAG / LEAD / Self Join</li>
-<li><a href="#pattern-b-date-operations">B. Date Operations</a> — EXTRACT / DATEDIFF / INTERVAL</li>
-<li><a href="#pattern-c-combine-rows">C. Combine Rows</a> — GROUP BY + CASE / Self Join</li>
-<li><a href="#pattern-d-ranking">D. Ranking</a> — ROW_NUMBER / RANK / DENSE_RANK</li>
-<li><a href="#pattern-e-running-totals">E. Running Totals</a> — SUM() OVER() / Correlated Subquery</li>
-<li><a href="#pattern-f-missing-data">F. Missing Data</a> — NOT EXISTS / LEFT JOIN + IS NULL</li>
-<li><a href="#pattern-g-deduplication">G. Deduplication</a> — ROW_NUMBER / DISTINCT ON / GROUP BY</li>
-<li><a href="#pattern-h-conditional-logic">H. Conditional Logic</a> — CASE WHEN</li>
-<li><a href="#pattern-i-filtering-after-aggregation">I. Filtering After Aggregation</a> — HAVING / Self Join / CTE + Join</li>
-<li><a href="#pattern-j-pivoting">J. Pivoting</a> — CASE + GROUP BY</li>
+<li><a href="#pattern-a-row-level-filtering">A. Row-Level Filtering</a> — WHERE + ORDER BY</li>
+<li><a href="#pattern-b-compare-rows">B. Compare Rows</a> — LAG / LEAD / Self Join</li>
+<li><a href="#pattern-c-date-operations">C. Date Operations</a> — EXTRACT / DATEDIFF / INTERVAL</li>
+<li><a href="#pattern-d-combine-rows">D. Combine Rows</a> — GROUP BY + CASE / Self Join</li>
+<li><a href="#pattern-e-ranking">E. Ranking</a> — ROW_NUMBER / RANK / DENSE_RANK</li>
+<li><a href="#pattern-f-running-totals">F. Running Totals</a> — SUM() OVER() / Correlated Subquery</li>
+<li><a href="#pattern-g-missing-data">G. Missing Data</a> — NOT EXISTS / LEFT JOIN + IS NULL</li>
+<li><a href="#pattern-h-deduplication">H. Deduplication</a> — ROW_NUMBER / DISTINCT ON / GROUP BY</li>
+<li><a href="#pattern-i-conditional-logic">I. Conditional Logic</a> — CASE WHEN</li>
+<li><a href="#pattern-j-filtering-after-aggregation">J. Filtering After Aggregation</a> — HAVING / Self Join / CTE + Join</li>
+<li><a href="#pattern-k-pivoting">K. Pivoting</a> — CASE + GROUP BY</li>
 </ul>
 </li>
 <li><a href="#4-critical-efficiency-rules">Critical Efficiency Rules</a></li>
@@ -13142,6 +13143,22 @@ div#notebook {
 </tr>
 </thead>
 <tbody>
+<tr>
+<td><strong>Filter rows</strong></td>
+<td>where, find, report, not equal to, odd/even, greater/less than</td>
+<td>Any type</td>
+<td>1</td>
+<td><code>WHERE</code> + operators (<code>=</code>, <code>!=</code>, <code>&gt;</code>, <code>AND</code>, <code>OR</code>, <code>MOD</code>)</td>
+<td>Direct row selection; single scan with index use</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td>2</td>
+<td><code>CASE</code> inside <code>WHERE</code></td>
+<td>Useful for complex multi-condition logic</td>
+</tr>
 <tr>
 <td><strong>Compare rows</strong></td>
 <td>previous, next, yesterday, consecutive, following</td>
@@ -13392,6 +13409,12 @@ div#notebook {
                    │
                    ▼
 ┌──────────────────────────────┐  YES   ┌──────────────────────────────┐
+│  Just filtering rows by      ├───────►│  WHERE + ORDER BY            │
+│  conditions on columns?      │        │  (+ MOD / operators)         │
+└──────────┬───────────────────┘        └──────────────────────────────┘
+           │ NO
+           ▼
+┌──────────────────────────────┐  YES   ┌──────────────────────────────┐
 │  Does it involve dates?      ├───────►│  See DATE FORK below         │
 └──────────┬───────────────────┘        └──────────────────────────────┘
            │ NO
@@ -13475,8 +13498,91 @@ div#notebook {
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<p><a id="pattern-a-compare-rows"></a></p>
-<h3 id="A.-Compare-Rows">A. Compare Rows<a class="anchor-link" href="#A.-Compare-Rows">¶</a></h3><p><strong>Signals:</strong> previous, yesterday, next, consecutive, following</p>
+<p><a id="pattern-a-row-level-filtering"></a></p>
+<h3 id="A.-Row-Level-Filtering-(WHERE-+-ORDER-BY)">A. Row-Level Filtering (WHERE + ORDER BY)<a class="anchor-link" href="#A.-Row-Level-Filtering-(WHERE-+-ORDER-BY)">¶</a></h3><p><strong>Signals:</strong> "find rows where," "report all X that satisfy," "not equal to," "odd-numbered," "greater than," "exclude," "not boring"</p>
+<hr>
+<p><strong>Best approach — <code>WHERE</code> + operators</strong></p>
+<p><strong>Method:</strong> Apply conditions directly on existing columns using <code>WHERE</code>. Combine multiple conditions with <code>AND</code> / <code>OR</code>. Use <code>ORDER BY</code> when the output needs sorting. No aggregation, no window functions — just selecting the rows that match.</p>
+<p><strong>In plain language:</strong> "Look at each row, check if it meets the criteria, and return the ones that do."</p>
+<div class="highlight"><pre><span></span><span class="c1">-- Find movies with odd-numbered ID and description not 'boring', sorted by rating</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="o">*</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Cinema</span>
+<span class="k">WHERE</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">  </span><span class="k">AND</span><span class="w"> </span><span class="n">description</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="s1">'boring'</span>
+<span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">rating</span><span class="w"> </span><span class="k">DESC</span><span class="p">;</span>
+</pre></div>
+<hr>
+<p><strong>Common WHERE Operators</strong></p>
+<table>
+<thead>
+<tr>
+<th>Operator</th>
+<th>Purpose</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>=</code>, <code>!=</code> (or <code>&lt;&gt;</code>)</td>
+<td>Exact match / exclusion</td>
+<td><code>description != 'boring'</code></td>
+</tr>
+<tr>
+<td><code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code></td>
+<td>Numeric / date comparison</td>
+<td><code>rating &gt;= 8.0</code></td>
+</tr>
+<tr>
+<td><code>%</code> (MOD)</td>
+<td>Odd/even, divisibility</td>
+<td><code>id % 2 = 1</code> (odd)</td>
+</tr>
+<tr>
+<td><code>AND</code>, <code>OR</code></td>
+<td>Combine conditions</td>
+<td><code>WHERE a &gt; 5 AND b = 'x'</code></td>
+</tr>
+<tr>
+<td><code>IN (...)</code></td>
+<td>Match any in a list</td>
+<td><code>status IN ('active', 'pending')</code></td>
+</tr>
+<tr>
+<td><code>NOT IN (...)</code></td>
+<td>Exclude a list</td>
+<td><code>category NOT IN ('spam', 'test')</code></td>
+</tr>
+<tr>
+<td><code>BETWEEN</code></td>
+<td>Range (inclusive)</td>
+<td><code>rating BETWEEN 7.0 AND 9.0</code></td>
+</tr>
+<tr>
+<td><code>LIKE</code> / <code>NOT LIKE</code></td>
+<td>Pattern matching</td>
+<td><code>name LIKE 'A%'</code> (starts with A)</td>
+</tr>
+<tr>
+<td><code>IS NULL</code> / <code>IS NOT NULL</code></td>
+<td>NULL checks</td>
+<td><code>email IS NOT NULL</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><strong>How to recognize this pattern:</strong></p>
+<p>The question gives you conditions on <strong>existing columns</strong> and asks you to return matching rows — no aggregation, no comparison between rows, no grouping. The output shape is the <strong>same columns as the input</strong> (or a subset), just fewer rows.</p>
+<blockquote>
+<p><strong>Interview tip:</strong> These problems look trivially easy, but interviewers use them to check if you write clean, correct SQL under pressure. Pay attention to edge cases like NULLs in <code>!=</code> comparisons (NULL != 'boring' evaluates to NULL, not TRUE) and whether <code>MOD</code> syntax varies by dialect (<code>%</code> in MySQL/PostgreSQL, <code>MOD()</code> function in Oracle).</p>
+</blockquote>
+</hr></hr></hr></div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><a id="pattern-b-compare-rows"></a></p>
+<h3 id="B.-Compare-Rows">B. Compare Rows<a class="anchor-link" href="#B.-Compare-Rows">¶</a></h3><p><strong>Signals:</strong> previous, yesterday, next, consecutive, following</p>
 <hr>
 <p><strong>Best approach — Window Function: <code>LAG()</code> (look backward)</strong></p>
 <p><strong>Method:</strong> <code>LAG()</code> is a window function that lets you access the previous row's value without a join. You define the order with <code>OVER (ORDER BY ...)</code> and it hands you the value from the row right before the current one. Use <code>LAG()</code> when the question asks about what came before — "previous day," "yesterday," "prior month."</p>
@@ -13494,7 +13600,7 @@ div#notebook {
 <span class="k">WHERE</span><span class="w"> </span><span class="n">recordDate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">prev_date</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">INTERVAL</span><span class="w"> </span><span class="s1">'1 day'</span>
 <span class="w">  </span><span class="k">AND</span><span class="w"> </span><span class="n">temperature</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">prev_temp</span><span class="p">;</span>
 </pre></div>
-<hr>
+<hr/>
 <p><strong>Also common — Window Function: <code>LEAD()</code> (look forward)</strong></p>
 <p><strong>Method:</strong> <code>LEAD()</code> is the mirror image of <code>LAG()</code> — instead of looking at the previous row, it looks at the next row. Use <code>LEAD()</code> when the question asks about what comes after — "next purchase," "following day," "will the customer return."</p>
 <p><strong>In plain language:</strong> For every row, we peek ahead at the next row's value. This is useful when you need to ask "what happens next?" For example, finding users whose next login was more than 30 days later — that gap tells you they churned.</p>
@@ -13505,7 +13611,7 @@ div#notebook {
 <span class="w">    </span><span class="n">LEAD</span><span class="p">(</span><span class="n">login_date</span><span class="p">)</span><span class="w"> </span><span class="n">OVER</span><span class="w"> </span><span class="p">(</span><span class="n">PARTITION</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">user_id</span><span class="w"> </span><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">login_date</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">login_date</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">days_until_next</span>
 <span class="k">FROM</span><span class="w"> </span><span class="n">Logins</span><span class="p">;</span>
 </pre></div>
-<hr>
+<hr/>
 <p><strong>When to use LAG vs LEAD</strong></p>
 <table>
 <thead>
@@ -13534,7 +13640,7 @@ div#notebook {
 </tbody>
 </table>
 <p><strong>In plain language:</strong> Think of it like standing in a line. <code>LAG()</code> lets you turn around and look at the person behind you. <code>LEAD()</code> lets you look at the person in front of you. Both are window functions, both use <code>OVER (ORDER BY ...)</code>, and the syntax is identical — the only difference is the direction.</p>
-<hr>
+<hr/>
 <p><strong>Alternative — Self Join</strong></p>
 <p><strong>Method:</strong> Join the table to itself by matching each row to the row from the day before. No window function needed, but the database has to do extra work to pair up the rows.</p>
 <p><strong>In plain language:</strong> We take two copies of the same Weather table and line them up so that each day in the first copy is matched to the day before it in the second copy. Then we just check which days were warmer than the day before.</p>
@@ -13544,15 +13650,15 @@ div#notebook {
 <span class="w">  </span><span class="k">ON</span><span class="w"> </span><span class="n">w1</span><span class="p">.</span><span class="n">recordDate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">w2</span><span class="p">.</span><span class="n">recordDate</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">INTERVAL</span><span class="w"> </span><span class="s1">'1 day'</span>
 <span class="k">WHERE</span><span class="w"> </span><span class="n">w1</span><span class="p">.</span><span class="n">temperature</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">w2</span><span class="p">.</span><span class="n">temperature</span><span class="p">;</span>
 </pre></div>
-</hr></hr></hr></hr></div>
+</hr></div>
 </div>
 </div>
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
-<p><a id="pattern-b-date-operations"></a></p>
-<h3 id="B.-Date-Operations">B. Date Operations<a class="anchor-link" href="#B.-Date-Operations">¶</a></h3><p><strong>Signals:</strong> days between, month, year, age, interval, gap, extract</p>
+<p><a id="pattern-c-date-operations"></a></p>
+<h3 id="C.-Date-Operations">C. Date Operations<a class="anchor-link" href="#C.-Date-Operations">¶</a></h3><p><strong>Signals:</strong> days between, month, year, age, interval, gap, extract</p>
 <p>Date columns show up constantly in single-table interview problems. These functions are often <strong>combined</strong> with other patterns (LAG, GROUP BY, ROW_NUMBER) rather than used alone.</p>
 <hr>
 <p><strong>Extracting parts of a date — <code>EXTRACT()</code> / <code>DATE_PART()</code> / <code>YEAR()</code>, <code>MONTH()</code>, <code>DAY()</code></strong></p>
@@ -13642,8 +13748,8 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
-<p><a id="pattern-c-combine-rows"></a></p>
-<h3 id="C.-Combine-Rows">C. Combine Rows<a class="anchor-link" href="#C.-Combine-Rows">¶</a></h3><p><strong>Signals:</strong> average, duration, per X, total per group</p>
+<p><a id="pattern-d-combine-rows"></a></p>
+<h3 id="D.-Combine-Rows">D. Combine Rows<a class="anchor-link" href="#D.-Combine-Rows">¶</a></h3><p><strong>Signals:</strong> average, duration, per X, total per group</p>
 <hr>
 <p><strong>Best approach — Aggregate Function: <code>GROUP BY</code> + Conditional Aggregation with <code>CASE</code></strong></p>
 <p><strong>Method:</strong> <code>GROUP BY</code> collapses multiple rows into one row per group. Inside the aggregation, <code>CASE</code> expressions act like an if/then switch — they pick out specific values (like the "start" timestamp vs the "end" timestamp) so you can combine them in one pass.</p>
@@ -13712,8 +13818,8 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
-<p><a id="pattern-d-ranking"></a></p>
-<h3 id="D.-Ranking">D. Ranking<a class="anchor-link" href="#D.-Ranking">¶</a></h3><p><strong>Signals:</strong> top, latest, first, nth</p>
+<p><a id="pattern-e-ranking"></a></p>
+<h3 id="E.-Ranking">E. Ranking<a class="anchor-link" href="#E.-Ranking">¶</a></h3><p><strong>Signals:</strong> top, latest, first, nth</p>
 <hr>
 <p><strong>Best approach — Window Function: <code>ROW_NUMBER()</code></strong></p>
 <p><strong>Method:</strong> <code>ROW_NUMBER()</code> is a window function that assigns a sequential number to each row within a partition. <code>PARTITION BY</code> splits the data into groups (like one group per customer), and <code>ORDER BY</code> controls which row gets number 1 within each group.</p>
@@ -13740,8 +13846,8 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
-<p><a id="pattern-e-running-totals"></a></p>
-<h3 id="E.-Running-Totals">E. Running Totals<a class="anchor-link" href="#E.-Running-Totals">¶</a></h3><p><strong>Signals:</strong> cumulative, rolling, moving, running sum, year-to-date</p>
+<p><a id="pattern-f-running-totals"></a></p>
+<h3 id="F.-Running-Totals">F. Running Totals<a class="anchor-link" href="#F.-Running-Totals">¶</a></h3><p><strong>Signals:</strong> cumulative, rolling, moving, running sum, year-to-date</p>
 <hr>
 <p><strong>Best approach — Window Function: <code>SUM() OVER()</code></strong></p>
 <p><strong>Method:</strong> <code>SUM() OVER(ORDER BY ...)</code> is a window function that computes a running (cumulative) sum. Because there is no <code>PARTITION BY</code>, it treats the entire result set as one group. The <code>ORDER BY</code> inside <code>OVER()</code> tells SQL to add up all the sales from the beginning up to the current row.</p>
@@ -13795,8 +13901,8 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
-<p><a id="pattern-f-missing-data"></a></p>
-<h3 id="F.-Missing-Data">F. Missing Data<a class="anchor-link" href="#F.-Missing-Data">¶</a></h3><p><strong>Signals:</strong> no, missing, without, never, doesn't exist</p>
+<p><a id="pattern-g-missing-data"></a></p>
+<h3 id="G.-Missing-Data">G. Missing Data<a class="anchor-link" href="#G.-Missing-Data">¶</a></h3><p><strong>Signals:</strong> no, missing, without, never, doesn't exist</p>
 <hr>
 <p><strong>Best approach — Subquery Filter: <code>NOT EXISTS</code></strong></p>
 <p><strong>Method:</strong> <code>NOT EXISTS</code> is a subquery filter (not a window function). It checks whether a matching row exists in another table. If no match is found, the row from the outer query is kept. It stops searching as soon as it finds the first match, making it efficient.</p>
@@ -13863,8 +13969,8 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
-<p><a id="pattern-g-deduplication"></a></p>
-<h3 id="G.-Deduplication">G. Deduplication<a class="anchor-link" href="#G.-Deduplication">¶</a></h3><p><strong>Signals:</strong> unique, one per, most recent per, latest per group, remove duplicates keeping one</p>
+<p><a id="pattern-h-deduplication"></a></p>
+<h3 id="H.-Deduplication">H. Deduplication<a class="anchor-link" href="#H.-Deduplication">¶</a></h3><p><strong>Signals:</strong> unique, one per, most recent per, latest per group, remove duplicates keeping one</p>
 <hr>
 <p><strong>Best approach — Window Function: <code>ROW_NUMBER()</code></strong></p>
 <p><strong>Method:</strong> Same window function as ranking — <code>ROW_NUMBER()</code> with <code>PARTITION BY</code> and <code>ORDER BY</code>. The difference is intent: here we are not ranking for display, we are numbering rows so we can throw away the duplicates and keep only the one we want (usually the most recent).</p>
@@ -13934,8 +14040,8 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
-<p><a id="pattern-h-conditional-logic"></a></p>
-<h3 id="H.-Conditional-Logic-(CASE-Expressions)">H. Conditional Logic (CASE Expressions)<a class="anchor-link" href="#H.-Conditional-Logic-(CASE-Expressions)">¶</a></h3><p><strong>Signals:</strong> label, categorize, bucket, if/then, classify, flag, convert rows to columns</p>
+<p><a id="pattern-i-conditional-logic"></a></p>
+<h3 id="I.-Conditional-Logic-(CASE-Expressions)">I. Conditional Logic (CASE Expressions)<a class="anchor-link" href="#I.-Conditional-Logic-(CASE-Expressions)">¶</a></h3><p><strong>Signals:</strong> label, categorize, bucket, if/then, classify, flag, convert rows to columns</p>
 <hr>
 <p><strong>Standalone CASE — Categorizing or Bucketing Values</strong></p>
 <p><strong>Method:</strong> <code>CASE WHEN ... THEN ... ELSE ... END</code> is SQL's if/then/else. It evaluates conditions row by row and returns a value based on the first match. Use it standalone in SELECT to create new label columns, or inside WHERE/ORDER BY for conditional filtering and sorting.</p>
@@ -13969,8 +14075,8 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
-<p><a id="pattern-i-filtering-after-aggregation"></a></p>
-<h3 id="I.-Filtering-After-Aggregation-(HAVING)">I. Filtering After Aggregation (HAVING)<a class="anchor-link" href="#I.-Filtering-After-Aggregation-(HAVING)">¶</a></h3><p><strong>Signals:</strong> groups with more than, only customers who bought at least, categories where the average exceeds, managers with at least N reports</p>
+<p><a id="pattern-j-filtering-after-aggregation"></a></p>
+<h3 id="J.-Filtering-After-Aggregation-(HAVING)">J. Filtering After Aggregation (HAVING)<a class="anchor-link" href="#J.-Filtering-After-Aggregation-(HAVING)">¶</a></h3><p><strong>Signals:</strong> groups with more than, only customers who bought at least, categories where the average exceeds, managers with at least N reports</p>
 <hr>
 <p><strong>Best approach — <code>GROUP BY</code> + <code>HAVING</code> (direct aggregation)</strong></p>
 <p><strong>Method:</strong> <code>HAVING</code> filters rows <em>after</em> <code>GROUP BY</code> has collapsed them. <code>WHERE</code> filters individual rows before grouping; <code>HAVING</code> filters the groups themselves based on aggregate values. You cannot use <code>WHERE</code> to filter on <code>COUNT()</code>, <code>SUM()</code>, <code>AVG()</code>, etc. — that's what <code>HAVING</code> is for.</p>
@@ -14097,8 +14203,8 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
-<p><a id="pattern-j-pivoting"></a></p>
-<h3 id="J.-Pivoting-(Rows-to-Columns)">J. Pivoting (Rows to Columns)<a class="anchor-link" href="#J.-Pivoting-(Rows-to-Columns)">¶</a></h3><p><strong>Signals:</strong> show each category as a column, side by side, pivot, crosstab, transpose</p>
+<p><a id="pattern-k-pivoting"></a></p>
+<h3 id="K.-Pivoting-(Rows-to-Columns)">K. Pivoting (Rows to Columns)<a class="anchor-link" href="#K.-Pivoting-(Rows-to-Columns)">¶</a></h3><p><strong>Signals:</strong> show each category as a column, side by side, pivot, crosstab, transpose</p>
 <hr>
 <p><strong>Pivoting with CASE + GROUP BY — Turning Rows into Columns</strong></p>
 <p><strong>Method:</strong> Combine <code>CASE</code> expressions inside aggregate functions with <code>GROUP BY</code> to transform row values into separate columns. This is the most portable approach — it works in every SQL dialect. Some dialects also have a dedicated <code>PIVOT</code> keyword, but the CASE approach is what interviewers typically expect.</p>
