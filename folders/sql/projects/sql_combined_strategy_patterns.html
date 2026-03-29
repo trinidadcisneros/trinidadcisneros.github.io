@@ -3,7 +3,7 @@
 <html lang="en">
 <head><meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>sql_multi_table_query_strategies</title><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script><script type="module">
+<title>sql_combined_strategy_patterns</title><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script><script type="module">
   import mermaid from 'https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.10.0/mermaid.esm.min.mjs';
   
   mermaid.initialize({ startOnLoad: true });
@@ -13091,29 +13091,33 @@ div#notebook {
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h1 id="SQL-Multi-Table-Query-Strategies">SQL Multi-Table Query Strategies<a class="anchor-link" href="#SQL-Multi-Table-Query-Strategies">¶</a></h1><p><strong>Purpose:</strong> This guide is a quick-reference strategy sheet for SQL interview questions that involve combining data across multiple tables. It covers the most common multi-table patterns you'll encounter — joining for lookups, generating complete combinations, finding mismatches, aggregating across relationships, and more — with a focus on identifying the right join strategy before writing any code, choosing the most efficient approach, and explaining your reasoning clearly to an interviewer.</p>
-<hr/>
-<h3 id="Table-of-Contents">Table of Contents<a class="anchor-link" href="#Table-of-Contents">¶</a></h3><p><strong><a href="#1-first-step-identify-the-pattern">1. First Step: Identify the Pattern</a></strong> — Master reference table: pattern → join type → method → rationale</p>
-<p><strong><a href="#2-decision-tree-5-second-version">2. Decision Tree (5-Second Version)</a></strong> — Quick mental flowchart for choosing the right join</p>
-<p><strong><a href="#3-pattern-library-with-examples">3. Pattern Library with Examples</a></strong></p>
+<h1 id="SQL-Combined-Strategy-Patterns">SQL Combined Strategy Patterns<a class="anchor-link" href="#SQL-Combined-Strategy-Patterns">¶</a></h1><p><strong>Purpose:</strong> Many SQL interview problems cannot be solved with a single technique. They require combining a <strong>multi-table strategy</strong> (choosing the right join) with a <strong>single-table strategy</strong> (aggregation, conditional logic, window functions). This guide teaches you to recognize these combo problems, decompose them into their component patterns, and assemble an efficient solution step by step.</p>
+<p><strong>Prerequisite guides:</strong></p>
 <ul>
-<li><a href="#pattern-a-inner-join">A. Lookup / Enrich (INNER JOIN)</a></li>
-<li><a href="#pattern-b-left-join">B. Include All / Preserve Unmatched (LEFT JOIN)</a></li>
-<li><a href="#pattern-c-cross-join">C. Complete Combinations (CROSS JOIN)</a></li>
-<li><a href="#pattern-d-cross-join-left-join">D. Complete Combinations with Counts (CROSS JOIN + LEFT JOIN)</a></li>
-<li><a href="#pattern-e-find-missing">E. Find Mismatches / Missing Data (LEFT JOIN + IS NULL)</a></li>
-<li><a href="#pattern-f-union">F. Combine Similar Tables (UNION / UNION ALL)</a></li>
-<li><a href="#pattern-g-self-join">G. Self-Referencing (Self JOIN)</a></li>
-<li><a href="#pattern-h-exists-in">H. Filter by Another Table (EXISTS / IN)</a></li>
-<li><a href="#pattern-i-aggregate-then-join">I. Aggregate Then Join (Subquery/CTE + JOIN)</a></li>
+<li><a href="sql_single_table_query_strategies.html">SQL Single-Table Query Strategies</a> — patterns for transforming data within one table</li>
+<li><a href="sql_multi_table_query_strategies.html">SQL Multi-Table Query Strategies</a> — patterns for combining data across tables</li>
 </ul>
-<p><strong><a href="#4-critical-efficiency-rules">4. Critical Efficiency Rules</a></strong> — Five rules to avoid common performance traps</p>
-<p><strong><a href="#5-join-type-quick-reference">5. JOIN Type Quick Reference</a></strong> — Side-by-side comparison of all join types</p>
-<p><strong><a href="#6-row-count-diagnostics">6. Row Count Diagnostics</a></strong> — Verify you picked the right JOIN with QA queries</p>
-<p><strong><a href="#7-how-to-think-from-the-vignette">7. How to Think from the Vignette</a></strong> — Step-by-step approach + worked examples</p>
-<p><strong><a href="#8-interview-prompt-templates">8. Interview Prompt Templates</a></strong> — Ready-made phrases for thinking out loud</p>
-<p><strong><a href="#9-what-to-avoid">9. What to Avoid</a></strong> — Common mistakes and their fixes</p>
-<p><strong><a href="#10-final-takeaway">10. Final Takeaway</a></strong> — The 4 most common patterns to memorize</p>
+<hr/>
+<h3 id="Table-of-Contents">Table of Contents<a class="anchor-link" href="#Table-of-Contents">¶</a></h3><p><strong><a href="#1-why-combo-patterns-exist">1. Why Combo Patterns Exist</a></strong> — When one guide isn't enough</p>
+<p><strong><a href="#2-two-pass-decomposition">2. The Two-Pass Decomposition Framework</a></strong> — How to break any combo problem into join + transform</p>
+<p><strong><a href="#3-combo-decision-tree">3. Combo Decision Tree</a></strong> — Visual flow from problem → join type → single-table technique</p>
+<p><strong><a href="#4-combo-pattern-library">4. Combo Pattern Library</a></strong></p>
+<ul>
+<li><a href="#combo-a">A. LEFT JOIN + Conditional Aggregation</a> — "Metric per entity including zeros"</li>
+<li><a href="#combo-b">B. LEFT JOIN + COUNT with NULLs</a> — "Count per entity including zeros"</li>
+<li><a href="#combo-c">C. INNER JOIN + GROUP BY + HAVING</a> — "Find entities meeting a threshold in related data"</li>
+<li><a href="#combo-d">D. CROSS JOIN + LEFT JOIN + Conditional Aggregation</a> — "Metric per combination including zeros"</li>
+<li><a href="#combo-e">E. Self JOIN + Window Function</a> — "Rank or compare across self-referencing data"</li>
+<li><a href="#combo-f">F. LEFT JOIN + Window Function</a> — "Running totals or rankings across joined data"</li>
+<li><a href="#combo-g">G. Subquery/CTE + JOIN + Aggregation</a> — "Pre-filter one table, then join and summarize"</li>
+<li><a href="#combo-h">H. ANTI JOIN</a> — "Find entities with no match"</li>
+</ul>
+<p><strong><a href="#5-null-trap">5. The NULL Trap — How Joins Change Single-Table Logic</a></strong> — Why CASE/COUNT/AVG behave differently after LEFT JOIN</p>
+<p><strong><a href="#6-decompose-any-problem">6. How to Decompose Any Combo Problem</a></strong> — Step-by-step walkthrough with worked examples</p>
+<p><strong><a href="#7-efficiency-where-to-aggregate">7. Efficiency: Where to Aggregate</a></strong> — Before the join vs after the join</p>
+<p><strong><a href="#8-interview-script">8. Interview Script for Combo Problems</a></strong></p>
+<p><strong><a href="#9-common-mistakes">9. Common Combo Mistakes</a></strong></p>
+<p><strong><a href="#10-final-takeaway">10. Final Takeaway</a></strong></p>
 </div>
 </div>
 </div>
@@ -13121,178 +13125,38 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
-<p><a id="1-first-step-identify-the-pattern"></a></p>
-<h2 id="1.-First-Step:-Identify-the-Pattern">1. First Step: Identify the Pattern<a class="anchor-link" href="#1.-First-Step:-Identify-the-Pattern">¶</a></h2><p>Before writing <strong>any</strong> SQL, ask yourself:</p>
-<blockquote>
-<p><em>How do these tables relate, and what combination of their data does the question need?</em></p>
-</blockquote>
-<p>The table below combines <strong>pattern recognition</strong>, <strong>join type</strong>, <strong>function selection</strong>, and <strong>efficiency ranking</strong> into a single reference. Methods are listed from most efficient (1) to least efficient.</p>
+<p><a id="1-why-combo-patterns-exist"></a></p>
+<h2 id="1.-Why-Combo-Patterns-Exist">1. Why Combo Patterns Exist<a class="anchor-link" href="#1.-Why-Combo-Patterns-Exist">¶</a></h2><p>Most real SQL interview problems involve <strong>two separate challenges packed into one question:</strong></p>
 <table>
 <thead>
 <tr>
-<th>Pattern</th>
-<th>Signal Words</th>
-<th>Tables Involved</th>
-<th>Rank</th>
-<th>Method</th>
-<th>Rationale</th>
+<th>Challenge</th>
+<th>Which Guide</th>
+<th>Example</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Lookup / Enrich</strong></td>
-<td>"get the name", "include details", "add info from"</td>
-<td>Fact + Dimension</td>
-<td>1</td>
-<td><code>INNER JOIN</code></td>
-<td>Matches rows on key; only returns matches</td>
+<td><strong>How do I connect the tables?</strong></td>
+<td>Multi-Table Guide</td>
+<td>LEFT JOIN, CROSS JOIN, Self JOIN</td>
 </tr>
 <tr>
-<td></td>
-<td></td>
-<td></td>
-<td>2</td>
-<td>Correlated Subquery in <code>SELECT</code></td>
-<td>Row-by-row lookup; works but slower on large data</td>
-</tr>
-<tr>
-<td><strong>Include All (preserve unmatched)</strong></td>
-<td>"even if no match", "including those with zero", "all students"</td>
-<td>Fact + Dimension</td>
-<td>1</td>
-<td><code>LEFT JOIN</code></td>
-<td>Keeps all rows from left table; NULLs for no match</td>
-</tr>
-<tr>
-<td></td>
-<td></td>
-<td></td>
-<td>2</td>
-<td><code>RIGHT JOIN</code></td>
-<td>Same logic, opposite direction; less conventional</td>
-</tr>
-<tr>
-<td><strong>Complete Combinations</strong></td>
-<td>"every student × every subject", "all possible pairs", "each with each"</td>
-<td>Two independent lists</td>
-<td>1</td>
-<td><code>CROSS JOIN</code></td>
-<td>Cartesian product — every row paired with every row</td>
-</tr>
-<tr>
-<td></td>
-<td></td>
-<td></td>
-<td>2</td>
-<td>Implicit cross join (comma in <code>FROM</code>)</td>
-<td>Same result, less readable</td>
-</tr>
-<tr>
-<td><strong>Complete Combinations + Counts</strong></td>
-<td>"how many times each X did each Y", "count per combination including zeros"</td>
-<td>Two lists + Fact</td>
-<td>1</td>
-<td><code>CROSS JOIN</code> + <code>LEFT JOIN</code> + <code>GROUP BY</code></td>
-<td>Build all pairs, then attach and count actuals</td>
-</tr>
-<tr>
-<td></td>
-<td></td>
-<td></td>
-<td>2</td>
-<td><code>CROSS JOIN</code> + Correlated Subquery</td>
-<td>Builds pairs then counts per-row; slower</td>
-</tr>
-<tr>
-<td><strong>Find Mismatches / Missing</strong></td>
-<td>"not in", "who didn't", "which have no", "never attended"</td>
-<td>Fact + Dimension</td>
-<td>1</td>
-<td><code>LEFT JOIN</code> + <code>WHERE IS NULL</code></td>
-<td>Join then filter for non-matches</td>
-</tr>
-<tr>
-<td></td>
-<td></td>
-<td></td>
-<td>2</td>
-<td><code>NOT EXISTS</code></td>
-<td>Correlated subquery; readable but can be slower</td>
-</tr>
-<tr>
-<td></td>
-<td></td>
-<td></td>
-<td>3</td>
-<td><code>NOT IN</code></td>
-<td>Breaks with NULLs; avoid unless column is NOT NULL</td>
-</tr>
-<tr>
-<td><strong>Combine Similar Rows</strong></td>
-<td>"together", "merge", "all from both"</td>
-<td>Two tables with same structure</td>
-<td>1</td>
-<td><code>UNION ALL</code></td>
-<td>Stacks rows; keeps duplicates</td>
-</tr>
-<tr>
-<td></td>
-<td></td>
-<td></td>
-<td>2</td>
-<td><code>UNION</code></td>
-<td>Stacks rows; removes duplicates (extra cost)</td>
-</tr>
-<tr>
-<td><strong>Self-Referencing</strong></td>
-<td>"manager", "parent", "reports to", "hierarchy"</td>
-<td>Single table referencing itself</td>
-<td>1</td>
-<td>Self <code>JOIN</code></td>
-<td>Table joined to itself on parent/child key</td>
-</tr>
-<tr>
-<td></td>
-<td></td>
-<td></td>
-<td>2</td>
-<td>Recursive CTE</td>
-<td>For multi-level hierarchy traversal</td>
-</tr>
-<tr>
-<td><strong>Compare Across Tables</strong></td>
-<td>"higher than average of other table", "exists in both"</td>
-<td>Two related tables</td>
-<td>1</td>
-<td><code>EXISTS</code> / <code>IN</code> with subquery</td>
-<td>Filter one table based on another</td>
-</tr>
-<tr>
-<td></td>
-<td></td>
-<td></td>
-<td>2</td>
-<td><code>JOIN</code> + <code>WHERE</code></td>
-<td>Join then filter; may produce duplicates</td>
-</tr>
-<tr>
-<td><strong>Aggregate Then Join</strong></td>
-<td>"total per group then combine", "summary + detail"</td>
-<td>Fact + Aggregated Fact</td>
-<td>1</td>
-<td>Subquery/CTE + <code>JOIN</code></td>
-<td>Pre-aggregate, then join clean result</td>
-</tr>
-<tr>
-<td></td>
-<td></td>
-<td></td>
-<td>2</td>
-<td>Window function + <code>JOIN</code></td>
-<td>Add aggregate column without collapsing, then join</td>
+<td><strong>How do I transform the data?</strong></td>
+<td>Single-Table Guide</td>
+<td>GROUP BY, CASE WHEN, Window Functions</td>
 </tr>
 </tbody>
 </table>
+<p>When you see a problem that touches multiple tables AND requires aggregation, conditional logic, or window functions, you're looking at a <strong>combo pattern</strong>. Neither guide alone gives you the full answer — you need to chain them together.</p>
+<h3 id="The-Key-Insight">The Key Insight<a class="anchor-link" href="#The-Key-Insight">¶</a></h3><blockquote>
+<p><em>Solve the JOIN first, then apply the single-table technique to the joined result.</em></p>
+</blockquote>
+<p>Think of it as two layers:</p>
+<pre><code>Layer 1 (Multi-Table):  Which rows do I need from which tables?  →  JOIN type
+Layer 2 (Single-Table): What do I do with those rows?            →  GROUP BY / CASE / Window
+</code></pre>
+<p>The join determines <strong>what rows you're working with</strong>. The single-table technique determines <strong>what you do with those rows</strong>.</p>
 </div>
 </div>
 </div>
@@ -13300,50 +13164,83 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
-<p><a id="2-decision-tree-5-second-version"></a></p>
-<h2 id="2.-Decision-Tree-(5-Second-Version)">2. Decision Tree (5-Second Version)<a class="anchor-link" href="#2.-Decision-Tree-(5-Second-Version)">¶</a></h2><p>Use this quick mental checklist when you first read a multi-table problem:</p>
-<pre><code>┌─────────────────────────────────────────┐
-│          READ THE QUESTION              │
-│   How many tables are involved?         │
-│   How do they relate?                   │
-└────────────────────┬────────────────────┘
-                     │
-                     ▼
-┌──────────────────────────────────┐  YES   ┌────────────────────────────────┐
-│  Same structure / similar data?  │───────▶│  UNION ALL (or UNION)          │
-│  "combine", "merge", "together"  │        │  Stack rows from both tables   │
-└──────────────┬───────────────────┘        └────────────────────────────────┘
-               │ NO
-               ▼
-┌──────────────────────────────────┐  YES   ┌────────────────────────────────┐
-│  Table references itself?        │───────▶│  Self JOIN                     │
-│  "manager", "parent", "reports"  │        │  (or Recursive CTE for depth)  │
-└──────────────┬───────────────────┘        └────────────────────────────────┘
-               │ NO
-               ▼
-┌──────────────────────────────────┐  YES   ┌────────────────────────────────┐
-│  Need ALL combinations?          │───────▶│  CROSS JOIN                    │
-│  "every X with every Y"          │        │  Then LEFT JOIN for actuals    │
-└──────────────┬───────────────────┘        └────────────────────────────────┘
-               │ NO
-               ▼
-┌──────────────────────────────────┐  YES   ┌────────────────────────────────┐
-│  Need to find what's MISSING?    │───────▶│  LEFT JOIN + WHERE IS NULL     │
-│  "never", "didn't", "no match"   │        │  (or NOT EXISTS)               │
-└──────────────┬───────────────────┘        └────────────────────────────────┘
-               │ NO
-               ▼
-┌──────────────────────────────────┐  YES   ┌────────────────────────────────┐
-│  Must keep ALL rows from one     │───────▶│  LEFT JOIN                     │
-│  table even if no match?         │        │  + COALESCE for NULL defaults  │
-└──────────────┬───────────────────┘        └────────────────────────────────┘
-               │ NO
-               ▼
-┌──────────────────────────────────┐
-│  Matching rows only              │───────▶  INNER JOIN
-│  "get name", "look up", "find"   │
-└──────────────────────────────────┘
-</code></pre>
+<p><a id="2-two-pass-decomposition"></a></p>
+<h2 id="2.-The-Two-Pass-Decomposition-Framework">2. The Two-Pass Decomposition Framework<a class="anchor-link" href="#2.-The-Two-Pass-Decomposition-Framework">¶</a></h2><p>When you read a combo problem, make <strong>two passes</strong> through the question:</p>
+<h3 id="Pass-1-%E2%80%94-The-Join-Pass-(Multi-Table-Guide)">Pass 1 — The Join Pass (Multi-Table Guide)<a class="anchor-link" href="#Pass-1-%E2%80%94-The-Join-Pass-(Multi-Table-Guide)">¶</a></h3><p>Ask these questions in order:</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Question</th>
+<th>What It Tells You</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>How many tables?</td>
+<td>Scope of the problem</td>
+</tr>
+<tr>
+<td>2</td>
+<td>What is each table? (dimension vs fact)</td>
+<td>Which table is "all entities" vs "events"</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Must the output include ALL entities, even those with no activity?</td>
+<td>LEFT JOIN vs INNER JOIN</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Do I need all combinations of two lists?</td>
+<td>CROSS JOIN</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Is a table referencing itself?</td>
+<td>Self JOIN</td>
+</tr>
+</tbody>
+</table>
+<h3 id="Pass-2-%E2%80%94-The-Transform-Pass-(Single-Table-Guide)">Pass 2 — The Transform Pass (Single-Table Guide)<a class="anchor-link" href="#Pass-2-%E2%80%94-The-Transform-Pass-(Single-Table-Guide)">¶</a></h3><p>Now pretend the joined result is a single table and ask:</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Question</th>
+<th>What It Tells You</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Does the output have fewer rows than the joined result?</td>
+<td>GROUP BY needed</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Do I need to count/sum only rows meeting a condition?</td>
+<td>CASE WHEN inside aggregate</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Do I need to compare rows within groups?</td>
+<td>Window function (LAG/LEAD)</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Do I need to rank rows?</td>
+<td>ROW_NUMBER / RANK</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Do I need to filter groups by an aggregate condition?</td>
+<td>HAVING</td>
+</tr>
+</tbody>
+</table>
+<h3 id="Pass-1-+-Pass-2-=-Your-Solution">Pass 1 + Pass 2 = Your Solution<a class="anchor-link" href="#Pass-1-+-Pass-2-=-Your-Solution">¶</a></h3><p>The join type from Pass 1 tells you how to connect tables. The technique from Pass 2 tells you how to transform the result. Chain them together and you have your query.</p>
 </div>
 </div>
 </div>
@@ -13351,71 +13248,453 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
-<p><a id="3-pattern-library-with-examples"></a></p>
-<h2 id="3.-Pattern-Library-with-Examples">3. Pattern Library with Examples<a class="anchor-link" href="#3.-Pattern-Library-with-Examples">¶</a></h2>
+<p><a id="3-combo-decision-tree"></a></p>
+<h2 id="3.-Combo-Decision-Tree">3. Combo Decision Tree<a class="anchor-link" href="#3.-Combo-Decision-Tree">¶</a></h2><p>Start here for any multi-table problem that also needs transformation:</p>
+<pre><code>┌─────────────────────────────────────────────────┐
+│          READ THE QUESTION                      │
+│  1. How many tables?                            │
+│  2. Does output include ALL entities?           │
+│  3. What transformation is needed?              │
+└───────────────────────┬─────────────────────────┘
+                        │
+                        ▼
+┌───────────────────────────────────────────┐
+│  PASS 1: Pick the JOIN                    │
+│  (Use the decision flow below)            │
+└───────────────────┬───────────────────────┘
+                    │
+        ┌───────────┼───────────┬────────────┬─────────────┐
+        ▼           ▼           ▼            ▼             ▼
+   ┌─────────┐ ┌─────────┐ ┌──────────┐ ┌────────┐ ┌───────────┐
+   │  LEFT   │ │  INNER  │ │  CROSS   │ │  ANTI  │ │   Self    │
+   │  JOIN   │ │  JOIN   │ │  JOIN    │ │  JOIN  │ │   JOIN    │
+   └────┬────┘ └────┬────┘ └────┬─────┘ └───┬────┘ └─────┬─────┘
+        │           │           │            │            │
+        └───────────┴───────────┴────────────┴────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────┐
+│  PASS 2: Pick the TRANSFORMATION                        │
+│  (Treat joined result as a single table)                │
+└───────────────────────┬─────────────────────────────────┘
+                        │
+    ┌───────────────────┼──────────────────┬──────────────────┐
+    ▼                   ▼                  ▼                  ▼
+┌────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│ GROUP BY   │  │ GROUP BY     │  │ Window Func  │  │ GROUP BY     │
+│ + CASE     │  │ + COUNT/SUM  │  │ LAG/LEAD     │  │ + HAVING     │
+│ (rate,     │  │ (count per   │  │ ROW_NUMBER   │  │ (filter      │
+│  ratio,    │  │  entity incl │  │ (rank across │  │  groups by   │
+│ conditional│  │  zeros)      │  │  joined data)│  │  threshold)  │
+│  metric)   │  │              │  │              │  │              │
+└────────────┘  └──────────────┘  └──────────────┘  └──────────────┘
+</code></pre>
+<hr>
+<h3 id="Pass-1-Expanded:-How-to-Pick-the-Right-JOIN">Pass 1 Expanded: How to Pick the Right JOIN<a class="anchor-link" href="#Pass-1-Expanded:-How-to-Pick-the-Right-JOIN">¶</a></h3><p>Use this flow to determine which join type your problem requires:</p>
+<pre><code>┌──────────────────────────────────────────────────┐
+│  Does a table reference ITSELF?                  │
+│  (managerId → id, parent_id → id)                │
+└──────────┬────────────────────┬──────────────────┘
+           │ YES                │ NO
+           ▼                   ▼
+   ┌──────────────┐   ┌───────────────────────────────────────┐
+   │  SELF JOIN   │   │  Are the two tables INDEPENDENT       │
+   │              │   │  lists that need ALL combinations?    │
+   │  Same table, │   │  (every student × every subject)      │
+   │  two aliases │   └──────────┬─────────────────┬──────────┘
+   └──────────────┘              │ YES             │ NO
+                                 ▼                 ▼
+                        ┌──────────────┐  ┌────────────────────────────────┐
+                        │  CROSS JOIN  │  │  Does the output need ONLY     │
+                        │              │  │  entities with NO match?       │
+                        │  Cartesian   │  │  "never," "didn't," "who has   │
+                        │  product of  │  │  no," "not in"                 │
+                        │  both lists  │  └──────────┬──────────┬──────────┘
+                        │              │             │ YES      │ NO
+                        │  (then LEFT  │             ▼          ▼
+                        │  JOIN to     │    ┌──────────────┐  ┌──────────────────────┐
+                        │  fact table) │    │  ANTI JOIN   │  │  Does the output     │
+                        └──────────────┘    │  (LEFT JOIN  │  │  need ALL entities,  │
+                                            │  + WHERE     │  │  even those with     │
+                                            │  IS NULL)    │  │  no match?           │
+                                            │              │  │  (zeros in output)   │
+                                            │  Returns     │  └─────┬─────────┬──────┘
+                                            │  only rows   │        │ YES     │ NO
+                                            │  with NO     │        ▼         ▼
+                                            │  match       │  ┌──────────┐  ┌──────────┐
+                                            └──────────────┘  │  LEFT    │  │  INNER   │
+                                                              │  JOIN    │  │  JOIN    │
+                                                              │          │  │          │
+                                                              │  Keeps   │  │  Only    │
+                                                              │  ALL     │  │  matching│
+                                                              │  rows;   │  │  rows    │
+                                                              │  NULLs   │  │          │
+                                                              │  where   │  │          │
+                                                              │  no      │  │          │
+                                                              │  match   │  │          │
+                                                              └──────────┘  └──────────┘
+</code></pre>
+<hr>
+<h3 id="The-4-Join-Types-%E2%80%94-When-and-Why">The 4 Join Types — When and Why<a class="anchor-link" href="#The-4-Join-Types-%E2%80%94-When-and-Why">¶</a></h3><p><strong>LEFT JOIN</strong> — <em>"Keep everyone, even those with nothing"</em></p>
+<table>
+<thead>
+<tr>
+<th>Use When</th>
+<th>What It Does</th>
+<th>NULL Trap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Output includes ALL entities from one table, even those with zero activity</td>
+<td>Returns all rows from the left table; fills right-side columns with NULL when no match</td>
+<td><code>COUNT(*)</code> counts NULL rows as 1; use <code>COUNT(right_col)</code> instead</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Signals in the problem:</strong> "including those with zero," "even if no orders," "all users," expected output shows <code>0</code> or <code>0.00</code> for some rows.</p>
+<p><strong>Example scenario:</strong> "Find the confirmation rate for each user, including those who never requested a confirmation." User 6 has no confirmations but still appears with 0.00.</p>
+<pre><code>Signups (ALL users)  ──LEFT JOIN──▶  Confirmations (events)
+   4 users                              only 3 users have events
+   Result: 4 rows                       user 6 gets NULLs → handle with CASE or COUNT(col)
+</code></pre>
+<hr>
+<p><strong>INNER JOIN</strong> — <em>"Only what matches"</em></p>
+<table>
+<thead>
+<tr>
+<th>Use When</th>
+<th>What It Does</th>
+<th>NULL Trap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>You only need rows that exist in BOTH tables</td>
+<td>Returns only rows with a match on both sides; no NULLs from the join itself</td>
+<td>None — unmatched rows are simply dropped</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Signals in the problem:</strong> "find," "get the name of," "look up," no zeros in expected output, only entities with activity appear.</p>
+<p><strong>Example scenario:</strong> "Find managers with at least 5 direct reports." You only care about managers who HAVE reports — those without any are irrelevant to the answer.</p>
+<pre><code>Employee (managers)  ──INNER JOIN──▶  Employee (reports)
+   only managers WITH reports survive the join
+   managers with 0 reports are dropped (which is what we want)
+</code></pre>
+<hr/>
+<p><strong>CROSS JOIN</strong> — <em>"Every possible combination"</em></p>
+<table>
+<thead>
+<tr>
+<th>Use When</th>
+<th>What It Does</th>
+<th>NULL Trap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The output needs every row from table A paired with every row from table B</td>
+<td>Cartesian product: if A has 4 rows and B has 3, result has 12 rows</td>
+<td>None from CROSS JOIN itself, but usually followed by LEFT JOIN which introduces NULLs</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Signals in the problem:</strong> "every student with every subject," "all possible pairs," two independent dimension tables with no direct relationship.</p>
+<p><strong>Example scenario:</strong> "Count how many times each student attended each exam." Students and Subjects are independent lists — you need all 12 combinations, then LEFT JOIN to Examinations for the actual counts.</p>
+<pre><code>Students (4 rows)  ──CROSS JOIN──▶  Subjects (3 rows)  =  12 combinations
+   then LEFT JOIN to Examinations to attach actual exam data
+   combinations with no exams get COUNT = 0
+</code></pre>
+<p><strong>Key rule:</strong> CROSS JOIN is only for two <strong>independent lists</strong> that have no direct foreign key relationship. If the tables ARE related (foreign key), you need LEFT or INNER JOIN instead.</p>
+<hr/>
+<p><strong>ANTI JOIN (LEFT JOIN + WHERE IS NULL)</strong> — <em>"Find what's missing"</em></p>
+<table>
+<thead>
+<tr>
+<th>Use When</th>
+<th>What It Does</th>
+<th>NULL Trap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Output needs only entities with NO match in another table</td>
+<td>LEFT JOIN then filter where the right side is NULL — keeps only the unmatched rows</td>
+<td>No trap — you're explicitly using the NULLs as your filter</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Signals in the problem:</strong> "never ordered," "didn't attend," "customers with no," "who has not," "find missing."</p>
+<p><strong>Example scenario:</strong> "Find customers who have never placed an order." You don't want all customers with a count — you want ONLY the ones with zero orders.</p>
+<pre><code>Customers  ──LEFT JOIN──▶  Orders  ──WHERE o.id IS NULL──▶  Only unmatched customers
+   4 customers                 3 have orders
+   Result: 1 customer (the one with NO orders)
+</code></pre>
+<p><strong>ANTI JOIN vs LEFT JOIN — how to tell them apart:</strong> Both start with LEFT JOIN, but the intent is different. If the output needs ALL entities with a metric (including zeros), that's a LEFT JOIN. If the output needs ONLY the entities with nothing, that's an ANTI JOIN.</p>
+<table>
+<thead>
+<tr>
+<th>Output Shows</th>
+<th>Pattern</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All entities, some with 0</td>
+<td>LEFT JOIN (keep all, aggregate)</td>
+</tr>
+<tr>
+<td>Only entities with nothing</td>
+<td>ANTI JOIN (LEFT JOIN + WHERE IS NULL)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Three ways to write an ANTI JOIN (ranked):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Rank</th>
+<th>Method</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>LEFT JOIN</code> + <code>WHERE right_col IS NULL</code></td>
+<td>Clear intent, efficient, NULL-safe</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>NOT EXISTS (SELECT 1 FROM ...)</code></td>
+<td>Also efficient, short-circuits, NULL-safe</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>NOT IN (SELECT col FROM ...)</code></td>
+<td>Breaks silently if subquery returns NULLs — avoid</td>
+</tr>
+</tbody>
+</table>
+<hr/>
+<p><strong>Self JOIN</strong> — <em>"One table, two roles"</em></p>
+<table>
+<thead>
+<tr>
+<th>Use When</th>
+<th>What It Does</th>
+<th>NULL Trap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A table has a column that references its own primary key (parent/child, manager/employee)</td>
+<td>Joins the table to itself using two aliases, each representing a different role</td>
+<td>Use LEFT self-join if some entities have no parent (e.g., CEO has no manager)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Signals in the problem:</strong> "manager name," "reports to," "parent category," single table with a column like <code>managerId</code>, <code>parent_id</code>, <code>supervisor_id</code>.</p>
+<p><strong>Example scenario:</strong> "Find each employee's manager name." The Employee table has both the employee and manager info — you just need to match <code>managerId</code> to <code>id</code>.</p>
+<pre><code>Employee AS e (employee role)  ──JOIN──▶  Employee AS m (manager role)
+   e.managerId = m.id
+   Same table, two different perspectives
+</code></pre>
+<hr/>
+<h3 id="How-to-Tell-LEFT-JOIN-from-INNER-JOIN-%E2%80%94-The-Zero-Test">How to Tell LEFT JOIN from INNER JOIN — The Zero Test<a class="anchor-link" href="#How-to-Tell-LEFT-JOIN-from-INNER-JOIN-%E2%80%94-The-Zero-Test">¶</a></h3><p>The single most important signal is: <strong>does the expected output contain zeros or entities with no activity?</strong></p>
+<table>
+<thead>
+<tr>
+<th>What You See in Expected Output</th>
+<th>Join Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every entity appears, some with 0 or NULL values</td>
+<td><strong>LEFT JOIN</strong></td>
+</tr>
+<tr>
+<td>Only entities with NO activity appear</td>
+<td><strong>ANTI JOIN</strong> (LEFT JOIN + WHERE IS NULL)</td>
+</tr>
+<tr>
+<td>Only entities with activity appear</td>
+<td><strong>INNER JOIN</strong></td>
+</tr>
+<tr>
+<td>All combinations of two lists, some with 0</td>
+<td><strong>CROSS JOIN</strong> + <strong>LEFT JOIN</strong></td>
+</tr>
+<tr>
+<td>One table, column references its own PK</td>
+<td><strong>Self JOIN</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>The Zero Test:</strong> If you see a <code>0</code>, <code>0.00</code>, or <code>NULL</code> for an entity that has no matching rows in the other table, that's a LEFT JOIN. If such entities are simply absent from the output, that's an INNER JOIN.</p>
+<hr/>
+<h3 id="Quick-Pattern-Matcher">Quick Pattern Matcher<a class="anchor-link" href="#Quick-Pattern-Matcher">¶</a></h3><table>
+<thead>
+<tr>
+<th>If you see...</th>
+<th>Pass 1 (Join)</th>
+<th>Pass 2 (Transform)</th>
+<th>Combo Pattern</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"rate/ratio per entity, including those with none"</td>
+<td>LEFT JOIN</td>
+<td>GROUP BY + CASE</td>
+<td><strong>A</strong></td>
+</tr>
+<tr>
+<td>"count per entity including zeros"</td>
+<td>LEFT JOIN</td>
+<td>GROUP BY + COUNT(column)</td>
+<td><strong>B</strong></td>
+</tr>
+<tr>
+<td>"entities meeting a threshold in related data"</td>
+<td>INNER JOIN</td>
+<td>GROUP BY + HAVING</td>
+<td><strong>C</strong></td>
+</tr>
+<tr>
+<td>"metric per combination including zeros"</td>
+<td>CROSS JOIN + LEFT JOIN</td>
+<td>GROUP BY + CASE or COUNT</td>
+<td><strong>D</strong></td>
+</tr>
+<tr>
+<td>"rank within self-referencing hierarchy"</td>
+<td>Self JOIN</td>
+<td>Window Function</td>
+<td><strong>E</strong></td>
+</tr>
+<tr>
+<td>"running total across joined data"</td>
+<td>LEFT JOIN</td>
+<td>SUM() OVER()</td>
+<td><strong>F</strong></td>
+</tr>
+<tr>
+<td>"pre-filter, then join and summarize"</td>
+<td>Subquery + JOIN</td>
+<td>GROUP BY</td>
+<td><strong>G</strong></td>
+</tr>
+<tr>
+<td>"find entities with NO match / never / didn't"</td>
+<td>ANTI JOIN</td>
+<td>Often none needed (just SELECT)</td>
+<td><strong>H</strong></td>
+</tr>
+</tbody>
+</table>
+</hr></hr></hr></div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border: 3px solid black;"/>
+<p><a id="4-combo-pattern-library"></a></p>
+<h2 id="4.-Combo-Pattern-Library">4. Combo Pattern Library<a class="anchor-link" href="#4.-Combo-Pattern-Library">¶</a></h2>
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<p><a id="pattern-a-inner-join"></a></p>
-<h3 id="A.-Lookup-/-Enrich-(INNER-JOIN)">A. Lookup / Enrich (INNER JOIN)<a class="anchor-link" href="#A.-Lookup-/-Enrich-(INNER-JOIN)">¶</a></h3><p><strong>Signals:</strong> "get the name," "include the department," "find matching records"</p>
-<pre><code>    ┌─────────┐   ┌─────────┐
-    │    A    ╔═══╗    B    │
-    │         ║ ✓ ║         │
-    │         ╚═══╝         │
-    └─────────┘   └─────────┘
-    Only the overlap is returned.
-</code></pre>
+<p><a id="combo-a"></a></p>
+<h3 id="A.-LEFT-JOIN-+-Conditional-Aggregation-%E2%80%94-%22Metric-per-entity-including-zeros%22">A. LEFT JOIN + Conditional Aggregation — "Metric per entity including zeros"<a class="anchor-link" href="#A.-LEFT-JOIN-+-Conditional-Aggregation-%E2%80%94-%22Metric-per-entity-including-zeros%22">¶</a></h3><p><strong>Signals:</strong> "rate," "ratio," "percentage per user including those with none," "confirmation rate," "approval rate," "average score including students who didn't take the test"</p>
 <hr>
-<p><strong>Best approach — <code>INNER JOIN</code></strong></p>
-<p><strong>Method:</strong> <code>INNER JOIN</code> matches rows from two tables on a shared key and returns only the rows that have a match in both tables. Rows without a match in either table are dropped.</p>
-<p><strong>In plain language:</strong> "Give me only the rows where both tables agree on the key — like matching student IDs to get student names."</p>
-<div class="highlight"><pre><span></span><span class="c1">-- Get employee names with their department names</span>
-<span class="k">SELECT</span><span class="w"> </span>
-<span class="w">    </span><span class="n">e</span><span class="p">.</span><span class="n">employee_id</span><span class="p">,</span>
-<span class="w">    </span><span class="n">e</span><span class="p">.</span><span class="n">employee_name</span><span class="p">,</span>
-<span class="w">    </span><span class="n">d</span><span class="p">.</span><span class="n">department_name</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Employees</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">e</span>
-<span class="k">INNER</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Departments</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">d</span>
-<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">department_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">d</span><span class="p">.</span><span class="n">department_id</span><span class="p">;</span>
+<p><strong>The Problem Shape</strong></p>
+<p>You have a dimension table (all entities) and a fact table (events). The output needs:</p>
+<ul>
+<li>One row per entity (even those with zero events)</li>
+<li>A calculated metric (rate, ratio, average) based on conditional counting</li>
+</ul>
+<p><strong>Pass 1 (Join):</strong> Output shows entities with zero → must preserve all entities → <strong>LEFT JOIN</strong></p>
+<p><strong>Pass 2 (Transform):</strong> Need a rate = conditional count / total count → <strong>GROUP BY + CASE WHEN inside AVG or COUNT</strong></p>
+<hr/>
+<p><strong>Best approach — LEFT JOIN + AVG(CASE WHEN)</strong></p>
+<p><strong>Method:</strong> LEFT JOIN the dimension to the fact table, then GROUP BY the entity. Use <code>AVG(CASE WHEN condition THEN 1.0 ELSE 0.0 END)</code> to compute the rate in one expression. Rows with no match get NULL from the LEFT JOIN, and AVG handles this correctly.</p>
+<p><strong>In plain language:</strong> "Join all users to their confirmations (keeping users with none). Then for each user, average a 1 for confirmed and 0 for everything else — that average IS the confirmation rate."</p>
+<div class="highlight"><pre><span></span><span class="c1">-- Confirmation rate per user (including 0 for users with no confirmations)</span>
+<span class="k">SELECT</span>
+<span class="w">    </span><span class="n">s</span><span class="p">.</span><span class="n">user_id</span><span class="p">,</span>
+<span class="w">    </span><span class="n">ROUND</span><span class="p">(</span><span class="k">AVG</span><span class="p">(</span><span class="k">CASE</span><span class="w"> </span><span class="k">WHEN</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">action</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'confirmed'</span><span class="w"> </span><span class="k">THEN</span><span class="w"> </span><span class="mi">1</span><span class="p">.</span><span class="mi">0</span><span class="w"> </span><span class="k">ELSE</span><span class="w"> </span><span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="w"> </span><span class="k">END</span><span class="p">)::</span><span class="nb">numeric</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">confirmation_rate</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Signups</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">s</span>
+<span class="k">LEFT</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Confirmations</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">c</span>
+<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">user_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">user_id</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">user_id</span><span class="p">;</span>
 </pre></div>
-<hr>
-<p><strong>Alternative — Correlated Subquery in SELECT</strong></p>
-<p><strong>Method:</strong> Instead of joining, you place a subquery in the <code>SELECT</code> clause that looks up a value for each row. This runs the subquery once per row in the outer table.</p>
-<p><strong>In plain language:</strong> "For each employee, go look up their department name one at a time."</p>
-<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span>
-<span class="w">    </span><span class="n">e</span><span class="p">.</span><span class="n">employee_id</span><span class="p">,</span>
-<span class="w">    </span><span class="n">e</span><span class="p">.</span><span class="n">employee_name</span><span class="p">,</span>
-<span class="w">    </span><span class="p">(</span><span class="k">SELECT</span><span class="w"> </span><span class="n">d</span><span class="p">.</span><span class="n">department_name</span><span class="w"> </span>
-<span class="w">     </span><span class="k">FROM</span><span class="w"> </span><span class="n">Departments</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">d</span><span class="w"> </span>
-<span class="w">     </span><span class="k">WHERE</span><span class="w"> </span><span class="n">d</span><span class="p">.</span><span class="n">department_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">department_id</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">department_name</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Employees</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">e</span><span class="p">;</span>
+<p><strong>Why this works for zeros:</strong> Users with no confirmations get one row from the LEFT JOIN where <code>c.action</code> is NULL. The CASE falls to ELSE 0.0, and AVG of a single 0.0 is 0.00.</p>
+<hr/>
+<p><strong>Also valid — Pre-aggregate in subquery, then LEFT JOIN</strong></p>
+<p><strong>Method:</strong> Compute the metric in a subquery first, then LEFT JOIN the dimension table to the pre-aggregated result. Use COALESCE to handle NULLs.</p>
+<p><strong>In plain language:</strong> "First calculate each user's rate in a subquery. Then join all users to those results — users missing from the subquery get COALESCE'd to 0."</p>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span>
+<span class="w">    </span><span class="n">s</span><span class="p">.</span><span class="n">user_id</span><span class="p">,</span>
+<span class="w">    </span><span class="n">ROUND</span><span class="p">(</span><span class="k">COALESCE</span><span class="p">(</span><span class="k">c</span><span class="p">.</span><span class="n">confirmation_rate</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)::</span><span class="nb">numeric</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">confirmation_rate</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Signups</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">s</span>
+<span class="k">LEFT</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="k">SELECT</span>
+<span class="w">        </span><span class="n">user_id</span><span class="p">,</span>
+<span class="w">        </span><span class="k">COUNT</span><span class="p">(</span><span class="k">CASE</span><span class="w"> </span><span class="k">WHEN</span><span class="w"> </span><span class="n">action</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'confirmed'</span><span class="w"> </span><span class="k">THEN</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="k">END</span><span class="p">)::</span><span class="nb">numeric</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)::</span><span class="nb">numeric</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">confirmation_rate</span>
+<span class="w">    </span><span class="k">FROM</span><span class="w"> </span><span class="n">Confirmations</span>
+<span class="w">    </span><span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">user_id</span>
+<span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">c</span>
+<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">user_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">user_id</span><span class="p">;</span>
 </pre></div>
-<p><strong>Why INNER JOIN is better:</strong> The join lets the database match all rows at once using indexes, while the correlated subquery runs a separate lookup for every single row.</p>
-</hr></hr></div>
+<p><strong>Trade-off:</strong> This approach separates the aggregation logic from the join, which can be clearer to read. Performance is similar — the optimizer handles both well.</p>
+<hr/>
+<p><strong>Efficiency ranking:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Rank</th>
+<th>Method</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>LEFT JOIN + AVG(CASE WHEN)</td>
+<td>Single pass, compact, NULL-safe by design</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Pre-aggregate in subquery + LEFT JOIN + COALESCE</td>
+<td>Equally efficient, cleaner separation, needs explicit NULL handling</td>
+</tr>
+</tbody>
+</table>
+</hr></div>
 </div>
 </div>
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
-<p><a id="pattern-b-left-join"></a></p>
-<h3 id="B.-Include-All-/-Preserve-Unmatched-(LEFT-JOIN)">B. Include All / Preserve Unmatched (LEFT JOIN)<a class="anchor-link" href="#B.-Include-All-/-Preserve-Unmatched-(LEFT-JOIN)">¶</a></h3><p><strong>Signals:</strong> "even if no match," "including zeros," "all customers even those with no orders"</p>
-<pre><code>    ┌─────────┐   ┌─────────┐
-    │  ✓ A  ✓╔═══╗✓   B    │
-    │  kept   ║ ✓ ║         │
-    │  (NULL) ╚═══╝         │
-    └─────────┘   └─────────┘
-    All of A returned; B fills in where matched, NULL where not.
-</code></pre>
+<p><a id="combo-b"></a></p>
+<h3 id="B.-LEFT-JOIN-+-COUNT-with-NULLs-%E2%80%94-%22Count-per-entity-including-zeros%22">B. LEFT JOIN + COUNT with NULLs — "Count per entity including zeros"<a class="anchor-link" href="#B.-LEFT-JOIN-+-COUNT-with-NULLs-%E2%80%94-%22Count-per-entity-including-zeros%22">¶</a></h3><p><strong>Signals:</strong> "how many orders per customer including those with zero," "number of posts per user," "count including none"</p>
 <hr>
-<p><strong>Best approach — <code>LEFT JOIN</code></strong></p>
-<p><strong>Method:</strong> <code>LEFT JOIN</code> returns all rows from the left table and matching rows from the right table. When there's no match, the right table's columns come back as NULL.</p>
-<p><strong>In plain language:</strong> "Keep every row from my main table, and attach info from the second table where possible — if there's nothing to attach, just put NULL."</p>
-<div class="highlight"><pre><span></span><span class="c1">-- All customers with their order count (including those with 0 orders)</span>
-<span class="k">SELECT</span><span class="w"> </span>
+<p><strong>The Problem Shape</strong></p>
+<p>Same as Pattern A, but simpler — you just need a count, not a ratio. The trap is that <code>COUNT(*)</code> counts NULLs (giving 1 instead of 0 for unmatched rows).</p>
+<p><strong>Pass 1 (Join):</strong> Preserve all entities → <strong>LEFT JOIN</strong></p>
+<p><strong>Pass 2 (Transform):</strong> Count events per entity → <strong>GROUP BY + COUNT(specific_column)</strong></p>
+<hr/>
+<p><strong>Best approach — LEFT JOIN + COUNT(fact_column)</strong></p>
+<p><strong>Method:</strong> Use <code>COUNT(column_from_right_table)</code> — not <code>COUNT(*)</code>. <code>COUNT(column)</code> skips NULLs, so unmatched rows correctly get 0.</p>
+<p><strong>In plain language:</strong> "Join all customers to their orders. Count the order_id column — NULLs from the LEFT JOIN are skipped, giving 0 for customers with no orders."</p>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span>
 <span class="w">    </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">,</span>
 <span class="w">    </span><span class="k">c</span><span class="p">.</span><span class="n">customer_name</span><span class="p">,</span>
 <span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">order_id</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">order_count</span>
@@ -13424,60 +13703,31 @@ div#notebook {
 <span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">o</span><span class="p">.</span><span class="n">customer_id</span>
 <span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_name</span><span class="p">;</span>
 </pre></div>
-<hr>
-<p><strong>Handling NULLs with COALESCE</strong></p>
-<p><strong>Method:</strong> <code>COALESCE()</code> replaces NULL with a default value. Pair it with <code>LEFT JOIN</code> to turn NULLs into zeros or meaningful defaults.</p>
-<p><strong>In plain language:</strong> "If there's no match and the value is NULL, show 0 instead."</p>
-<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span>
-<span class="w">    </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">,</span>
-<span class="w">    </span><span class="k">c</span><span class="p">.</span><span class="n">customer_name</span><span class="p">,</span>
-<span class="w">    </span><span class="k">COALESCE</span><span class="p">(</span><span class="k">COUNT</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">order_id</span><span class="p">),</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">order_count</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Customers</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">c</span>
-<span class="k">LEFT</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Orders</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">o</span>
-<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">o</span><span class="p">.</span><span class="n">customer_id</span>
-<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_name</span><span class="p">;</span>
-</pre></div>
-</hr></hr></div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<hr style="border: 2px solid black;"/>
-<p><a id="pattern-c-cross-join"></a></p>
-<h3 id="C.-Complete-Combinations-(CROSS-JOIN)">C. Complete Combinations (CROSS JOIN)<a class="anchor-link" href="#C.-Complete-Combinations-(CROSS-JOIN)">¶</a></h3><p><strong>Signals:</strong> "every student with every subject," "all possible pairs," "each X combined with each Y"</p>
-<pre><code>    ┌───────┐     ┌───────┐
-    │ A     │  ×  │     B │
-    │ 4 rows│     │3 rows │
-    └───────┘     └───────┘
-          = 12 row result
-    Every row in A paired with every row in B.
-</code></pre>
-<hr>
-<p><strong>Best approach — <code>CROSS JOIN</code></strong></p>
-<p><strong>Method:</strong> <code>CROSS JOIN</code> produces the Cartesian product — every row from the first table paired with every row from the second table. If table A has 4 rows and table B has 3 rows, the result has 12 rows.</p>
-<p><strong>In plain language:</strong> "Create every possible combination of items from two lists, like dealing every student a card for every subject."</p>
-<div class="highlight"><pre><span></span><span class="c1">-- Generate all student-subject combinations</span>
-<span class="k">SELECT</span><span class="w"> </span>
-<span class="w">    </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="p">,</span>
-<span class="w">    </span><span class="n">s</span><span class="p">.</span><span class="n">student_name</span><span class="p">,</span>
-<span class="w">    </span><span class="n">sub</span><span class="p">.</span><span class="n">subject_name</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Students</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">s</span>
-<span class="k">CROSS</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Subjects</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">sub</span>
-<span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="p">,</span><span class="w"> </span><span class="n">sub</span><span class="p">.</span><span class="n">subject_name</span><span class="p">;</span>
-</pre></div>
+<p><strong>Critical trap:</strong> If you use <code>COUNT(*)</code> instead of <code>COUNT(o.order_id)</code>, customers with no orders get 1 (because the LEFT JOIN still produces one row with NULLs, and <code>COUNT(*)</code> counts that row).</p>
 <hr/>
-<p><strong>Alternative — Implicit Cross Join (comma syntax)</strong></p>
-<p><strong>Method:</strong> Listing tables separated by commas in the <code>FROM</code> clause without a <code>WHERE</code> condition produces the same Cartesian product, but is less readable.</p>
-<p><strong>In plain language:</strong> "Same result, but the intent is hidden — readers might think you forgot a join condition."</p>
-<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span>
-<span class="w">    </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="p">,</span>
-<span class="w">    </span><span class="n">s</span><span class="p">.</span><span class="n">student_name</span><span class="p">,</span>
-<span class="w">    </span><span class="n">sub</span><span class="p">.</span><span class="n">subject_name</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Students</span><span class="w"> </span><span class="n">s</span><span class="p">,</span><span class="w"> </span><span class="n">Subjects</span><span class="w"> </span><span class="n">sub</span>
-<span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="p">,</span><span class="w"> </span><span class="n">sub</span><span class="p">.</span><span class="n">subject_name</span><span class="p">;</span>
-</pre></div>
-<p><strong>Why explicit CROSS JOIN is better:</strong> It clearly signals to the reader (and interviewer) that the Cartesian product is intentional, not a mistake.</p>
+<p><strong>The COUNT(*) vs COUNT(column) Rule</strong></p>
+<table>
+<thead>
+<tr>
+<th>Expression</th>
+<th>Counts NULLs?</th>
+<th>After LEFT JOIN with no match</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>COUNT(*)</code></td>
+<td>Yes</td>
+<td>Returns <strong>1</strong> (wrong!)</td>
+</tr>
+<tr>
+<td><code>COUNT(o.order_id)</code></td>
+<td>No</td>
+<td>Returns <strong>0</strong> (correct!)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Memory rule:</strong> After a LEFT JOIN, always COUNT a column from the <strong>right</strong> (joined) table, never <code>COUNT(*)</code>.</p>
 </hr></div>
 </div>
 </div>
@@ -13485,39 +13735,100 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
-<p><a id="pattern-d-cross-join-left-join"></a></p>
-<h3 id="D.-Complete-Combinations-with-Counts-(CROSS-JOIN-+-LEFT-JOIN)">D. Complete Combinations with Counts (CROSS JOIN + LEFT JOIN)<a class="anchor-link" href="#D.-Complete-Combinations-with-Counts-(CROSS-JOIN-+-LEFT-JOIN)">¶</a></h3><p><strong>Signals:</strong> "how many times each student attended each exam," "count per pair including zeros," "all combinations with totals"</p>
-<pre><code>    ┌───────┐     ┌───────┐      ┌───────┐
-    │   A   │  ×  │   B   │  ◄── │ Facts │
-    └───────┘     └───────┘      └───────┘
-    All A×B combos; LEFT JOIN attaches counts (0 if missing).
-</code></pre>
+<p><a id="combo-c"></a></p>
+<h3 id="C.-INNER-JOIN-+-GROUP-BY-+-HAVING-%E2%80%94-%22Find-entities-meeting-a-threshold-in-related-data%22">C. INNER JOIN + GROUP BY + HAVING — "Find entities meeting a threshold in related data"<a class="anchor-link" href="#C.-INNER-JOIN-+-GROUP-BY-+-HAVING-%E2%80%94-%22Find-entities-meeting-a-threshold-in-related-data%22">¶</a></h3><p><strong>Signals:</strong> "managers with at least 5 reports," "departments with more than 10 employees," "categories with average price above X"</p>
 <hr>
-<p><strong>Best approach — <code>CROSS JOIN</code> + <code>LEFT JOIN</code> + <code>GROUP BY</code></strong></p>
-<p><strong>Method:</strong> This is a 3-step pattern: (1) <code>CROSS JOIN</code> two dimension tables to build all possible pairs, (2) <code>LEFT JOIN</code> to the fact table to attach actual data, (3) aggregate with <code>COUNT</code> or <code>SUM</code>. This guarantees every combination appears in the output, even those with zero occurrences.</p>
-<p><strong>In plain language:</strong> "First build every possible student-subject pair. Then check the exam records to see which pairs actually happened and how many times. Pairs with no records get a zero."</p>
+<p><strong>The Problem Shape</strong></p>
+<p>You need to filter entities based on an aggregate condition on related data. The output only includes entities that meet the threshold — no need to preserve unmatched rows.</p>
+<p><strong>Pass 1 (Join):</strong> Only need matching rows → <strong>INNER JOIN</strong> (or Self JOIN if same table)</p>
+<p><strong>Pass 2 (Transform):</strong> Filter by aggregate → <strong>GROUP BY + HAVING</strong></p>
+<hr/>
+<p><strong>Best approach — Self JOIN + GROUP BY + HAVING (when same table)</strong></p>
+<p><strong>Method:</strong> When the "related data" is in the same table (like employees and their managers), join the table to itself, then aggregate and filter.</p>
+<p><strong>In plain language:</strong> "Pair each manager with their reports, count the reports per manager, keep only those with 5 or more."</p>
+<div class="highlight"><pre><span></span><span class="c1">-- Managers with at least 5 direct reports</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="n">name</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Employee</span><span class="w"> </span><span class="n">m</span>
+<span class="k">JOIN</span><span class="w"> </span><span class="n">Employee</span><span class="w"> </span><span class="n">r</span>
+<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">managerId</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="n">name</span>
+<span class="k">HAVING</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
+</pre></div>
+<hr/>
+<p><strong>Also valid — INNER JOIN across tables + GROUP BY + HAVING</strong></p>
+<p><strong>Method:</strong> When the threshold is based on a different table, INNER JOIN to that table, then aggregate and filter.</p>
+<div class="highlight"><pre><span></span><span class="c1">-- Departments with more than 10 employees</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="n">d</span><span class="p">.</span><span class="n">department_name</span><span class="p">,</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">emp_count</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Departments</span><span class="w"> </span><span class="n">d</span>
+<span class="k">INNER</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Employees</span><span class="w"> </span><span class="n">e</span>
+<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">d</span><span class="p">.</span><span class="n">department_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">department_id</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">d</span><span class="p">.</span><span class="n">department_id</span><span class="p">,</span><span class="w"> </span><span class="n">d</span><span class="p">.</span><span class="n">department_name</span>
+<span class="k">HAVING</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span>
+</pre></div>
+<hr/>
+<p><strong>Efficiency ranking:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Rank</th>
+<th>Method</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>JOIN + GROUP BY + HAVING</td>
+<td>Direct, single query</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Pre-aggregate in CTE/subquery + JOIN</td>
+<td>Equal performance, cleaner separation</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Correlated subquery in WHERE</td>
+<td>Runs per row — slower</td>
+</tr>
+</tbody>
+</table>
+</hr></div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border: 2px solid black;"/>
+<p><a id="combo-d"></a></p>
+<h3 id="D.-CROSS-JOIN-+-LEFT-JOIN-+-Conditional-Aggregation-%E2%80%94-%22Metric-per-combination-including-zeros%22">D. CROSS JOIN + LEFT JOIN + Conditional Aggregation — "Metric per combination including zeros"<a class="anchor-link" href="#D.-CROSS-JOIN-+-LEFT-JOIN-+-Conditional-Aggregation-%E2%80%94-%22Metric-per-combination-including-zeros%22">¶</a></h3><p><strong>Signals:</strong> "how many times each student attended each exam," "score per student per subject including zeros," "rate per user per category"</p>
+<hr>
+<p><strong>The Problem Shape</strong></p>
+<p>You have two dimension tables and one fact table. The output needs every possible combination of the two dimensions, with a metric (count, average, rate) for each — including zero where no fact rows exist.</p>
+<p><strong>Pass 1 (Join):</strong> Need all combinations of two lists → <strong>CROSS JOIN</strong> dimensions, then <strong>LEFT JOIN</strong> to fact table</p>
+<p><strong>Pass 2 (Transform):</strong> Aggregate per combination → <strong>GROUP BY + COUNT(column) or CASE WHEN</strong></p>
+<hr/>
+<p><strong>Best approach — CROSS JOIN + LEFT JOIN + COUNT(fact_column)</strong></p>
 <div class="highlight"><pre><span></span><span class="c1">-- Count exams per student per subject (including 0)</span>
-<span class="k">SELECT</span><span class="w"> </span>
-<span class="w">    </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="p">,</span><span class="w"> </span>
-<span class="w">    </span><span class="n">s</span><span class="p">.</span><span class="n">student_name</span><span class="p">,</span><span class="w"> </span>
+<span class="k">SELECT</span>
+<span class="w">    </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="p">,</span>
+<span class="w">    </span><span class="n">s</span><span class="p">.</span><span class="n">student_name</span><span class="p">,</span>
 <span class="w">    </span><span class="n">sub</span><span class="p">.</span><span class="n">subject_name</span><span class="p">,</span>
 <span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">student_id</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">attended_exams</span>
 <span class="k">FROM</span><span class="w"> </span><span class="n">Students</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">s</span>
 <span class="k">CROSS</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Subjects</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">sub</span>
 <span class="k">LEFT</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Examinations</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">e</span>
-<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">student_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="w"> </span>
+<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">student_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span>
 <span class="w">    </span><span class="k">AND</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">subject_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sub</span><span class="p">.</span><span class="n">subject_name</span>
 <span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_name</span><span class="p">,</span><span class="w"> </span><span class="n">sub</span><span class="p">.</span><span class="n">subject_name</span>
 <span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="p">,</span><span class="w"> </span><span class="n">sub</span><span class="p">.</span><span class="n">subject_name</span><span class="p">;</span>
 </pre></div>
-<p><strong>Key insight:</strong> <code>COUNT(e.student_id)</code> counts only non-NULL values. When the <code>LEFT JOIN</code> finds no match, <code>e.student_id</code> is NULL and the count is 0 — no <code>CASE WHEN</code> or <code>COALESCE</code> needed.</p>
+<p><strong>Why COUNT(e.student_id):</strong> Same NULL trick as Pattern B — <code>COUNT(column)</code> skips NULLs from unmatched LEFT JOIN rows, giving 0 instead of 1.</p>
 <hr/>
-<p><strong>Alternative — Pre-aggregate then join</strong></p>
-<p><strong>Method:</strong> First aggregate the fact table in a subquery, then <code>CROSS JOIN</code> the dimensions and <code>LEFT JOIN</code> the pre-aggregated results. Use <code>COALESCE</code> or <code>CASE WHEN</code> to handle NULLs.</p>
-<p><strong>In plain language:</strong> "Count the exams first in a separate step, then build all pairs and look up the counts."</p>
-<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span>
-<span class="w">    </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="p">,</span><span class="w"> </span>
-<span class="w">    </span><span class="n">s</span><span class="p">.</span><span class="n">student_name</span><span class="p">,</span><span class="w"> </span>
+<p><strong>Also valid — Pre-aggregate fact table, then CROSS JOIN + LEFT JOIN + COALESCE</strong></p>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span>
+<span class="w">    </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="p">,</span>
+<span class="w">    </span><span class="n">s</span><span class="p">.</span><span class="n">student_name</span><span class="p">,</span>
 <span class="w">    </span><span class="n">sub</span><span class="p">.</span><span class="n">subject_name</span><span class="p">,</span>
 <span class="w">    </span><span class="k">COALESCE</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">attended_exams</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">attended_exams</span>
 <span class="k">FROM</span><span class="w"> </span><span class="n">Students</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">s</span>
@@ -13527,12 +13838,11 @@ div#notebook {
 <span class="w">    </span><span class="k">FROM</span><span class="w"> </span><span class="n">Examinations</span>
 <span class="w">    </span><span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">student_id</span><span class="p">,</span><span class="w"> </span><span class="n">subject_name</span>
 <span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">e</span>
-<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">student_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="w"> </span>
+<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">student_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span>
 <span class="w">    </span><span class="k">AND</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">subject_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sub</span><span class="p">.</span><span class="n">subject_name</span>
 <span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="p">,</span><span class="w"> </span><span class="n">sub</span><span class="p">.</span><span class="n">subject_name</span><span class="p">;</span>
 </pre></div>
-<p><strong>When to use this alternative:</strong> When the fact table is very large and you want to reduce the number of rows before joining. Pre-aggregating shrinks the fact table first, so the <code>LEFT JOIN</code> has fewer rows to match.</p>
-<p><strong>Trade-off:</strong> The direct approach (first method) is simpler and usually optimized well by the query planner. The pre-aggregate approach gives you explicit control over performance but adds complexity.</p>
+<p><strong>When to pre-aggregate:</strong> When the fact table is very large. Pre-aggregating reduces its row count before the LEFT JOIN.</p>
 </hr></div>
 </div>
 </div>
@@ -13540,785 +13850,461 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
-<p><a id="pattern-e-find-missing"></a></p>
-<h3 id="E.-Find-Mismatches-/-Missing-Data-(LEFT-JOIN-+-IS-NULL)">E. Find Mismatches / Missing Data (LEFT JOIN + IS NULL)<a class="anchor-link" href="#E.-Find-Mismatches-/-Missing-Data-(LEFT-JOIN-+-IS-NULL)">¶</a></h3><p><strong>Signals:</strong> "never ordered," "didn't attend," "customers with no," "which have no match"</p>
-<pre><code>    ┌─────────┐   ┌─────────┐
-    │  ✓ A    ╔═══╗    B    │
-    │  kept   ║ ✗ ║  not    │
-    │  only   ╚═══╝  used   │
-    └─────────┘   └─────────┘
-    Only rows in A with NO match in B.
-</code></pre>
+<p><a id="combo-e"></a></p>
+<h3 id="E.-Self-JOIN-+-Window-Function-%E2%80%94-%22Rank-or-compare-across-self-referencing-data%22">E. Self JOIN + Window Function — "Rank or compare across self-referencing data"<a class="anchor-link" href="#E.-Self-JOIN-+-Window-Function-%E2%80%94-%22Rank-or-compare-across-self-referencing-data%22">¶</a></h3><p><strong>Signals:</strong> "rank employees within each manager's team," "compare each employee's salary to their department average," "top performer per manager"</p>
 <hr>
-<p><strong>Best approach — <code>LEFT JOIN</code> + <code>WHERE ... IS NULL</code></strong></p>
-<p><strong>Method:</strong> Join two tables with a <code>LEFT JOIN</code>, then filter where the right table's key is NULL. This identifies rows in the left table that have no matching row in the right table.</p>
-<p><strong>In plain language:</strong> "Show me everyone from the first table who has no corresponding entry in the second table."</p>
-<div class="highlight"><pre><span></span><span class="c1">-- Find customers who never placed an order</span>
+<p><strong>The Problem Shape</strong></p>
+<p>A self-referencing table (e.g., employees with managerId) where you need to apply a window function across groups defined by the self-reference.</p>
+<p><strong>Pass 1 (Join):</strong> Table references itself → <strong>Self JOIN</strong></p>
+<p><strong>Pass 2 (Transform):</strong> Rank or compare within groups → <strong>Window Function</strong></p>
+<hr/>
+<p><strong>Example — Top earner per manager</strong></p>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span><span class="n">manager_name</span><span class="p">,</span><span class="w"> </span><span class="n">employee_name</span><span class="p">,</span><span class="w"> </span><span class="n">salary</span>
+<span class="k">FROM</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="k">SELECT</span>
+<span class="w">        </span><span class="n">m</span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">manager_name</span><span class="p">,</span>
+<span class="w">        </span><span class="n">e</span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">employee_name</span><span class="p">,</span>
+<span class="w">        </span><span class="n">e</span><span class="p">.</span><span class="n">salary</span><span class="p">,</span>
+<span class="w">        </span><span class="n">ROW_NUMBER</span><span class="p">()</span><span class="w"> </span><span class="n">OVER</span><span class="w"> </span><span class="p">(</span><span class="n">PARTITION</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">managerId</span><span class="w"> </span><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">salary</span><span class="w"> </span><span class="k">DESC</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">rn</span>
+<span class="w">    </span><span class="k">FROM</span><span class="w"> </span><span class="n">Employee</span><span class="w"> </span><span class="n">e</span>
+<span class="w">    </span><span class="k">INNER</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Employee</span><span class="w"> </span><span class="n">m</span>
+<span class="w">        </span><span class="k">ON</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">managerId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="n">id</span>
+<span class="p">)</span><span class="w"> </span><span class="n">ranked</span>
+<span class="k">WHERE</span><span class="w"> </span><span class="n">rn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+</pre></div>
+<p><strong>Decomposition:</strong> Self JOIN pairs each employee with their manager's name. Then ROW_NUMBER ranks employees within each manager's group by salary. Filter to rn = 1 keeps only the top earner.</p>
+</hr></div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border: 2px solid black;"/>
+<p><a id="combo-f"></a></p>
+<h3 id="F.-LEFT-JOIN-+-Window-Function-%E2%80%94-%22Running-totals-or-rankings-across-joined-data%22">F. LEFT JOIN + Window Function — "Running totals or rankings across joined data"<a class="anchor-link" href="#F.-LEFT-JOIN-+-Window-Function-%E2%80%94-%22Running-totals-or-rankings-across-joined-data%22">¶</a></h3><p><strong>Signals:</strong> "cumulative orders per customer over time," "rank products by sales within each category," "running balance including months with no transactions"</p>
+<hr>
+<p><strong>The Problem Shape</strong></p>
+<p>You need to join tables first (to get all entities or enrich data), then apply a window function to the joined result.</p>
+<p><strong>Pass 1 (Join):</strong> Preserve all entities or enrich → <strong>LEFT JOIN</strong> or <strong>INNER JOIN</strong></p>
+<p><strong>Pass 2 (Transform):</strong> Running total, ranking, or row comparison → <strong>Window Function</strong></p>
+<hr/>
+<p><strong>Example — Cumulative order total per customer</strong></p>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span>
+<span class="w">    </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">,</span>
+<span class="w">    </span><span class="k">c</span><span class="p">.</span><span class="n">customer_name</span><span class="p">,</span>
+<span class="w">    </span><span class="n">o</span><span class="p">.</span><span class="n">order_date</span><span class="p">,</span>
+<span class="w">    </span><span class="n">o</span><span class="p">.</span><span class="n">amount</span><span class="p">,</span>
+<span class="w">    </span><span class="k">SUM</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">amount</span><span class="p">)</span><span class="w"> </span><span class="n">OVER</span><span class="w"> </span><span class="p">(</span><span class="n">PARTITION</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="w"> </span><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">o</span><span class="p">.</span><span class="n">order_date</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">running_total</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Customers</span><span class="w"> </span><span class="k">c</span>
+<span class="k">INNER</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Orders</span><span class="w"> </span><span class="n">o</span>
+<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">o</span><span class="p">.</span><span class="n">customer_id</span><span class="p">;</span>
+</pre></div>
+<p><strong>Decomposition:</strong> INNER JOIN brings in customer names. SUM() OVER() computes the cumulative total within each customer's orders.</p>
+</hr></div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border: 2px solid black;"/>
+<p><a id="combo-g"></a></p>
+<h3 id="G.-Subquery/CTE-+-JOIN-+-Aggregation-%E2%80%94-%22Pre-filter-one-table,-then-join-and-summarize%22">G. Subquery/CTE + JOIN + Aggregation — "Pre-filter one table, then join and summarize"<a class="anchor-link" href="#G.-Subquery/CTE-+-JOIN-+-Aggregation-%E2%80%94-%22Pre-filter-one-table,-then-join-and-summarize%22">¶</a></h3><p><strong>Signals:</strong> "only active users' total orders," "average salary of employees in departments with more than 5 people," "recent orders from premium customers"</p>
+<hr>
+<p><strong>The Problem Shape</strong></p>
+<p>You need to filter or transform one table first (using a single-table technique), then join the result to another table for further work.</p>
+<p><strong>Pass 1 (Transform first):</strong> Apply a single-table technique in a CTE/subquery</p>
+<p><strong>Pass 2 (Join):</strong> Join the CTE result to another table</p>
+<hr/>
+<p><strong>Example — Average salary in large departments</strong></p>
+<div class="highlight"><pre><span></span><span class="k">WITH</span><span class="w"> </span><span class="n">large_depts</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="k">SELECT</span><span class="w"> </span><span class="n">department_id</span>
+<span class="w">    </span><span class="k">FROM</span><span class="w"> </span><span class="n">Employees</span>
+<span class="w">    </span><span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">department_id</span>
+<span class="w">    </span><span class="k">HAVING</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">5</span>
+<span class="p">)</span>
+<span class="k">SELECT</span>
+<span class="w">    </span><span class="n">d</span><span class="p">.</span><span class="n">department_name</span><span class="p">,</span>
+<span class="w">    </span><span class="n">ROUND</span><span class="p">(</span><span class="k">AVG</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">salary</span><span class="p">)::</span><span class="nb">numeric</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">avg_salary</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">large_depts</span><span class="w"> </span><span class="n">ld</span>
+<span class="k">INNER</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Departments</span><span class="w"> </span><span class="n">d</span>
+<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">ld</span><span class="p">.</span><span class="n">department_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">d</span><span class="p">.</span><span class="n">department_id</span>
+<span class="k">INNER</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Employees</span><span class="w"> </span><span class="n">e</span>
+<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">ld</span><span class="p">.</span><span class="n">department_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">department_id</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">d</span><span class="p">.</span><span class="n">department_id</span><span class="p">,</span><span class="w"> </span><span class="n">d</span><span class="p">.</span><span class="n">department_name</span><span class="p">;</span>
+</pre></div>
+<p><strong>Decomposition:</strong> CTE pre-filters to departments with &gt;5 employees (single-table: GROUP BY + HAVING). Then JOIN to Departments for names and Employees for salary data. Final GROUP BY computes the average.</p>
+<p><strong>When to use this pattern:</strong> When one table needs significant pre-processing before it's useful in a join. The CTE isolates that logic cleanly.</p>
+</hr></div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border: 2px solid black;"/>
+<p><a id="combo-h"></a></p>
+<h3 id="H.-ANTI-JOIN-%E2%80%94-%22Find-entities-with-no-match%22">H. ANTI JOIN — "Find entities with no match"<a class="anchor-link" href="#H.-ANTI-JOIN-%E2%80%94-%22Find-entities-with-no-match%22">¶</a></h3><p><strong>Signals:</strong> "never ordered," "customers with no," "who didn't attend," "find missing," "not in"</p>
+<hr>
+<p><strong>The Problem Shape</strong></p>
+<p>You need to find entities in one table that have NO corresponding rows in another table. Unlike LEFT JOIN patterns (A and B) where you keep everyone and show zeros, here you ONLY want the unmatched entities.</p>
+<p><strong>Pass 1 (Join):</strong> Need only unmatched rows → <strong>ANTI JOIN</strong> (LEFT JOIN + WHERE IS NULL)</p>
+<p><strong>Pass 2 (Transform):</strong> Often none — you just need the list. But sometimes you aggregate the unmatched entities further (count them, group by category, etc.)</p>
+<hr/>
+<p><strong>Best approach — LEFT JOIN + WHERE IS NULL</strong></p>
+<p><strong>Method:</strong> LEFT JOIN to the fact table, then filter where the fact table's key column IS NULL. This keeps only the rows from the left table that had no match.</p>
+<p><strong>In plain language:</strong> "Join all customers to their orders. Customers with no orders will have NULL in the order columns. Keep only those NULLs — those are the customers who never ordered."</p>
+<div class="highlight"><pre><span></span><span class="c1">-- Customers who never placed an order</span>
 <span class="k">SELECT</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_name</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Customers</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">c</span>
-<span class="k">LEFT</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Orders</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">o</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Customers</span><span class="w"> </span><span class="k">c</span>
+<span class="k">LEFT</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Orders</span><span class="w"> </span><span class="n">o</span>
 <span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">o</span><span class="p">.</span><span class="n">customer_id</span>
 <span class="k">WHERE</span><span class="w"> </span><span class="n">o</span><span class="p">.</span><span class="n">customer_id</span><span class="w"> </span><span class="k">IS</span><span class="w"> </span><span class="k">NULL</span><span class="p">;</span>
 </pre></div>
 <hr/>
-<p><strong>Alternative — <code>NOT EXISTS</code></strong></p>
-<p><strong>Method:</strong> Use a correlated subquery with <code>NOT EXISTS</code> to check for the absence of matching rows.</p>
-<p><strong>In plain language:</strong> "For each customer, check if there's any order — if not, include them."</p>
+<p><strong>Also strong — NOT EXISTS</strong></p>
+<p><strong>Method:</strong> For each row in the main table, check if any matching row exists in the other table. If not, keep it. Short-circuits after finding the first match.</p>
 <div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_name</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Customers</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">c</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Customers</span><span class="w"> </span><span class="k">c</span>
 <span class="k">WHERE</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="p">(</span>
-<span class="w">    </span><span class="k">SELECT</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span>
-<span class="w">    </span><span class="k">FROM</span><span class="w"> </span><span class="n">Orders</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">o</span><span class="w"> </span>
+<span class="w">    </span><span class="k">SELECT</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">Orders</span><span class="w"> </span><span class="n">o</span>
 <span class="w">    </span><span class="k">WHERE</span><span class="w"> </span><span class="n">o</span><span class="p">.</span><span class="n">customer_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span>
 <span class="p">);</span>
 </pre></div>
 <hr/>
-<p><strong>Avoid — <code>NOT IN</code> (with NULLs)</strong></p>
-<p><strong>Method:</strong> <code>NOT IN</code> compares a column against a list from a subquery. If the subquery returns any NULL value, the entire <code>NOT IN</code> condition evaluates to UNKNOWN and returns zero rows.</p>
-<p><strong>In plain language:</strong> "This looks simple but breaks silently when NULLs are present — a dangerous trap in interviews."</p>
+<p><strong>Avoid — NOT IN (when NULLs are possible)</strong></p>
 <div class="highlight"><pre><span></span><span class="c1">-- DANGEROUS: Returns 0 rows if any customer_id in Orders is NULL</span>
 <span class="k">SELECT</span><span class="w"> </span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="n">customer_name</span>
 <span class="k">FROM</span><span class="w"> </span><span class="n">Customers</span>
 <span class="k">WHERE</span><span class="w"> </span><span class="n">customer_id</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">IN</span><span class="w"> </span><span class="p">(</span><span class="k">SELECT</span><span class="w"> </span><span class="n">customer_id</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">Orders</span><span class="p">);</span>
 </pre></div>
-<p><strong>Why LEFT JOIN + IS NULL is safest:</strong> It never breaks with NULLs and makes the intent clear.</p>
-</hr></div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<hr style="border: 2px solid black;"/>
-<p><a id="pattern-f-union"></a></p>
-<h3 id="F.-Combine-Similar-Tables-(UNION-/-UNION-ALL)">F. Combine Similar Tables (UNION / UNION ALL)<a class="anchor-link" href="#F.-Combine-Similar-Tables-(UNION-/-UNION-ALL)">¶</a></h3><p><strong>Signals:</strong> "combine," "merge," "all records from both," "together"</p>
-<pre><code>    ┌─────────────┐
-    │  SELECT ...  │  ← Query 1 rows
-    ├─────────────┤
-    │  SELECT ...  │  ← Query 2 rows
-    └─────────────┘
-    Rows stacked vertically (not side-by-side).
-</code></pre>
-<hr>
-<p><strong>Best approach — <code>UNION ALL</code></strong></p>
-<p><strong>Method:</strong> <code>UNION ALL</code> stacks the rows from two <code>SELECT</code> statements vertically. Both queries must have the same number of columns with compatible data types. It keeps all rows including duplicates.</p>
-<p><strong>In plain language:</strong> "Glue two tables on top of each other — keep every row, even repeats."</p>
-<div class="highlight"><pre><span></span><span class="c1">-- Combine active and archived orders</span>
-<span class="k">SELECT</span><span class="w"> </span><span class="n">order_id</span><span class="p">,</span><span class="w"> </span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="n">order_date</span><span class="p">,</span><span class="w"> </span><span class="s1">'active'</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">source</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Active_Orders</span>
-<span class="k">UNION</span><span class="w"> </span><span class="k">ALL</span>
-<span class="k">SELECT</span><span class="w"> </span><span class="n">order_id</span><span class="p">,</span><span class="w"> </span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="n">order_date</span><span class="p">,</span><span class="w"> </span><span class="s1">'archived'</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">source</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Archived_Orders</span><span class="p">;</span>
-</pre></div>
 <hr/>
-<p><strong>Alternative — <code>UNION</code> (deduplicates)</strong></p>
-<p><strong>Method:</strong> <code>UNION</code> does the same vertical stacking but adds a <code>DISTINCT</code> step to remove duplicate rows. This requires sorting the entire result, which is slower.</p>
-<p><strong>In plain language:</strong> "Glue two tables together but remove any rows that appear in both."</p>
-<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span><span class="n">customer_id</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">Premium_Customers</span>
-<span class="k">UNION</span>
-<span class="k">SELECT</span><span class="w"> </span><span class="n">customer_id</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">Newsletter_Subscribers</span><span class="p">;</span>
+<p><strong>ANTI JOIN + further aggregation (combo within a combo)</strong></p>
+<p>Sometimes you need to find what's missing AND then summarize it:</p>
+<div class="highlight"><pre><span></span><span class="c1">-- Count how many customers per region have never ordered</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">region</span><span class="p">,</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">inactive_customers</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Customers</span><span class="w"> </span><span class="k">c</span>
+<span class="k">LEFT</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Orders</span><span class="w"> </span><span class="n">o</span>
+<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">o</span><span class="p">.</span><span class="n">customer_id</span>
+<span class="k">WHERE</span><span class="w"> </span><span class="n">o</span><span class="p">.</span><span class="n">customer_id</span><span class="w"> </span><span class="k">IS</span><span class="w"> </span><span class="k">NULL</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">region</span><span class="p">;</span>
 </pre></div>
-<p><strong>When to use UNION vs UNION ALL:</strong></p>
-<table>
-<thead>
-<tr>
-<th>Use</th>
-<th>When</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>UNION ALL</code></td>
-<td>You want all rows, duplicates are fine or impossible</td>
-</tr>
-<tr>
-<td><code>UNION</code></td>
-<td>You specifically need to eliminate duplicates across both tables</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Default to <code>UNION ALL</code></strong> — it's faster and you can always add <code>DISTINCT</code> later if needed.</p>
-</hr></div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<hr style="border: 2px solid black;"/>
-<p><a id="pattern-g-self-join"></a></p>
-<h3 id="G.-Self-Referencing-(Self-JOIN)">G. Self-Referencing (Self JOIN)<a class="anchor-link" href="#G.-Self-Referencing-(Self-JOIN)">¶</a></h3><p><strong>Signals:</strong> "manager name," "reports to," "parent category," "compare rows within same table using different roles"</p>
-<pre><code>    ┌──────────┐
-    │  Table T │
-    │  alias e │──┐
-    │  alias m │◄─┘  Same table, two roles
-    └──────────┘
-    T joined to itself using two aliases.
-</code></pre>
-<hr>
-<p><strong>Best approach — Self <code>JOIN</code></strong></p>
-<p><strong>Method:</strong> Join a table to itself using two different aliases. Each alias represents a different "role" of the same table (e.g., employee vs. manager). Connect them on the foreign key that points back to the same table's primary key.</p>
-<p><strong>In plain language:</strong> "Treat the same table as two separate tables — one for the employee, one for the manager — and match them up."</p>
-<div class="highlight"><pre><span></span><span class="c1">-- Get each employee with their manager's name</span>
-<span class="k">SELECT</span><span class="w"> </span>
-<span class="w">    </span><span class="n">e</span><span class="p">.</span><span class="n">employee_id</span><span class="p">,</span>
-<span class="w">    </span><span class="n">e</span><span class="p">.</span><span class="n">employee_name</span><span class="p">,</span>
-<span class="w">    </span><span class="n">m</span><span class="p">.</span><span class="n">employee_name</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">manager_name</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Employees</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">e</span>
-<span class="k">LEFT</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Employees</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">m</span>
-<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">manager_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="n">employee_id</span><span class="p">;</span>
-</pre></div>
+<p><strong>Decomposition:</strong> ANTI JOIN finds the unmatched customers. GROUP BY + COUNT summarizes them by region. This is a combo of an anti-join pattern with a single-table aggregation pattern.</p>
 <hr/>
-<p><strong>Alternative — Recursive CTE (for hierarchy traversal)</strong></p>
-<p><strong>Method:</strong> A recursive CTE starts with a base case (e.g., top-level managers) and repeatedly joins the table to itself to walk down (or up) the hierarchy level by level.</p>
-<p><strong>In plain language:</strong> "Start at the top of the org chart and keep following the 'reports to' links until you run out of levels."</p>
-<div class="highlight"><pre><span></span><span class="c1">-- Get full management chain</span>
-<span class="k">WITH</span><span class="w"> </span><span class="k">RECURSIVE</span><span class="w"> </span><span class="n">org_chart</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="p">(</span>
-<span class="w">    </span><span class="c1">-- Base: top-level managers (no manager)</span>
-<span class="w">    </span><span class="k">SELECT</span><span class="w"> </span><span class="n">employee_id</span><span class="p">,</span><span class="w"> </span><span class="n">employee_name</span><span class="p">,</span><span class="w"> </span><span class="n">manager_id</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">level</span>
-<span class="w">    </span><span class="k">FROM</span><span class="w"> </span><span class="n">Employees</span>
-<span class="w">    </span><span class="k">WHERE</span><span class="w"> </span><span class="n">manager_id</span><span class="w"> </span><span class="k">IS</span><span class="w"> </span><span class="k">NULL</span>
-<span class="w">    </span>
-<span class="w">    </span><span class="k">UNION</span><span class="w"> </span><span class="k">ALL</span>
-<span class="w">    </span>
-<span class="w">    </span><span class="c1">-- Recursive: employees who report to someone already found</span>
-<span class="w">    </span><span class="k">SELECT</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">employee_id</span><span class="p">,</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">employee_name</span><span class="p">,</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">manager_id</span><span class="p">,</span><span class="w"> </span><span class="n">oc</span><span class="p">.</span><span class="k">level</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
-<span class="w">    </span><span class="k">FROM</span><span class="w"> </span><span class="n">Employees</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">e</span>
-<span class="w">    </span><span class="k">INNER</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">org_chart</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">oc</span>
-<span class="w">        </span><span class="k">ON</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">manager_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">oc</span><span class="p">.</span><span class="n">employee_id</span>
-<span class="p">)</span>
-<span class="k">SELECT</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">org_chart</span><span class="w"> </span><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="k">level</span><span class="p">,</span><span class="w"> </span><span class="n">employee_id</span><span class="p">;</span>
-</pre></div>
-<p><strong>When to use which:</strong></p>
+<p><strong>Efficiency ranking:</strong></p>
 <table>
 <thead>
 <tr>
-<th>Use</th>
-<th>When</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Self JOIN</td>
-<td>Single-level lookup (employee → direct manager)</td>
-</tr>
-<tr>
-<td>Recursive CTE</td>
-<td>Multi-level traversal (full hierarchy, depth unknown)</td>
-</tr>
-</tbody>
-</table>
-</hr></div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<hr style="border: 2px solid black;"/>
-<p><a id="pattern-h-exists-in"></a></p>
-<h3 id="H.-Filter-by-Another-Table-(EXISTS-/-IN)">H. Filter by Another Table (EXISTS / IN)<a class="anchor-link" href="#H.-Filter-by-Another-Table-(EXISTS-/-IN)">¶</a></h3><p><strong>Signals:</strong> "who also appear in," "exists in both," "only those with," "filter based on another table"</p>
-<pre><code>    ┌─────────┐   ┌─────────┐
-    │    A    ╔═══╗    B    │
-    │  kept   ║ ? ║ checked │
-    │  if ✓   ╚═══╝ only    │
-    └─────────┘   └─────────┘
-    Rows from A kept only if a match EXISTS in B.
-</code></pre>
-<hr>
-<p><strong>Best approach — <code>EXISTS</code></strong></p>
-<p><strong>Method:</strong> <code>EXISTS</code> checks whether a correlated subquery returns at least one row. It stops searching as soon as it finds the first match (short-circuits), making it efficient.</p>
-<p><strong>In plain language:</strong> "For each row in my main table, check if there's at least one matching row in the other table."</p>
-<div class="highlight"><pre><span></span><span class="c1">-- Find customers who have placed at least one order</span>
-<span class="k">SELECT</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_name</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Customers</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">c</span>
-<span class="k">WHERE</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="p">(</span>
-<span class="w">    </span><span class="k">SELECT</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span>
-<span class="w">    </span><span class="k">FROM</span><span class="w"> </span><span class="n">Orders</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">o</span><span class="w"> </span>
-<span class="w">    </span><span class="k">WHERE</span><span class="w"> </span><span class="n">o</span><span class="p">.</span><span class="n">customer_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span>
-<span class="p">);</span>
-</pre></div>
-<hr/>
-<p><strong>Alternative — <code>IN</code> with subquery</strong></p>
-<p><strong>Method:</strong> <code>IN</code> collects all values from a subquery into a list, then checks if the outer row's value is in that list.</p>
-<p><strong>In plain language:</strong> "Get a list of all customer IDs from Orders, then keep only the customers whose ID is on that list."</p>
-<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="n">customer_name</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Customers</span>
-<span class="k">WHERE</span><span class="w"> </span><span class="n">customer_id</span><span class="w"> </span><span class="k">IN</span><span class="w"> </span><span class="p">(</span><span class="k">SELECT</span><span class="w"> </span><span class="n">customer_id</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">Orders</span><span class="p">);</span>
-</pre></div>
-<hr/>
-<p><strong>Alternative — <code>INNER JOIN</code> (but may duplicate)</strong></p>
-<p><strong>Method:</strong> An <code>INNER JOIN</code> can also filter, but if the right table has multiple matching rows, the left table's rows get duplicated.</p>
-<p><strong>In plain language:</strong> "Join and keep only matches — but watch out for duplicates if one customer has multiple orders."</p>
-<div class="highlight"><pre><span></span><span class="c1">-- WARNING: may produce duplicate customers</span>
-<span class="k">SELECT</span><span class="w"> </span><span class="k">DISTINCT</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_name</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Customers</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">c</span>
-<span class="k">INNER</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Orders</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">o</span>
-<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">o</span><span class="p">.</span><span class="n">customer_id</span><span class="p">;</span>
-</pre></div>
-<p><strong>Why EXISTS is preferred:</strong> It never produces duplicates and short-circuits after the first match.</p>
-</hr></div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<hr style="border: 2px solid black;"/>
-<p><a id="pattern-i-aggregate-then-join"></a></p>
-<h3 id="I.-Aggregate-Then-Join-(Subquery/CTE-+-JOIN)">I. Aggregate Then Join (Subquery/CTE + JOIN)<a class="anchor-link" href="#I.-Aggregate-Then-Join-(Subquery/CTE-+-JOIN)">¶</a></h3><p><strong>Signals:</strong> "total per group then look up," "average by department then show details," "rank then join"</p>
-<pre><code>    ┌──────────┐            ┌──────────┐
-    │ Aggregate│            │  Detail  │
-    │ (CTE/Sub)│───JOIN────►│  Table   │
-    └──────────┘            └──────────┘
-    Summarize first, then join the summary to details.
-</code></pre>
-<hr>
-<p><strong>Best approach — CTE or Subquery + <code>JOIN</code></strong></p>
-<p><strong>Method:</strong> First aggregate data in a CTE or subquery, then join the aggregated result back to another table. This keeps the logic clean and avoids mixing aggregation with join conditions.</p>
-<p><strong>In plain language:</strong> "Calculate the summary first in a separate step, then combine it with the detail table."</p>
-<div class="highlight"><pre><span></span><span class="c1">-- Show each employee with their department's average salary</span>
-<span class="k">WITH</span><span class="w"> </span><span class="n">dept_avg</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="p">(</span>
-<span class="w">    </span><span class="k">SELECT</span><span class="w"> </span><span class="n">department_id</span><span class="p">,</span><span class="w"> </span><span class="k">AVG</span><span class="p">(</span><span class="n">salary</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">avg_salary</span>
-<span class="w">    </span><span class="k">FROM</span><span class="w"> </span><span class="n">Employees</span>
-<span class="w">    </span><span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">department_id</span>
-<span class="p">)</span>
-<span class="k">SELECT</span><span class="w"> </span>
-<span class="w">    </span><span class="n">e</span><span class="p">.</span><span class="n">employee_id</span><span class="p">,</span>
-<span class="w">    </span><span class="n">e</span><span class="p">.</span><span class="n">employee_name</span><span class="p">,</span>
-<span class="w">    </span><span class="n">e</span><span class="p">.</span><span class="n">salary</span><span class="p">,</span>
-<span class="w">    </span><span class="n">da</span><span class="p">.</span><span class="n">avg_salary</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">department_avg</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Employees</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">e</span>
-<span class="k">INNER</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">dept_avg</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">da</span>
-<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">department_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">da</span><span class="p">.</span><span class="n">department_id</span><span class="p">;</span>
-</pre></div>
-<hr/>
-<p><strong>Alternative — Window Function (no pre-aggregation needed)</strong></p>
-<p><strong>Method:</strong> A window function can compute the aggregate alongside each row without collapsing the result. No separate subquery or CTE needed.</p>
-<p><strong>In plain language:</strong> "Add the department average as a new column right next to each employee — no grouping step needed."</p>
-<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span>
-<span class="w">    </span><span class="n">employee_id</span><span class="p">,</span>
-<span class="w">    </span><span class="n">employee_name</span><span class="p">,</span>
-<span class="w">    </span><span class="n">salary</span><span class="p">,</span>
-<span class="w">    </span><span class="k">AVG</span><span class="p">(</span><span class="n">salary</span><span class="p">)</span><span class="w"> </span><span class="n">OVER</span><span class="w"> </span><span class="p">(</span><span class="n">PARTITION</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">department_id</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">department_avg</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Employees</span><span class="p">;</span>
-</pre></div>
-<p><strong>When to use which:</strong></p>
-<table>
-<thead>
-<tr>
-<th>Use</th>
-<th>When</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>CTE/Subquery + JOIN</td>
-<td>Need to join aggregated data to a <strong>different</strong> table</td>
-</tr>
-<tr>
-<td>Window Function</td>
-<td>Need aggregate alongside detail rows from the <strong>same</strong> table</td>
-</tr>
-</tbody>
-</table>
-</hr></div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<hr style="border: 3px solid black;"/>
-<p><a id="4-critical-efficiency-rules"></a></p>
-<h2 id="4.-Critical-Efficiency-Rules">4. Critical Efficiency Rules<a class="anchor-link" href="#4.-Critical-Efficiency-Rules">¶</a></h2><h3 id="Rule-1-%E2%80%94-Choose-the-Right-Join-Type">Rule 1 — Choose the Right Join Type<a class="anchor-link" href="#Rule-1-%E2%80%94-Choose-the-Right-Join-Type">¶</a></h3><table>
-<thead>
-<tr>
-<th>Bad</th>
-<th>Good</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>CROSS JOIN</code> when you need <code>INNER JOIN</code></td>
-<td>Use the most restrictive join that gives correct results</td>
-</tr>
-</tbody>
-</table>
-<p>A <code>CROSS JOIN</code> on two 1000-row tables produces 1,000,000 rows. Only use it when you genuinely need all combinations.</p>
-<h3 id="Rule-2-%E2%80%94-Pre-aggregate-Before-Joining-Large-Tables">Rule 2 — Pre-aggregate Before Joining Large Tables<a class="anchor-link" href="#Rule-2-%E2%80%94-Pre-aggregate-Before-Joining-Large-Tables">¶</a></h3><table>
-<thead>
-<tr>
-<th>Bad</th>
-<th>Good</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>JOIN</code> then <code>GROUP BY</code> on massive fact table</td>
-<td><code>GROUP BY</code> in subquery, then <code>JOIN</code> smaller result</td>
-</tr>
-</tbody>
-</table>
-<p>Aggregating first reduces the row count before the join, which is dramatically faster on large tables.</p>
-<h3 id="Rule-3-%E2%80%94-Avoid-NOT-IN-with-Nullable-Columns">Rule 3 — Avoid NOT IN with Nullable Columns<a class="anchor-link" href="#Rule-3-%E2%80%94-Avoid-NOT-IN-with-Nullable-Columns">¶</a></h3><table>
-<thead>
-<tr>
-<th>Bad</th>
-<th>Good</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>NOT IN (SELECT nullable_col ...)</code></td>
-<td><code>NOT EXISTS</code> or <code>LEFT JOIN + IS NULL</code></td>
-</tr>
-</tbody>
-</table>
-<p>If the subquery returns even one NULL, <code>NOT IN</code> returns zero rows — silently wrong.</p>
-<h3 id="Rule-4-%E2%80%94-Use-EXISTS-over-IN-for-Large-Subqueries">Rule 4 — Use EXISTS over IN for Large Subqueries<a class="anchor-link" href="#Rule-4-%E2%80%94-Use-EXISTS-over-IN-for-Large-Subqueries">¶</a></h3><table>
-<thead>
-<tr>
-<th>Bad</th>
-<th>Good</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>IN (SELECT ... FROM huge_table)</code></td>
-<td><code>EXISTS (SELECT 1 FROM huge_table WHERE ...)</code></td>
-</tr>
-</tbody>
-</table>
-<p><code>EXISTS</code> short-circuits after the first match. <code>IN</code> must materialize the entire subquery result list first.</p>
-<h3 id="Rule-5-%E2%80%94-Don't-Join-When-You-Can-Filter">Rule 5 — Don't Join When You Can Filter<a class="anchor-link" href="#Rule-5-%E2%80%94-Don't-Join-When-You-Can-Filter">¶</a></h3><table>
-<thead>
-<tr>
-<th>Bad</th>
-<th>Good</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>JOIN</code> + <code>DISTINCT</code> to check existence</td>
-<td><code>EXISTS</code> or <code>IN</code></td>
-</tr>
-</tbody>
-</table>
-<p>If you only need to check whether a match exists (not retrieve columns from the other table), use <code>EXISTS</code> instead of joining and deduplicating.</p>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<hr style="border: 3px solid black;"/>
-<p><a id="5-join-type-quick-reference"></a></p>
-<h2 id="5.-JOIN-Type-Quick-Reference">5. JOIN Type Quick Reference<a class="anchor-link" href="#5.-JOIN-Type-Quick-Reference">¶</a></h2><table>
-<thead>
-<tr>
-<th>JOIN Type</th>
-<th>What It Returns</th>
-<th>NULL Behavior</th>
-<th>Use When</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>INNER JOIN</code></td>
-<td>Only matching rows from both tables</td>
-<td>No NULLs (unmatched rows dropped)</td>
-<td>You only want rows with data in both tables</td>
-</tr>
-<tr>
-<td><code>LEFT JOIN</code></td>
-<td>All left rows + matching right rows</td>
-<td>Right columns are NULL when no match</td>
-<td>You need all rows from the primary table</td>
-</tr>
-<tr>
-<td><code>RIGHT JOIN</code></td>
-<td>All right rows + matching left rows</td>
-<td>Left columns are NULL when no match</td>
-<td>Rare — rewrite as LEFT JOIN for clarity</td>
-</tr>
-<tr>
-<td><code>FULL OUTER JOIN</code></td>
-<td>All rows from both tables</td>
-<td>NULLs on either side when no match</td>
-<td>You need the complete picture from both</td>
-</tr>
-<tr>
-<td><code>CROSS JOIN</code></td>
-<td>Every row × every row (Cartesian)</td>
-<td>No NULLs (no condition to fail)</td>
-<td>You need all possible combinations</td>
-</tr>
-<tr>
-<td>Self <code>JOIN</code></td>
-<td>Table joined to itself</td>
-<td>Depends on JOIN type used</td>
-<td>Table references itself (hierarchy, comparison)</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<hr style="border: 3px solid black;"/>
-<p><a id="6-row-count-diagnostics"></a></p>
-<h2 id="6.-Row-Count-Diagnostics-%E2%80%94-Verify-You-Picked-the-Right-JOIN">6. Row Count Diagnostics — Verify You Picked the Right JOIN<a class="anchor-link" href="#6.-Row-Count-Diagnostics-%E2%80%94-Verify-You-Picked-the-Right-JOIN">¶</a></h2><p>One of the fastest ways to know if your JOIN is correct is to check whether the <strong>row count makes sense</strong>. A wrong join silently produces too many or too few rows — and wrong row counts mean wrong aggregations.</p>
-<hr>
-<h3 id="Expected-Row-Counts-by-JOIN-Type">Expected Row Counts by JOIN Type<a class="anchor-link" href="#Expected-Row-Counts-by-JOIN-Type">¶</a></h3><table>
-<thead>
-<tr>
-<th>JOIN Type</th>
-<th>Expected Row Count</th>
-<th>Watch Out For</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>INNER JOIN</code></td>
-<td>≤ min(rows_A, rows_B)</td>
-<td>Drops unmatched rows — count shrinks if keys don't align</td>
-</tr>
-<tr>
-<td><code>LEFT JOIN</code> (1:1 key)</td>
-<td>= rows_A</td>
-<td>Right side fills in or goes NULL — count stays same as left table</td>
-</tr>
-<tr>
-<td><code>LEFT JOIN</code> (1:many key)</td>
-<td>≥ rows_A</td>
-<td>Duplicates left rows when multiple matches exist — count inflates</td>
-</tr>
-<tr>
-<td><code>CROSS JOIN</code></td>
-<td>= rows_A × rows_B</td>
-<td>Cartesian product — count explodes fast</td>
-</tr>
-<tr>
-<td><code>CROSS JOIN</code> + <code>LEFT JOIN</code> + <code>GROUP BY</code></td>
-<td>= rows_A × rows_B</td>
-<td>After grouping, one row per combination</td>
-</tr>
-<tr>
-<td><code>LEFT JOIN</code> + <code>IS NULL</code></td>
-<td>≤ rows_A</td>
-<td>Only the unmatched rows survive the WHERE filter</td>
-</tr>
-<tr>
-<td><code>UNION ALL</code></td>
-<td>= rows_query1 + rows_query2</td>
-<td>Stacks everything — no deduplication</td>
-</tr>
-<tr>
-<td><code>UNION</code></td>
-<td>≤ rows_query1 + rows_query2</td>
-<td>Deduplicates — count may be less than sum</td>
-</tr>
-<tr>
-<td>Self <code>JOIN</code></td>
-<td>Depends on relationship</td>
-<td>Hierarchy: ≤ rows_T; Cartesian self: rows_T × rows_T</td>
-</tr>
-</tbody>
-</table>
-<hr>
-<h3 id="The-%231-Diagnostic-Rule">The #1 Diagnostic Rule<a class="anchor-link" href="#The-%231-Diagnostic-Rule">¶</a></h3><blockquote>
-<p><strong>If your row count after JOIN is larger than expected, you almost certainly have a many-to-many join or duplicate keys.</strong></p>
-</blockquote>
-<p>This is the most common mistake in SQL interviews. It happens when:</p>
-<ol>
-<li><strong>The join key isn't unique on at least one side</strong> — You think it's 1:1 but it's actually 1:many</li>
-<li><strong>You forgot to aggregate before joining</strong> — The fact table has multiple rows per key, causing fan-out</li>
-<li><strong>You used CROSS JOIN when you meant INNER JOIN</strong> — Every row pairs with every row</li>
-</ol>
-<hr>
-<h3 id="QA-Queries-to-Verify-Your-JOIN">QA Queries to Verify Your JOIN<a class="anchor-link" href="#QA-Queries-to-Verify-Your-JOIN">¶</a></h3><p><strong>Step 1 — Check your source table sizes</strong></p>
-<div class="highlight"><pre><span></span><span class="c1">-- Know your starting point</span>
-<span class="k">SELECT</span><span class="w"> </span><span class="s1">'Table_A'</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">source</span><span class="p">,</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">row_count</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">Table_A</span>
-<span class="k">UNION</span><span class="w"> </span><span class="k">ALL</span>
-<span class="k">SELECT</span><span class="w"> </span><span class="s1">'Table_B'</span><span class="p">,</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">Table_B</span><span class="p">;</span>
-</pre></div>
-<p><strong>Step 2 — Check for duplicate keys (the root cause of row inflation)</strong></p>
-<div class="highlight"><pre><span></span><span class="c1">-- If any key appears more than once, you have a 1:many or many:many situation</span>
-<span class="k">SELECT</span><span class="w"> </span><span class="n">join_key</span><span class="p">,</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">occurrences</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Table_A</span>
-<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">join_key</span>
-<span class="k">HAVING</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
-</pre></div>
-<div class="highlight"><pre><span></span><span class="c1">-- Check the other table too</span>
-<span class="k">SELECT</span><span class="w"> </span><span class="n">join_key</span><span class="p">,</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">occurrences</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Table_B</span>
-<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">join_key</span>
-<span class="k">HAVING</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
-</pre></div>
-<p><strong>Step 3 — Compare row count before and after JOIN</strong></p>
-<div class="highlight"><pre><span></span><span class="c1">-- Run this BEFORE aggregating to catch fan-out early</span>
-<span class="k">SELECT</span><span class="w"> </span>
-<span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">joined_rows</span><span class="p">,</span>
-<span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="k">DISTINCT</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">primary_key</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">unique_left_rows</span><span class="p">,</span>
-<span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="k">DISTINCT</span><span class="w"> </span><span class="n">b</span><span class="p">.</span><span class="n">primary_key</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">unique_right_rows</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Table_A</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">a</span>
-<span class="k">LEFT</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Table_B</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="k">ON</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">join_key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">b</span><span class="p">.</span><span class="n">join_key</span><span class="p">;</span>
-</pre></div>
-<p><strong>How to read the result:</strong></p>
-<table>
-<thead>
-<tr>
-<th>What You See</th>
-<th>What It Means</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>joined_rows</code> = <code>unique_left_rows</code></td>
-<td>Clean 1:1 or 1:0 join — no fan-out</td>
-</tr>
-<tr>
-<td><code>joined_rows</code> &gt; <code>unique_left_rows</code></td>
-<td>Fan-out detected — B has duplicates per key</td>
-</tr>
-<tr>
-<td><code>unique_right_rows</code> &lt; expected</td>
-<td>Some B rows didn't match — check your ON clause</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Step 4 — Spot-check NULLs after LEFT JOIN</strong></p>
-<div class="highlight"><pre><span></span><span class="c1">-- How many rows from the right table had no match?</span>
-<span class="k">SELECT</span><span class="w"> </span>
-<span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">total_rows</span><span class="p">,</span>
-<span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="n">b</span><span class="p">.</span><span class="n">primary_key</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">matched_rows</span><span class="p">,</span>
-<span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="n">b</span><span class="p">.</span><span class="n">primary_key</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">unmatched_rows</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Table_A</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">a</span>
-<span class="k">LEFT</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Table_B</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="k">ON</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">join_key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">b</span><span class="p">.</span><span class="n">join_key</span><span class="p">;</span>
-</pre></div>
-<hr/>
-<h3 id="Quick-Diagnostic-Decision-Tree">Quick Diagnostic Decision Tree<a class="anchor-link" href="#Quick-Diagnostic-Decision-Tree">¶</a></h3><pre><code>After your JOIN, check the row count:
-│
-├── Row count = expected?
-│   └── ✓ Proceed with confidence
-│
-├── Row count HIGHER than expected?
-│   ├── Check for duplicate keys (Step 2)
-│   ├── Did you forget to aggregate first? → Use Pattern I
-│   └── Did you accidentally CROSS JOIN? → Add ON clause
-│
-└── Row count LOWER than expected?
-    ├── INNER JOIN dropping unmatched rows? → Switch to LEFT JOIN
-    ├── WHERE clause filtering too aggressively? → Move filter to ON clause
-    └── NULL keys not matching? → Check for NULLs in join columns
-</code></pre>
-<hr/>
-<p><strong>Interview tip:</strong> Mention row count verification out loud — "Let me verify: this LEFT JOIN should give me the same number of rows as the customers table, since each customer matches at most one row." This shows the interviewer you think about correctness, not just syntax.</p>
-</hr></hr></hr></div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<hr style="border: 3px solid black;"/>
-<p><a id="7-how-to-think-from-the-vignette"></a></p>
-<h2 id="7.-How-to-Think-from-the-Vignette">7. How to Think from the Vignette<a class="anchor-link" href="#7.-How-to-Think-from-the-Vignette">¶</a></h2><p>Follow these steps <strong>before writing any SQL</strong>:</p>
-<h3 id="Step-1-%E2%80%94-Count-the-Tables">Step 1 — Count the Tables<a class="anchor-link" href="#Step-1-%E2%80%94-Count-the-Tables">¶</a></h3><blockquote>
-<p><em>How many tables does the problem give me? What does each one represent?</em></p>
-</blockquote>
-<p>Classify each table: <strong>Dimension</strong> (list of entities) vs <strong>Fact</strong> (events/transactions).</p>
-<h3 id="Step-2-%E2%80%94-Identify-the-Relationship">Step 2 — Identify the Relationship<a class="anchor-link" href="#Step-2-%E2%80%94-Identify-the-Relationship">¶</a></h3><blockquote>
-<p><em>How do these tables connect? Is it 1:1, 1:many, or many:many?</em></p>
-</blockquote>
-<p>Look at the primary keys and foreign keys. If there's no direct relationship (two independent dimension tables), you likely need a <code>CROSS JOIN</code>.</p>
-<h3 id="Step-3-%E2%80%94-Check-the-Output-Shape">Step 3 — Check the Output Shape<a class="anchor-link" href="#Step-3-%E2%80%94-Check-the-Output-Shape">¶</a></h3><blockquote>
-<p><em>Does the output need every combination? Only matches? All from one side?</em></p>
-</blockquote>
-<p>This tells you the join type directly:</p>
-<ul>
-<li>Every combination → <code>CROSS JOIN</code></li>
-<li>Only matches → <code>INNER JOIN</code></li>
-<li>All from one side → <code>LEFT JOIN</code></li>
-<li>What's missing → <code>LEFT JOIN</code> + <code>IS NULL</code></li>
-</ul>
-<h3 id="Step-4-%E2%80%94-Look-for-Zero-Counts">Step 4 — Look for Zero Counts<a class="anchor-link" href="#Step-4-%E2%80%94-Look-for-Zero-Counts">¶</a></h3><blockquote>
-<p><em>Does the expected output show zeros? That means you need to preserve unmatched rows.</em></p>
-</blockquote>
-<p>If you see <code>0</code> in the expected output, you definitely need <code>LEFT JOIN</code> (not <code>INNER JOIN</code>) — and possibly <code>CROSS JOIN</code> first to generate the complete combination set.</p>
-<h3 id="Step-5-%E2%80%94-Choose-Aggregation-Strategy">Step 5 — Choose Aggregation Strategy<a class="anchor-link" href="#Step-5-%E2%80%94-Choose-Aggregation-Strategy">¶</a></h3><blockquote>
-<p><em>Do I aggregate before or after joining?</em></p>
-</blockquote>
-<ul>
-<li><strong>After joining:</strong> Simpler, works when fact table is small</li>
-<li><strong>Before joining (subquery):</strong> Better when fact table is large</li>
-</ul>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<hr>
-<h3 id="Worked-Examples">Worked Examples<a class="anchor-link" href="#Worked-Examples">¶</a></h3><p><strong>Students × Subjects × Examinations Problem:</strong></p>
-<table>
-<thead>
-<tr>
-<th>Step</th>
-<th>Answer</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Count tables</td>
-<td>3 tables: Students (dimension), Subjects (dimension), Examinations (fact)</td>
-</tr>
-<tr>
-<td>Relationship</td>
-<td>Students and Subjects are independent; Examinations links them</td>
-</tr>
-<tr>
-<td>Output shape</td>
-<td>Every student × every subject (all combinations)</td>
-</tr>
-<tr>
-<td>Zero counts?</td>
-<td>Yes — output shows <code>0</code> for students who didn't attend</td>
-</tr>
-<tr>
-<td>Aggregation</td>
-<td>COUNT after joining (or pre-aggregate in subquery)</td>
-</tr>
-<tr>
-<td><strong>Strategy</strong></td>
-<td><strong>CROSS JOIN Students × Subjects, LEFT JOIN Examinations, GROUP BY</strong></td>
-</tr>
-</tbody>
-</table>
-<p><strong>Customers Without Orders Problem:</strong></p>
-<table>
-<thead>
-<tr>
-<th>Step</th>
-<th>Answer</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Count tables</td>
-<td>2 tables: Customers (dimension), Orders (fact)</td>
-</tr>
-<tr>
-<td>Relationship</td>
-<td>1:many — one customer can have many orders</td>
-</tr>
-<tr>
-<td>Output shape</td>
-<td>Only customers with NO orders</td>
-</tr>
-<tr>
-<td>Zero counts?</td>
-<td>N/A — looking for absence, not counts</td>
-</tr>
-<tr>
-<td>Aggregation</td>
-<td>None needed</td>
-</tr>
-<tr>
-<td><strong>Strategy</strong></td>
-<td><strong>LEFT JOIN + WHERE IS NULL</strong></td>
-</tr>
-</tbody>
-</table>
-<p><strong>Employee Manager Problem:</strong></p>
-<table>
-<thead>
-<tr>
-<th>Step</th>
-<th>Answer</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Count tables</td>
-<td>1 table: Employees (self-referencing)</td>
-</tr>
-<tr>
-<td>Relationship</td>
-<td>Self-reference — manager_id points to employee_id</td>
-</tr>
-<tr>
-<td>Output shape</td>
-<td>Each employee with their manager name</td>
-</tr>
-<tr>
-<td>Zero counts?</td>
-<td>Use LEFT JOIN to keep employees with no manager (CEO)</td>
-</tr>
-<tr>
-<td>Aggregation</td>
-<td>None needed</td>
-</tr>
-<tr>
-<td><strong>Strategy</strong></td>
-<td><strong>Self LEFT JOIN on manager_id = employee_id</strong></td>
-</tr>
-</tbody>
-</table>
-</hr></div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<hr style="border: 3px solid black;"/>
-<p><a id="8-interview-prompt-templates"></a></p>
-<h2 id="8.-Interview-Prompt-Templates">8. Interview Prompt Templates<a class="anchor-link" href="#8.-Interview-Prompt-Templates">¶</a></h2><p>Use these phrases during an interview to structure your thinking out loud:</p>
-<table>
-<thead>
-<tr>
-<th>#</th>
-<th>Template</th>
-<th>When to Use</th>
+<th>Rank</th>
+<th>Method</th>
+<th>Why</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>1</td>
-<td><em>"I see [N] tables here — [X] is a dimension table and [Y] is a fact table."</em></td>
-<td>Table identification</td>
+<td>LEFT JOIN + WHERE IS NULL</td>
+<td>Clear intent, efficient, NULL-safe</td>
 </tr>
 <tr>
 <td>2</td>
-<td><em>"The output needs every combination of [X] and [Y], so I'll start with a CROSS JOIN."</em></td>
-<td>Complete combinations</td>
+<td>NOT EXISTS</td>
+<td>Also efficient, short-circuits, NULL-safe</td>
 </tr>
 <tr>
 <td>3</td>
-<td><em>"Since the output shows zeros, I need a LEFT JOIN to preserve unmatched rows."</em></td>
-<td>Zero-count signal</td>
+<td>NOT IN</td>
+<td>Breaks with NULLs — avoid unless column is guaranteed NOT NULL</td>
+</tr>
+</tbody>
+</table>
+</hr></div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border: 3px solid black;"/>
+<p><a id="5-null-trap"></a></p>
+<h2 id="5.-The-NULL-Trap-%E2%80%94-How-Joins-Change-Single-Table-Logic">5. The NULL Trap — How Joins Change Single-Table Logic<a class="anchor-link" href="#5.-The-NULL-Trap-%E2%80%94-How-Joins-Change-Single-Table-Logic">¶</a></h2><p>The most common mistake in combo problems: <strong>single-table functions behave differently when LEFT JOIN introduces NULLs.</strong></p>
+<h3 id="The-Problem">The Problem<a class="anchor-link" href="#The-Problem">¶</a></h3><p>When a LEFT JOIN finds no match, every column from the right table becomes NULL. Functions that work perfectly on a single table can give wrong results on these NULLs.</p>
+<h3 id="NULL-Behavior-Reference">NULL Behavior Reference<a class="anchor-link" href="#NULL-Behavior-Reference">¶</a></h3><table>
+<thead>
+<tr>
+<th>Function</th>
+<th>With NULLs from LEFT JOIN</th>
+<th>Result</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>COUNT(*)</code></td>
+<td>Counts the NULL row</td>
+<td><strong>1 instead of 0</strong></td>
+<td>Use <code>COUNT(right_table.column)</code></td>
 </tr>
 <tr>
-<td>4</td>
-<td><em>"I'll pre-aggregate the fact table first to keep the join efficient."</em></td>
-<td>Large fact tables</td>
+<td><code>COUNT(column)</code></td>
+<td>Skips NULLs</td>
+<td><strong>0</strong> (correct)</td>
+<td>No fix needed</td>
 </tr>
 <tr>
-<td>5</td>
-<td><em>"I'm using LEFT JOIN + WHERE IS NULL because I need to find what's missing."</em></td>
-<td>Mismatch detection</td>
+<td><code>SUM(column)</code></td>
+<td>Skips NULLs</td>
+<td><strong>NULL</strong></td>
+<td>Wrap in <code>COALESCE(SUM(...), 0)</code></td>
 </tr>
 <tr>
-<td>6</td>
-<td><em>"I'm using EXISTS instead of IN because it short-circuits and handles NULLs safely."</em></td>
-<td>Existence filtering</td>
+<td><code>AVG(column)</code></td>
+<td>Skips NULLs</td>
+<td><strong>NULL</strong></td>
+<td>Wrap in <code>COALESCE(AVG(...), 0)</code></td>
 </tr>
 <tr>
-<td>7</td>
-<td><em>"This is a self-referencing problem — the table's manager_id points back to its own employee_id."</em></td>
-<td>Hierarchy problems</td>
+<td><code>AVG(CASE WHEN ... THEN 1.0 ELSE 0.0 END)</code></td>
+<td>ELSE catches NULLs as 0</td>
+<td><strong>0.0</strong> (correct)</td>
+<td>No fix needed</td>
 </tr>
 <tr>
-<td>8</td>
-<td><em>"I'll use COUNT(e.column) instead of COUNT(</em>) so NULLs from the LEFT JOIN give me zero."*</td>
-<td>Counting with LEFT JOIN</td>
+<td><code>MAX(column)</code> / <code>MIN(column)</code></td>
+<td>Skips NULLs</td>
+<td><strong>NULL</strong></td>
+<td>Wrap in <code>COALESCE(...)</code> if needed</td>
+</tr>
+<tr>
+<td><code>CASE WHEN col = 'x'</code></td>
+<td>NULL ≠ 'x', falls to ELSE</td>
+<td>Depends on ELSE</td>
+<td>Ensure ELSE handles the NULL case</td>
+</tr>
+</tbody>
+</table>
+<h3 id="The-Golden-Rule">The Golden Rule<a class="anchor-link" href="#The-Golden-Rule">¶</a></h3><blockquote>
+<p>*After a LEFT JOIN, never use <code>COUNT(*)</code> — always <code>COUNT(column_from_right_table)</code>. For SUM and AVG, wrap in <code>COALESCE</code> or use CASE with an ELSE that handles the NULL path.*</p>
+</blockquote>
+<h3 id="Example:-The-COUNT(*)-Trap">Example: The COUNT(*) Trap<a class="anchor-link" href="#Example:-The-COUNT(*)-Trap">¶</a></h3><div class="highlight"><pre><span></span><span class="c1">-- WRONG: Customers with no orders get order_count = 1</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">order_count</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Customers</span><span class="w"> </span><span class="k">c</span>
+<span class="k">LEFT</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Orders</span><span class="w"> </span><span class="n">o</span><span class="w"> </span><span class="k">ON</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">o</span><span class="p">.</span><span class="n">customer_id</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">;</span>
+
+<span class="c1">-- RIGHT: Customers with no orders get order_count = 0</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">order_id</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">order_count</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Customers</span><span class="w"> </span><span class="k">c</span>
+<span class="k">LEFT</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Orders</span><span class="w"> </span><span class="n">o</span><span class="w"> </span><span class="k">ON</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">o</span><span class="p">.</span><span class="n">customer_id</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">;</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border: 3px solid black;"/>
+<p><a id="6-decompose-any-problem"></a></p>
+<h2 id="6.-How-to-Decompose-Any-Combo-Problem">6. How to Decompose Any Combo Problem<a class="anchor-link" href="#6.-How-to-Decompose-Any-Combo-Problem">¶</a></h2><p>Use this step-by-step process for <strong>any</strong> problem that involves multiple tables and a transformation:</p>
+<h3 id="Step-1-%E2%80%94-List-the-Tables-and-Classify-Them">Step 1 — List the Tables and Classify Them<a class="anchor-link" href="#Step-1-%E2%80%94-List-the-Tables-and-Classify-Them">¶</a></h3><blockquote>
+<p><em>"I have [N] tables. [X] is a dimension (entities), [Y] is a fact (events)."</em></p>
+</blockquote>
+<h3 id="Step-2-%E2%80%94-Look-at-the-Expected-Output">Step 2 — Look at the Expected Output<a class="anchor-link" href="#Step-2-%E2%80%94-Look-at-the-Expected-Output">¶</a></h3><p>Ask:</p>
+<ul>
+<li>Does every entity appear (including those with no events)? → LEFT JOIN</li>
+<li>Do I see zeros in the output? → LEFT JOIN + careful NULL handling</li>
+<li>Is it one row per entity? → GROUP BY needed</li>
+<li>Is it a rate or ratio? → CASE WHEN inside AVG or COUNT</li>
+</ul>
+<h3 id="Step-3-%E2%80%94-Pick-the-Join-(Pass-1)">Step 3 — Pick the Join (Pass 1)<a class="anchor-link" href="#Step-3-%E2%80%94-Pick-the-Join-(Pass-1)">¶</a></h3><p>Use the multi-table decision tree.</p>
+<h3 id="Step-4-%E2%80%94-Pick-the-Transform-(Pass-2)">Step 4 — Pick the Transform (Pass 2)<a class="anchor-link" href="#Step-4-%E2%80%94-Pick-the-Transform-(Pass-2)">¶</a></h3><p>Pretend the joined result is a single table. Use the single-table decision tree.</p>
+<h3 id="Step-5-%E2%80%94-Handle-NULLs">Step 5 — Handle NULLs<a class="anchor-link" href="#Step-5-%E2%80%94-Handle-NULLs">¶</a></h3><p>Check: did your join introduce NULLs? If yes, review the NULL Trap table in Section 5.</p>
+<hr>
+<h3 id="Worked-Example-1:-Confirmation-Rate">Worked Example 1: Confirmation Rate<a class="anchor-link" href="#Worked-Example-1:-Confirmation-Rate">¶</a></h3><p><strong>Tables:</strong> Signups (dimension — all users), Confirmations (fact — confirmation attempts)</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Classify tables</td>
+<td>Signups = dimension, Confirmations = fact</td>
+</tr>
+<tr>
+<td>Output includes all entities?</td>
+<td>Yes — user 6 has 0.00 rate → must preserve all users</td>
+</tr>
+<tr>
+<td>Join type (Pass 1)</td>
+<td><strong>LEFT JOIN</strong> from Signups to Confirmations</td>
+</tr>
+<tr>
+<td>Output shape</td>
+<td>One row per user (collapsing) → GROUP BY</td>
+</tr>
+<tr>
+<td>Transformation needed</td>
+<td>Rate = confirmed / total → CASE WHEN inside AVG</td>
+</tr>
+<tr>
+<td>NULL handling</td>
+<td>LEFT JOIN NULLs → CASE ELSE 0.0 handles it</td>
+</tr>
+<tr>
+<td><strong>Combo Pattern</strong></td>
+<td><strong>A: LEFT JOIN + Conditional Aggregation</strong></td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span>
+<span class="w">    </span><span class="n">s</span><span class="p">.</span><span class="n">user_id</span><span class="p">,</span>
+<span class="w">    </span><span class="n">ROUND</span><span class="p">(</span><span class="k">AVG</span><span class="p">(</span><span class="k">CASE</span><span class="w"> </span><span class="k">WHEN</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">action</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'confirmed'</span><span class="w"> </span><span class="k">THEN</span><span class="w"> </span><span class="mi">1</span><span class="p">.</span><span class="mi">0</span><span class="w"> </span><span class="k">ELSE</span><span class="w"> </span><span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="w"> </span><span class="k">END</span><span class="p">)::</span><span class="nb">numeric</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">confirmation_rate</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Signups</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">s</span>
+<span class="k">LEFT</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Confirmations</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">c</span>
+<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">user_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">user_id</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">user_id</span><span class="p">;</span>
+</pre></div>
+<hr>
+<h3 id="Worked-Example-2:-Students-%C3%97-Subjects-%C3%97-Examinations">Worked Example 2: Students × Subjects × Examinations<a class="anchor-link" href="#Worked-Example-2:-Students-%C3%97-Subjects-%C3%97-Examinations">¶</a></h3><p><strong>Tables:</strong> Students (dimension), Subjects (dimension), Examinations (fact)</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Classify tables</td>
+<td>Students = dimension, Subjects = dimension, Examinations = fact</td>
+</tr>
+<tr>
+<td>Output includes all combinations?</td>
+<td>Yes — every student × every subject, even with 0</td>
+</tr>
+<tr>
+<td>Join type (Pass 1)</td>
+<td><strong>CROSS JOIN</strong> Students × Subjects, then <strong>LEFT JOIN</strong> Examinations</td>
+</tr>
+<tr>
+<td>Output shape</td>
+<td>One row per student-subject pair → GROUP BY</td>
+</tr>
+<tr>
+<td>Transformation needed</td>
+<td>Count of exams → COUNT(fact_column)</td>
+</tr>
+<tr>
+<td>NULL handling</td>
+<td>LEFT JOIN NULLs → COUNT(e.student_id) skips NULLs = 0</td>
+</tr>
+<tr>
+<td><strong>Combo Pattern</strong></td>
+<td><strong>D: CROSS JOIN + LEFT JOIN + COUNT(column)</strong></td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span>
+<span class="w">    </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_name</span><span class="p">,</span><span class="w"> </span><span class="n">sub</span><span class="p">.</span><span class="n">subject_name</span><span class="p">,</span>
+<span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">student_id</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">attended_exams</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Students</span><span class="w"> </span><span class="n">s</span>
+<span class="k">CROSS</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Subjects</span><span class="w"> </span><span class="n">sub</span>
+<span class="k">LEFT</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Examinations</span><span class="w"> </span><span class="n">e</span>
+<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">student_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="w"> </span><span class="k">AND</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">subject_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sub</span><span class="p">.</span><span class="n">subject_name</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_name</span><span class="p">,</span><span class="w"> </span><span class="n">sub</span><span class="p">.</span><span class="n">subject_name</span>
+<span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="p">,</span><span class="w"> </span><span class="n">sub</span><span class="p">.</span><span class="n">subject_name</span><span class="p">;</span>
+</pre></div>
+<hr/>
+<h3 id="Worked-Example-3:-Managers-with-5+-Reports">Worked Example 3: Managers with 5+ Reports<a class="anchor-link" href="#Worked-Example-3:-Managers-with-5+-Reports">¶</a></h3><p><strong>Tables:</strong> Employee (self-referencing — id, name, managerId)</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Classify tables</td>
+<td>Single table, self-referencing (managerId → id)</td>
+</tr>
+<tr>
+<td>Output includes all entities?</td>
+<td>No — only qualifying managers</td>
+</tr>
+<tr>
+<td>Join type (Pass 1)</td>
+<td><strong>Self JOIN</strong> (Employee as manager × Employee as report)</td>
+</tr>
+<tr>
+<td>Output shape</td>
+<td>One row per qualifying manager → GROUP BY</td>
+</tr>
+<tr>
+<td>Transformation needed</td>
+<td>Filter groups by count threshold → HAVING</td>
+</tr>
+<tr>
+<td>NULL handling</td>
+<td>INNER self-join, no LEFT JOIN NULLs</td>
+</tr>
+<tr>
+<td><strong>Combo Pattern</strong></td>
+<td><strong>C: INNER JOIN + GROUP BY + HAVING</strong></td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="n">name</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Employee</span><span class="w"> </span><span class="n">m</span>
+<span class="k">JOIN</span><span class="w"> </span><span class="n">Employee</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="k">ON</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">managerId</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="n">name</span>
+<span class="k">HAVING</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
+</pre></div>
+</hr></hr></div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border: 3px solid black;"/>
+<p><a id="7-efficiency-where-to-aggregate"></a></p>
+<h2 id="7.-Efficiency:-Where-to-Aggregate-%E2%80%94-Before-or-After-the-Join?">7. Efficiency: Where to Aggregate — Before or After the Join?<a class="anchor-link" href="#7.-Efficiency:-Where-to-Aggregate-%E2%80%94-Before-or-After-the-Join?">¶</a></h2><p>One of the most important decisions in combo problems is <strong>when</strong> to aggregate.</p>
+<h3 id="Option-A-%E2%80%94-Aggregate-After-Joining">Option A — Aggregate After Joining<a class="anchor-link" href="#Option-A-%E2%80%94-Aggregate-After-Joining">¶</a></h3><pre><code>Dimension  ──LEFT JOIN──▶  Fact  ──GROUP BY──▶  Result
+</code></pre>
+<p><strong>Pros:</strong> Simpler SQL, one pass, optimizer handles it well for small-medium data.</p>
+<p><strong>Cons:</strong> The join can explode the row count before aggregation.</p>
+<h3 id="Option-B-%E2%80%94-Aggregate-Before-Joining-(Pre-aggregate)">Option B — Aggregate Before Joining (Pre-aggregate)<a class="anchor-link" href="#Option-B-%E2%80%94-Aggregate-Before-Joining-(Pre-aggregate)">¶</a></h3><pre><code>Fact  ──GROUP BY──▶  Summary  ──LEFT JOIN──▶  Dimension  ──▶  Result
+</code></pre>
+<p><strong>Pros:</strong> Reduces fact table to summary first, then join is on fewer rows.</p>
+<p><strong>Cons:</strong> More complex SQL, need COALESCE for NULLs.</p>
+<h3 id="When-to-Use-Which">When to Use Which<a class="anchor-link" href="#When-to-Use-Which">¶</a></h3><table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Best Choice</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fact table is small/medium</td>
+<td>Aggregate after (simpler)</td>
+</tr>
+<tr>
+<td>Fact table has millions of rows</td>
+<td>Pre-aggregate (faster join)</td>
+</tr>
+<tr>
+<td>Multiple aggregations on same fact table</td>
+<td>Pre-aggregate once in CTE, reuse</td>
+</tr>
+<tr>
+<td>Simple COUNT or SUM</td>
+<td>Aggregate after (COUNT handles NULLs naturally)</td>
+</tr>
+<tr>
+<td>Complex conditional metric (rate, ratio)</td>
+<td>Either works — pre-aggregate if readability matters</td>
 </tr>
 </tbody>
 </table>
@@ -14329,50 +14315,94 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
-<p><a id="9-what-to-avoid"></a></p>
-<h2 id="9.-What-to-Avoid">9. What to Avoid<a class="anchor-link" href="#9.-What-to-Avoid">¶</a></h2><table>
+<p><a id="8-interview-script"></a></p>
+<h2 id="8.-Interview-Script-for-Combo-Problems">8. Interview Script for Combo Problems<a class="anchor-link" href="#8.-Interview-Script-for-Combo-Problems">¶</a></h2><p>Use this template when explaining your approach:</p>
+<table>
 <thead>
 <tr>
-<th>Bad Pattern</th>
-<th>Why It's Bad</th>
-<th>Better Alternative</th>
+<th>Step</th>
+<th>Say This</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>NOT IN</code> with nullable column</td>
-<td>Returns 0 rows silently when NULLs present</td>
-<td><code>NOT EXISTS</code> or <code>LEFT JOIN + IS NULL</code></td>
+<td>1</td>
+<td><em>"I see [N] tables — [X] is the entity list and [Y] is the event data."</em></td>
 </tr>
 <tr>
-<td><code>CROSS JOIN</code> when <code>INNER JOIN</code> suffices</td>
-<td>Produces massive Cartesian product unnecessarily</td>
-<td>Use <code>INNER JOIN</code> with proper ON condition</td>
+<td>2</td>
+<td><em>"The output needs all entities, even those with no events, so I'll use a LEFT JOIN from [X] to [Y]."</em></td>
 </tr>
 <tr>
-<td><code>JOIN</code> + <code>DISTINCT</code> to check existence</td>
-<td>Joins all rows then deduplicates — wasteful</td>
-<td><code>EXISTS</code> (short-circuits)</td>
+<td>3</td>
+<td><em>"The output has one row per entity, so I need GROUP BY."</em></td>
 </tr>
 <tr>
-<td>Aggregating after joining a large fact table</td>
-<td>Join explodes row count before aggregation</td>
-<td>Pre-aggregate in subquery, then join</td>
+<td>4</td>
+<td><em>"For the metric, I'll use [AVG(CASE WHEN...) / COUNT(column) / etc.] because [reason]."</em></td>
 </tr>
 <tr>
-<td>Using <code>RIGHT JOIN</code></td>
-<td>Confusing — readers have to reverse the logic mentally</td>
-<td>Rewrite as <code>LEFT JOIN</code> by swapping table order</td>
+<td>5</td>
+<td><em>"I'm using COUNT(column) instead of COUNT(</em>) because the LEFT JOIN introduces NULLs for unmatched rows, and COUNT(<em>) would give 1 instead of 0."</em></td>
 </tr>
 <tr>
-<td>Forgetting <code>COUNT(column)</code> vs <code>COUNT(*)</code></td>
-<td><code>COUNT(*)</code> counts NULLs; gives wrong totals after LEFT JOIN</td>
-<td><code>COUNT(specific_column)</code> skips NULLs</td>
+<td>6</td>
+<td><em>"An alternative would be to pre-aggregate in a subquery and join the result, which would be equally efficient."</em></td>
+</tr>
+</tbody>
+</table>
+<h3 id="The-Power-of-Step-5">The Power of Step 5<a class="anchor-link" href="#The-Power-of-Step-5">¶</a></h3><p>Explicitly calling out the NULL trap in an interview is a <strong>strong signal</strong> to the interviewer. It shows you understand how joins interact with aggregation — a common source of bugs in production SQL.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border: 3px solid black;"/>
+<p><a id="9-common-mistakes"></a></p>
+<h2 id="9.-Common-Combo-Mistakes">9. Common Combo Mistakes<a class="anchor-link" href="#9.-Common-Combo-Mistakes">¶</a></h2><table>
+<thead>
+<tr>
+<th>Mistake</th>
+<th>Why It's Wrong</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Using INNER JOIN when output needs zeros</td>
+<td>Drops entities with no events</td>
+<td>Use LEFT JOIN</td>
 </tr>
 <tr>
-<td>Implicit cross join (comma in FROM)</td>
-<td>Looks like a missing join condition — causes confusion</td>
-<td>Explicit <code>CROSS JOIN</code> keyword</td>
+<td>Using COUNT(*) after LEFT JOIN</td>
+<td>Counts NULL rows as 1</td>
+<td>Use COUNT(right_table.column)</td>
+</tr>
+<tr>
+<td>Forgetting COALESCE with SUM after LEFT JOIN</td>
+<td>Returns NULL instead of 0</td>
+<td>Wrap in COALESCE(..., 0)</td>
+</tr>
+<tr>
+<td>CROSS JOIN when only one dimension exists</td>
+<td>Unnecessary Cartesian product</td>
+<td>Use LEFT JOIN directly</td>
+</tr>
+<tr>
+<td>Aggregating before joining when you need row-level data</td>
+<td>Loses detail needed for window functions</td>
+<td>Join first, then apply window function</td>
+</tr>
+<tr>
+<td>Using CASE WHEN col = 'x' without ELSE after LEFT JOIN</td>
+<td>NULL ≠ 'x' falls through without ELSE</td>
+<td>Always include ELSE for the NULL case</td>
+</tr>
+<tr>
+<td>Using NOT IN to find missing when NULLs possible</td>
+<td>Silently returns 0 rows</td>
+<td>Use LEFT JOIN + IS NULL or NOT EXISTS</td>
 </tr>
 </tbody>
 </table>
@@ -14384,44 +14414,44 @@ div#notebook {
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="10-final-takeaway"></a></p>
-<h2 id="10.-Final-Takeaway">10. Final Takeaway<a class="anchor-link" href="#10.-Final-Takeaway">¶</a></h2><p>The entire game for multi-table problems is:</p>
-<pre><code>Count the tables  →  Classify them  →  Pick the join  →  Handle NULLs
+<h2 id="10.-Final-Takeaway">10. Final Takeaway<a class="anchor-link" href="#10.-Final-Takeaway">¶</a></h2><p>Every combo problem breaks down the same way:</p>
+<pre><code>Pass 1: Pick the JOIN  →  Pass 2: Pick the TRANSFORM  →  Handle NULLs
 </code></pre>
-<h3 id="Interview-Script-(Memorize-This)">Interview Script (Memorize This)<a class="anchor-link" href="#Interview-Script-(Memorize-This)">¶</a></h3><blockquote>
-<p><em>"First I count the tables and classify each as dimension or fact. Then I check whether the output needs all combinations, only matches, or missing rows — this tells me the join type. If I see zeros in the expected output, I know I need LEFT JOIN to preserve unmatched rows. Finally, I choose whether to aggregate before or after joining based on the table sizes."</em></p>
-</blockquote>
-<h3 id="The-4-Most-Common-Multi-Table-Patterns">The 4 Most Common Multi-Table Patterns<a class="anchor-link" href="#The-4-Most-Common-Multi-Table-Patterns">¶</a></h3><table>
+<h3 id="The-4-Most-Common-Combos">The 4 Most Common Combos<a class="anchor-link" href="#The-4-Most-Common-Combos">¶</a></h3><table>
 <thead>
 <tr>
 <th>#</th>
-<th>Pattern</th>
-<th>Join Strategy</th>
+<th>Combo</th>
+<th>Recipe</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>1</td>
-<td>Lookup a value from another table</td>
-<td><code>INNER JOIN</code></td>
+<td>Metric per entity including zeros</td>
+<td>LEFT JOIN + GROUP BY + AVG(CASE WHEN)</td>
 </tr>
 <tr>
 <td>2</td>
-<td>Keep all rows + attach optional data</td>
-<td><code>LEFT JOIN</code> + <code>COALESCE</code></td>
+<td>Count per entity including zeros</td>
+<td>LEFT JOIN + GROUP BY + COUNT(column)</td>
 </tr>
 <tr>
 <td>3</td>
-<td>All combinations + counts with zeros</td>
-<td><code>CROSS JOIN</code> + <code>LEFT JOIN</code> + <code>COUNT(col)</code></td>
+<td>Entities meeting a threshold</td>
+<td>JOIN + GROUP BY + HAVING</td>
 </tr>
 <tr>
 <td>4</td>
-<td>Find what's missing</td>
-<td><code>LEFT JOIN</code> + <code>WHERE IS NULL</code></td>
+<td>Metric per combination including zeros</td>
+<td>CROSS JOIN + LEFT JOIN + GROUP BY + COUNT(column)</td>
 </tr>
 </tbody>
 </table>
-<p>If you can recognize these four patterns instantly, you can solve the vast majority of multi-table SQL interview questions.</p>
+<h3 id="Memory-Rule">Memory Rule<a class="anchor-link" href="#Memory-Rule">¶</a></h3><blockquote>
+<p><em>"LEFT JOIN means NULLs. NULLs mean COUNT(column) not COUNT(</em>). If I need a rate, AVG(CASE WHEN) handles NULLs automatically."*</p>
+</blockquote>
+<p>If you can decompose a problem into Pass 1 + Pass 2, recognize which combo pattern it matches, and handle the NULL trap correctly, you can solve any multi-table SQL interview question.</p>
 </div>
 </div>
 </div>
