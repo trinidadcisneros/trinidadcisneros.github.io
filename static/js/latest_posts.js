@@ -47,12 +47,6 @@
       }
 
       container.innerHTML = html;
-
-      // Populate hero counter with total post count
-      var counter = document.getElementById('hero-counter');
-      if (counter) {
-        counter.textContent = posts.length + ' guides & projects published';
-      }
     })
     .catch(function (err) {
       console.error('Failed to load posts.json:', err);
