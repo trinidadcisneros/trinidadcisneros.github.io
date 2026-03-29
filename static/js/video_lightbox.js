@@ -48,6 +48,7 @@
     video.autoplay = true;
     video.controls = true;
     video.playsInline = true;
+    video.muted = true;
     video.className = 'inline-video';
     video.style.width = '100%';
     video.style.height = '100%';
