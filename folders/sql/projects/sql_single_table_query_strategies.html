@@ -14723,8 +14723,8 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
-<p><a id="8-interview-prompt-templates"></a></p>
-<h2 id="8.-Interview-Prompt-Templates">8. Interview Prompt Templates<a class="anchor-link" href="#8.-Interview-Prompt-Templates">¶</a></h2><p>Use these phrases during an interview to structure your thinking out loud:</p>
+<p><a id="9-interview-prompt-templates"></a></p>
+<h2 id="9.-Interview-Prompt-Templates">9. Interview Prompt Templates<a class="anchor-link" href="#9.-Interview-Prompt-Templates">¶</a></h2><p>Use these phrases during an interview to structure your thinking out loud:</p>
 <table>
 <thead>
 <tr>
@@ -14793,8 +14793,107 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
-<p><a id="9-what-to-avoid"></a></p>
-<h2 id="9.-What-to-Avoid">9. What to Avoid<a class="anchor-link" href="#9.-What-to-Avoid">¶</a></h2><table>
+<p><a id="subquery-decision-tree"></a></p>
+<h2 id="When-Do-I-Need-a-Subquery?">When Do I Need a Subquery?<a class="anchor-link" href="#When-Do-I-Need-a-Subquery?">¶</a></h2><p>Even in a <strong>single-table</strong> problem, you may need a subquery when the question asks you to compare individual rows or groups against a <strong>global aggregate</strong> that cannot be computed in the same pass.</p>
+<h3 id="Subquery-Decision-Tree">Subquery Decision Tree<a class="anchor-link" href="#Subquery-Decision-Tree">¶</a></h3><pre><code>┌─────────────────────────────────────────────────┐
+│  Does my calculation need a value that           │
+│  comes from a DIFFERENT aggregation level?        │
+│  (e.g., "compare each row to the overall avg")  │
+└──────────────────────┬──────────────────────────┘
+                       │
+          ┌────────────┴────────────┐
+          │ NO                      │ YES
+          ▼                         ▼
+┌──────────────────┐   ┌───────────────────────────────────────┐
+│ No subquery      │   │  Can I get the value with a           │
+│ needed — use     │   │  window function instead?             │
+│ GROUP BY or      │   │  (e.g., AVG() OVER())                 │
+│ window functions │   └──────────────┬────────────────────────┘
+└──────────────────┘                  │
+                         ┌────────────┴────────────┐
+                         │ YES                     │ NO
+                         ▼                         ▼
+              ┌──────────────────┐   ┌────────────────────────────┐
+              │ Use window func  │   │  YOU NEED A SUBQUERY       │
+              │ — cleaner and    │   │  Where does it go?         │
+              │ often faster     │   └────────────┬───────────────┘
+              └──────────────────┘                │
+                                                  ▼
+                               ┌─────────────────────────────────┐
+                               │  SUBQUERY PLACEMENT GUIDE       │
+                               └────────────┬────────────────────┘
+                                            │
+              ┌─────────────────────────────┼─────────────────────────────┐
+              ▼                             ▼                             ▼
+┌──────────────────────────┐ ┌──────────────────────────┐ ┌──────────────────────────┐
+│  SELECT clause           │ │  WHERE clause            │ │  FROM clause             │
+│                          │ │                          │ │                          │
+│  "Show a global value    │ │  "Filter rows based on  │ │  "I need to pre-         │
+│   alongside each row"    │ │   a computed threshold"  │ │   aggregate, then join   │
+│                          │ │                          │ │   or query the result"   │
+│  Example:                │ │  Example:                │ │                          │
+│  Each group's % of      │ │  Rows where value &gt;     │ │  Example:                │
+│  the total               │ │  the overall average     │ │  Rank within pre-        │
+│                          │ │                          │ │  computed groups          │
+│  Pattern:                │ │  Pattern:                │ │                          │
+│  COUNT(x) /              │ │  WHERE col &gt; (SELECT     │ │  Pattern:                │
+│  (SELECT COUNT(*)        │ │  AVG(col) FROM ...)      │ │  SELECT * FROM           │
+│  FROM ...) * 100         │ │                          │ │  (SELECT ... GROUP BY)   │
+└──────────────────────────┘ └──────────────────────────┘ └──────────────────────────┘
+</code></pre>
+<hr>
+<h3 id="Quick-Reference:-Subquery-Placement">Quick Reference: Subquery Placement<a class="anchor-link" href="#Quick-Reference:-Subquery-Placement">¶</a></h3><table>
+<thead>
+<tr>
+<th>Put the subquery in…</th>
+<th>When you need to…</th>
+<th>Signal words</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>SELECT</strong></td>
+<td>Display a global value alongside grouped/row-level data</td>
+<td>"percentage of total", "compared to overall", "ratio"</td>
+</tr>
+<tr>
+<td><strong>WHERE</strong></td>
+<td>Filter rows using a computed threshold</td>
+<td>"above average", "greater than the median", "top performers"</td>
+</tr>
+<tr>
+<td><strong>FROM</strong></td>
+<td>Pre-aggregate data before applying further logic</td>
+<td>"rank within groups", "filter aggregated results", "join summaries"</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Tip:</strong> For single-table problems, SELECT and WHERE subqueries are most common. The subquery usually references the <strong>same table</strong> but at a different aggregation level.</p>
+</blockquote>
+<hr>
+<h3 id="Worked-Example:-Percentage-of-Total-(SELECT-subquery)">Worked Example: Percentage of Total (SELECT subquery)<a class="anchor-link" href="#Worked-Example:-Percentage-of-Total-(SELECT-subquery)">¶</a></h3><p><strong>Problem:</strong> Find the percentage of total users registered in each contest.</p>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">contest_id</span><span class="p">,</span>
+<span class="w">       </span><span class="n">ROUND</span><span class="p">(</span>
+<span class="w">           </span><span class="p">(</span><span class="k">COUNT</span><span class="p">(</span><span class="k">DISTINCT</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">user_id</span><span class="p">)::</span><span class="nb">numeric</span>
+<span class="w">            </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="k">SELECT</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="k">DISTINCT</span><span class="w"> </span><span class="n">user_id</span><span class="p">)</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">Users</span><span class="p">)</span>
+<span class="w">           </span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span>
+<span class="w">       </span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">percentage</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Register</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">r</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">contest_id</span>
+<span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">percentage</span><span class="w"> </span><span class="k">DESC</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">contest_id</span><span class="w"> </span><span class="k">ASC</span><span class="p">;</span>
+</pre></div>
+<p><strong>Why a subquery?</strong> The denominator (total users) comes from a different table and a different aggregation level than the numerator (users per contest). No window function can replace this.</p>
+<p><strong>Where does it go?</strong> In the <strong>SELECT</strong> clause — because we need the scalar total to appear in every row's percentage calculation.</p>
+</hr></hr></div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border: 3px solid black;"/>
+<p><a id="10-what-to-avoid"></a></p>
+<h2 id="10.-What-to-Avoid">10. What to Avoid<a class="anchor-link" href="#10.-What-to-Avoid">¶</a></h2><table>
 <thead>
 <tr>
 <th>Bad Pattern</th>
@@ -14832,8 +14931,8 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
-<p><a id="10-final-takeaway"></a></p>
-<h2 id="10.-Final-Takeaway">10. Final Takeaway<a class="anchor-link" href="#10.-Final-Takeaway">¶</a></h2><p>The entire game is:</p>
+<p><a id="11-final-takeaway"></a></p>
+<h2 id="11.-Final-Takeaway">11. Final Takeaway<a class="anchor-link" href="#11.-Final-Takeaway">¶</a></h2><p>The entire game is:</p>
 <pre><code>Identify the shape  →  Pick the tool  →  Avoid unnecessary work
 </code></pre>
 <h3 id="Interview-Script-(Memorize-This)">Interview Script (Memorize This)<a class="anchor-link" href="#Interview-Script-(Memorize-This)">¶</a></h3><blockquote>

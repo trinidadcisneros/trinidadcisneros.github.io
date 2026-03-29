@@ -14315,8 +14315,8 @@ Layer 2 (Single-Table): What do I do with those rows?            →  GROUP BY /
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
-<p><a id="8-interview-script"></a></p>
-<h2 id="8.-Interview-Script-for-Combo-Problems">8. Interview Script for Combo Problems<a class="anchor-link" href="#8.-Interview-Script-for-Combo-Problems">¶</a></h2><p>Use this template when explaining your approach:</p>
+<p><a id="9-interview-script"></a></p>
+<h2 id="9.-Interview-Script-for-Combo-Problems">9. Interview Script for Combo Problems<a class="anchor-link" href="#9.-Interview-Script-for-Combo-Problems">¶</a></h2><p>Use this template when explaining your approach:</p>
 <table>
 <thead>
 <tr>
@@ -14359,8 +14359,108 @@ Layer 2 (Single-Table): What do I do with those rows?            →  GROUP BY /
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
-<p><a id="9-common-mistakes"></a></p>
-<h2 id="9.-Common-Combo-Mistakes">9. Common Combo Mistakes<a class="anchor-link" href="#9.-Common-Combo-Mistakes">¶</a></h2><table>
+<p><a id="subquery-placement-in-combos"></a></p>
+<h2 id="Subquery-Placement-in-Combo-Problems">Subquery Placement in Combo Problems<a class="anchor-link" href="#Subquery-Placement-in-Combo-Problems">¶</a></h2><p>Many combo problems involve a subquery as one of the building blocks. After you've picked your JOIN (Pass 1) and your transformation (Pass 2), ask: <strong>does any part of my calculation need a value from a different aggregation level?</strong> If yes, you need a subquery.</p>
+<h3 id="Subquery-Placement-Decision-Tree">Subquery Placement Decision Tree<a class="anchor-link" href="#Subquery-Placement-Decision-Tree">¶</a></h3><pre><code>┌──────────────────────────────────────────────────┐
+│  After Pass 1 (JOIN) and Pass 2 (Transform),     │
+│  does my formula need a value from a DIFFERENT   │
+│  aggregation level or a different table?          │
+└──────────────────────┬───────────────────────────┘
+                       │
+          ┌────────────┴────────────┐
+          │ NO                      │ YES
+          ▼                         ▼
+┌──────────────────┐   ┌───────────────────────────────────────┐
+│ No subquery      │   │  What role does the subquery play?    │
+│ needed — your    │   └──────────────┬────────────────────────┘
+│ JOIN + transform │                  │
+│ is complete      │     ┌────────────┼────────────────┐
+└──────────────────┘     ▼            ▼                ▼
+              ┌──────────────┐ ┌─────────────┐ ┌──────────────────┐
+              │  DENOMINATOR │ │  FILTER     │ │  PRE-AGGREGATE   │
+              │              │ │             │ │                  │
+              │  Provides a  │ │  Provides a │ │  One table must  │
+              │  total or    │ │  threshold  │ │  be summarized   │
+              │  baseline    │ │  to compare │ │  BEFORE the join │
+              │  for a ratio │ │  against    │ │                  │
+              │              │ │             │ │  → Subquery in   │
+              │  → Subquery  │ │  → Subquery │ │    FROM (or CTE) │
+              │    in SELECT │ │    in WHERE │ │                  │
+              └──────────────┘ └─────────────┘ └──────────────────┘
+</code></pre>
+<hr>
+<h3 id="How-Subqueries-Fit-Into-the-Two-Pass-Framework">How Subqueries Fit Into the Two-Pass Framework<a class="anchor-link" href="#How-Subqueries-Fit-Into-the-Two-Pass-Framework">¶</a></h3><table>
+<thead>
+<tr>
+<th>Combo Pattern</th>
+<th>Pass 1 (JOIN)</th>
+<th>Pass 2 (Transform)</th>
+<th>Subquery Role</th>
+<th>Placement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Percentage of total</td>
+<td>No join needed</td>
+<td>GROUP BY + scalar division</td>
+<td>Denominator from another table</td>
+<td><strong>SELECT</strong></td>
+</tr>
+<tr>
+<td>Filter by aggregate threshold</td>
+<td>JOIN two tables</td>
+<td>GROUP BY</td>
+<td>Computed cutoff value</td>
+<td><strong>WHERE</strong></td>
+</tr>
+<tr>
+<td>Join pre-aggregated summaries</td>
+<td>INNER/LEFT JOIN</td>
+<td>Compare or rank</td>
+<td>Derived table with GROUP BY</td>
+<td><strong>FROM</strong></td>
+</tr>
+<tr>
+<td>Anti-pattern check with threshold</td>
+<td>LEFT JOIN</td>
+<td>COUNT + HAVING</td>
+<td>Average from the full dataset</td>
+<td><strong>WHERE</strong> or <strong>HAVING</strong></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Key insight:</strong> In combo problems, subqueries most often appear when one piece of the puzzle operates at a <strong>different grain</strong> than the rest. If you're grouping by <code>contest_id</code> but need the total across ALL users, that mismatch in grain is what forces the subquery.</p>
+</blockquote>
+<hr>
+<h3 id="Worked-Example:-Percentage-of-Total-(SELECT-subquery-in-a-combo)">Worked Example: Percentage of Total (SELECT subquery in a combo)<a class="anchor-link" href="#Worked-Example:-Percentage-of-Total-(SELECT-subquery-in-a-combo)">¶</a></h3><p><strong>Problem:</strong> Find the percentage of total users registered in each contest.</p>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">contest_id</span><span class="p">,</span>
+<span class="w">       </span><span class="n">ROUND</span><span class="p">(</span>
+<span class="w">           </span><span class="p">(</span><span class="k">COUNT</span><span class="p">(</span><span class="k">DISTINCT</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">user_id</span><span class="p">)::</span><span class="nb">numeric</span>
+<span class="w">            </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="k">SELECT</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="k">DISTINCT</span><span class="w"> </span><span class="n">user_id</span><span class="p">)</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">Users</span><span class="p">)</span>
+<span class="w">           </span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span>
+<span class="w">       </span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">percentage</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Register</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">r</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">contest_id</span>
+<span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">percentage</span><span class="w"> </span><span class="k">DESC</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">contest_id</span><span class="w"> </span><span class="k">ASC</span><span class="p">;</span>
+</pre></div>
+<p><strong>Decomposition:</strong></p>
+<ul>
+<li><strong>Pass 1:</strong> No join needed — Register table has all the grouping data</li>
+<li><strong>Pass 2:</strong> GROUP BY <code>contest_id</code> + COUNT per group</li>
+<li><strong>Subquery:</strong> The denominator (<code>total users</code>) comes from a different table at a different grain → scalar subquery in SELECT</li>
+</ul>
+<p><strong>Why not a JOIN?</strong> We don't need any columns from Users in the output — just a single count. A subquery is cleaner than joining and then aggregating.</p>
+</hr></hr></div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border: 3px solid black;"/>
+<p><a id="10-common-mistakes"></a></p>
+<h2 id="10.-Common-Combo-Mistakes">10. Common Combo Mistakes<a class="anchor-link" href="#10.-Common-Combo-Mistakes">¶</a></h2><table>
 <thead>
 <tr>
 <th>Mistake</th>
@@ -14413,8 +14513,8 @@ Layer 2 (Single-Table): What do I do with those rows?            →  GROUP BY /
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
-<p><a id="10-final-takeaway"></a></p>
-<h2 id="10.-Final-Takeaway">10. Final Takeaway<a class="anchor-link" href="#10.-Final-Takeaway">¶</a></h2><p>Every combo problem breaks down the same way:</p>
+<p><a id="11-final-takeaway"></a></p>
+<h2 id="11.-Final-Takeaway">11. Final Takeaway<a class="anchor-link" href="#11.-Final-Takeaway">¶</a></h2><p>Every combo problem breaks down the same way:</p>
 <pre><code>Pass 1: Pick the JOIN  →  Pass 2: Pick the TRANSFORM  →  Handle NULLs
 </code></pre>
 <h3 id="The-4-Most-Common-Combos">The 4 Most Common Combos<a class="anchor-link" href="#The-4-Most-Common-Combos">¶</a></h3><table>

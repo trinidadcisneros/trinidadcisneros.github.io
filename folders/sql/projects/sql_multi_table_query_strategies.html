@@ -14269,8 +14269,8 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
-<p><a id="8-interview-prompt-templates"></a></p>
-<h2 id="8.-Interview-Prompt-Templates">8. Interview Prompt Templates<a class="anchor-link" href="#8.-Interview-Prompt-Templates">¶</a></h2><p>Use these phrases during an interview to structure your thinking out loud:</p>
+<p><a id="9-interview-prompt-templates"></a></p>
+<h2 id="9.-Interview-Prompt-Templates">9. Interview Prompt Templates<a class="anchor-link" href="#9.-Interview-Prompt-Templates">¶</a></h2><p>Use these phrases during an interview to structure your thinking out loud:</p>
 <table>
 <thead>
 <tr>
@@ -14329,8 +14329,102 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
-<p><a id="9-what-to-avoid"></a></p>
-<h2 id="9.-What-to-Avoid">9. What to Avoid<a class="anchor-link" href="#9.-What-to-Avoid">¶</a></h2><table>
+<p><a id="subquery-decision-tree"></a></p>
+<h2 id="When-Do-I-Need-a-Subquery-Instead-of-(or-With)-a-JOIN?">When Do I Need a Subquery Instead of (or With) a JOIN?<a class="anchor-link" href="#When-Do-I-Need-a-Subquery-Instead-of-(or-With)-a-JOIN?">¶</a></h2><p>JOINs are the default tool for multi-table problems, but some questions require a <strong>subquery</strong> — either instead of a join or combined with one. Use this tree to decide.</p>
+<h3 id="Subquery-vs.-JOIN-Decision-Tree">Subquery vs. JOIN Decision Tree<a class="anchor-link" href="#Subquery-vs.-JOIN-Decision-Tree">¶</a></h3><pre><code>┌──────────────────────────────────────────────────┐
+│  I need data from another table.                 │
+│  Should I JOIN or use a SUBQUERY?                │
+└───────────────────────┬──────────────────────────┘
+                        │
+                        ▼
+┌──────────────────────────────────────────────────┐
+│  Do I need COLUMNS from the other table          │
+│  in my output?                                   │
+└──────────┬──────────────────────┬────────────────┘
+           │ YES                  │ NO
+           ▼                      ▼
+┌────────────────────┐  ┌─────────────────────────────────────┐
+│  Use a JOIN        │  │  Do I need a single scalar value    │
+│  (INNER, LEFT,     │  │  from the other table?              │
+│   etc.)            │  │  (count, avg, max, sum)             │
+└────────────────────┘  └──────────┬──────────────┬───────────┘
+                                   │ YES          │ NO
+                                   ▼              ▼
+                    ┌────────────────────┐  ┌──────────────────────────┐
+                    │  SCALAR SUBQUERY   │  │  Am I checking existence │
+                    │  in SELECT or      │  │  or filtering by a list? │
+                    │  WHERE clause      │  └────────┬─────────────────┘
+                    └────────────────────┘           │
+                                            ┌───────┴───────┐
+                                            │ YES           │ NO
+                                            ▼               ▼
+                                 ┌──────────────────┐  ┌──────────────┐
+                                 │  EXISTS / IN     │  │  Subquery in │
+                                 │  in WHERE clause │  │  FROM clause │
+                                 │                  │  │  (derived    │
+                                 │  "users who      │  │   table)     │
+                                 │  bought X"       │  │              │
+                                 │  "contests with  │  │  Pre-agg     │
+                                 │  &gt; 5 entries"    │  │  then join   │
+                                 └──────────────────┘  └──────────────┘
+</code></pre>
+<hr>
+<h3 id="Subquery-Placement-Guide-for-Multi-Table-Problems">Subquery Placement Guide for Multi-Table Problems<a class="anchor-link" href="#Subquery-Placement-Guide-for-Multi-Table-Problems">¶</a></h3><table>
+<thead>
+<tr>
+<th>Put the subquery in…</th>
+<th>When you need to…</th>
+<th>Signal words</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>SELECT</strong></td>
+<td>Inject a global aggregate alongside each row</td>
+<td>"percentage of total", "ratio to overall", "compared to all"</td>
+<td><code>COUNT(x) / (SELECT COUNT(*) FROM Users) * 100</code></td>
+</tr>
+<tr>
+<td><strong>WHERE</strong></td>
+<td>Filter rows using data from another table without a full join</td>
+<td>"users who have…", "only if exists in…", "above the average of…"</td>
+<td><code>WHERE dept_id IN (SELECT id FROM Dept WHERE region = 'West')</code></td>
+</tr>
+<tr>
+<td><strong>FROM</strong></td>
+<td>Pre-aggregate or reshape data before joining it</td>
+<td>"average per group, then join", "rank within a subset"</td>
+<td><code>FROM (SELECT dept_id, AVG(salary) FROM Emp GROUP BY dept_id) AS t</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Rule of thumb:</strong> If the other table provides a <strong>single number</strong> → subquery in SELECT or WHERE. If you need <strong>multiple columns</strong> from it → JOIN. If you need to <strong>pre-aggregate</strong> before combining → subquery in FROM (or CTE).</p>
+</blockquote>
+<hr>
+<h3 id="Worked-Example:-Percentage-of-Total-(SELECT-subquery)">Worked Example: Percentage of Total (SELECT subquery)<a class="anchor-link" href="#Worked-Example:-Percentage-of-Total-(SELECT-subquery)">¶</a></h3><p><strong>Problem:</strong> Find the percentage of total users registered in each contest.</p>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">contest_id</span><span class="p">,</span>
+<span class="w">       </span><span class="n">ROUND</span><span class="p">(</span>
+<span class="w">           </span><span class="p">(</span><span class="k">COUNT</span><span class="p">(</span><span class="k">DISTINCT</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">user_id</span><span class="p">)::</span><span class="nb">numeric</span>
+<span class="w">            </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="k">SELECT</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="k">DISTINCT</span><span class="w"> </span><span class="n">user_id</span><span class="p">)</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">Users</span><span class="p">)</span>
+<span class="w">           </span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span>
+<span class="w">       </span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">percentage</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Register</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">r</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">contest_id</span>
+<span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">percentage</span><span class="w"> </span><span class="k">DESC</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">contest_id</span><span class="w"> </span><span class="k">ASC</span><span class="p">;</span>
+</pre></div>
+<p><strong>Why a subquery instead of a JOIN?</strong> The Users table provides a single scalar value (total user count) — we don't need any of its columns in the output. A JOIN would be overkill and could complicate the GROUP BY.</p>
+<p><strong>Where does it go?</strong> In the <strong>SELECT</strong> clause — the scalar total is used in every row's percentage formula as the denominator.</p>
+</hr></hr></div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border: 3px solid black;"/>
+<p><a id="10-what-to-avoid"></a></p>
+<h2 id="10.-What-to-Avoid">10. What to Avoid<a class="anchor-link" href="#10.-What-to-Avoid">¶</a></h2><table>
 <thead>
 <tr>
 <th>Bad Pattern</th>
@@ -14383,8 +14477,8 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
-<p><a id="10-final-takeaway"></a></p>
-<h2 id="10.-Final-Takeaway">10. Final Takeaway<a class="anchor-link" href="#10.-Final-Takeaway">¶</a></h2><p>The entire game for multi-table problems is:</p>
+<p><a id="11-final-takeaway"></a></p>
+<h2 id="11.-Final-Takeaway">11. Final Takeaway<a class="anchor-link" href="#11.-Final-Takeaway">¶</a></h2><p>The entire game for multi-table problems is:</p>
 <pre><code>Count the tables  →  Classify them  →  Pick the join  →  Handle NULLs
 </code></pre>
 <h3 id="Interview-Script-(Memorize-This)">Interview Script (Memorize This)<a class="anchor-link" href="#Interview-Script-(Memorize-This)">¶</a></h3><blockquote>
