@@ -13097,24 +13097,25 @@ div#notebook {
 <li><a href="#1-first-step-identify-the-pattern">First Step: Identify the Pattern</a></li>
 <li><a href="#2-decision-tree-5-second-version">Decision Tree (5-Second Version)</a></li>
 <li><a href="#3-pattern-library-with-examples">Pattern Library with Examples</a><ul>
-<li><a href="#pattern-a-compare-rows">A. Compare Rows</a> — LAG / LEAD</li>
+<li><a href="#pattern-a-compare-rows">A. Compare Rows</a> — LAG / LEAD / Self Join</li>
 <li><a href="#pattern-b-date-operations">B. Date Operations</a> — EXTRACT / DATEDIFF / INTERVAL</li>
-<li><a href="#pattern-c-combine-rows">C. Combine Rows</a> — GROUP BY + CASE</li>
+<li><a href="#pattern-c-combine-rows">C. Combine Rows</a> — GROUP BY + CASE / Self Join</li>
 <li><a href="#pattern-d-ranking">D. Ranking</a> — ROW_NUMBER / RANK / DENSE_RANK</li>
-<li><a href="#pattern-e-running-totals">E. Running Totals</a> — SUM() OVER()</li>
-<li><a href="#pattern-f-missing-data">F. Missing Data</a> — NOT EXISTS</li>
-<li><a href="#pattern-g-deduplication">G. Deduplication</a> — ROW_NUMBER</li>
+<li><a href="#pattern-e-running-totals">E. Running Totals</a> — SUM() OVER() / Correlated Subquery</li>
+<li><a href="#pattern-f-missing-data">F. Missing Data</a> — NOT EXISTS / LEFT JOIN + IS NULL</li>
+<li><a href="#pattern-g-deduplication">G. Deduplication</a> — ROW_NUMBER / DISTINCT ON / GROUP BY</li>
 <li><a href="#pattern-h-conditional-logic">H. Conditional Logic</a> — CASE WHEN</li>
-<li><a href="#pattern-i-filtering-after-aggregation">I. Filtering After Aggregation</a> — HAVING</li>
+<li><a href="#pattern-i-filtering-after-aggregation">I. Filtering After Aggregation</a> — HAVING / Self Join / CTE + Join</li>
 <li><a href="#pattern-j-pivoting">J. Pivoting</a> — CASE + GROUP BY</li>
 </ul>
 </li>
 <li><a href="#4-critical-efficiency-rules">Critical Efficiency Rules</a></li>
 <li><a href="#5-group-by-vs-window-functions">GROUP BY vs Window Functions</a></li>
-<li><a href="#6-how-to-think-from-the-vignette">How to Think from the Vignette</a></li>
-<li><a href="#7-interview-prompt-templates">Interview Prompt Templates</a></li>
-<li><a href="#8-what-to-avoid">What to Avoid</a></li>
-<li><a href="#9-final-takeaway">Final Takeaway</a></li>
+<li><a href="#6-method-selection-framework">Method Selection: How to Know All Your Options</a> — CTE vs Subquery, 3-Method Mental Model, Efficiency Rankings</li>
+<li><a href="#7-how-to-think-from-the-vignette">How to Think from the Vignette</a></li>
+<li><a href="#8-interview-prompt-templates">Interview Prompt Templates</a></li>
+<li><a href="#9-what-to-avoid">What to Avoid</a></li>
+<li><a href="#10-final-takeaway">Final Takeaway</a></li>
 </ol>
 </div>
 </div>
@@ -13642,7 +13643,7 @@ div#notebook {
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-c-combine-rows"></a></p>
-<h3 id="C.-Combine-Rows">C. Combine Rows<a class="anchor-link" href="#C.-Combine-Rows">¶</a></h3><p><strong>Signals:</strong> average, duration, per X</p>
+<h3 id="C.-Combine-Rows">C. Combine Rows<a class="anchor-link" href="#C.-Combine-Rows">¶</a></h3><p><strong>Signals:</strong> average, duration, per X, total per group</p>
 <hr>
 <p><strong>Best approach — Aggregate Function: <code>GROUP BY</code> + Conditional Aggregation with <code>CASE</code></strong></p>
 <p><strong>Method:</strong> <code>GROUP BY</code> collapses multiple rows into one row per group. Inside the aggregation, <code>CASE</code> expressions act like an if/then switch — they pick out specific values (like the "start" timestamp vs the "end" timestamp) so you can combine them in one pass.</p>
@@ -13661,6 +13662,49 @@ div#notebook {
 <span class="p">)</span><span class="w"> </span><span class="n">t</span>
 <span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">machine_id</span><span class="p">;</span>
 </pre></div>
+<hr/>
+<p><strong>Alternative — Self JOIN (pair start and end rows directly)</strong></p>
+<p><strong>Method:</strong> Join the table to itself, matching start rows to their corresponding end rows. Then aggregate the differences. This avoids the CASE expression by explicitly pairing the rows.</p>
+<p><strong>In plain language:</strong> Take two copies of the Activity table — one filtered to "start" events, one to "end" events — and match them on machine and process. Subtract to get duration, then average.</p>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span>
+<span class="w">    </span><span class="n">s</span><span class="p">.</span><span class="n">machine_id</span><span class="p">,</span>
+<span class="w">    </span><span class="n">ROUND</span><span class="p">(</span><span class="k">AVG</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="k">timestamp</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="k">timestamp</span><span class="p">)::</span><span class="nb">numeric</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">processing_time</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Activity</span><span class="w"> </span><span class="n">s</span>
+<span class="k">JOIN</span><span class="w"> </span><span class="n">Activity</span><span class="w"> </span><span class="n">e</span>
+<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">machine_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">machine_id</span>
+<span class="w">    </span><span class="k">AND</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">process_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">process_id</span>
+<span class="w">    </span><span class="k">AND</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">activity_type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'start'</span>
+<span class="w">    </span><span class="k">AND</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">activity_type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'end'</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">machine_id</span><span class="p">;</span>
+</pre></div>
+<hr/>
+<p><strong>Efficiency ranking for this pattern:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Rank</th>
+<th>Method</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>GROUP BY + CASE (conditional aggregation)</td>
+<td>Single scan, no join overhead</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Self JOIN + GROUP BY</td>
+<td>Clean and readable, but join has a cost</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Correlated subquery</td>
+<td>Runs per row — avoid</td>
+</tr>
+</tbody>
+</table>
 </hr></div>
 </div>
 </div>
@@ -13697,16 +13741,53 @@ div#notebook {
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-e-running-totals"></a></p>
-<h3 id="E.-Running-Totals">E. Running Totals<a class="anchor-link" href="#E.-Running-Totals">¶</a></h3><p><strong>Signals:</strong> cumulative, rolling, moving</p>
+<h3 id="E.-Running-Totals">E. Running Totals<a class="anchor-link" href="#E.-Running-Totals">¶</a></h3><p><strong>Signals:</strong> cumulative, rolling, moving, running sum, year-to-date</p>
 <hr>
 <p><strong>Best approach — Window Function: <code>SUM() OVER()</code></strong></p>
 <p><strong>Method:</strong> <code>SUM() OVER(ORDER BY ...)</code> is a window function that computes a running (cumulative) sum. Because there is no <code>PARTITION BY</code>, it treats the entire result set as one group. The <code>ORDER BY</code> inside <code>OVER()</code> tells SQL to add up all the sales from the beginning up to the current row.</p>
-<p><strong>In plain language:</strong> For every row, SQL looks at all the rows from the top of the table down to the current row (based on date order) and adds up their sales values. So row 1 shows just day 1's sales, row 2 shows day 1 + day 2, row 3 shows day 1 + day 2 + day 3, and so on. You get a running total that grows as you go down the table, and every original row is still there.</p>
+<p><strong>In plain language:</strong> For every row, SQL looks at all the rows from the top of the table down to the current row, sums them up, and writes that total next to the current row. Each row gets a bigger total because it includes everything before it.</p>
 <div class="highlight"><pre><span></span><span class="k">SELECT</span>
-<span class="w">    </span><span class="nb">date</span><span class="p">,</span>
-<span class="w">    </span><span class="k">SUM</span><span class="p">(</span><span class="n">sales</span><span class="p">)</span><span class="w"> </span><span class="n">OVER</span><span class="w"> </span><span class="p">(</span><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="nb">date</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">running_sales</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">DailySales</span><span class="p">;</span>
+<span class="w">    </span><span class="n">sale_date</span><span class="p">,</span>
+<span class="w">    </span><span class="n">amount</span><span class="p">,</span>
+<span class="w">    </span><span class="k">SUM</span><span class="p">(</span><span class="n">amount</span><span class="p">)</span><span class="w"> </span><span class="n">OVER</span><span class="w"> </span><span class="p">(</span><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">sale_date</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">running_total</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Sales</span><span class="p">;</span>
 </pre></div>
+<hr/>
+<p><strong>Alternative — Correlated Subquery</strong></p>
+<p><strong>Method:</strong> For each row, run a subquery that sums all rows up to and including the current row. Produces the same result but runs the sum once per row.</p>
+<p><strong>In plain language:</strong> "For each sale, go back and add up every sale that happened on or before this date." On 1,000 rows, that's 1,000 separate sum calculations.</p>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span>
+<span class="w">    </span><span class="n">s1</span><span class="p">.</span><span class="n">sale_date</span><span class="p">,</span>
+<span class="w">    </span><span class="n">s1</span><span class="p">.</span><span class="n">amount</span><span class="p">,</span>
+<span class="w">    </span><span class="p">(</span><span class="k">SELECT</span><span class="w"> </span><span class="k">SUM</span><span class="p">(</span><span class="n">s2</span><span class="p">.</span><span class="n">amount</span><span class="p">)</span>
+<span class="w">     </span><span class="k">FROM</span><span class="w"> </span><span class="n">Sales</span><span class="w"> </span><span class="n">s2</span>
+<span class="w">     </span><span class="k">WHERE</span><span class="w"> </span><span class="n">s2</span><span class="p">.</span><span class="n">sale_date</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">s1</span><span class="p">.</span><span class="n">sale_date</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">running_total</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Sales</span><span class="w"> </span><span class="n">s1</span>
+<span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">s1</span><span class="p">.</span><span class="n">sale_date</span><span class="p">;</span>
+</pre></div>
+<hr/>
+<p><strong>Efficiency ranking for this pattern:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Rank</th>
+<th>Method</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>SUM() OVER()</code> (window function)</td>
+<td>Single scan, built-in optimization</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Correlated subquery</td>
+<td>Runs sum per row — O(n²) on large tables</td>
+</tr>
+</tbody>
+</table>
 </hr></div>
 </div>
 </div>
@@ -13715,12 +13796,12 @@ div#notebook {
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-f-missing-data"></a></p>
-<h3 id="F.-Missing-Data">F. Missing Data<a class="anchor-link" href="#F.-Missing-Data">¶</a></h3><p><strong>Signals:</strong> no, missing, without, never</p>
+<h3 id="F.-Missing-Data">F. Missing Data<a class="anchor-link" href="#F.-Missing-Data">¶</a></h3><p><strong>Signals:</strong> no, missing, without, never, doesn't exist</p>
 <hr>
 <p><strong>Best approach — Subquery Filter: <code>NOT EXISTS</code></strong></p>
 <p><strong>Method:</strong> <code>NOT EXISTS</code> is a subquery filter (not a window function). It checks whether a matching row exists in another table. If no match is found, the row from the outer query is kept. It stops searching as soon as it finds the first match, making it efficient.</p>
-<p><strong>In plain language:</strong> We start with every customer in the Customers table. For each one, we peek into the Orders table and ask "does this customer have at least one order?" If the answer is no — meaning <code>NOT EXISTS</code> found zero matching rows — then we keep that customer in our results. This gives us all the customers who have never placed an order.</p>
-<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span>
+<p><strong>In plain language:</strong> We start with every customer in the Customers table. For each one, we peek into the Orders table and ask "does this customer have any orders?" If the answer is no (NOT EXISTS), we keep that customer. The subquery short-circuits — it stops as soon as it finds even one order.</p>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="n">customer_name</span>
 <span class="k">FROM</span><span class="w"> </span><span class="n">Customers</span><span class="w"> </span><span class="k">c</span>
 <span class="k">WHERE</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="p">(</span>
 <span class="w">    </span><span class="k">SELECT</span><span class="w"> </span><span class="mi">1</span>
@@ -13729,8 +13810,52 @@ div#notebook {
 <span class="p">);</span>
 </pre></div>
 <hr/>
-<p><strong>Why NOT EXISTS over NOT IN</strong></p>
-<p><code>NOT IN</code> fails silently when NULLs are present in the subquery — if even one NULL exists in the list, the entire <code>NOT IN</code> check returns no results. <code>NOT EXISTS</code> handles NULLs correctly because it only checks whether a matching row exists, regardless of NULL values.</p>
+<p><strong>Also strong — <code>LEFT JOIN</code> + <code>WHERE IS NULL</code></strong></p>
+<p><strong>Method:</strong> Join the table to the reference table with a LEFT JOIN, then filter where the joined column is NULL. This identifies rows with no match.</p>
+<p><strong>In plain language:</strong> "Attach orders to each customer. Customers with no orders will have NULL in the order columns. Keep only those."</p>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_name</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Customers</span><span class="w"> </span><span class="k">c</span>
+<span class="k">LEFT</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Orders</span><span class="w"> </span><span class="n">o</span>
+<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">o</span><span class="p">.</span><span class="n">customer_id</span>
+<span class="k">WHERE</span><span class="w"> </span><span class="n">o</span><span class="p">.</span><span class="n">customer_id</span><span class="w"> </span><span class="k">IS</span><span class="w"> </span><span class="k">NULL</span><span class="p">;</span>
+</pre></div>
+<hr/>
+<p><strong>Avoid — <code>NOT IN</code> (with NULLs)</strong></p>
+<p><strong>Method:</strong> Compare against a list from a subquery. Dangerous if the subquery can return NULLs — the entire NOT IN silently returns zero rows.</p>
+<p><strong>In plain language:</strong> "Check if the ID is NOT IN the list of IDs from Orders." Sounds simple, but if any order has a NULL customer_id, the whole thing breaks and returns nothing.</p>
+<div class="highlight"><pre><span></span><span class="c1">-- DANGEROUS if customer_id in Orders can be NULL</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="n">customer_name</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Customers</span>
+<span class="k">WHERE</span><span class="w"> </span><span class="n">customer_id</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">IN</span><span class="w"> </span><span class="p">(</span><span class="k">SELECT</span><span class="w"> </span><span class="n">customer_id</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">Orders</span><span class="p">);</span>
+</pre></div>
+<hr/>
+<p><strong>Efficiency ranking for this pattern:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Rank</th>
+<th>Method</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>NOT EXISTS</code></td>
+<td>Short-circuits on first match, NULL-safe</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>LEFT JOIN</code> + <code>WHERE IS NULL</code></td>
+<td>Also efficient, NULL-safe, widely used</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>NOT IN</code></td>
+<td>Breaks with NULLs — avoid unless column is guaranteed NOT NULL</td>
+</tr>
+</tbody>
+</table>
 </hr></div>
 </div>
 </div>
@@ -13739,22 +13864,69 @@ div#notebook {
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-g-deduplication"></a></p>
-<h3 id="G.-Deduplication">G. Deduplication<a class="anchor-link" href="#G.-Deduplication">¶</a></h3><p><strong>Signals:</strong> unique, one per, most recent per</p>
+<h3 id="G.-Deduplication">G. Deduplication<a class="anchor-link" href="#G.-Deduplication">¶</a></h3><p><strong>Signals:</strong> unique, one per, most recent per, latest per group, remove duplicates keeping one</p>
 <hr>
 <p><strong>Best approach — Window Function: <code>ROW_NUMBER()</code></strong></p>
 <p><strong>Method:</strong> Same window function as ranking — <code>ROW_NUMBER()</code> with <code>PARTITION BY</code> and <code>ORDER BY</code>. The difference is intent: here we are not ranking for display, we are numbering rows so we can throw away the duplicates and keep only the one we want (usually the most recent).</p>
-<p><strong>In plain language:</strong> The inner subquery looks at all login records for each user and numbers them starting from the most recent login as 1, the second most recent as 2, and so on. The outer query then says "only give me the rows numbered 1" — which means for every user, we keep just their latest login and discard all the older ones. This is the go-to pattern anytime you need "one row per [something]."</p>
-<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span><span class="o">*</span>
+<p><strong>In plain language:</strong> The inner subquery looks at all login records for each user and numbers them starting from the most recent. The outer query keeps only row number 1 — the latest login per user.</p>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span><span class="n">user_id</span><span class="p">,</span><span class="w"> </span><span class="n">login_date</span><span class="p">,</span><span class="w"> </span><span class="n">device</span>
 <span class="k">FROM</span><span class="w"> </span><span class="p">(</span>
 <span class="w">    </span><span class="k">SELECT</span><span class="w"> </span><span class="o">*</span><span class="p">,</span>
-<span class="w">           </span><span class="n">ROW_NUMBER</span><span class="p">()</span><span class="w"> </span><span class="n">OVER</span><span class="w"> </span><span class="p">(</span>
-<span class="w">               </span><span class="n">PARTITION</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">user_id</span>
-<span class="w">               </span><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">login_time</span><span class="w"> </span><span class="k">DESC</span>
-<span class="w">           </span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">rn</span>
+<span class="w">        </span><span class="n">ROW_NUMBER</span><span class="p">()</span><span class="w"> </span><span class="n">OVER</span><span class="w"> </span><span class="p">(</span><span class="n">PARTITION</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">user_id</span><span class="w"> </span><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">login_date</span><span class="w"> </span><span class="k">DESC</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">rn</span>
 <span class="w">    </span><span class="k">FROM</span><span class="w"> </span><span class="n">Logins</span>
 <span class="p">)</span><span class="w"> </span><span class="n">t</span>
 <span class="k">WHERE</span><span class="w"> </span><span class="n">rn</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
 </pre></div>
+<hr/>
+<p><strong>Alternative — <code>GROUP BY</code> + aggregate (when you only need one column)</strong></p>
+<p><strong>Method:</strong> If you just need the max or min value per group (not the full row), GROUP BY with MAX/MIN is simpler and avoids the window function overhead.</p>
+<p><strong>In plain language:</strong> "Give me the most recent login date per user." No need to number rows — just take the MAX.</p>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span><span class="n">user_id</span><span class="p">,</span><span class="w"> </span><span class="k">MAX</span><span class="p">(</span><span class="n">login_date</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">latest_login</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Logins</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">user_id</span><span class="p">;</span>
+</pre></div>
+<hr/>
+<p><strong>Alternative — <code>DISTINCT ON</code> (PostgreSQL only)</strong></p>
+<p><strong>Method:</strong> PostgreSQL's <code>DISTINCT ON</code> keeps the first row per group based on an ORDER BY. It's a shortcut for the ROW_NUMBER pattern.</p>
+<p><strong>In plain language:</strong> "For each user, keep only the first row when sorted by login date descending."</p>
+<div class="highlight"><pre><span></span><span class="c1">-- PostgreSQL only</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="k">DISTINCT</span><span class="w"> </span><span class="k">ON</span><span class="w"> </span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span><span class="w"> </span><span class="n">user_id</span><span class="p">,</span><span class="w"> </span><span class="n">login_date</span><span class="p">,</span><span class="w"> </span><span class="n">device</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Logins</span>
+<span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">user_id</span><span class="p">,</span><span class="w"> </span><span class="n">login_date</span><span class="w"> </span><span class="k">DESC</span><span class="p">;</span>
+</pre></div>
+<hr/>
+<p><strong>Efficiency ranking for this pattern:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Rank</th>
+<th>Method</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>DISTINCT ON</code> (PostgreSQL)</td>
+<td>Optimized shortcut, single pass</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>ROW_NUMBER()</code> + filter</td>
+<td>Works everywhere, single scan</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>GROUP BY</code> + <code>MAX/MIN</code></td>
+<td>Only works when you need the aggregate value, not the full row</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Correlated subquery</td>
+<td>Runs per row — avoid for dedup</td>
+</tr>
+</tbody>
+</table>
 </hr></div>
 </div>
 </div>
@@ -13798,18 +13970,89 @@ div#notebook {
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-i-filtering-after-aggregation"></a></p>
-<h3 id="I.-Filtering-After-Aggregation-(HAVING)">I. Filtering After Aggregation (HAVING)<a class="anchor-link" href="#I.-Filtering-After-Aggregation-(HAVING)">¶</a></h3><p><strong>Signals:</strong> groups with more than, only customers who bought at least, categories where the average exceeds</p>
+<h3 id="I.-Filtering-After-Aggregation-(HAVING)">I. Filtering After Aggregation (HAVING)<a class="anchor-link" href="#I.-Filtering-After-Aggregation-(HAVING)">¶</a></h3><p><strong>Signals:</strong> groups with more than, only customers who bought at least, categories where the average exceeds, managers with at least N reports</p>
 <hr>
-<p><strong>HAVING — The WHERE Clause for Groups</strong></p>
+<p><strong>Best approach — <code>GROUP BY</code> + <code>HAVING</code> (direct aggregation)</strong></p>
 <p><strong>Method:</strong> <code>HAVING</code> filters rows <em>after</em> <code>GROUP BY</code> has collapsed them. <code>WHERE</code> filters individual rows before grouping; <code>HAVING</code> filters the groups themselves based on aggregate values. You cannot use <code>WHERE</code> to filter on <code>COUNT()</code>, <code>SUM()</code>, <code>AVG()</code>, etc. — that's what <code>HAVING</code> is for.</p>
 <p><strong>In plain language:</strong> First, GROUP BY creates one row per group. Then HAVING looks at each group and asks "does this group meet my condition?" For example, "only keep customers who have more than 3 orders." WHERE can't do this because at the time WHERE runs, the rows haven't been grouped yet — it doesn't know what the count is.</p>
-<div class="highlight"><pre><span></span><span class="k">SELECT</span>
+<div class="highlight"><pre><span></span><span class="c1">-- Customers with more than 3 orders</span>
+<span class="k">SELECT</span>
 <span class="w">    </span><span class="n">customer_id</span><span class="p">,</span>
 <span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">order_count</span>
 <span class="k">FROM</span><span class="w"> </span><span class="n">Orders</span>
 <span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">customer_id</span>
 <span class="k">HAVING</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
 </pre></div>
+<hr/>
+<p><strong>Also strong — Self JOIN + GROUP BY + HAVING</strong></p>
+<p><strong>Method:</strong> When the output needs columns that aren't in the GROUP BY (like a name from a different row), join the table to itself first, then aggregate. This avoids a separate subquery step.</p>
+<p><strong>In plain language:</strong> Treat the table as two copies — one for the "parent" role and one for the "child" role. Join them, then count and filter. This reads like English: "find managers, count their reports, keep those with 5+."</p>
+<div class="highlight"><pre><span></span><span class="c1">-- Managers with at least 5 direct reports (single Employee table)</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="n">name</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Employee</span><span class="w"> </span><span class="n">m</span>
+<span class="k">JOIN</span><span class="w"> </span><span class="n">Employee</span><span class="w"> </span><span class="n">r</span>
+<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">managerId</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">m</span><span class="p">.</span><span class="n">name</span>
+<span class="k">HAVING</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
+</pre></div>
+<hr/>
+<p><strong>Also valid — Aggregate in CTE/Subquery, then JOIN back</strong></p>
+<p><strong>Method:</strong> First aggregate and filter in a CTE or subquery, then join the result back to the original table to pick up additional columns (like names). This separates the "find qualifying IDs" step from the "get their details" step.</p>
+<p><strong>In plain language:</strong> Step 1: count reports per manager and keep only those with 5+. Step 2: use those manager IDs to look up names. Two clean steps.</p>
+<div class="highlight"><pre><span></span><span class="c1">-- CTE version</span>
+<span class="k">WITH</span><span class="w"> </span><span class="n">qualifying_managers</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="k">SELECT</span><span class="w"> </span><span class="n">managerId</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">id</span>
+<span class="w">    </span><span class="k">FROM</span><span class="w"> </span><span class="n">Employee</span>
+<span class="w">    </span><span class="k">WHERE</span><span class="w"> </span><span class="n">managerId</span><span class="w"> </span><span class="k">IS</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span>
+<span class="w">    </span><span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">managerId</span>
+<span class="w">    </span><span class="k">HAVING</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">5</span>
+<span class="p">)</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">name</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">qualifying_managers</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">qm</span>
+<span class="k">JOIN</span><span class="w"> </span><span class="n">Employee</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">e</span>
+<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">qm</span><span class="p">.</span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">id</span><span class="p">;</span>
+</pre></div>
+<hr/>
+<p><strong>Avoid — Correlated Subquery</strong></p>
+<p><strong>Method:</strong> For each row, run a separate COUNT query to check if that row qualifies. This works but runs the inner query once per row in the outer table.</p>
+<p><strong>In plain language:</strong> "For every single employee, go count how many people report to them." On a table with 10,000 employees, that's 10,000 separate count operations.</p>
+<div class="highlight"><pre><span></span><span class="c1">-- Works but slower on large data</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="n">name</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Employee</span><span class="w"> </span><span class="n">e</span>
+<span class="k">WHERE</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="k">SELECT</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span>
+<span class="w">    </span><span class="k">FROM</span><span class="w"> </span><span class="n">Employee</span><span class="w"> </span><span class="n">r</span>
+<span class="w">    </span><span class="k">WHERE</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">managerId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">id</span>
+<span class="p">)</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
+</pre></div>
+<hr/>
+<p><strong>Efficiency ranking for this pattern:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Rank</th>
+<th>Method</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Self JOIN + GROUP BY + HAVING</td>
+<td>Single query, no subquery, elegant</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Aggregate in CTE/subquery + JOIN back</td>
+<td>Equally efficient, cleaner separation of logic</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Correlated subquery</td>
+<td>Runs count per row — slower on large tables</td>
+</tr>
+</tbody>
+</table>
 <hr/>
 <p><strong>WHERE vs HAVING — When to Use Which</strong></p>
 <table>
@@ -14067,8 +14310,204 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
-<p><a id="6-how-to-think-from-the-vignette"></a></p>
-<h2 id="6.-How-to-Think-from-the-Vignette">6. How to Think from the Vignette<a class="anchor-link" href="#6.-How-to-Think-from-the-Vignette">¶</a></h2><p>Follow these steps <strong>before writing any SQL</strong>:</p>
+<p><a id="6-method-selection-framework"></a></p>
+<h2 id="6.-Method-Selection:-How-to-Know-All-Your-Options">6. Method Selection: How to Know All Your Options<a class="anchor-link" href="#6.-Method-Selection:-How-to-Know-All-Your-Options">¶</a></h2><p>Once you identify the pattern, there are almost always <strong>multiple valid SQL approaches</strong>. The key skill isn't just picking the right pattern — it's knowing all the methods available for that pattern and choosing the most efficient one.</p>
+<h3 id="The-3-Method-Mental-Model">The 3-Method Mental Model<a class="anchor-link" href="#The-3-Method-Mental-Model">¶</a></h3><p>For nearly every single-table pattern, your options fall into three categories:</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Method Type</th>
+<th>How It Works</th>
+<th>Typical Efficiency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>Direct aggregation</strong> (<code>GROUP BY</code> + aggregate functions)</td>
+<td>Collapse rows in one pass</td>
+<td>Best — single scan</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Window function</strong> (<code>OVER()</code>)</td>
+<td>Compute across rows without collapsing</td>
+<td>Great — single scan, keeps all rows</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Correlated subquery</strong></td>
+<td>Re-run a subquery for every row</td>
+<td>Weakest — runs N times for N rows</td>
+</tr>
+</tbody>
+</table>
+<h3 id="How-to-Enumerate-Your-Options-%E2%80%94-Decision-Flow">How to Enumerate Your Options — Decision Flow<a class="anchor-link" href="#How-to-Enumerate-Your-Options-%E2%80%94-Decision-Flow">¶</a></h3><p>Use this flow after you've identified the pattern. It tells you which methods are available and which to pick:</p>
+<pre><code>┌─────────────────────────────────────────┐
+│  I identified the pattern.              │
+│  Now: what are my method options?       │
+└────────────────────┬────────────────────┘
+                     │
+                     ▼
+┌──────────────────────────────────────┐
+│  Does the output have FEWER rows     │
+│  than the input? (collapsing)        │
+└──────────┬───────────────┬───────────┘
+           │ YES           │ NO
+           ▼               ▼
+┌────────────────────┐  ┌──────────────────────────────┐
+│  Start with        │  │  Use a WINDOW FUNCTION       │
+│  GROUP BY          │  │  (keeps all rows,            │
+│  (most efficient)  │  │   adds computed column)      │
+└─────────┬──────────┘  └──────────────────────────────┘
+          │
+          ▼
+┌──────────────────────────────────────┐
+│  Does the output need columns that   │
+│  aren't in the GROUP BY?             │
+│  (e.g., names, details)              │
+└──────────┬───────────────┬───────────┘
+           │ YES           │ NO
+           ▼               ▼
+┌────────────────────┐  ┌──────────────────────────────┐
+│  Need to JOIN back │  │  Done! GROUP BY + HAVING     │
+│  to get extra cols │  │  is your complete answer.    │
+└─────────┬──────────┘  │  Rank 1: Most efficient.     │
+          │             └──────────────────────────────┘
+          ▼
+┌──────────────────────────────────────┐
+│  Pick your JOIN-back strategy:       │
+├──────────────────────────────────────┤
+│                                      │
+│  Option A (Rank 1):                  │
+│  Self JOIN + GROUP BY + HAVING       │
+│  → Join first, then aggregate        │
+│  → One query, reads like English     │
+│                                      │
+│  Option B (Rank 2):                  │
+│  CTE/Subquery + JOIN back            │
+│  → Aggregate first, then join        │
+│  → Clean separation of steps         │
+│  → Same performance as Option A      │
+│                                      │
+│  Option C (Rank 3 — avoid):          │
+│  Correlated subquery                 │
+│  → Runs aggregate per row            │
+│  → Mention it, then reject it        │
+│                                      │
+└──────────────────────────────────────┘
+</code></pre>
+<h3 id="CTE-vs-Subquery-%E2%80%94-They-Are-Wrappers,-Not-Strategies">CTE vs Subquery — They Are Wrappers, Not Strategies<a class="anchor-link" href="#CTE-vs-Subquery-%E2%80%94-They-Are-Wrappers,-Not-Strategies">¶</a></h3><p>A <code>WITH ... AS</code> (CTE) and an inline subquery do the <strong>exact same work</strong>. The CTE just gives it a name. PostgreSQL typically inlines CTEs, so performance is identical.</p>
+<div class="highlight"><pre><span></span><span class="c1">-- These two are equivalent in performance:</span>
+
+<span class="c1">-- CTE version</span>
+<span class="k">WITH</span><span class="w"> </span><span class="n">counts</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="k">SELECT</span><span class="w"> </span><span class="n">department</span><span class="p">,</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">cnt</span>
+<span class="w">    </span><span class="k">FROM</span><span class="w"> </span><span class="n">Employees</span>
+<span class="w">    </span><span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">department</span>
+<span class="p">)</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">counts</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">cnt</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
+
+<span class="c1">-- Subquery version</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="k">SELECT</span><span class="w"> </span><span class="n">department</span><span class="p">,</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">cnt</span>
+<span class="w">    </span><span class="k">FROM</span><span class="w"> </span><span class="n">Employees</span>
+<span class="w">    </span><span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">department</span>
+<span class="p">)</span><span class="w"> </span><span class="n">counts</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">cnt</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
+</pre></div>
+<p><strong>When to use a CTE:</strong> When you reference the result more than once, or when it makes the query more readable. <strong>It is not a separate strategy</strong> — it is a container for any strategy.</p>
+<h3 id="Pattern-%E2%86%92-All-Methods-%E2%86%92-Pick-Best-(Worked-Example)">Pattern → All Methods → Pick Best (Worked Example)<a class="anchor-link" href="#Pattern-%E2%86%92-All-Methods-%E2%86%92-Pick-Best-(Worked-Example)">¶</a></h3><p><strong>Problem:</strong> "Find managers with at least 5 direct reports" (single Employee table with id, name, managerId)</p>
+<p><strong>Step 1: Identify the pattern.</strong> Filtering after aggregation → HAVING</p>
+<p><strong>Step 2: Walk the flow diagram.</strong></p>
+<ul>
+<li>Output has fewer rows than input? <strong>Yes</strong> → Start with GROUP BY</li>
+<li>Output needs columns not in GROUP BY (manager name)? <strong>Yes</strong> → Need to join back</li>
+<li>Pick join-back strategy → evaluate all three options</li>
+</ul>
+<p><strong>Step 3: Enumerate all methods:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Rank</th>
+<th>Method</th>
+<th>SQL Sketch</th>
+<th>Why This Rank</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Self JOIN + GROUP BY + HAVING</td>
+<td><code>JOIN Employee r ON m.id = r.managerId GROUP BY ... HAVING COUNT(*) &gt;= 5</code></td>
+<td>One query, no subquery, reads like English</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Aggregate in subquery/CTE, then JOIN back</td>
+<td><code>WITH mgrs AS (SELECT managerId ... HAVING COUNT(*) &gt;= 5) SELECT name FROM mgrs JOIN Employee ...</code></td>
+<td>Clean separation of logic, equally efficient</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Correlated subquery in WHERE</td>
+<td><code>WHERE (SELECT COUNT(*) FROM Employee r WHERE r.managerId = e.id) &gt;= 5</code></td>
+<td>Runs the count per row — less scalable</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Step 4: Choose.</strong> Methods 1 and 2 are essentially equal in performance. Method 1 is more elegant for interviews. Method 3 works but is demonstrably slower on large data.</p>
+<h3 id="General-Efficiency-Ranking">General Efficiency Ranking<a class="anchor-link" href="#General-Efficiency-Ranking">¶</a></h3><p>This ranking applies to <strong>most</strong> single-table patterns:</p>
+<table>
+<thead>
+<tr>
+<th>Rank</th>
+<th>Approach</th>
+<th>When It Wins</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>GROUP BY</code> (direct aggregation)</td>
+<td>When you need collapsed results</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Window function</td>
+<td>When you need row-level + group-level data</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Self JOIN + aggregate</td>
+<td>When output needs columns from different "roles" of the same row</td>
+</tr>
+<tr>
+<td>4</td>
+<td>CTE/Subquery + JOIN back</td>
+<td>When you aggregate first, then enrich with other columns</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Correlated subquery</td>
+<td>Almost never the best; useful as a fallback or for simple existence checks</td>
+</tr>
+</tbody>
+</table>
+<h3 id="Interview-Tip">Interview Tip<a class="anchor-link" href="#Interview-Tip">¶</a></h3><p>When explaining your approach, briefly mention the alternatives you considered:</p>
+<blockquote>
+<p><em>"I'm using a self-join with GROUP BY and HAVING here. I could also pre-aggregate manager IDs in a CTE and join back for the name, which would be equally efficient. A correlated subquery would also work but would be slower on large data since it runs the count once per row."</em></p>
+</blockquote>
+<p>This shows the interviewer you understand the trade-offs, not just one way to get the answer.</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border: 3px solid black;"/>
+<p><a id="7-how-to-think-from-the-vignette"></a></p>
+<h2 id="7.-How-to-Think-from-the-Vignette">7. How to Think from the Vignette<a class="anchor-link" href="#7.-How-to-Think-from-the-Vignette">¶</a></h2><p>Follow these steps <strong>before writing any SQL</strong>:</p>
 <h3 id="Step-1-%E2%80%94-Identify-the-Output-Shape">Step 1 — Identify the Output Shape<a class="anchor-link" href="#Step-1-%E2%80%94-Identify-the-Output-Shape">¶</a></h3><blockquote>
 <p><em>What should the final table look like?</em></p>
 </blockquote>
@@ -14178,8 +14617,8 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
-<p><a id="7-interview-prompt-templates"></a></p>
-<h2 id="7.-Interview-Prompt-Templates">7. Interview Prompt Templates<a class="anchor-link" href="#7.-Interview-Prompt-Templates">¶</a></h2><p>Use these phrases during an interview to structure your thinking out loud:</p>
+<p><a id="8-interview-prompt-templates"></a></p>
+<h2 id="8.-Interview-Prompt-Templates">8. Interview Prompt Templates<a class="anchor-link" href="#8.-Interview-Prompt-Templates">¶</a></h2><p>Use these phrases during an interview to structure your thinking out loud:</p>
 <table>
 <thead>
 <tr>
@@ -14248,8 +14687,8 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
-<p><a id="8-what-to-avoid"></a></p>
-<h2 id="8.-What-to-Avoid">8. What to Avoid<a class="anchor-link" href="#8.-What-to-Avoid">¶</a></h2><table>
+<p><a id="9-what-to-avoid"></a></p>
+<h2 id="9.-What-to-Avoid">9. What to Avoid<a class="anchor-link" href="#9.-What-to-Avoid">¶</a></h2><table>
 <thead>
 <tr>
 <th>Bad Pattern</th>
@@ -14287,8 +14726,8 @@ div#notebook {
 </div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
-<p><a id="9-final-takeaway"></a></p>
-<h2 id="9.-Final-Takeaway">9. Final Takeaway<a class="anchor-link" href="#9.-Final-Takeaway">¶</a></h2><p>The entire game is:</p>
+<p><a id="10-final-takeaway"></a></p>
+<h2 id="10.-Final-Takeaway">10. Final Takeaway<a class="anchor-link" href="#10.-Final-Takeaway">¶</a></h2><p>The entire game is:</p>
 <pre><code>Identify the shape  →  Pick the tool  →  Avoid unnecessary work
 </code></pre>
 <h3 id="Interview-Script-(Memorize-This)">Interview Script (Memorize This)<a class="anchor-link" href="#Interview-Script-(Memorize-This)">¶</a></h3><blockquote>
