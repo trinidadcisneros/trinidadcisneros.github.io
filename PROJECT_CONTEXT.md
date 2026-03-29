@@ -17,9 +17,10 @@ This file is a handoff document for use with any LLM tool (Claude Cowork, ChatGP
 BitterScientist.com is a personal portfolio and educational blog focused on analytics, data science, statistics, programming, and database concepts. Content is presented as tutorial-style posts, most of which originate as Jupyter notebooks converted to HTML and embedded in wrapper pages with a shared navbar and footer.
 
 **Hosting:** GitHub Pages (static site, no backend)
-**Root File:** `index.html` (welcome page with latest posts table)
+**Root File:** `index.html` (landing page — hero, photo carousel, dynamic latest posts cards)
 **Config:** `config.json` at root
 **CNAME:** `bitterscientist.com`
+**Post Registry:** `static/data/posts.json` (single source of truth for all posts — landing page reads from this)
 
 ---
 
@@ -38,6 +39,7 @@ bitterscientist.com/
 │   │   ├── navbar.css                  # Global navbar styles
 │   │   ├── footer.css                  # Global footer styles
 │   │   ├── theme.css                   # Index/about page base styles
+│   │   ├── landing.css                 # Landing page: hero, carousel, scrollable cards
 │   │   ├── general_landing.css         # Category landing page styles
 │   │   ├── post-table.css              # Post listing table styles
 │   │   ├── jn_styling.css              # Jupyter notebook HTML styles (classic template)
@@ -51,14 +53,23 @@ bitterscientist.com/
 │   │   ├── video_and_description.css   # Video embed styles
 │   │   └── video_blog_posts.css        # Video blog layout styles
 │   │
-│   └── js/
-│       ├── include.js                  # w3-include-html mechanism (loads partials via XHR)
-│       ├── sidebar_toc.js              # Auto-generates sticky TOC from notebook headings
-│       ├── diagram_detect.js           # Detects ASCII diagrams and applies .diagram-block class
-│       ├── navbase.js                  # Navbar interactions
-│       ├── nav_multi.js                # Multi-level dropdown nav
-│       ├── table.js                    # Table interactions
-│       └── update_mathjax.js           # MathJax rendering for notebooks
+│   ├── js/
+│   │   ├── include.js                  # w3-include-html mechanism (loads partials via XHR)
+│   │   ├── latest_posts.js             # Reads posts.json → renders latest 10 as scrollable cards
+│   │   ├── sidebar_toc.js              # Auto-generates sticky TOC from notebook headings
+│   │   ├── diagram_detect.js           # Detects ASCII diagrams and applies .diagram-block class
+│   │   ├── navbase.js                  # Navbar interactions
+│   │   ├── nav_multi.js                # Multi-level dropdown nav
+│   │   ├── table.js                    # Table interactions
+│   │   └── update_mathjax.js           # MathJax rendering for notebooks
+│   │
+│   ├── data/
+│   │   └── posts.json                  # Post registry — landing page auto-populates from this
+│   │
+│   └── images/
+│       ├── headshot.jpg                # Processed headshot (warm filter, 500x500)
+│       ├── reel/                       # Original full-res photos and videos (NOT committed to git)
+│       └── reel_thumbs/               # Web-optimized 600x400 thumbnails (committed to git)
 │
 ├── folders/
 │   ├── navbar_footer/
@@ -171,8 +182,49 @@ bitterscientist.com/
    </body>
    ```
 
-4. **Add entry to the section's table page** (e.g., `sql_table.html`)
-5. **Add entry to `index.html`** latest posts table (keep to ~10 entries, drop oldest)
+4. **Add entry to the section's table page** (e.g., `sql_table.html` or `playbooks_table.html`)
+5. **Add entry to `static/data/posts.json`** (see below) — the landing page reads this automatically
+
+### Adding a Post to the Landing Page (posts.json)
+
+The landing page (`index.html`) auto-populates from `static/data/posts.json`. The JS (`latest_posts.js`) reads this file, sorts by date descending, and renders the latest 10 as horizontally scrollable cards. **No HTML editing of index.html is needed.**
+
+**To add a new post, append an entry to `posts.json`:**
+
+```json
+{
+  "date": "2026-04-15",
+  "category": "Professional Playbooks",
+  "categoryClass": "playbooks",
+  "title": "How to Run a Metrics Review Meeting",
+  "url": "folders/playbooks/metrics_review_playbook.html",
+  "desc": "A framework for running effective metrics reviews that drive action, not just updates."
+}
+```
+
+**Field reference:**
+
+| Field | Required | Description |
+|---|---|---|
+| `date` | Yes | ISO format `YYYY-MM-DD`. Used for sorting — newest first. |
+| `category` | Yes | Display name shown on the card (e.g., "Professional Playbooks", "SQL", "Data Science") |
+| `categoryClass` | Yes | CSS class for color coding. One of: `playbooks` (navy), `sql` (red-brown), `ds` (green), `stats` (purple) |
+| `title` | Yes | Post title as shown on the card |
+| `url` | Yes | Relative path from site root to the wrapper HTML page |
+| `desc` | Yes | 1-2 sentence description shown below the title on the card |
+
+**Category class colors:**
+- `playbooks` → navy (#0f3460)
+- `sql` → red-brown (#b33000)
+- `ds` → green (#2e7d32)
+- `stats` → purple (#6a1b9a)
+
+To add a new category color, add a CSS rule in `static/css/landing.css`:
+```css
+.card-category.newclass { color: #hexcolor; }
+```
+
+**Important:** The landing page always shows the latest 10 posts by date. Older posts are not deleted — they remain in the JSON for completeness and are available on their respective landing pages. As new posts are added, older ones naturally scroll off the landing page.
 
 ### Notebook Cell Conventions
 
@@ -219,6 +271,44 @@ bitterscientist.com/
 - **Descriptive:** Central tendency, dispersion, distributions, normality diagnostics, data transformations in R
 - **Inferential:** Hypothesis testing, t-tests, ANOVA, chi-square, confidence intervals, regression, model tuning in R
 
+### Professional Playbooks (New — March 2026)
+| Post | File | Description |
+|---|---|---|
+| How to Build a Dashboard — From Request to Delivery | `dashboard_playbook` | Full lifecycle: scoping, metrics, design, build, QA, presenting, iteration, handoff. Decision trees, pattern library, anti-patterns, worked example, communication templates, checklists, timeline estimation. |
+| How to Manage an Analytics Intake Queue | `intake_queue_playbook` | Triage matrix (P0–P4), intake process levels, intake form, workload visibility, saying no scripts, managing up, response templates, worked example week. |
+| How to Scope and Deliver an Ad-Hoc Analysis | `adhoc_analysis_playbook` | Request decoder, 5-minute scoping framework, SCR analysis structure, deliverable format picker, QA trust checklist, communication templates, worked churn example. |
+
+### Professional Playbooks — Topic Backlog
+
+**Delivery & Execution:**
+- [x] How to Scope and Deliver an Ad-Hoc Analysis
+- [ ] How to Build and Maintain a Recurring Report
+- [ ] How to Run a Self-Service Data QA Pass
+- [ ] How to Design and Run an A/B Test (The Operational Side)
+
+**Communication & Influence:**
+- [ ] How to Write an Executive Summary That Gets Read
+- [ ] How to Structure a Data-Informed Recommendation
+- [ ] How to Run a Metrics Review Meeting
+- [ ] How to Say "The Data Doesn't Support That" Diplomatically
+
+**Stakeholder & Project Management:**
+- [x] How to Manage an Analytics Intake Queue
+- [ ] How to Handle Competing Priorities from Multiple Stakeholders
+- [ ] How to Estimate and Communicate Timelines for Analytical Work
+- [ ] How to Scope a Project When the Requester Doesn't Know What They Want
+
+**Data Stewardship & Infrastructure:**
+- [ ] How to Document a Data Source for the Next Person
+- [ ] How to Build and Maintain a Team Metrics Dictionary
+- [ ] How to Set Up a Sustainable Folder and Naming Convention
+- [ ] How to Evaluate and Recommend a New Tool for the Team
+
+**Career & Growth:**
+- [ ] How to Build a Portfolio That Demonstrates Analytical Thinking
+- [ ] How to Structure Your First 90 Days in a New Analytics Role
+- [ ] How to Mentor Junior Analysts Effectively
+
 ### Programming
 - **Python:** Data types, pandas, matplotlib, APIs, OOP, file operations, web scraping, geospatial
 - **SQL:** SELECT through advanced subqueries, date functions, dialects
@@ -228,6 +318,99 @@ bitterscientist.com/
 ---
 
 ## 6. Recent Session Activity Log
+
+### Session: March 29, 2026 (Continued — Landing Page Redesign)
+
+**Landing Page Redesign (`index.html`):**
+- Added hero section with circular headshot (processed from `self.JPG` with warm dark filter), name linking to LinkedIn, "in" icon + LinkedIn/Contact/About links, and professional bio paragraph
+- Built auto-scrolling photo/video carousel from `static/images/reel/` — 18 unique slides (travel photos + video poster frames with play icons), duplicated 6 for seamless CSS animation loop. Pauses on hover.
+- Replaced static category card sections and All Posts table with dynamic "Latest Posts" section — horizontally scrollable card row auto-populated from `static/data/posts.json` via `latest_posts.js`
+- Created `static/css/landing.css` (hero, headshot, carousel, scroll cards)
+- Created `static/js/latest_posts.js` (fetches posts.json, sorts by date, renders top 10)
+- Created `static/data/posts.json` (12 entries — single source of truth for all posts)
+
+**Image Processing:**
+- Created `static/images/headshot.jpg` — square crop, warm filter (brightness 0.88, contrast 1.2, warm overlay, light vignette), 500x500px, 44KB
+- Created `static/images/reel_thumbs/` — 21 web-optimized thumbnails (600x400, ~40-80KB each) with EXIF orientation fix (`ImageOps.exif_transpose`) for correct rotation
+- Video poster frames extracted via ffmpeg for .mov/.mp4 files (australia, ireland x2, israel, muay_thai)
+
+**About Page Rewrite (`folders/about.html`):**
+- Added matching hero section with headshot + LinkedIn link
+- "About This Site" section: cleaner version of original motivation text
+- "Beyond the Data" section: personal bio (Muay Thai, Jiu Jitsu, anime, grilling, family, Pashka aka Taco, traveling) with Pashka photo floating left
+- Disclaimer moved to de-emphasized section at bottom
+
+**Dollar Sign / MathJax Fix:**
+- Removed all `$` currency symbols from all 3 playbook notebooks (regex: `\$(\d+...)` → `\1`)
+- Regenerated HTML for all 3 notebooks
+
+**Key Technical Decisions:**
+- `static/images/reel/` (originals, ~203MB) should NOT be committed to git — add to `.gitignore`
+- `static/images/reel_thumbs/` (optimized thumbnails, ~1.2MB) SHOULD be committed
+- Landing page now reads from `posts.json` — no HTML editing needed for new posts
+
+---
+
+### Session: March 29, 2026 (Initial — Playbooks)
+
+**Created:**
+- Professional Playbooks section (`folders/playbooks/`)
+  - `playbooks_landing.html` — section landing page with background info, TOC with future topic placeholders
+  - `playbooks_table.html` — post listing table
+  - `dashboard_playbook.html` — wrapper page with sidebar TOC
+  - `projects/dashboard_playbook.ipynb` — 20-cell all-markdown notebook (11 sections)
+  - `projects/dashboard_playbook.html` — converted HTML
+
+**Navbar Restructure:**
+- Renamed "Data Science Blogs" → "Analytics & Data Science" (same URL)
+- Added "Professional Playbooks" as new top-level nav item
+- Consolidated "Tools" + "Databases" → "Technical Skills" dropdown (Programming, SQL & Databases, Web Development, Other Tools)
+- Updated both `navbar_pages.html` and `navbar_index.html`
+
+**Dashboard Playbook Content (11 sections):**
+1. Master Phase Reference Table (8 phases)
+2. Decision Tree: What Kind of Dashboard Is This?
+3. Phase Pattern Library (8 phases A–H with checklists, templates, pitfalls)
+4. Dashboard Component Pattern Library (10 components)
+5. Tool Selection Guide (decision tree + comparison table)
+6. What to Avoid — Anti-Patterns (technical + political)
+7. Worked Example: Revenue Dashboard for Sales Leadership
+8. Communication Templates (5 templates)
+9. Quick-Reference Checklists (8 phase checklists)
+10. Estimating Timelines & Setting Expectations (scoring framework, baseline estimates, negotiation scripts)
+11. Final Takeaway
+
+**Intake Queue Playbook Content (12 sections):**
+1. Triage Matrix (P0–P4 with 70/20/10 rule)
+2. Decision Tree: What Should I Do With This Request?
+3. Building Your Intake Process (3 levels)
+4. The Intake Form (6 questions + Slack template)
+5. Making Your Workload Visible (weekly snapshot, capacity signal)
+6. How to Say No (5 types with scripts + escalation tree)
+7. Managing Up (1:1 queue review, overload scripts)
+8. Response Templates (6 templates)
+9. Anti-Patterns (process + political)
+10. Worked Example: A Week in the Life
+11. Quick-Reference Checklists
+12. Final Takeaway
+
+**Ad-Hoc Analysis Playbook Content (11 sections):**
+1. Ad-Hoc Lifecycle at a Glance
+2. Request Decoder (translation table + decision tree)
+3. 5-Minute Scoping Framework
+4. Structuring the Analysis (SCR framework + rabbit hole test)
+5. Choosing the Right Deliverable Format (decision tree)
+6. QA Trust Checklist (8-step ladder)
+7. Communication Templates (6 templates)
+8. Anti-Patterns (analysis + communication)
+9. Worked Example: "What's Going On With Churn?"
+10. Quick-Reference Checklists
+11. Final Takeaway
+
+**Key Fix:**
+- ASCII decision trees with branches inside boxes render poorly — branches must exit below closed boxes, fork with labeled YES/NO lines, and lead to standalone outcome boxes
+
+---
 
 ### Session: March 28–29, 2026
 
@@ -267,6 +450,10 @@ bitterscientist.com/
 4. **w3-include-html is async** — Any JS that depends on included content must poll/wait for it to load. See `sidebar_toc.js` for the pattern.
 5. **nbconvert must use `--template classic`** — The default template produces JupyterLab-style classes that don't match `jn_styling.css`.
 6. **Notebook source arrays need `\n`** — When building notebooks programmatically, every line in the source array needs `\n` appended except the last line.
+7. **Dollar signs trigger MathJax** — `$` in markdown content gets interpreted as LaTeX by nbconvert. Never use `$` for currency — spell out "dollars" or just use the number (e.g., `2.1M` not `$2.1M`).
+8. **EXIF orientation on photos** — Camera JPGs often have rotation in EXIF metadata. When processing with Pillow, always call `ImageOps.exif_transpose(img)` before cropping/resizing.
+9. **`static/images/reel/` must be in `.gitignore`** — Original photos/videos total ~203MB. GitHub has a 100MB file limit and a soft 1GB repo limit. Only the optimized `reel_thumbs/` (1.2MB) and `headshot.jpg` (44KB) should be committed.
+10. **Landing page is data-driven** — `index.html` no longer has hardcoded post entries. Everything comes from `static/data/posts.json` via `latest_posts.js`. To update landing page content, edit `posts.json` only.
 
 ---
 
