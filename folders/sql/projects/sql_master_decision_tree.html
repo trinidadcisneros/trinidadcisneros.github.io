@@ -13165,36 +13165,69 @@ div#notebook {
 <div class="fc-node fc-start">SINGLE TABLE — What am I doing?</div>
 <div class="fc-arrow">▼</div>
 <div class="fc-node fc-start">Just filtering rows by conditions on columns?</div>
-<div class="fc-node fc-good">YES → <strong>WHERE + ORDER BY</strong></div>
+<div class="fc-node fc-good">YES → <strong>WHERE + ORDER BY</strong><code>SELECT cols
+FROM table
+WHERE condition
+ORDER BY col</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
 <div class="fc-node fc-start">Does it involve dates?</div>
 <div class="fc-node fc-good">YES → <strong>See DATE FORK (Step 3)</strong></div>
 <div class="fc-arrow fc-else">if no ▼</div>
 <div class="fc-node fc-start">Am I comparing rows?<br/>(prev vs next, row pairs)</div>
-<div class="fc-node fc-good">YES → <strong>LAG() / LEAD()</strong></div>
+<div class="fc-node fc-good">YES → <strong>LAG() / LEAD()</strong> — window functions<code>SELECT *,
+  LAG(col)  OVER(ORDER BY date_col) AS prev_val,
+  LEAD(col) OVER(ORDER BY date_col) AS next_val
+FROM table</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
 <div class="fc-node fc-start">Am I collapsing rows into a summary?<br/>(count, sum, avg)</div>
-<div class="fc-node fc-good">YES → <strong>GROUP BY + aggregate function</strong></div>
+<div class="fc-node fc-good">YES → <strong>GROUP BY + aggregate function</strong><code>SELECT group_col, COUNT(*), SUM(val), AVG(val)
+FROM table
+GROUP BY group_col</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
 <div class="fc-node fc-start">Filtering AFTER grouping?<br/>("groups where count &gt; 3")</div>
-<div class="fc-node fc-good">YES → <strong>GROUP BY + HAVING</strong></div>
+<div class="fc-node fc-good">YES → <strong>GROUP BY + HAVING</strong><code>SELECT group_col, COUNT(*)
+FROM table
+GROUP BY group_col
+HAVING COUNT(*) &gt; 3</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
 <div class="fc-node fc-start">Am I ranking rows?<br/>("top N per group")</div>
-<div class="fc-node fc-good">YES → <strong>ROW_NUMBER() / RANK()</strong></div>
+<div class="fc-node fc-good">YES → <strong>ROW_NUMBER() / RANK()</strong> — window functions<code>SELECT *, ROW_NUMBER()
+  OVER(PARTITION BY group_col
+       ORDER BY val DESC) AS rn
+FROM table</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
 <div class="fc-node fc-start">Running total / cumulative?</div>
-<div class="fc-node fc-good">YES → <strong>SUM() OVER(ORDER BY ...)</strong></div>
+<div class="fc-node fc-good">YES → <strong>SUM() OVER()</strong> — window function<code>SELECT *,
+  SUM(amount) OVER(ORDER BY date_col) AS running_total
+FROM table</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
 <div class="fc-node fc-start">Labeling / categorizing?<br/>("if X then label Y")</div>
-<div class="fc-node fc-good">YES → <strong>CASE WHEN</strong></div>
+<div class="fc-node fc-good">YES → <strong>CASE WHEN</strong><code>SELECT *,
+  CASE WHEN val &gt; 100 THEN 'High'
+       WHEN val &gt; 50  THEN 'Medium'
+       ELSE 'Low' END AS tier
+FROM table</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
 <div class="fc-node fc-start">Pivoting rows → columns?</div>
-<div class="fc-node fc-good">YES → <strong>CASE + GROUP BY</strong></div>
+<div class="fc-node fc-good">YES → <strong>CASE + GROUP BY (pivot)</strong><code>SELECT group_col,
+  SUM(CASE WHEN category = 'A' THEN val ELSE 0 END) AS A,
+  SUM(CASE WHEN category = 'B' THEN val ELSE 0 END) AS B
+FROM table
+GROUP BY group_col</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
 <div class="fc-node fc-start">Finding missing data?</div>
-<div class="fc-node fc-good">YES → <strong>NOT EXISTS / IS NULL</strong></div>
+<div class="fc-node fc-good">YES → <strong>NOT EXISTS / IS NULL</strong><code>SELECT * FROM table t1
+WHERE NOT EXISTS (
+  SELECT 1 FROM table t2
+  WHERE t2.id = t1.related_id
+)</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
-<div class="fc-node fc-good">Still here? → <strong>Removing duplicates: ROW_NUMBER / DISTINCT</strong></div>
+<div class="fc-node fc-good">Still here? → <strong>Removing duplicates</strong><code>-- Keep one row per key:
+SELECT * FROM (
+  SELECT *, ROW_NUMBER()
+    OVER(PARTITION BY key_col ORDER BY date DESC) AS rn
+  FROM table
+) sub WHERE rn = 1</code></div>
 </div>
 </div>
 </div>
@@ -13208,21 +13241,35 @@ div#notebook {
 <div class="fc-node fc-start">MULTIPLE TABLES — How do they relate?</div>
 <div class="fc-arrow">▼</div>
 <div class="fc-node fc-start">Same structure / similar data?<br/>("combine", "merge", "together")</div>
-<div class="fc-node fc-good">YES → <strong>UNION ALL (or UNION)</strong><br/>Stack rows from both tables</div>
+<div class="fc-node fc-good">YES → <strong>UNION ALL (or UNION)</strong><br/>Stack rows from both tables<code>SELECT col1, col2 FROM table_a
+UNION ALL
+SELECT col1, col2 FROM table_b</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
 <div class="fc-node fc-start">Table references itself?<br/>("manager", "parent", "reports to")</div>
-<div class="fc-node fc-good">YES → <strong>Self JOIN</strong></div>
+<div class="fc-node fc-good">YES → <strong>Self JOIN</strong><code>SELECT a.name AS employee,
+       b.name AS manager
+FROM employees a
+JOIN employees b ON a.manager_id = b.id</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
 <div class="fc-node fc-start">Need ALL combinations?<br/>("every X with every Y")</div>
-<div class="fc-node fc-good">YES → <strong>CROSS JOIN</strong></div>
+<div class="fc-node fc-good">YES → <strong>CROSS JOIN</strong><code>SELECT s.name, sub.name
+FROM students s
+CROSS JOIN subjects sub</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
 <div class="fc-node fc-start">Need to find what's MISSING?<br/>("never", "didn't", "no match")</div>
-<div class="fc-node fc-good">YES → <strong>LEFT JOIN + WHERE IS NULL</strong><br/>(or NOT EXISTS / ANTI JOIN)</div>
+<div class="fc-node fc-good">YES → <strong>LEFT JOIN + WHERE IS NULL</strong><br/>(anti-join pattern)<code>SELECT a.*
+FROM customers a
+LEFT JOIN orders b ON a.id = b.customer_id
+WHERE b.customer_id IS NULL</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
 <div class="fc-node fc-start">Must keep ALL rows from one table even if no match?</div>
-<div class="fc-node fc-good">YES → <strong>LEFT JOIN</strong><br/>+ COALESCE for NULL defaults</div>
+<div class="fc-node fc-good">YES → <strong>LEFT JOIN</strong><code>SELECT a.*, COALESCE(b.val, 0) AS val
+FROM main_table a
+LEFT JOIN detail_table b ON a.id = b.fk</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
-<div class="fc-node fc-good">Matching rows only → <strong>INNER JOIN</strong><br/>(most common starting point)</div>
+<div class="fc-node fc-good">Matching rows only → <strong>INNER JOIN</strong><code>SELECT a.*, b.col
+FROM table_a a
+JOIN table_b b ON a.id = b.fk</code></div>
 </div>
 </div>
 </div>
@@ -13237,16 +13284,25 @@ div#notebook {
 <div class="fc-arrow">▼</div>
 <div class="fc-branches fc-three">
 <div class="fc-branch">
-<div class="fc-node fc-action">Rate / Ratio<br/>Conditional metric<br/><br/>GROUP BY<br/>+ CASE WHEN</div>
+<div class="fc-node fc-action">Rate / Ratio<br/>Conditional metric<code>SUM(CASE WHEN cond
+  THEN 1.0 ELSE 0
+END) / COUNT(*)</code></div>
 </div>
 <div class="fc-branch">
-<div class="fc-node fc-action">Count / Sum<br/>per entity<br/>(incl. zeros)<br/><br/>GROUP BY<br/>+ COUNT/SUM</div>
+<div class="fc-node fc-action">Count / Sum<br/>per entity<br/>(incl. zeros)<code>SELECT a.name,
+  COUNT(b.id)
+FROM a LEFT JOIN b
+  ON a.id = b.fk
+GROUP BY a.name</code></div>
 </div>
 <div class="fc-branch">
-<div class="fc-node fc-action">Rank across<br/>joined data<br/><br/>ROW_NUMBER<br/>RANK / LEAD<br/>OVER()</div>
+<div class="fc-node fc-action">Rank across<br/>joined data<code>ROW_NUMBER()
+OVER(PARTITION BY grp
+     ORDER BY val DESC)</code></div>
 </div>
 <div class="fc-branch">
-<div class="fc-node fc-action">Filter groups<br/>by threshold<br/><br/>GROUP BY<br/>+ HAVING</div>
+<div class="fc-node fc-action">Filter groups<br/>by threshold<code>GROUP BY col
+HAVING COUNT(*) &gt; n</code></div>
 </div>
 </div>
 </div>
@@ -13270,19 +13326,25 @@ div#notebook {
 <div class="fc-label fc-tag">Comparing consecutive rows</div>
 <div class="fc-node fc-action">(yesterday, next day)</div>
 <div class="fc-arrow">▼</div>
-<div class="fc-node fc-good">LAG / LEAD<br/>+ date math</div>
+<div class="fc-node fc-good">LAG / LEAD<br/>+ date math<code>LAG(date_col) OVER(
+  ORDER BY date_col
+) AS prev_date</code></div>
 </div>
 <div class="fc-branch">
 <div class="fc-label fc-tag">Extracting parts</div>
 <div class="fc-node fc-action">(per month, per year)</div>
 <div class="fc-arrow">▼</div>
-<div class="fc-node fc-good">EXTRACT /<br/>DATE_PART<br/>+ GROUP BY</div>
+<div class="fc-node fc-good">EXTRACT /<br/>DATE_PART<br/>+ GROUP BY<code>EXTRACT(MONTH FROM date_col)
+-- or --
+DATE_PART('month', date_col)</code></div>
 </div>
 <div class="fc-branch">
 <div class="fc-label fc-tag">Calculating difference</div>
 <div class="fc-node fc-action">(days between, gaps)</div>
 <div class="fc-arrow">▼</div>
-<div class="fc-node fc-good">DATEDIFF /<br/>subtraction<br/>+ LAG/LEAD</div>
+<div class="fc-node fc-good">DATEDIFF /<br/>subtraction<code>DATEDIFF(day, start_date, end_date)
+-- or (Postgres) --
+end_date - start_date</code></div>
 </div>
 </div>
 </div>
@@ -13304,22 +13366,38 @@ div#notebook {
 <div class="fc-node fc-good">NO → <strong>No subquery needed — done!</strong></div>
 <div class="fc-arrow fc-else">if yes ▼</div>
 <div class="fc-node fc-start">Can I use a window function instead?<br/>(AVG() OVER(), SUM() OVER())</div>
-<div class="fc-node fc-good">YES → <strong>Window function is cleaner — use that</strong></div>
+<div class="fc-node fc-good">YES → <strong>Window function is cleaner — use that</strong><code>AVG(val) OVER() AS overall_avg
+-- adds a column without collapsing rows</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
 <div class="fc-node fc-warn">YES — YOU NEED A SUBQUERY. Where does it go?</div>
 <div class="fc-arrow">▼</div>
 <div class="fc-branches fc-three">
 <div class="fc-branch">
 <div class="fc-label fc-tag">In SELECT</div>
-<div class="fc-node fc-action">"Show a global value alongside each row"<br/><br/>Signal: percentage of total, ratio, compared to all<br/><br/>Pattern:<br/>COUNT(x) /<br/>(SELECT COUNT(*)<br/>FROM ...) * 100</div>
+<div class="fc-node fc-action">"Show a global value alongside each row"<br/><br/>Signal: percentage of total, ratio<code>SELECT col,
+  COUNT(*) * 100.0 /
+  (SELECT COUNT(*)
+   FROM table) AS pct
+FROM table
+GROUP BY col</code></div>
 </div>
 <div class="fc-branch">
 <div class="fc-label fc-tag">In WHERE</div>
-<div class="fc-node fc-action">"Filter rows using a computed threshold"<br/><br/>Signal: above average, greater than median, top performers<br/><br/>Pattern:<br/>WHERE col &gt;<br/>(SELECT AVG(col)<br/>FROM ...)</div>
+<div class="fc-node fc-action">"Filter rows using a computed threshold"<br/><br/>Signal: above average, top performers<code>SELECT *
+FROM table
+WHERE val &gt; (
+  SELECT AVG(val)
+  FROM table
+)</code></div>
 </div>
 <div class="fc-branch">
 <div class="fc-label fc-tag">In FROM</div>
-<div class="fc-node fc-action">"Pre-aggregate, then query the result"<br/><br/>Signal: rank within groups, filter pre-aggregated results, join summaries<br/><br/>Pattern:<br/>SELECT * FROM<br/>(SELECT ... GROUP BY)<br/>AS subquery</div>
+<div class="fc-node fc-action">"Pre-aggregate, then query the result"<br/><br/>Signal: rank groups, filter summaries<code>SELECT * FROM (
+  SELECT col, COUNT(*) AS cnt
+  FROM table
+  GROUP BY col
+) sub
+WHERE cnt &gt; 5</code></div>
 </div>
 </div>
 </div>

@@ -2,7 +2,7 @@
 
 **Owner:** Trinidad Cisneros (trinidad.cisneros@gmail.com)
 **Domain:** bitterscientist.com
-**Last Updated:** 2026-03-29 (Session 5)
+**Last Updated:** 2026-03-30 (Session 6)
 
 ---
 
@@ -243,6 +243,7 @@ To add a new category color, add a CSS rule in `static/css/landing.css`:
   - **Vertical checklist** (`fc-else`): Purely vertical flow — question → YES answer → "if no ▼" → next question. Use for sequential elimination chains (3+ decisions deep). Example: Step 2A in master decision tree.
   - **Hybrid**: Vertical checklist that ends with a shallow branch (e.g., subquery decision tree ending in 3-column placement guide).
   - Wrapper pages must include `<link rel="stylesheet" href="../../static/css/flowchart.css">` in `<head>`.
+  - **Inline SQL syntax:** Use `<code>` inside `fc-node` divs for syntax examples. Renders as block-display monospace with color matching the node type (green/warn/action/start). Example: `<div class="fc-node fc-good">Use LAG/LEAD<code>LAG(col) OVER(ORDER BY date)</code></div>`
 - **Notebook source arrays:** Each line must end with `\n` except the last line. Forgetting this causes all lines to concatenate into one string.
 
 ### Code Block Styling (3 visual treatments)
@@ -385,6 +386,36 @@ The original ASCII box-drawing decision trees were replaced with HTML div-based 
 - `sql_combined_strategy_patterns.ipynb` cell 17: "Before You Reach for a Subquery — Check If Conditional Aggregation Works"
 
 **flowchart.css added to all 10 wrapper pages** (5 playbook + 5 SQL)
+
+**Credentials added to site identity:**
+- `index.html` `<title>` tag updated to "Trinidad Cisneros, Ph.D., M.S."
+- `folders/navbar_footer/footer.html` copyright line updated to "Trinidad Cisneros, Ph.D., M.S."
+
+---
+
+### Session: March 30, 2026 (Session 6 — SQL Syntax in Flowcharts)
+
+**Added inline SQL syntax examples (`<code>` blocks) to every flowchart answer box across all 4 SQL guides.** Users can now see the actual SQL pattern/formula, not just the name.
+
+**CSS addition (`static/css/flowchart.css`):**
+- Added `.fc-node code` styling — block display, monospace font (`Consolas`/`Monaco`), subtle background, left-aligned, pre-wrap whitespace
+- Color-coded per node type: `.fc-start code` (white on dark), `.fc-good code` (green), `.fc-warn code` (orange-red), `.fc-action code` (navy)
+
+**Cells updated with `<code>` syntax:**
+| Notebook | Cell(s) | What was added |
+|---|---|---|
+| sql_master_decision_tree | 2 | Step 2A: WHERE, LAG/LEAD, GROUP BY, HAVING, ROW_NUMBER, SUM OVER, CASE WHEN, pivot, NOT EXISTS, duplicate detection |
+| sql_master_decision_tree | 3 | Step 2B: UNION ALL, Self JOIN, CROSS JOIN, LEFT JOIN+IS NULL, LEFT JOIN, INNER JOIN |
+| sql_master_decision_tree | 4 | Step 2C: rate/ratio, count/sum, rank, filter groups — 4 transformation boxes |
+| sql_master_decision_tree | 5 | Step 3 Date Fork: LAG/LEAD date math, EXTRACT/DATE_PART, DATEDIFF |
+| sql_master_decision_tree | 6 | Step 4 Subquery: SELECT/WHERE/FROM placement + window function alternative |
+| sql_single_table_query_strategies | 2 | Decision Tree: same patterns as master Step 2A |
+| sql_single_table_query_strategies | 17 | Method Selection: window function, GROUP BY, GROUP BY+HAVING, Self JOIN, CTE+JOIN, correlated subquery |
+| sql_single_table_query_strategies | 21 | Subquery Decision Tree: no-subquery, window function, SELECT/WHERE/FROM placement |
+| sql_multi_table_query_strategies | 2 | JOIN Decision Tree: UNION ALL, Self JOIN, CROSS JOIN, ANTI JOIN, LEFT JOIN, INNER JOIN (also converted from unusual YES=Q/NO=A layout to vertical checklist) |
+| sql_combined_strategy_patterns | 3 | Combo Tree: GROUP BY+CASE, GROUP BY+COUNT, window functions, HAVING + Pass 1 Expanded: Self/CROSS/ANTI/LEFT/INNER JOIN |
+
+**Pattern:** Every green (`fc-good`) and action (`fc-action`) box now contains a `<code>` block with the actual SQL syntax template, so readers see both WHAT to use and HOW to write it.
 
 ---
 
