@@ -2,7 +2,7 @@
 
 **Owner:** Trinidad Cisneros (trinidad.cisneros@gmail.com)
 **Domain:** bitterscientist.com
-**Last Updated:** 2026-03-29 (Session 4)
+**Last Updated:** 2026-03-29 (Session 5)
 
 ---
 
@@ -50,6 +50,7 @@ bitterscientist.com/
 │   │   ├── gist.css                    # GitHub gist embed styles
 │   │   ├── monokai.css                 # Monokai code syntax theme
 │   │   ├── contact.css                 # Contact page styles
+│   │   ├── flowchart.css               # Responsive HTML decision trees (fc- class prefix)
 │   │   ├── code_blocks.css             # Legacy code block styles
 │   │   ├── video_and_description.css   # Video embed styles
 │   │   └── video_blog_posts.css        # Video blog layout styles
@@ -236,7 +237,12 @@ To add a new category color, add a CSS rule in `static/css/landing.css`:
 
 - **Section dividers:** `<hr style="border: 3px solid black;">` for major sections, `2px` for subsections, `---` for thin within-subsection dividers
 - **Anchor IDs:** Kebab-case matching TOC links, e.g., `<a id='3-pattern-library-with-examples'></a>`
-- **ASCII diagrams:** Use box-drawing characters (┌┐└┘├┤┬┴┼─│▼▶) — automatically detected by `diagram_detect.js` and styled with navy gradient theme
+- **ASCII diagrams:** Use box-drawing characters (┌┐└┘├┤┬┴┼─│▼▶) — automatically detected by `diagram_detect.js` and styled with navy gradient theme. **Deprecated for decision trees** — use HTML flowcharts instead (see below).
+- **HTML flowcharts (`flowchart.css`):** Preferred for all decision trees. Uses `fc-` prefixed classes. Two patterns:
+  - **Standard tree** (`fc-branches` + `fc-branch`): Side-by-side YES/NO branches. Use for shallow trees (1-2 levels max).
+  - **Vertical checklist** (`fc-else`): Purely vertical flow — question → YES answer → "if no ▼" → next question. Use for sequential elimination chains (3+ decisions deep). Example: Step 2A in master decision tree.
+  - **Hybrid**: Vertical checklist that ends with a shallow branch (e.g., subquery decision tree ending in 3-column placement guide).
+  - Wrapper pages must include `<link rel="stylesheet" href="../../static/css/flowchart.css">` in `<head>`.
 - **Notebook source arrays:** Each line must end with `\n` except the last line. Forgetting this causes all lines to concatenate into one string.
 
 ### Code Block Styling (3 visual treatments)
@@ -285,6 +291,7 @@ To add a new category color, add a CSS rule in `static/css/landing.css`:
 | How to Build a Dashboard — From Request to Delivery | `dashboard_playbook` | Full lifecycle: scoping, metrics, design, build, QA, presenting, iteration, handoff. Decision trees, pattern library, anti-patterns, worked example, communication templates, checklists, timeline estimation. |
 | How to Manage an Analytics Intake Queue | `intake_queue_playbook` | Triage matrix (P0–P4), intake process levels, intake form, workload visibility, saying no scripts, managing up, response templates, worked example week. |
 | How to Scope and Deliver an Ad-Hoc Analysis | `adhoc_analysis_playbook` | Request decoder, 5-minute scoping framework, SCR analysis structure, deliverable format picker, QA trust checklist, communication templates, worked churn example. |
+| How to Handle Competing Priorities from Multiple Stakeholders | `competing_priorities_playbook` | Priority Conflict Matrix, Decision Tree, 5 Types of Conflicts, Stakeholder Map, Scripts, Trade-Off Framework, When to Escalate, Cross-Functional Conflicts, Anti-Patterns, Worked Example, Checklists, Final Takeaway. |
 
 ### Soft Skills — Topic Backlog
 
@@ -326,6 +333,60 @@ To add a new category color, add a CSS rule in `static/css/landing.css`:
 ---
 
 ## 6. Recent Session Activity Log
+
+### Session: March 29, 2026 (Session 5 — Flowchart Redesign, Competing Priorities Playbook)
+
+**Flowchart System Overhaul (`flowchart.css` + all 8 notebooks):**
+
+The original ASCII box-drawing decision trees were replaced with HTML div-based flowcharts in Session 4, but deeply nested trees (like Step 2A in the master decision tree, 10+ levels) caused content to overflow and become unreadable — each nesting level of side-by-side `fc-branches` halved the available width.
+
+**Fix — two-phase redesign:**
+1. **Flattened HTML structure:** Deeply nested YES/NO chains were restructured from nested `fc-branches` inside `fc-branch` containers to a flat sequential layout. Each question sits at the top level of the `.fc` container.
+2. **Vertical checklist pattern:** Replaced confusing side-by-side YES/NO (where NO was a floating label with no clear meaning) with a purely vertical flow: question (dark blue) → YES answer (green) → "if no ▼" (gray connector) → next question. The first YES you hit is your answer.
+
+**CSS changes (`static/css/flowchart.css`):**
+- Added `.fc-arrow.fc-else` class — styled "if no ▼" connector for sequential checklists
+- Added `overflow-wrap: break-word` on `.fc-node` — prevents text from clipping
+- Added `.fc-four` for 4-column branch layouts
+- Added CSS safety rule: `.fc-branch .fc-branches .fc-branches` auto-stacks vertically — catches any remaining depth-3+ nesting
+- Removed `.fc-pass` (intermediate attempt that was confusing)
+
+**8 cells flattened to vertical checklist pattern:**
+| Notebook | Cell | What | Was |
+|---|---|---|---|
+| sql_master_decision_tree | 2 | Step 2A Single-Table Path | 10 levels deep |
+| sql_master_decision_tree | 3 | Step 2B Multi-Table Path | 5 levels |
+| sql_master_decision_tree | 6 | Step 4 Subquery Decision | 3 levels |
+| sql_single_table_query_strategies | 2 | Decision Tree 5-Second Version | 12 levels |
+| sql_single_table_query_strategies | 17 | Method Selection Framework | 3 levels |
+| sql_single_table_query_strategies | 21 | Subquery Decision Tree | 3 levels |
+| competing_priorities_playbook | 2 | Conflict Decision Tree | 3 levels |
+| competing_priorities_playbook | 7 | Escalation Decision Tree | 4 levels |
+
+**20 additional flowchart cells unchanged** — already flat or shallow enough.
+
+**Flowchart pattern inventory across all notebooks (39 cells, 8 notebooks):**
+- VERTICAL CHECKLIST (no branches): 4 cells — purely vertical, clearest pattern
+- HYBRID (checklist + shallow branch at end): 4 cells — vertical chain ending in 2-3 column branch
+- SHALLOW TREE (1-2 levels, flat): ~20 cells — standard side-by-side, no nesting issues
+- LINEAR (no branches): ~8 cells — single vertical flow
+- FLAT multi-branch (all at same level): ~3 cells — multiple branch sets but no nesting
+
+**New Playbook — Competing Priorities:**
+- Created `folders/playbooks/projects/competing_priorities_playbook.ipynb` (13 cells)
+- Created wrapper `folders/playbooks/competing_priorities_playbook.html`
+- Updated `playbooks_landing.html` (now 5 guides) and `playbooks_table.html`
+- Added to `posts.json` (now 15 entries)
+- Content: Priority Conflict Matrix, Decision Tree, 5 Types of Conflicts, Stakeholder Map, Communication Scripts, Trade-Off Framework, When to Escalate, Cross-Functional Conflicts, Anti-Patterns, Worked Example, Checklists, Final Takeaway
+
+**Conditional Aggregation & MAX vs SUM content added to SQL guides:**
+- `sql_single_table_query_strategies.ipynb` cell 21: "When You DON'T Need a Subquery — The Conditional Aggregation Shortcut" (`AVG(CASE WHEN ... THEN 100.0 ELSE 0 END)`)
+- `sql_multi_table_query_strategies.ipynb` cell 15: "The Aggregate Join Trap: MAX() vs SUM() on Joined Constants"
+- `sql_combined_strategy_patterns.ipynb` cell 17: "Before You Reach for a Subquery — Check If Conditional Aggregation Works"
+
+**flowchart.css added to all 10 wrapper pages** (5 playbook + 5 SQL)
+
+---
 
 ### Session: March 29, 2026 (Session 4 — Carousel, Subqueries, Master Decision Tree, Renaming)
 
@@ -385,7 +446,7 @@ To add a new category color, add a CSS rule in `static/css/landing.css`:
 **Key Technical Details:**
 - `carousel_init.js` fixes mobile black gap issue — measures actual slide widths instead of hardcoded 5040px
 - Posts.json tracks ~14 featured posts (not all 170+) — hero counter is hardcoded separately
-- ASCII box-drawing decision trees use Unicode (┌─┬─┐│▼►) consistently across all SQL notebooks
+- ASCII box-drawing decision trees were replaced with HTML flowcharts (`flowchart.css`) in Session 5 — see Session 5 log for details
 
 ---
 
@@ -527,6 +588,8 @@ To add a new category color, add a CSS rule in `static/css/landing.css`:
 11. **Hero counter is hardcoded** — `posts.json` only tracks ~14 featured posts, not all 170+. The "170+ guides & projects published" counter is hardcoded directly in `index.html`. Update it manually as the site grows.
 12. **Carousel is JS-driven** — `carousel_init.js` dynamically calculates animation distance from actual slide widths. Do NOT add fixed `@keyframes carousel-scroll` back to `landing.css` — the JS handles it. Adding/removing slides automatically adjusts the animation.
 13. **SQL post titles should be descriptive** — Titles are question-style or "How to..." format for clarity. Old generic names (e.g., "SQL Combined Strategy Patterns") were replaced. Keep this convention for new SQL posts.
+14. **Flowchart deep nesting is forbidden** — Never nest `fc-branches` more than 2 levels deep. For sequential YES/NO chains (3+ decisions), use the vertical checklist pattern: question → `fc-good` YES answer → `fc-arrow fc-else` "if no ▼" → next question. See Step 2A in master decision tree for the reference implementation.
+15. **flowchart.css must be linked in wrapper pages** — Any wrapper page that includes a notebook with HTML flowcharts needs `<link rel="stylesheet" href="../../static/css/flowchart.css">` in its `<head>`. Currently linked in all 5 playbook + 5 SQL wrapper pages.
 
 ---
 
