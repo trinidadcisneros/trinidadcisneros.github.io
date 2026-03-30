@@ -13137,28 +13137,22 @@ div#notebook {
 <hr style="border: 3px solid black;"/>
 <p><a id="master-tree"></a></p>
 <h2 id="Step-1:-How-Many-Tables?">Step 1: How Many Tables?<a class="anchor-link" href="#Step-1:-How-Many-Tables?">¶</a></h2><p>This is always the first question. Everything else follows from it.</p>
-<pre><code>┌─────────────────────────────────────────────────────────┐
-│              READ THE PROBLEM STATEMENT                 │
-│                                                         │
-│  1. How many tables are mentioned?                      │
-│  2. What does the expected output look like?            │
-│  3. Are there aggregation words (total, average, %)?    │
-└────────────────────────┬────────────────────────────────┘
-                         │
-                         ▼
-          ┌──────────────────────────────┐
-          │  How many tables are         │
-          │  involved in this problem?   │
-          └──────┬───────────────┬───────┘
-                 │               │
-                 ▼               ▼
-          ┌────────────┐  ┌──────────────────┐
-          │  ONE TABLE │  │  TWO OR MORE     │
-          │            │  │  TABLES          │
-          │  Go to     │  │                  │
-          │  Step 2A   │  │  Go to Step 2B   │
-          └────────────┘  └──────────────────┘
-</code></pre>
+<div class="fc">
+<div class="fc-node fc-start">READ THE PROBLEM STATEMENT<br/><br/>1. How many tables are mentioned?<br/>2. What does the expected output look like?<br/>3. Are there aggregation words (total, average, %)?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-node fc-start">How many tables are involved in this problem?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-tag">ONE TABLE</div>
+<div class="fc-node fc-action">Go to Step 2A</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-tag">TWO OR MORE TABLES</div>
+<div class="fc-node fc-action">Go to Step 2B</div>
+</div>
+</div>
+</div>
 </div>
 </div>
 </div>
@@ -13168,75 +13162,123 @@ div#notebook {
 <hr style="border: 3px solid black;"/>
 <p><a id="single-table-path"></a></p>
 <h2 id="Step-2A:-Single-Table-Path">Step 2A: Single-Table Path<a class="anchor-link" href="#Step-2A:-Single-Table-Path">¶</a></h2><p>You have one table. Walk down and stop at the first YES.</p>
-<pre><code>┌───────────────────────────────────────┐
-│   SINGLE TABLE — What am I doing?     │
-└──────────────────┬────────────────────┘
-                   │
-                   ▼
-┌──────────────────────────────┐  YES   ┌──────────────────────────────┐
-│  Just filtering rows by      ├───────►│  WHERE + ORDER BY            │
-│  conditions on columns?      │        │                              │
-└──────────┬───────────────────┘        └──────────────────────────────┘
-           │ NO
-           ▼
-┌──────────────────────────────┐  YES   ┌──────────────────────────────┐
-│  Does it involve dates?      ├───────►│  See DATE FORK (Step 3)      │
-└──────────┬───────────────────┘        └──────────────────────────────┘
-           │ NO
-           ▼
-┌──────────────────────────────┐  YES   ┌──────────────────────────────┐
-│  Am I comparing rows?        ├───────►│  LAG() / LEAD()              │
-│  (prev vs next, row pairs)   │        │                              │
-└──────────┬───────────────────┘        └──────────────────────────────┘
-           │ NO
-           ▼
-┌──────────────────────────────┐  YES   ┌──────────────────────────────┐
-│  Am I collapsing rows into   ├───────►│  GROUP BY + aggregate func   │
-│  summary? (count, sum, avg)  │        │                              │
-└──────────┬───────────────────┘        └──────────────────────────────┘
-           │ NO
-           ▼
-┌──────────────────────────────┐  YES   ┌──────────────────────────────┐
-│  Filtering AFTER grouping?   ├───────►│  GROUP BY + HAVING           │
-│  ("groups where count &gt; 3")  │        │                              │
-└──────────┬───────────────────┘        └──────────────────────────────┘
-           │ NO
-           ▼
-┌──────────────────────────────┐  YES   ┌──────────────────────────────┐
-│  Am I ranking rows?          ├───────►│  ROW_NUMBER() / RANK()       │
-│  ("top N per group")         │        │                              │
-└──────────┬───────────────────┘        └──────────────────────────────┘
-           │ NO
-           ▼
-┌──────────────────────────────┐  YES   ┌──────────────────────────────┐
-│  Running total / cumulative? ├───────►│  SUM() OVER(ORDER BY ...)    │
-│                              │        │                              │
-└──────────┬───────────────────┘        └──────────────────────────────┘
-           │ NO
-           ▼
-┌──────────────────────────────┐  YES   ┌──────────────────────────────┐
-│  Labeling / categorizing?    ├───────►│  CASE WHEN                   │
-│  ("if X then label Y")       │        │                              │
-└──────────┬───────────────────┘        └──────────────────────────────┘
-           │ NO
-           ▼
-┌──────────────────────────────┐  YES   ┌──────────────────────────────┐
-│  Pivoting rows → columns?    ├───────►│  CASE + GROUP BY             │
-│                              │        │                              │
-└──────────┬───────────────────┘        └──────────────────────────────┘
-           │ NO
-           ▼
-┌──────────────────────────────┐  YES   ┌──────────────────────────────┐
-│  Finding missing data?       ├───────►│  NOT EXISTS / IS NULL        │
-│                              │        │                              │
-└──────────┬───────────────────┘        └──────────────────────────────┘
-           │ NO
-           ▼
-┌──────────────────────────────┐  YES   ┌──────────────────────────────┐
-│  Removing duplicates?        ├───────►│  ROW_NUMBER / DISTINCT       │
-│                              │        │                              │
-└──────────────────────────────┘        └──────────────────────────────┘
-</code></pre>
+<div class="fc">
+<div class="fc-node fc-start">SINGLE TABLE — What am I doing?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-start">Just filtering rows by conditions on columns?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-node fc-good">WHERE + ORDER BY</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start">Does it involve dates?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">See DATE FORK (Step 3)</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start">Am I comparing rows?<br/>(prev vs next, row pairs)</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">LAG() / LEAD()</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start">Am I collapsing rows into summary?<br/>(count, sum, avg)</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">GROUP BY + aggregate func</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start">Filtering AFTER grouping?<br/>("groups where count &gt; 3")</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">GROUP BY + HAVING</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start">Am I ranking rows?<br/>("top N per group")</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">ROW_NUMBER() / RANK()</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start">Running total / cumulative?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">SUM() OVER(ORDER BY ...)</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start">Labeling / categorizing?<br/>("if X then label Y")</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">CASE WHEN</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start">Pivoting rows → columns?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">CASE + GROUP BY</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start">Finding missing data?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">NOT EXISTS / IS NULL</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start">Removing duplicates?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-node fc-good">ROW_NUMBER / DISTINCT</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
 <p>All patterns above are covered in the <a href="sql_single_table_query_strategies.html"><strong>Single-Table Strategies Guide</strong></a>.</p>
 <blockquote>
 <p><strong>Still stuck?</strong> Check if you actually need a subquery — go to <a href="#subquery-decision"><strong>Step 4: Do I Need a Subquery?</strong></a></p>
@@ -13250,46 +13292,66 @@ div#notebook {
 <hr style="border: 3px solid black;"/>
 <p><a id="multi-table-path"></a></p>
 <h2 id="Step-2B:-Multi-Table-Path-%E2%80%94-Pick-the-JOIN">Step 2B: Multi-Table Path — Pick the JOIN<a class="anchor-link" href="#Step-2B:-Multi-Table-Path-%E2%80%94-Pick-the-JOIN">¶</a></h2><p>You have two or more tables. First, decide how to connect them.</p>
-<pre><code>┌─────────────────────────────────────────┐
-│   MULTIPLE TABLES — How do they relate? │
-└────────────────────┬────────────────────┘
-                     │
-                     ▼
-┌──────────────────────────────────┐  YES   ┌────────────────────────────────┐
-│  Same structure / similar data?  │───────▶│  UNION ALL (or UNION)          │
-│  "combine", "merge", "together"  │        │  Stack rows from both tables   │
-└──────────────┬───────────────────┘        └────────────────────────────────┘
-               │ NO
-               ▼
-┌──────────────────────────────────┐  YES   ┌────────────────────────────────┐
-│  Table references itself?        │───────▶│  Self JOIN                     │
-│  "manager", "parent", "reports"  │        │                                │
-└──────────────┬───────────────────┘        └────────────────────────────────┘
-               │ NO
-               ▼
-┌──────────────────────────────────┐  YES   ┌────────────────────────────────┐
-│  Need ALL combinations?          │───────▶│  CROSS JOIN                    │
-│  "every X with every Y"          │        │                                │
-└──────────────┬───────────────────┘        └────────────────────────────────┘
-               │ NO
-               ▼
-┌──────────────────────────────────┐  YES   ┌────────────────────────────────┐
-│  Need to find what's MISSING?    │───────▶│  LEFT JOIN + WHERE IS NULL     │
-│  "never", "didn't", "no match"   │        │  (or NOT EXISTS / ANTI JOIN)   │
-└──────────────┬───────────────────┘        └────────────────────────────────┘
-               │ NO
-               ▼
-┌──────────────────────────────────┐  YES   ┌────────────────────────────────┐
-│  Must keep ALL rows from one     │───────▶│  LEFT JOIN                     │
-│  table even if no match?         │        │  + COALESCE for NULL defaults  │
-└──────────────┬───────────────────┘        └────────────────────────────────┘
-               │ NO
-               ▼
-┌──────────────────────────────────┐        ┌────────────────────────────────┐
-│  Default: Matching rows only     │───────▶│  INNER JOIN                    │
-│  "get name", "look up", "find"   │        │  (most common starting point)  │
-└──────────────────────────────────┘        └────────────────────────────────┘
-</code></pre>
+<div class="fc">
+<div class="fc-node fc-start">MULTIPLE TABLES — How do they relate?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-start">Same structure / similar data?<br/>("combine", "merge", "together")</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-node fc-good">UNION ALL (or UNION)<br/>Stack rows from both tables</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start">Table references itself?<br/>("manager", "parent", "reports")</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">Self JOIN</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start">Need ALL combinations?<br/>("every X with every Y")</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">CROSS JOIN</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start">Need to find what's MISSING?<br/>("never", "didn't", "no match")</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">LEFT JOIN + WHERE IS NULL<br/>(or NOT EXISTS / ANTI JOIN)</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start">Must keep ALL rows from one table even if no match?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">LEFT JOIN<br/>+ COALESCE for NULL defaults</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-good">INNER JOIN<br/>(most common starting point)</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
 <p>All join patterns above are covered in the <a href="sql_multi_table_query_strategies.html"><strong>Multi-Table Strategies Guide</strong></a>.</p>
 <blockquote>
 <p><strong>After picking the JOIN:</strong> Does the problem also need aggregation, ranking, or conditional logic? If yes, go to <a href="#combo-path"><strong>Step 2C</strong></a>. If the join alone answers the question, you're done.</p>
@@ -13303,22 +13365,24 @@ div#notebook {
 <hr style="border: 3px solid black;"/>
 <p><a id="combo-path"></a></p>
 <h2 id="Step-2C:-After-the-JOIN-%E2%80%94-Pick-the-Transformation">Step 2C: After the JOIN — Pick the Transformation<a class="anchor-link" href="#Step-2C:-After-the-JOIN-%E2%80%94-Pick-the-Transformation">¶</a></h2><p>You've picked your join from <a href="#multi-table-path">Step 2B</a>. Now treat the joined result as a single table and pick the transformation.</p>
-<pre><code>┌─────────────────────────────────────────────────────────┐
-│  You have joined data. What transformation is needed?   │
-└───────────────────────┬─────────────────────────────────┘
-                        │
-    ┌───────────────────┼──────────────────┬──────────────────┐
-    ▼                   ▼                  ▼                  ▼
-┌────────────────┐ ┌────────────────┐ ┌────────────────┐ ┌────────────────┐
-│  Rate / Ratio  │ │  Count / Sum   │ │  Rank across   │ │  Filter groups │
-│  Conditional   │ │  per entity    │ │  joined data   │ │  by threshold  │
-│  metric        │ │  (incl. zeros) │ │                │ │                │
-│                │ │                │ │                │ │                │
-│  GROUP BY      │ │  GROUP BY      │ │  ROW_NUMBER    │ │  GROUP BY      │
-│  + CASE WHEN   │ │  + COUNT/SUM   │ │  RANK / LEAD   │ │  + HAVING      │
-│                │ │                │ │  OVER()        │ │                │
-└────────────────┘ └────────────────┘ └────────────────┘ └────────────────┘
-</code></pre>
+<div class="fc">
+<div class="fc-node fc-start">You have joined data. What transformation is needed?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches fc-three">
+<div class="fc-branch">
+<div class="fc-node fc-action">Rate / Ratio<br/>Conditional metric<br/><br/>GROUP BY<br/>+ CASE WHEN</div>
+</div>
+<div class="fc-branch">
+<div class="fc-node fc-action">Count / Sum<br/>per entity<br/>(incl. zeros)<br/><br/>GROUP BY<br/>+ COUNT/SUM</div>
+</div>
+<div class="fc-branch">
+<div class="fc-node fc-action">Rank across<br/>joined data<br/><br/>ROW_NUMBER<br/>RANK / LEAD<br/>OVER()</div>
+</div>
+<div class="fc-branch">
+<div class="fc-node fc-action">Filter groups<br/>by threshold<br/><br/>GROUP BY<br/>+ HAVING</div>
+</div>
+</div>
+</div>
 <p>All combo patterns above are covered in the <a href="sql_combined_strategy_patterns.html"><strong>Combined Strategy Patterns Guide</strong></a>.</p>
 <blockquote>
 <p><strong>Does your transformation also need a subquery?</strong> Go to <a href="#subquery-decision"><strong>Step 4: Do I Need a Subquery?</strong></a></p>
@@ -13332,25 +13396,30 @@ div#notebook {
 <hr style="border: 3px solid black;"/>
 <p><a id="date-fork"></a></p>
 <h2 id="Step-3:-Date-Fork">Step 3: Date Fork<a class="anchor-link" href="#Step-3:-Date-Fork">¶</a></h2><p>If your problem involves dates, this fork tells you which date tool to use. After choosing, <strong>go back to the main tree</strong> (<a href="#single-table-path">Step 2A</a> or <a href="#multi-table-path">Step 2B</a>) for the structural pattern.</p>
-<pre><code>┌──────────────────────────────────────────────────────────────────────┐
-│                    What kind of date work?                           │
-└──────┬───────────────────────┬───────────────────────┬───────────────┘
-       ▼                       ▼                       ▼
-┌──────────────┐        ┌──────────────┐        ┌──────────────┐
-│  Comparing   │        │  Extracting  │        │  Calculating │
-│  consecutive │        │  parts?      │        │  difference? │
-│  rows?       │        │              │        │              │
-│  (yesterday, │        │  (per month, │        │  (days       │
-│   next day)  │        │   per year)  │        │   between,   │
-│              │        │              │        │   gaps)      │
-└──────┬───────┘        └──────┬───────┘        └──────┬───────┘
-       ▼                       ▼                       ▼
-┌──────────────┐        ┌──────────────┐        ┌──────────────┐
-│  LAG / LEAD  │        │  EXTRACT /   │        │  DATEDIFF /  │
-│  + date math │        │  DATE_PART   │        │  subtraction │
-│              │        │  + GROUP BY  │        │  + LAG/LEAD  │
-└──────────────┘        └──────────────┘        └──────────────┘
-</code></pre>
+<div class="fc">
+<div class="fc-node fc-start">What kind of date work?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches fc-three">
+<div class="fc-branch">
+<div class="fc-label fc-tag">Comparing consecutive rows</div>
+<div class="fc-node fc-action">(yesterday, next day)</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-node fc-good">LAG / LEAD<br/>+ date math</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-tag">Extracting parts</div>
+<div class="fc-node fc-action">(per month, per year)</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-node fc-good">EXTRACT /<br/>DATE_PART<br/>+ GROUP BY</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-tag">Calculating difference</div>
+<div class="fc-node fc-action">(days between, gaps)</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-node fc-good">DATEDIFF /<br/>subtraction<br/>+ LAG/LEAD</div>
+</div>
+</div>
+</div>
 <blockquote>
 <p><strong>Key insight:</strong> Date problems almost always combine with another pattern. The date fork tells you <em>which date tool</em> you need, then you still flow into the main tree for the structural pattern.</p>
 </blockquote>
@@ -13363,54 +13432,46 @@ div#notebook {
 <hr style="border: 3px solid black;"/>
 <p><a id="subquery-decision"></a></p>
 <h2 id="Step-4:-Do-I-Need-a-Subquery?">Step 4: Do I Need a Subquery?<a class="anchor-link" href="#Step-4:-Do-I-Need-a-Subquery?">¶</a></h2><p>After identifying your main pattern, check if a subquery is needed.</p>
-<pre><code>┌─────────────────────────────────────────────────────────┐
-│  Does my calculation need a value from a DIFFERENT      │
-│  aggregation level or a different table that I'm NOT    │
-│  joining to?                                            │
-│                                                         │
-│  Examples:                                              │
-│  • "percentage of total" (group count / global count)   │
-│  • "above average" (row value vs. table average)        │
-│  • "pre-aggregate then join" (summary + detail)         │
-└──────────────────────┬──────────────────────────────────┘
-                       │
-          ┌────────────┴────────────┐
-          │ NO                      │ YES
-          ▼                         ▼
-┌──────────────────┐   ┌───────────────────────────────────────┐
-│  No subquery     │   │  Can I use a window function instead? │
-│  needed — done!  │   │  (AVG() OVER(), SUM() OVER())         │
-└──────────────────┘   └──────────────────┬────────────────────┘
-                                          │
-                             ┌────────────┴────────────┐
-                             │ YES                     │ NO
-                             ▼                         ▼
-                  ┌──────────────────┐    ┌───────────────────────────┐
-                  │  Window function │    │  YES — YOU NEED A         │
-                  │  is cleaner —    │    │  SUBQUERY                 │
-                  │  use that        │    │                           │
-                  └──────────────────┘    │  Where does it go?        │
-                                          └─────────────┬─────────────┘
-                                                        │
-                         ┌──────────────────────────────┼──────────────────────────────┐
-                         ▼                              ▼                              ▼
-          ┌──────────────────────────┐   ┌──────────────────────────┐   ┌──────────────────────────┐
-          │  In the SELECT clause    │   │  In the WHERE clause     │   │  In the FROM clause      │
-          │                          │   │                          │   │                          │
-          │  "Show a global value    │   │  "Filter rows using a    │   │  "Pre-aggregate, then    │
-          │   alongside each row"    │   │   computed threshold"    │   │   query the result"      │
-          │                          │   │                          │   │                          │
-          │  Signal words:           │   │  Signal words:           │   │  Signal words:           │
-          │  percentage of total,    │   │  above average,          │   │  rank within groups,     │
-          │  ratio, compared to all  │   │  greater than median,    │   │  filter pre-aggregated   │
-          │                          │   │  top performers          │   │  results, join summaries │
-          │                          │   │                          │   │                          │
-          │  Pattern:                │   │  Pattern:                │   │  Pattern:                │
-          │  COUNT(x) /              │   │  WHERE col &gt;             │   │  SELECT * FROM           │
-          │  (SELECT COUNT(*)        │   │  (SELECT AVG(col)        │   │  (SELECT ... GROUP BY)   │
-          │   FROM ...) * 100        │   │   FROM ...)              │   │  AS subquery             │
-          └──────────────────────────┘   └──────────────────────────┘   └──────────────────────────┘
-</code></pre>
+<div class="fc">
+<div class="fc-node fc-start">Does my calculation need a value from a DIFFERENT aggregation level or a different table that I'm NOT joining to?<br/><br/>Examples:<br/>• "percentage of total" (group count / global count)<br/>• "above average" (row value vs. table average)<br/>• "pre-aggregate then join" (summary + detail)</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-good">No subquery needed — done!</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-start">Can I use a window function instead?<br/>(AVG() OVER(), SUM() OVER())</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">Window function is cleaner — use that</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start">YES — YOU NEED A SUBQUERY<br/><br/>Where does it go?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches fc-three">
+<div class="fc-branch">
+<div class="fc-label fc-tag">In SELECT</div>
+<div class="fc-node fc-action">"Show a global value alongside each row"<br/><br/>Signal: percentage of total, ratio, compared to all<br/><br/>Pattern:<br/>COUNT(x) /<br/>(SELECT COUNT(*)<br/>FROM ...) * 100</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-tag">In WHERE</div>
+<div class="fc-node fc-action">"Filter rows using a computed threshold"<br/><br/>Signal: above average, greater than median, top performers<br/><br/>Pattern:<br/>WHERE col &gt;<br/>(SELECT AVG(col)<br/>FROM ...)</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-tag">In FROM</div>
+<div class="fc-node fc-action">"Pre-aggregate, then query the result"<br/><br/>Signal: rank within groups, filter pre-aggregated results, join summaries<br/><br/>Pattern:<br/>SELECT * FROM<br/>(SELECT ... GROUP BY)<br/>AS subquery</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
 <p>For detailed examples of each subquery placement, see:</p>
 <ul>
 <li><a href="sql_subqueries_select.html"><strong>Subqueries in SELECT</strong></a> — percentage of total, ratio calculations</li>
@@ -13550,56 +13611,52 @@ div#notebook {
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="full-flow"></a></p>
-<h2 id="The-Complete-Flow-%E2%80%94-All-Steps-on-One-Diagram">The Complete Flow — All Steps on One Diagram<a class="anchor-link" href="#The-Complete-Flow-%E2%80%94-All-Steps-on-One-Diagram">¶</a></h2><pre><code>┌─────────────────────────────────────────────────────────┐
-│                  READ THE PROBLEM                       │
-└────────────────────────┬────────────────────────────────┘
-                         │
-                  How many tables?
-                         │
-            ┌────────────┴────────────────┐
-            ▼                             ▼
-     ┌────────────┐              ┌──────────────────┐
-     │  ONE TABLE │              │  2+ TABLES       │
-     └─────┬──────┘              └────────┬─────────┘
-           │                              │
-           ▼                              ▼
-  ┌─────────────────┐          ┌───────────────────────┐
-  │  Walk Step 2A   │          │  Walk Step 2B         │
-  │  (single-table  │          │  (pick the JOIN)      │
-  │   patterns)     │          └───────────┬───────────┘
-  └────────┬────────┘                      │
-           │                     Need transformation
-           │                     after the join?
-           │                               │
-           │                    ┌──────────┴──────────┐
-           │                    │ NO                  │ YES
-           │                    ▼                     ▼
-           │              ┌──────────┐     ┌───────────────────┐
-           │              │  Done!   │     │  Walk Step 2C     │
-           │              │  JOIN    │     │  (pick transform) │
-           │              │  alone   │     └─────────┬─────────┘
-           │              │  answers │               │
-           │              │  it      │               │
-           │              └──────────┘               │
-           │                                         │
-           └─────────────────┬───────────────────────┘
-                             │
-                             ▼
-              ┌───────────────────────────────┐
-              │  Does any part of my formula  │
-              │  need a value from a          │
-              │  DIFFERENT aggregation level? │
-              └──────────────┬────────────────┘
-                             │
-                ┌────────────┴────────────┐
-                │ NO                      │ YES
-                ▼                         ▼
-        ┌──────────────┐       ┌───────────────────┐
-        │  DONE!       │       │  Walk Step 4      │
-        │  Write your  │       │  (subquery        │
-        │  query       │       │   placement)      │
-        └──────────────┘       └───────────────────┘
-</code></pre>
+<h2 id="The-Complete-Flow-%E2%80%94-All-Steps-on-One-Diagram">The Complete Flow — All Steps on One Diagram<a class="anchor-link" href="#The-Complete-Flow-%E2%80%94-All-Steps-on-One-Diagram">¶</a></h2><div class="fc">
+<div class="fc-node fc-start">READ THE PROBLEM</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-node fc-start">How many tables?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-tag">ONE TABLE</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-node fc-action">Walk Step 2A<br/>(single-table patterns)</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-tag">2+ TABLES</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-node fc-action">Walk Step 2B<br/>(pick the JOIN)</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-node fc-start">Need transformation after the join?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-node fc-good">Done! JOIN alone answers it</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-node fc-action">Walk Step 2C<br/>(pick transform)</div>
+</div>
+</div>
+</div>
+</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-node fc-start">Does any part of my formula need a value from a DIFFERENT aggregation level?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-good">DONE! Write your query</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-action">Walk Step 4<br/>(subquery placement)</div>
+</div>
+</div>
+</div>
 </div>
 </div>
 </div>

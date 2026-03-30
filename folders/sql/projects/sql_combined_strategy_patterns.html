@@ -13250,90 +13250,93 @@ Layer 2 (Single-Table): What do I do with those rows?            →  GROUP BY /
 <hr style="border: 3px solid black;"/>
 <p><a id="3-combo-decision-tree"></a></p>
 <h2 id="3.-Combo-Decision-Tree">3. Combo Decision Tree<a class="anchor-link" href="#3.-Combo-Decision-Tree">¶</a></h2><p>Start here for any multi-table problem that also needs transformation:</p>
-<pre><code>┌─────────────────────────────────────────────────┐
-│          READ THE QUESTION                      │
-│  1. How many tables?                            │
-│  2. Does output include ALL entities?           │
-│  3. What transformation is needed?              │
-└───────────────────────┬─────────────────────────┘
-                        │
-                        ▼
-┌───────────────────────────────────────────┐
-│  PASS 1: Pick the JOIN                    │
-│  (Use the decision flow below)            │
-└───────────────────┬───────────────────────┘
-                    │
-        ┌───────────┼───────────┬────────────┬─────────────┐
-        ▼           ▼           ▼            ▼             ▼
-   ┌─────────┐ ┌─────────┐ ┌──────────┐ ┌────────┐ ┌───────────┐
-   │  LEFT   │ │  INNER  │ │  CROSS   │ │  ANTI  │ │   Self    │
-   │  JOIN   │ │  JOIN   │ │  JOIN    │ │  JOIN  │ │   JOIN    │
-   └────┬────┘ └────┬────┘ └────┬─────┘ └───┬────┘ └─────┬─────┘
-        │           │           │            │            │
-        └───────────┴───────────┴────────────┴────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────┐
-│  PASS 2: Pick the TRANSFORMATION                        │
-│  (Treat joined result as a single table)                │
-└───────────────────────┬─────────────────────────────────┘
-                        │
-    ┌───────────────────┼──────────────────┬──────────────────┐
-    ▼                   ▼                  ▼                  ▼
-┌────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│ GROUP BY   │  │ GROUP BY     │  │ Window Func  │  │ GROUP BY     │
-│ + CASE     │  │ + COUNT/SUM  │  │ LAG/LEAD     │  │ + HAVING     │
-│ (rate,     │  │ (count per   │  │ ROW_NUMBER   │  │ (filter      │
-│  ratio,    │  │  entity incl │  │ (rank across │  │  groups by   │
-│ conditional│  │  zeros)      │  │  joined data)│  │  threshold)  │
-│  metric)   │  │              │  │              │  │              │
-└────────────┘  └──────────────┘  └──────────────┘  └──────────────┘
-</code></pre>
+<div class="fc">
+<div class="fc-node fc-start">READ THE QUESTION<br/>1. How many tables?<br/>2. Does output include ALL entities?<br/>3. What transformation is needed?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-node fc-action">PASS 1: Pick the JOIN<br/>(Use the decision flow below)</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches fc-three">
+<div class="fc-branch">
+<div class="fc-node fc-good">LEFT JOIN</div>
+</div>
+<div class="fc-branch">
+<div class="fc-node fc-good">INNER JOIN</div>
+</div>
+<div class="fc-branch">
+<div class="fc-node fc-good">CROSS JOIN</div>
+</div>
+</div>
+<div style="text-align: center; margin: 10px 0;">
+<span style="display: inline-block; margin: 0 20px;">ANTI JOIN</span>
+<span style="display: inline-block;">Self JOIN</span>
+</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-node fc-action">PASS 2: Pick the TRANSFORMATION<br/>(Treat joined result as a single table)</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches fc-three">
+<div class="fc-branch">
+<div class="fc-node fc-warn">GROUP BY + CASE<br/>(rate, ratio, conditional metric)</div>
+</div>
+<div class="fc-branch">
+<div class="fc-node fc-warn">GROUP BY + COUNT/SUM<br/>(count per entity incl zeros)</div>
+</div>
+<div class="fc-branch">
+<div class="fc-node fc-warn">Window Func LAG/LEAD<br/>ROW_NUMBER<br/>(rank across joined data)</div>
+</div>
+</div>
+<div style="text-align: center; margin: 10px 0;">
+<div class="fc-node fc-warn" style="display: inline-block; width: auto; margin-top: 10px;">GROUP BY + HAVING<br/>(filter groups by threshold)</div>
+</div>
+</div>
 <hr>
 <h3 id="Pass-1-Expanded:-How-to-Pick-the-Right-JOIN">Pass 1 Expanded: How to Pick the Right JOIN<a class="anchor-link" href="#Pass-1-Expanded:-How-to-Pick-the-Right-JOIN">¶</a></h3><p>Use this flow to determine which join type your problem requires:</p>
-<pre><code>┌──────────────────────────────────────────────────┐
-│  Does a table reference ITSELF?                  │
-│  (managerId → id, parent_id → id)                │
-└──────────┬────────────────────┬──────────────────┘
-           │ YES                │ NO
-           ▼                   ▼
-   ┌──────────────┐   ┌───────────────────────────────────────┐
-   │  SELF JOIN   │   │  Are the two tables INDEPENDENT       │
-   │              │   │  lists that need ALL combinations?    │
-   │  Same table, │   │  (every student × every subject)      │
-   │  two aliases │   └──────────┬─────────────────┬──────────┘
-   └──────────────┘              │ YES             │ NO
-                                 ▼                 ▼
-                        ┌──────────────┐  ┌────────────────────────────────┐
-                        │  CROSS JOIN  │  │  Does the output need ONLY     │
-                        │              │  │  entities with NO match?       │
-                        │  Cartesian   │  │  "never," "didn't," "who has   │
-                        │  product of  │  │  no," "not in"                 │
-                        │  both lists  │  └──────────┬──────────┬──────────┘
-                        │              │             │ YES      │ NO
-                        │  (then LEFT  │             ▼          ▼
-                        │  JOIN to     │    ┌──────────────┐  ┌──────────────────────┐
-                        │  fact table) │    │  ANTI JOIN   │  │  Does the output     │
-                        └──────────────┘    │  (LEFT JOIN  │  │  need ALL entities,  │
-                                            │  + WHERE     │  │  even those with     │
-                                            │  IS NULL)    │  │  no match?           │
-                                            │              │  │  (zeros in output)   │
-                                            │  Returns     │  └─────┬─────────┬──────┘
-                                            │  only rows   │        │ YES     │ NO
-                                            │  with NO     │        ▼         ▼
-                                            │  match       │  ┌──────────┐  ┌──────────┐
-                                            └──────────────┘  │  LEFT    │  │  INNER   │
-                                                              │  JOIN    │  │  JOIN    │
-                                                              │          │  │          │
-                                                              │  Keeps   │  │  Only    │
-                                                              │  ALL     │  │  matching│
-                                                              │  rows;   │  │  rows    │
-                                                              │  NULLs   │  │          │
-                                                              │  where   │  │          │
-                                                              │  no      │  │          │
-                                                              │  match   │  │          │
-                                                              └──────────┘  └──────────┘
-</code></pre>
+<div class="fc">
+<div class="fc-node fc-start">Does a table reference ITSELF?<br/>(managerId → id, parent_id → id)</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">SELF JOIN<br/>Same table, two aliases</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start">Are the two tables INDEPENDENT lists that need ALL combinations?<br/>(every student × every subject)</div>
+</div>
+</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">CROSS JOIN<br/>Cartesian product of both lists<br/>(then LEFT JOIN to fact table)</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start">Does the output need ONLY entities with NO match?<br/>("never," "didn't," "who has no," "not in")</div>
+</div>
+</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-warn">ANTI JOIN<br/>(LEFT JOIN + WHERE IS NULL)<br/>Returns only rows with NO match</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start">Does the output need ALL entities, even those with no match?<br/>(zeros in output)</div>
+</div>
+</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">LEFT JOIN<br/>Keeps ALL rows; NULLs where no match</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-good">INNER JOIN<br/>Only matching rows</div>
+</div>
+</div>
+</div>
 <hr>
 <h3 id="The-4-Join-Types-%E2%80%94-When-and-Why">The 4 Join Types — When and Why<a class="anchor-link" href="#The-4-Join-Types-%E2%80%94-When-and-Why">¶</a></h3><p><strong>LEFT JOIN</strong> — <em>"Keep everyone, even those with nothing"</em></p>
 <table>
@@ -14361,33 +14364,35 @@ Layer 2 (Single-Table): What do I do with those rows?            →  GROUP BY /
 <hr style="border: 3px solid black;"/>
 <p><a id="subquery-placement-in-combos"></a></p>
 <h2 id="Subquery-Placement-in-Combo-Problems">Subquery Placement in Combo Problems<a class="anchor-link" href="#Subquery-Placement-in-Combo-Problems">¶</a></h2><p>Many combo problems involve a subquery as one of the building blocks. After you've picked your JOIN (Pass 1) and your transformation (Pass 2), ask: <strong>does any part of my calculation need a value from a different aggregation level?</strong> If yes, you need a subquery.</p>
-<h3 id="Subquery-Placement-Decision-Tree">Subquery Placement Decision Tree<a class="anchor-link" href="#Subquery-Placement-Decision-Tree">¶</a></h3><pre><code>┌──────────────────────────────────────────────────┐
-│  After Pass 1 (JOIN) and Pass 2 (Transform),     │
-│  does my formula need a value from a DIFFERENT   │
-│  aggregation level or a different table?          │
-└──────────────────────┬───────────────────────────┘
-                       │
-          ┌────────────┴────────────┐
-          │ NO                      │ YES
-          ▼                         ▼
-┌──────────────────┐   ┌───────────────────────────────────────┐
-│ No subquery      │   │  What role does the subquery play?    │
-│ needed — your    │   └──────────────┬────────────────────────┘
-│ JOIN + transform │                  │
-│ is complete      │     ┌────────────┼────────────────┐
-└──────────────────┘     ▼            ▼                ▼
-              ┌──────────────┐ ┌─────────────┐ ┌──────────────────┐
-              │  DENOMINATOR │ │  FILTER     │ │  PRE-AGGREGATE   │
-              │              │ │             │ │                  │
-              │  Provides a  │ │  Provides a │ │  One table must  │
-              │  total or    │ │  threshold  │ │  be summarized   │
-              │  baseline    │ │  to compare │ │  BEFORE the join │
-              │  for a ratio │ │  against    │ │                  │
-              │              │ │             │ │  → Subquery in   │
-              │  → Subquery  │ │  → Subquery │ │    FROM (or CTE) │
-              │    in SELECT │ │    in WHERE │ │                  │
-              └──────────────┘ └─────────────┘ └──────────────────┘
-</code></pre>
+<h3 id="Subquery-Placement-Decision-Tree">Subquery Placement Decision Tree<a class="anchor-link" href="#Subquery-Placement-Decision-Tree">¶</a></h3><div class="fc">
+<div class="fc-node fc-start">After Pass 1 (JOIN) and Pass 2 (Transform),<br/>does my formula need a value from a DIFFERENT<br/>aggregation level or a different table?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-good">No subquery needed<br/>Your JOIN + transform is complete</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-start">What role does the subquery play?</div>
+</div>
+</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches fc-three">
+<div class="fc-branch">
+<div class="fc-label fc-tag">DENOMINATOR</div>
+<div class="fc-node fc-warn">Provides a total or baseline for a ratio<br/><br/>Subquery in SELECT</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-tag">FILTER</div>
+<div class="fc-node fc-warn">Provides a threshold to compare against<br/><br/>Subquery in WHERE</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-tag">PRE-AGGREGATE</div>
+<div class="fc-node fc-warn">One table must be summarized BEFORE the join<br/><br/>Subquery in FROM (or CTE)</div>
+</div>
+</div>
+</div>
 <hr>
 <h3 id="How-Subqueries-Fit-Into-the-Two-Pass-Framework">How Subqueries Fit Into the Two-Pass Framework<a class="anchor-link" href="#How-Subqueries-Fit-Into-the-Two-Pass-Framework">¶</a></h3><table>
 <thead>

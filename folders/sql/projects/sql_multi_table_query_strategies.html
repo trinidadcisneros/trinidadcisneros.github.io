@@ -13302,48 +13302,66 @@ div#notebook {
 <hr style="border: 3px solid black;"/>
 <p><a id="2-decision-tree-5-second-version"></a></p>
 <h2 id="2.-Decision-Tree-(5-Second-Version)">2. Decision Tree (5-Second Version)<a class="anchor-link" href="#2.-Decision-Tree-(5-Second-Version)">¶</a></h2><p>Use this quick mental checklist when you first read a multi-table problem:</p>
-<pre><code>┌─────────────────────────────────────────┐
-│          READ THE QUESTION              │
-│   How many tables are involved?         │
-│   How do they relate?                   │
-└────────────────────┬────────────────────┘
-                     │
-                     ▼
-┌──────────────────────────────────┐  YES   ┌────────────────────────────────┐
-│  Same structure / similar data?  │───────▶│  UNION ALL (or UNION)          │
-│  "combine", "merge", "together"  │        │  Stack rows from both tables   │
-└──────────────┬───────────────────┘        └────────────────────────────────┘
-               │ NO
-               ▼
-┌──────────────────────────────────┐  YES   ┌────────────────────────────────┐
-│  Table references itself?        │───────▶│  Self JOIN                     │
-│  "manager", "parent", "reports"  │        │  (or Recursive CTE for depth)  │
-└──────────────┬───────────────────┘        └────────────────────────────────┘
-               │ NO
-               ▼
-┌──────────────────────────────────┐  YES   ┌────────────────────────────────┐
-│  Need ALL combinations?          │───────▶│  CROSS JOIN                    │
-│  "every X with every Y"          │        │  Then LEFT JOIN for actuals    │
-└──────────────┬───────────────────┘        └────────────────────────────────┘
-               │ NO
-               ▼
-┌──────────────────────────────────┐  YES   ┌────────────────────────────────┐
-│  Need to find what's MISSING?    │───────▶│  LEFT JOIN + WHERE IS NULL     │
-│  "never", "didn't", "no match"   │        │  (or NOT EXISTS)               │
-└──────────────┬───────────────────┘        └────────────────────────────────┘
-               │ NO
-               ▼
-┌──────────────────────────────────┐  YES   ┌────────────────────────────────┐
-│  Must keep ALL rows from one     │───────▶│  LEFT JOIN                     │
-│  table even if no match?         │        │  + COALESCE for NULL defaults  │
-└──────────────┬───────────────────┘        └────────────────────────────────┘
-               │ NO
-               ▼
-┌──────────────────────────────────┐
-│  Matching rows only              │───────▶  INNER JOIN
-│  "get name", "look up", "find"   │
-└──────────────────────────────────┘
-</code></pre>
+<div class="fc">
+<div class="fc-node fc-start">READ THE QUESTION<br/>How many tables are involved?<br/>How do they relate?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">Same structure / similar data?<br/>"combine", "merge", "together"</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-good">UNION ALL (or UNION)<br/>Stack rows from both tables</div>
+</div>
+</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">Table references itself?<br/>"manager", "parent", "reports"</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-good">Self JOIN<br/>(or Recursive CTE for depth)</div>
+</div>
+</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">Need ALL combinations?<br/>"every X with every Y"</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-good">CROSS JOIN<br/>Then LEFT JOIN for actuals</div>
+</div>
+</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">Need to find what's MISSING?<br/>"never", "didn't", "no match"</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-good">LEFT JOIN + WHERE IS NULL<br/>(or NOT EXISTS)</div>
+</div>
+</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">Must keep ALL rows from one<br/>table even if no match?</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-good">LEFT JOIN<br/>+ COALESCE for NULL defaults</div>
+</div>
+</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-node fc-good">Matching rows only<br/>INNER JOIN<br/>"get name", "look up", "find"</div>
+</div>
 </div>
 </div>
 </div>
@@ -13361,13 +13379,14 @@ div#notebook {
 <div class="text_cell_render border-box-sizing rendered_html">
 <p><a id="pattern-a-inner-join"></a></p>
 <h3 id="A.-Lookup-/-Enrich-(INNER-JOIN)">A. Lookup / Enrich (INNER JOIN)<a class="anchor-link" href="#A.-Lookup-/-Enrich-(INNER-JOIN)">¶</a></h3><p><strong>Signals:</strong> "get the name," "include the department," "find matching records"</p>
-<pre><code>    ┌─────────┐   ┌─────────┐
-    │    A    ╔═══╗    B    │
-    │         ║ ✓ ║         │
-    │         ╚═══╝         │
-    └─────────┘   └─────────┘
-    Only the overlap is returned.
-</code></pre>
+<div class="fc" style="max-width: 400px; margin: 20px auto;">
+<div style="display: flex; justify-content: center; align-items: center; gap: 15px;">
+<div style="width: 80px; height: 80px; background: #e8e8e8; border: 2px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">A</div>
+<div style="font-size: 18px; font-weight: bold;">✓</div>
+<div style="width: 80px; height: 80px; background: #e8e8e8; border: 2px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">B</div>
+</div>
+<div style="text-align: center; font-size: 0.9em; margin-top: 10px; font-style: italic;">Only the overlap is returned.</div>
+</div>
 <hr>
 <p><strong>Best approach — <code>INNER JOIN</code></strong></p>
 <p><strong>Method:</strong> <code>INNER JOIN</code> matches rows from two tables on a shared key and returns only the rows that have a match in both tables. Rows without a match in either table are dropped.</p>
@@ -13403,13 +13422,14 @@ div#notebook {
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-b-left-join"></a></p>
 <h3 id="B.-Include-All-/-Preserve-Unmatched-(LEFT-JOIN)">B. Include All / Preserve Unmatched (LEFT JOIN)<a class="anchor-link" href="#B.-Include-All-/-Preserve-Unmatched-(LEFT-JOIN)">¶</a></h3><p><strong>Signals:</strong> "even if no match," "including zeros," "all customers even those with no orders"</p>
-<pre><code>    ┌─────────┐   ┌─────────┐
-    │  ✓ A  ✓╔═══╗✓   B    │
-    │  kept   ║ ✓ ║         │
-    │  (NULL) ╚═══╝         │
-    └─────────┘   └─────────┘
-    All of A returned; B fills in where matched, NULL where not.
-</code></pre>
+<div class="fc" style="max-width: 450px; margin: 20px auto;">
+<div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 10px;">
+<div style="width: 85px; height: 85px; background: #d4f0d4; border: 2px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.85em; text-align: center;">A ✓<br/><span style="font-size: 0.75em;">kept<br/>(NULL)</span></div>
+<div style="font-size: 18px; font-weight: bold;">✓</div>
+<div style="width: 85px; height: 85px; background: #e8e8e8; border: 2px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">B</div>
+</div>
+<div style="text-align: center; font-size: 0.9em; font-style: italic;">All of A returned; B fills in where matched, NULL where not.</div>
+</div>
 <hr>
 <p><strong>Best approach — <code>LEFT JOIN</code></strong></p>
 <p><strong>Method:</strong> <code>LEFT JOIN</code> returns all rows from the left table and matching rows from the right table. When there's no match, the right table's columns come back as NULL.</p>
@@ -13446,13 +13466,14 @@ div#notebook {
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-c-cross-join"></a></p>
 <h3 id="C.-Complete-Combinations-(CROSS-JOIN)">C. Complete Combinations (CROSS JOIN)<a class="anchor-link" href="#C.-Complete-Combinations-(CROSS-JOIN)">¶</a></h3><p><strong>Signals:</strong> "every student with every subject," "all possible pairs," "each X combined with each Y"</p>
-<pre><code>    ┌───────┐     ┌───────┐
-    │ A     │  ×  │     B │
-    │ 4 rows│     │3 rows │
-    └───────┘     └───────┘
-          = 12 row result
-    Every row in A paired with every row in B.
-</code></pre>
+<div class="fc" style="max-width: 500px; margin: 20px auto;">
+<div style="display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 10px;">
+<div style="background: #e8e8e8; border: 2px solid #333; padding: 15px 10px; text-align: center; min-width: 70px;">A<br/><span style="font-size: 0.85em;">4 rows</span></div>
+<div style="font-size: 20px; font-weight: bold;">×</div>
+<div style="background: #e8e8e8; border: 2px solid #333; padding: 15px 10px; text-align: center; min-width: 70px;">B<br/><span style="font-size: 0.85em;">3 rows</span></div>
+</div>
+<div style="text-align: center; font-size: 0.9em; font-style: italic;">= 12 row result<br/>Every row in A paired with every row in B.</div>
+</div>
 <hr>
 <p><strong>Best approach — <code>CROSS JOIN</code></strong></p>
 <p><strong>Method:</strong> <code>CROSS JOIN</code> produces the Cartesian product — every row from the first table paired with every row from the second table. If table A has 4 rows and table B has 3 rows, the result has 12 rows.</p>
@@ -13487,11 +13508,16 @@ div#notebook {
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-d-cross-join-left-join"></a></p>
 <h3 id="D.-Complete-Combinations-with-Counts-(CROSS-JOIN-+-LEFT-JOIN)">D. Complete Combinations with Counts (CROSS JOIN + LEFT JOIN)<a class="anchor-link" href="#D.-Complete-Combinations-with-Counts-(CROSS-JOIN-+-LEFT-JOIN)">¶</a></h3><p><strong>Signals:</strong> "how many times each student attended each exam," "count per pair including zeros," "all combinations with totals"</p>
-<pre><code>    ┌───────┐     ┌───────┐      ┌───────┐
-    │   A   │  ×  │   B   │  ◄── │ Facts │
-    └───────┘     └───────┘      └───────┘
-    All A×B combos; LEFT JOIN attaches counts (0 if missing).
-</code></pre>
+<div class="fc" style="max-width: 600px; margin: 20px auto;">
+<div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 10px; flex-wrap: wrap;">
+<div style="background: #e8e8e8; border: 2px solid #333; padding: 12px 8px; text-align: center; min-width: 60px;">A</div>
+<div style="font-size: 18px; font-weight: bold;">×</div>
+<div style="background: #e8e8e8; border: 2px solid #333; padding: 12px 8px; text-align: center; min-width: 60px;">B</div>
+<div style="font-size: 18px; font-weight: bold;">◄</div>
+<div style="background: #e8e8e8; border: 2px solid #333; padding: 12px 8px; text-align: center; min-width: 70px;">Facts</div>
+</div>
+<div style="text-align: center; font-size: 0.9em; font-style: italic;">All A×B combos; LEFT JOIN attaches counts (0 if missing).</div>
+</div>
 <hr>
 <p><strong>Best approach — <code>CROSS JOIN</code> + <code>LEFT JOIN</code> + <code>GROUP BY</code></strong></p>
 <p><strong>Method:</strong> This is a 3-step pattern: (1) <code>CROSS JOIN</code> two dimension tables to build all possible pairs, (2) <code>LEFT JOIN</code> to the fact table to attach actual data, (3) aggregate with <code>COUNT</code> or <code>SUM</code>. This guarantees every combination appears in the output, even those with zero occurrences.</p>
@@ -13542,13 +13568,14 @@ div#notebook {
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-e-find-missing"></a></p>
 <h3 id="E.-Find-Mismatches-/-Missing-Data-(LEFT-JOIN-+-IS-NULL)">E. Find Mismatches / Missing Data (LEFT JOIN + IS NULL)<a class="anchor-link" href="#E.-Find-Mismatches-/-Missing-Data-(LEFT-JOIN-+-IS-NULL)">¶</a></h3><p><strong>Signals:</strong> "never ordered," "didn't attend," "customers with no," "which have no match"</p>
-<pre><code>    ┌─────────┐   ┌─────────┐
-    │  ✓ A    ╔═══╗    B    │
-    │  kept   ║ ✗ ║  not    │
-    │  only   ╚═══╝  used   │
-    └─────────┘   └─────────┘
-    Only rows in A with NO match in B.
-</code></pre>
+<div class="fc" style="max-width: 450px; margin: 20px auto;">
+<div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 10px;">
+<div style="width: 85px; height: 85px; background: #d4f0d4; border: 2px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.8em; text-align: center;">A ✓<br/><span style="font-size: 0.7em;">kept<br/>only</span></div>
+<div style="font-size: 18px; font-weight: bold;">✗</div>
+<div style="width: 85px; height: 85px; background: #e8e8e8; border: 2px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.8em; text-align: center;">B<br/><span style="font-size: 0.7em;">not<br/>used</span></div>
+</div>
+<div style="text-align: center; font-size: 0.9em; font-style: italic;">Only rows in A with NO match in B.</div>
+</div>
 <hr>
 <p><strong>Best approach — <code>LEFT JOIN</code> + <code>WHERE ... IS NULL</code></strong></p>
 <p><strong>Method:</strong> Join two tables with a <code>LEFT JOIN</code>, then filter where the right table's key is NULL. This identifies rows in the left table that have no matching row in the right table.</p>
@@ -13591,13 +13618,12 @@ div#notebook {
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-f-union"></a></p>
 <h3 id="F.-Combine-Similar-Tables-(UNION-/-UNION-ALL)">F. Combine Similar Tables (UNION / UNION ALL)<a class="anchor-link" href="#F.-Combine-Similar-Tables-(UNION-/-UNION-ALL)">¶</a></h3><p><strong>Signals:</strong> "combine," "merge," "all records from both," "together"</p>
-<pre><code>    ┌─────────────┐
-    │  SELECT ...  │  ← Query 1 rows
-    ├─────────────┤
-    │  SELECT ...  │  ← Query 2 rows
-    └─────────────┘
-    Rows stacked vertically (not side-by-side).
-</code></pre>
+<div class="fc" style="max-width: 300px; margin: 20px auto;">
+<div style="background: #e8e8e8; border: 2px solid #333; padding: 12px; margin: 8px 0; text-align: center; font-size: 0.9em;">SELECT ... ← Query 1 rows</div>
+<div style="text-align: center; border-top: 2px solid #333; border-bottom: 2px solid #333; padding: 8px; font-weight: bold; background: #f5f5f5;">UNION</div>
+<div style="background: #e8e8e8; border: 2px solid #333; padding: 12px; margin: 8px 0; text-align: center; font-size: 0.9em;">SELECT ... ← Query 2 rows</div>
+<div style="text-align: center; font-size: 0.9em; margin-top: 10px; font-style: italic;">Rows stacked vertically (not side-by-side).</div>
+</div>
 <hr>
 <p><strong>Best approach — <code>UNION ALL</code></strong></p>
 <p><strong>Method:</strong> <code>UNION ALL</code> stacks the rows from two <code>SELECT</code> statements vertically. Both queries must have the same number of columns with compatible data types. It keeps all rows including duplicates.</p>
@@ -13646,13 +13672,13 @@ div#notebook {
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-g-self-join"></a></p>
 <h3 id="G.-Self-Referencing-(Self-JOIN)">G. Self-Referencing (Self JOIN)<a class="anchor-link" href="#G.-Self-Referencing-(Self-JOIN)">¶</a></h3><p><strong>Signals:</strong> "manager name," "reports to," "parent category," "compare rows within same table using different roles"</p>
-<pre><code>    ┌──────────┐
-    │  Table T │
-    │  alias e │──┐
-    │  alias m │◄─┘  Same table, two roles
-    └──────────┘
-    T joined to itself using two aliases.
-</code></pre>
+<div class="fc" style="max-width: 300px; margin: 20px auto;">
+<div style="background: #e8e8e8; border: 2px solid #333; padding: 15px; text-align: center;">
+<strong>Table T</strong><br/>
+<span style="font-size: 0.85em; display: block; margin-top: 10px;">alias e ──┐<br/>alias m ◄─┘<br/><em>Same table, two roles</em></span>
+</div>
+<div style="text-align: center; font-size: 0.9em; margin-top: 10px; font-style: italic;">T joined to itself using two aliases.</div>
+</div>
 <hr>
 <p><strong>Best approach — Self <code>JOIN</code></strong></p>
 <p><strong>Method:</strong> Join a table to itself using two different aliases. Each alias represents a different "role" of the same table (e.g., employee vs. manager). Connect them on the foreign key that points back to the same table's primary key.</p>
@@ -13715,13 +13741,14 @@ div#notebook {
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-h-exists-in"></a></p>
 <h3 id="H.-Filter-by-Another-Table-(EXISTS-/-IN)">H. Filter by Another Table (EXISTS / IN)<a class="anchor-link" href="#H.-Filter-by-Another-Table-(EXISTS-/-IN)">¶</a></h3><p><strong>Signals:</strong> "who also appear in," "exists in both," "only those with," "filter based on another table"</p>
-<pre><code>    ┌─────────┐   ┌─────────┐
-    │    A    ╔═══╗    B    │
-    │  kept   ║ ? ║ checked │
-    │  if ✓   ╚═══╝ only    │
-    └─────────┘   └─────────┘
-    Rows from A kept only if a match EXISTS in B.
-</code></pre>
+<div class="fc" style="max-width: 450px; margin: 20px auto;">
+<div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 10px;">
+<div style="width: 85px; height: 85px; background: #d4f0d4; border: 2px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.8em; text-align: center;">A<br/><span style="font-size: 0.7em;">kept<br/>if ✓</span></div>
+<div style="font-size: 18px; font-weight: bold;">?</div>
+<div style="width: 85px; height: 85px; background: #e8e8e8; border: 2px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.8em; text-align: center;">B<br/><span style="font-size: 0.7em;">checked<br/>only</span></div>
+</div>
+<div style="text-align: center; font-size: 0.9em; font-style: italic;">Rows from A kept only if a match EXISTS in B.</div>
+</div>
 <hr>
 <p><strong>Best approach — <code>EXISTS</code></strong></p>
 <p><strong>Method:</strong> <code>EXISTS</code> checks whether a correlated subquery returns at least one row. It stops searching as soon as it finds the first match (short-circuits), making it efficient.</p>
@@ -13763,12 +13790,14 @@ div#notebook {
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-i-aggregate-then-join"></a></p>
 <h3 id="I.-Aggregate-Then-Join-(Subquery/CTE-+-JOIN)">I. Aggregate Then Join (Subquery/CTE + JOIN)<a class="anchor-link" href="#I.-Aggregate-Then-Join-(Subquery/CTE-+-JOIN)">¶</a></h3><p><strong>Signals:</strong> "total per group then look up," "average by department then show details," "rank then join"</p>
-<pre><code>    ┌──────────┐            ┌──────────┐
-    │ Aggregate│            │  Detail  │
-    │ (CTE/Sub)│───JOIN────►│  Table   │
-    └──────────┘            └──────────┘
-    Summarize first, then join the summary to details.
-</code></pre>
+<div class="fc" style="max-width: 500px; margin: 20px auto;">
+<div style="display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 10px;">
+<div style="background: #e8e8e8; border: 2px solid #333; padding: 15px 10px; text-align: center; min-width: 100px;"><strong>Aggregate</strong><br/><span style="font-size: 0.85em;">(CTE/Sub)</span></div>
+<div style="font-size: 18px; font-weight: bold;">───JOIN────▶</div>
+<div style="background: #e8e8e8; border: 2px solid #333; padding: 15px 10px; text-align: center; min-width: 100px;"><strong>Detail</strong><br/><span style="font-size: 0.85em;">Table</span></div>
+</div>
+<div style="text-align: center; font-size: 0.9em; font-style: italic;">Summarize first, then join the summary to details.</div>
+</div>
 <hr>
 <p><strong>Best approach — CTE or Subquery + <code>JOIN</code></strong></p>
 <p><strong>Method:</strong> First aggregate data in a CTE or subquery, then join the aggregated result back to another table. This keeps the logic clean and avoids mixing aggregation with join conditions.</p>
@@ -14095,21 +14124,38 @@ div#notebook {
 <span class="k">LEFT</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Table_B</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="k">ON</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">join_key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">b</span><span class="p">.</span><span class="n">join_key</span><span class="p">;</span>
 </pre></div>
 <hr/>
-<h3 id="Quick-Diagnostic-Decision-Tree">Quick Diagnostic Decision Tree<a class="anchor-link" href="#Quick-Diagnostic-Decision-Tree">¶</a></h3><pre><code>After your JOIN, check the row count:
-│
-├── Row count = expected?
-│   └── ✓ Proceed with confidence
-│
-├── Row count HIGHER than expected?
-│   ├── Check for duplicate keys (Step 2)
-│   ├── Did you forget to aggregate first? → Use Pattern I
-│   └── Did you accidentally CROSS JOIN? → Add ON clause
-│
-└── Row count LOWER than expected?
-    ├── INNER JOIN dropping unmatched rows? → Switch to LEFT JOIN
-    ├── WHERE clause filtering too aggressively? → Move filter to ON clause
-    └── NULL keys not matching? → Check for NULLs in join columns
-</code></pre>
+<h3 id="Quick-Diagnostic-Decision-Tree">Quick Diagnostic Decision Tree<a class="anchor-link" href="#Quick-Diagnostic-Decision-Tree">¶</a></h3><div class="fc" style="max-width: 600px;">
+<div class="fc-node fc-start">After your JOIN, check the row count:</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">Row count = expected?</div>
+<div class="fc-node fc-good">✓ Proceed with confidence</div>
+</div>
+</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-warn">Row count HIGHER than expected?</div>
+<div style="padding: 10px; border-left: 3px solid #ff9800;">
+<div class="fc-node fc-action">Check for duplicate keys (Step 2)</div>
+<div class="fc-node fc-action" style="margin-top: 8px;">Did you forget to aggregate first? → Use Pattern I</div>
+<div class="fc-node fc-action" style="margin-top: 8px;">Did you accidentally CROSS JOIN? → Add ON clause</div>
+</div>
+</div>
+</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-warn">Row count LOWER than expected?</div>
+<div style="padding: 10px; border-left: 3px solid #ff9800;">
+<div class="fc-node fc-action">INNER JOIN dropping unmatched rows? → Switch to LEFT JOIN</div>
+<div class="fc-node fc-action" style="margin-top: 8px;">WHERE clause filtering too aggressively? → Move filter to ON clause</div>
+<div class="fc-node fc-action" style="margin-top: 8px;">NULL keys not matching? → Check for NULLs in join columns</div>
+</div>
+</div>
+</div>
+</div>
 <hr/>
 <p><strong>Interview tip:</strong> Mention row count verification out loud — "Let me verify: this LEFT JOIN should give me the same number of rows as the customers table, since each customer matches at most one row." This shows the interviewer you think about correctness, not just syntax.</p>
 </hr></hr></hr></div>
@@ -14331,43 +14377,45 @@ div#notebook {
 <hr style="border: 3px solid black;"/>
 <p><a id="subquery-decision-tree"></a></p>
 <h2 id="When-Do-I-Need-a-Subquery-Instead-of-(or-With)-a-JOIN?">When Do I Need a Subquery Instead of (or With) a JOIN?<a class="anchor-link" href="#When-Do-I-Need-a-Subquery-Instead-of-(or-With)-a-JOIN?">¶</a></h2><p>JOINs are the default tool for multi-table problems, but some questions require a <strong>subquery</strong> — either instead of a join or combined with one. Use this tree to decide.</p>
-<h3 id="Subquery-vs.-JOIN-Decision-Tree">Subquery vs. JOIN Decision Tree<a class="anchor-link" href="#Subquery-vs.-JOIN-Decision-Tree">¶</a></h3><pre><code>┌──────────────────────────────────────────────────┐
-│  I need data from another table.                 │
-│  Should I JOIN or use a SUBQUERY?                │
-└───────────────────────┬──────────────────────────┘
-                        │
-                        ▼
-┌──────────────────────────────────────────────────┐
-│  Do I need COLUMNS from the other table          │
-│  in my output?                                   │
-└──────────┬──────────────────────┬────────────────┘
-           │ YES                  │ NO
-           ▼                      ▼
-┌────────────────────┐  ┌─────────────────────────────────────┐
-│  Use a JOIN        │  │  Do I need a single scalar value    │
-│  (INNER, LEFT,     │  │  from the other table?              │
-│   etc.)            │  │  (count, avg, max, sum)             │
-└────────────────────┘  └──────────┬──────────────┬───────────┘
-                                   │ YES          │ NO
-                                   ▼              ▼
-                    ┌────────────────────┐  ┌──────────────────────────┐
-                    │  SCALAR SUBQUERY   │  │  Am I checking existence │
-                    │  in SELECT or      │  │  or filtering by a list? │
-                    │  WHERE clause      │  └────────┬─────────────────┘
-                    └────────────────────┘           │
-                                            ┌───────┴───────┐
-                                            │ YES           │ NO
-                                            ▼               ▼
-                                 ┌──────────────────┐  ┌──────────────┐
-                                 │  EXISTS / IN     │  │  Subquery in │
-                                 │  in WHERE clause │  │  FROM clause │
-                                 │                  │  │  (derived    │
-                                 │  "users who      │  │   table)     │
-                                 │  bought X"       │  │              │
-                                 │  "contests with  │  │  Pre-agg     │
-                                 │  &gt; 5 entries"    │  │  then join   │
-                                 └──────────────────┘  └──────────────┘
-</code></pre>
+<h3 id="Subquery-vs.-JOIN-Decision-Tree">Subquery vs. JOIN Decision Tree<a class="anchor-link" href="#Subquery-vs.-JOIN-Decision-Tree">¶</a></h3><div class="fc">
+<div class="fc-node fc-start">I need data from another table.<br/>Should I JOIN or use a SUBQUERY?</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-tag">Do I need COLUMNS from the other table in my output?</div>
+<div style="margin-top: 10px;">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">Use a JOIN<br/>(INNER, LEFT, etc.)</div>
+</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start" style="margin-top: 10px;">Do I need a single scalar value from the other table?<br/>(count, avg, max, sum)</div>
+</div>
+</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">SCALAR SUBQUERY<br/>in SELECT or WHERE clause</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-start" style="margin-top: 10px;">Am I checking existence or filtering by a list?</div>
+</div>
+</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-branches">
+<div class="fc-branch">
+<div class="fc-label fc-yes">YES</div>
+<div class="fc-node fc-good">EXISTS / IN<br/>in WHERE clause<br/>"users who bought X"<br/>"contests with &gt; 5 entries"</div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-no">NO</div>
+<div class="fc-node fc-good">Subquery in FROM clause<br/>(derived table)<br/>Pre-agg then join</div>
+</div>
+</div>
+</div>
 <hr>
 <h3 id="Subquery-Placement-Guide-for-Multi-Table-Problems">Subquery Placement Guide for Multi-Table Problems<a class="anchor-link" href="#Subquery-Placement-Guide-for-Multi-Table-Problems">¶</a></h3><table>
 <thead>

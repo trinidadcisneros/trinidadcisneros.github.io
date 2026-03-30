@@ -2,7 +2,7 @@
 
 **Owner:** Trinidad Cisneros (trinidad.cisneros@gmail.com)
 **Domain:** bitterscientist.com
-**Last Updated:** 2026-03-29
+**Last Updated:** 2026-03-29 (Session 4)
 
 ---
 
@@ -17,10 +17,11 @@ This file is a handoff document for use with any LLM tool (Claude Cowork, ChatGP
 BitterScientist.com is a personal portfolio and educational blog focused on analytics, data science, statistics, programming, and database concepts. Content is presented as tutorial-style posts, most of which originate as Jupyter notebooks converted to HTML and embedded in wrapper pages with a shared navbar and footer.
 
 **Hosting:** GitHub Pages (static site, no backend)
-**Root File:** `index.html` (landing page — hero, photo carousel, dynamic latest posts cards)
+**Root File:** `index.html` (landing page — hero, "Latest Posts" cards, "Beyond the Data" photo/video carousel)
 **Config:** `config.json` at root
 **CNAME:** `bitterscientist.com`
-**Post Registry:** `static/data/posts.json` (single source of truth for all posts — landing page reads from this)
+**Post Registry:** `static/data/posts.json` (single source of truth for latest posts — landing page reads from this)
+**Hero Counter:** Hardcoded "170+ guides & projects published" (posts.json only tracks ~14 featured posts, not all 170+)
 
 ---
 
@@ -56,6 +57,8 @@ bitterscientist.com/
 │   ├── js/
 │   │   ├── include.js                  # w3-include-html mechanism (loads partials via XHR)
 │   │   ├── latest_posts.js             # Reads posts.json → renders latest 10 as scrollable cards
+│   │   ├── carousel_init.js            # Dynamic carousel: clones slides, measures widths, injects @keyframes
+│   │   ├── video_lightbox.js           # Video playback lightbox for carousel video slides
 │   │   ├── sidebar_toc.js              # Auto-generates sticky TOC from notebook headings
 │   │   ├── diagram_detect.js           # Detects ASCII diagrams and applies .diagram-block class
 │   │   ├── navbase.js                  # Navbar interactions
@@ -77,18 +80,21 @@ bitterscientist.com/
 │   │   ├── navbar_pages.html           # Navbar for all content pages
 │   │   └── footer.html                 # Shared footer
 │   │
-│   ├── sql/                            # SQL section
+│   ├── sql/                            # SQL section (18 posts)
 │   │   ├── sql_landing.html            # SQL landing page
 │   │   ├── sql_table.html              # SQL post listing table
 │   │   ├── sql_posts.html              # SQL posts overview
-│   │   ├── sql_single_table_query_strategies.html   # Wrapper page
-│   │   ├── sql_multi_table_query_strategies.html    # Wrapper page
-│   │   ├── sql_combined_strategy_patterns.html      # Wrapper page
-│   │   ├── (15+ additional SQL concept pages)
+│   │   ├── sql_master_decision_tree.html              # Wrapper page
+│   │   ├── sql_single_table_query_strategies.html     # Wrapper page
+│   │   ├── sql_multi_table_query_strategies.html      # Wrapper page
+│   │   ├── sql_combined_strategy_patterns.html        # Wrapper page
+│   │   ├── (14+ additional SQL concept pages)
 │   │   └── projects/                   # Jupyter notebooks + converted HTML
+│   │       ├── sql_master_decision_tree.ipynb / .html
 │   │       ├── sql_single_table_query_strategies.ipynb / .html
 │   │       ├── sql_multi_table_query_strategies.ipynb / .html
 │   │       ├── sql_combined_strategy_patterns.ipynb / .html
+│   │       ├── sql_subqueries_select.ipynb / .html
 │   │       └── (other SQL project files)
 │   │
 │   ├── ds_blogs/                       # Data Science projects (59+ posts)
@@ -194,7 +200,7 @@ The landing page (`index.html`) auto-populates from `static/data/posts.json`. Th
 ```json
 {
   "date": "2026-04-15",
-  "category": "Professional Playbooks",
+  "category": "Soft Skills",
   "categoryClass": "playbooks",
   "title": "How to Run a Metrics Review Meeting",
   "url": "folders/playbooks/metrics_review_playbook.html",
@@ -207,7 +213,7 @@ The landing page (`index.html`) auto-populates from `static/data/posts.json`. Th
 | Field | Required | Description |
 |---|---|---|
 | `date` | Yes | ISO format `YYYY-MM-DD`. Used for sorting — newest first. |
-| `category` | Yes | Display name shown on the card (e.g., "Professional Playbooks", "SQL", "Data Science") |
+| `category` | Yes | Display name shown on the card (e.g., "Soft Skills", "SQL", "Data Science"). Note: was "Professional Playbooks" until March 29 rename. |
 | `categoryClass` | Yes | CSS class for color coding. One of: `playbooks` (navy), `sql` (red-brown), `ds` (green), `stats` (purple) |
 | `title` | Yes | Post title as shown on the card |
 | `url` | Yes | Relative path from site root to the wrapper HTML page |
@@ -251,12 +257,14 @@ To add a new category color, add a CSS rule in `static/css/landing.css`:
 
 ## 5. Content Inventory
 
-### SQL (Active — March 2026)
+### SQL (Active — March 2026, 18 posts)
 | Post | File | Description |
 |---|---|---|
-| SQL Single-Table Query Strategies | `sql_single_table_query_strategies` | LAG/LEAD, GROUP BY, HAVING, CASE, window functions, 3-Method Mental Model |
-| SQL Multi-Table Query Strategies | `sql_multi_table_query_strategies` | INNER/LEFT/CROSS/Self JOIN, UNION, EXISTS, anti-join, Venn diagrams, row count diagnostics |
-| SQL Combined Strategy Patterns | `sql_combined_strategy_patterns` | Two-Pass Decomposition Framework, 8 combo patterns, NULL Trap, worked examples |
+| Which SQL Approach Do I Use? A Master Decision Tree | `sql_master_decision_tree` | Unified flowchart: Step 1 (table count) → 2A (single) → 2B (multi/JOIN) → 2C (transformation) → 3 (date fork) → 4 (subquery). Signal words table, worked example, hyperlinks to all guides. |
+| How to Pick the Right SQL Pattern for a Single Table | `sql_single_table_query_strategies` | LAG/LEAD, GROUP BY, HAVING, CASE, window functions, 3-Method Mental Model, subquery decision tree |
+| How to Query Across Multiple Tables: JOINs, Subqueries & Set Ops | `sql_multi_table_query_strategies` | INNER/LEFT/CROSS/Self JOIN, UNION, EXISTS, anti-join, Venn diagrams, row count diagnostics, subquery decision tree |
+| When a SQL Problem Needs Multiple Techniques at Once | `sql_combined_strategy_patterns` | Two-Pass Decomposition Framework, 8 combo patterns, NULL Trap, worked examples, subquery placement in combo problems |
+| SQL Basics: Using a Subquery in the SELECT Clause | `sql_subqueries_select` | Includes 3 examples: basic, filtering, percentage-of-total pattern |
 
 ### Data Science (Selected Highlights)
 | Post | Topic |
@@ -271,14 +279,14 @@ To add a new category color, add a CSS rule in `static/css/landing.css`:
 - **Descriptive:** Central tendency, dispersion, distributions, normality diagnostics, data transformations in R
 - **Inferential:** Hypothesis testing, t-tests, ANOVA, chi-square, confidence intervals, regression, model tuning in R
 
-### Professional Playbooks (New — March 2026)
+### Soft Skills (New — March 2026)
 | Post | File | Description |
 |---|---|---|
 | How to Build a Dashboard — From Request to Delivery | `dashboard_playbook` | Full lifecycle: scoping, metrics, design, build, QA, presenting, iteration, handoff. Decision trees, pattern library, anti-patterns, worked example, communication templates, checklists, timeline estimation. |
 | How to Manage an Analytics Intake Queue | `intake_queue_playbook` | Triage matrix (P0–P4), intake process levels, intake form, workload visibility, saying no scripts, managing up, response templates, worked example week. |
 | How to Scope and Deliver an Ad-Hoc Analysis | `adhoc_analysis_playbook` | Request decoder, 5-minute scoping framework, SCR analysis structure, deliverable format picker, QA trust checklist, communication templates, worked churn example. |
 
-### Professional Playbooks — Topic Backlog
+### Soft Skills — Topic Backlog
 
 **Delivery & Execution:**
 - [x] How to Scope and Deliver an Ad-Hoc Analysis
@@ -290,11 +298,11 @@ To add a new category color, add a CSS rule in `static/css/landing.css`:
 - [ ] How to Write an Executive Summary That Gets Read
 - [ ] How to Structure a Data-Informed Recommendation
 - [ ] How to Run a Metrics Review Meeting
-- [ ] How to Say "The Data Doesn't Support That" Diplomatically
+- [x] How to Say "The Data Doesn't Support That" Diplomatically
 
 **Stakeholder & Project Management:**
 - [x] How to Manage an Analytics Intake Queue
-- [ ] How to Handle Competing Priorities from Multiple Stakeholders
+- [x] How to Handle Competing Priorities from Multiple Stakeholders
 - [ ] How to Estimate and Communicate Timelines for Analytical Work
 - [ ] How to Scope a Project When the Requester Doesn't Know What They Want
 
@@ -319,7 +327,69 @@ To add a new category color, add a CSS rule in `static/css/landing.css`:
 
 ## 6. Recent Session Activity Log
 
-### Session: March 29, 2026 (Continued — Landing Page Redesign)
+### Session: March 29, 2026 (Session 4 — Carousel, Subqueries, Master Decision Tree, Renaming)
+
+**Carousel Improvements:**
+- Created `static/js/carousel_init.js` — JS-driven dynamic carousel replacing fixed CSS animation. Duplicates slides, measures actual widths, injects `@keyframes` dynamically. Handles window resize. Speed: ~60px/sec.
+- Created `static/js/video_lightbox.js` — Event-delegated video playback lightbox for carousel video slides
+- Added 6 new carousel slides (scotland, self, family_xmas, dubai video, ireland_2023 video, newzealand_ostridge video) — now 24 unique slides total
+- Added "Beyond the Data" section header above carousel with subtitle: "A visual snapshot of life when I'm not analyzing data. Learn more about me."
+- Generated new thumbnails: `scotland.jpg` (Pillow), `dubai_poster.jpg` and `newzealand_ostridge_poster.jpg` (ffmpeg)
+
+**Hero & Landing Page Updates:**
+- Hero bio updated to casual "sandbox" tone — no mention of technical interviews
+- Hero counter hardcoded to "170+ guides & projects published" (was JS-driven from posts.json which only has ~14 entries)
+- Removed dynamic counter logic from `latest_posts.js`
+- Added `.section-subtitle` CSS class in `landing.css` with link styling
+
+**"Playbooks" → "Soft Skills" Rename:**
+- Updated navbar: `navbar_pages.html` and `navbar_index.html`
+- Updated `posts.json`: all 4 playbook entries changed from "Professional Playbooks" to "Soft Skills"
+- Updated `playbooks_landing.html`: title, hero heading, subtitle, meta, all card tags
+
+**SQL Post Title Improvements (more descriptive):**
+- "SQL Master Decision Tree" → "Which SQL Approach Do I Use? A Master Decision Tree"
+- "SQL Combined Strategy Patterns" → "When a SQL Problem Needs Multiple Techniques at Once"
+- "SQL Multi-Table Query Strategies" → "How to Query Across Multiple Tables: JOINs, Subqueries & Set Ops"
+- "SQL Single-Table Query Strategies" → "How to Pick the Right SQL Pattern for a Single Table"
+- Updated in: `posts.json`, `sql_landing.html`, `sql_landing_new.html`, `sql_table.html`, all 4 wrapper page `<title>` and `<h1>` tags
+
+**New SQL Post — Master Decision Tree:**
+- Created `sql_master_decision_tree.ipynb` (11 cells) — unified flowchart covering all 3 strategy guides
+- Steps: 1 (table count) → 2A (single-table) → 2B (multi-table/JOIN) → 2C (transformation) → 3 (date fork) → 4 (subquery decision)
+- Signal words quick reference table with hyperlinks to all guides
+- Worked example walking contest percentage problem through the tree
+- Anchor links for cross-step navigation (#single-table-path, #multi-table-path, etc.)
+- Created wrapper page `sql_master_decision_tree.html` and generated inner HTML
+- Added to `sql_landing.html` (post count 17 → 18) and `posts.json`
+
+**Subquery Decision Trees Added to All 3 Strategy Guides:**
+- `sql_single_table_query_strategies.ipynb` — "When Do I Need a Subquery?" section with aggregation level decision tree
+- `sql_multi_table_query_strategies.ipynb` — "When Do I Need a Subquery Instead of (or With) a JOIN?" section
+- `sql_combined_strategy_patterns.ipynb` — "Subquery Placement in Combo Problems" section (fits two-pass framework)
+- All share the same worked example (contest percentage problem) for consistency
+- Sections renumbered in all 3 notebooks
+- All HTML regenerated
+
+**Subquery SELECT Example 3 Added:**
+- Added percentage-of-total pattern example to `sql_subqueries_select.ipynb` (contest registration problem)
+
+**Footer Redesign:**
+- `footer.html` rewritten: minimal single-line with auto-year JS, LinkedIn link, Contact link, middot separators
+- `footer.css` rewritten: navy background (#1a1a2e), steel blue hover (#4a7fb5)
+
+**Contact Page Redesign:**
+- `contact.html` rewritten with navy gradient section-hero banner, white card form, steel blue accents
+- Uses `section_landing.css` for hero styles, inline styles for contact-specific card
+
+**Key Technical Details:**
+- `carousel_init.js` fixes mobile black gap issue — measures actual slide widths instead of hardcoded 5040px
+- Posts.json tracks ~14 featured posts (not all 170+) — hero counter is hardcoded separately
+- ASCII box-drawing decision trees use Unicode (┌─┬─┐│▼►) consistently across all SQL notebooks
+
+---
+
+### Session: March 29, 2026 (Session 2 — Landing Page Redesign)
 
 **Landing Page Redesign (`index.html`):**
 - Added hero section with circular headshot (processed from `self.JPG` with warm dark filter), name linking to LinkedIn, "in" icon + LinkedIn/Contact/About links, and professional bio paragraph
@@ -354,7 +424,7 @@ To add a new category color, add a CSS rule in `static/css/landing.css`:
 ### Session: March 29, 2026 (Initial — Playbooks)
 
 **Created:**
-- Professional Playbooks section (`folders/playbooks/`)
+- Soft Skills section (`folders/playbooks/`)
   - `playbooks_landing.html` — section landing page with background info, TOC with future topic placeholders
   - `playbooks_table.html` — post listing table
   - `dashboard_playbook.html` — wrapper page with sidebar TOC
@@ -363,7 +433,7 @@ To add a new category color, add a CSS rule in `static/css/landing.css`:
 
 **Navbar Restructure:**
 - Renamed "Data Science Blogs" → "Analytics & Data Science" (same URL)
-- Added "Professional Playbooks" as new top-level nav item
+- Added "Soft Skills" as new top-level nav item (originally "Professional Playbooks", renamed to "Soft Skills" on March 29)
 - Consolidated "Tools" + "Databases" → "Technical Skills" dropdown (Programming, SQL & Databases, Web Development, Other Tools)
 - Updated both `navbar_pages.html` and `navbar_index.html`
 
@@ -453,7 +523,10 @@ To add a new category color, add a CSS rule in `static/css/landing.css`:
 7. **Dollar signs trigger MathJax** — `$` in markdown content gets interpreted as LaTeX by nbconvert. Never use `$` for currency — spell out "dollars" or just use the number (e.g., `2.1M` not `$2.1M`).
 8. **EXIF orientation on photos** — Camera JPGs often have rotation in EXIF metadata. When processing with Pillow, always call `ImageOps.exif_transpose(img)` before cropping/resizing.
 9. **`static/images/reel/` must be in `.gitignore`** — Original photos/videos total ~203MB. GitHub has a 100MB file limit and a soft 1GB repo limit. Only the optimized `reel_thumbs/` (1.2MB) and `headshot.jpg` (44KB) should be committed.
-10. **Landing page is data-driven** — `index.html` no longer has hardcoded post entries. Everything comes from `static/data/posts.json` via `latest_posts.js`. To update landing page content, edit `posts.json` only.
+10. **Landing page is data-driven** — `index.html` no longer has hardcoded post entries. Latest Posts comes from `static/data/posts.json` via `latest_posts.js`. To update landing page content, edit `posts.json` only.
+11. **Hero counter is hardcoded** — `posts.json` only tracks ~14 featured posts, not all 170+. The "170+ guides & projects published" counter is hardcoded directly in `index.html`. Update it manually as the site grows.
+12. **Carousel is JS-driven** — `carousel_init.js` dynamically calculates animation distance from actual slide widths. Do NOT add fixed `@keyframes carousel-scroll` back to `landing.css` — the JS handles it. Adding/removing slides automatically adjusts the animation.
+13. **SQL post titles should be descriptive** — Titles are question-style or "How to..." format for clarity. Old generic names (e.g., "SQL Combined Strategy Patterns") were replaced. Keep this convention for new SQL posts.
 
 ---
 
