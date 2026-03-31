@@ -1,6 +1,6 @@
 # PROJECT_CONTEXT.md — Octave Behavioral Health Expansion Analysis
 
-**Last Updated:** 2026-03-30
+**Last Updated:** 2026-03-31
 **Project Path:** `bitterscientist.com/folders/ds_blogs/projects/octave_behavioral_health_expansion/`
 **Purpose:** Portfolio blog post + interview discussion piece for Octave Health Group Sr. Data Analyst, Providers interview (April 1, 2026)
 
@@ -126,6 +126,8 @@ All CSVs live in `data/outputs/nb{XX}_{name}/`:
 - `nb07_expansion_scoring/` — composite scores and tier assignments
 - `nb08_projections/` — expansion waterfall and revenue projections
 - `nb09_visualizations/` — all final charts, maps, dashboards
+- `blog_charts/` — 22 interactive charts for blog post (Plotly + HTML/CSS)
+- `blog_expansion_analysis.html` — Published blog post (5 tabs: Executive Summary, Background, Methods, Results, Recommendations)
 - `data/inputs/project_reference.json` — shared reference (states, payers, competitors, FIPS, abbreviations)
 
 ---
@@ -170,6 +172,33 @@ This project demonstrates competencies for the Sr. Data Analyst, Providers role:
   - Added prescriber vs. therapist breakdown, prescribers_per_100k metric
   - Fixed NPI pagination bug (result_count only reflects page, not total)
 - Created PROJECT_CONTEXT.md and NEXT_SESSION_PROMPT.md for this project
+
+### Session 3 (2026-03-30 – 2026-03-31)
+- Built complete blog post (`blog_expansion_analysis.html`) with 5-tab Bootstrap layout
+  - Executive Summary: driving question, methods flow diagram, key findings (3 parallel bullets), 3-group benchmark chart, provider summary table, revenue model, entry recommendations, analytics infrastructure challenge
+  - Background: Octave profile, market context, competitors, independent analysis disclaimer
+  - Methods: data sources table, scoring model weights, normalization approach, flow diagram
+  - Results: interactive charts (footprint map, treatment gap, provider density, competitive map, demand-supply scatter, heatmap, radar, opportunity map, growth curves, revenue waves, practice settings, provider types treemap, reimbursement map, regulatory map, covered lives, benchmark comparison)
+  - Recommendations: 4 strategic priorities with 4 exhaustive state archetypes covering all 28 expansion states
+- Created 14 new interactive charts (added to original 8 from generate_blog_charts.py):
+  - `chart_exec_summary_benchmark.html` — 3-group grouped bar (Top 7 vs Current vs Remaining 21)
+  - `chart_methods_flow.html` — 5-step horizontal pipeline diagram (pure HTML/CSS)
+  - `chart_footprint_map.html` — Octave current footprint choropleth
+  - `chart_treatment_gap_map.html` — Treatment gap choropleth
+  - `chart_provider_density_map.html` — Provider density choropleth
+  - `chart_competitive_map.html` — Competitive intensity choropleth
+  - `chart_demand_supply_scatter.html` — Demand vs supply scatter
+  - `chart_benchmark_comparison.html` — 2-group benchmark bar (Current vs Expansion)
+  - `chart_covered_lives_comparison.html` — Covered lives bar chart
+  - `chart_provider_types_bar.html` — Provider types bar chart
+  - `chart_scoring_weights.html` — Scoring weights donut chart
+  - `chart_practice_settings.html` — Practice settings by state
+  - `chart_practice_settings_comparison.html` — Practice settings group comparison
+  - `chart_provider_types_treemap.html` — Provider types treemap
+- Removed Overview tab (6→5 tabs), redistributed content to Executive Summary and Background
+- Registered blog on website: added to `static/data/posts.json` and `folders/ds_blogs/ds_blog_landing_new.html` (post count 47→48)
+- Iterative Executive Summary optimization for 3-5 minute interview walkthrough
+- Expanded state archetypes from 3 (11 states) to 4 (all 28 states)
 
 ---
 

@@ -84,7 +84,7 @@ The analysis is organized as a 9-notebook pipeline across four phases:
 - **Phase 1 — Data Collection (NB01-NB04):** Gather and clean population, provider, payer, and demand data for all 51 jurisdictions (50 states + DC).
 - **Phase 2 — State Analysis (NB05-NB06):** Build competitive landscape and regulatory/reimbursement profiles.
 - **Phase 3 — Expansion Modeling (NB07-NB08):** Compute composite scores, assign tiers, and project economic impact.
-- **Phase 4 — Visualizations & Recommendations (NB09):** Produce interactive maps, heatmaps, and a dashboard synthesizing all findings.
+- **Phase 4 — Visualizations & Blog Post (NB09 + blog):** Produce interactive maps, heatmaps, dashboard, and a 5-tab blog post (Executive Summary, Background, Methods, Results, Recommendations) with 22 embedded interactive charts.
 
 ## 4. Main Findings
 
@@ -97,6 +97,8 @@ The analysis is organized as a 9-notebook pipeline across four phases:
 **4.4 Interstate compacts are the key speed differentiator.** Of all 51 jurisdictions, 28 belong to all three major compacts (PSYPACT, Counseling, Social Work), enabling provider credentialing in 2-4 weeks. States with zero compacts face 12-20 week timelines. Five of seven Tier 1 expansion states have 3 compacts.
 
 **4.5 Revenue projections are conservative by design.** At 0.5% market penetration, the 28 expansion states yield ~$95M in incremental annual revenue. The top 7 (Tier 1) states alone account for ~$48M. These are floor estimates using conservative assumptions; actual performance depends on provider recruitment velocity, payer contracting, and local market execution.
+
+**4.6 Four state archetypes clarify the expansion landscape.** The 28 expansion states fall into four distinct profiles: (1) High demand + fast entry (IN, KY, ME, MO, DE, NH) — strong payer coverage, high treatment gaps, 3 interstate compacts; (2) High demand + access barriers (WV, NM, OK, MT, LA, MS, ID, AR, AK, WY) — significant need but lower payer coverage or regulatory readiness; (3) Mixed profiles (NV, RI, NE, IA, UT, KS, ND, SD, MI, VT) — moderate scores across dimensions with no single dominant strength; (4) Weak overall (HI, AL) — low composite scores, limited near-term opportunity.
 
 ## 5. Recommendations
 
@@ -112,9 +114,11 @@ The analysis is organized as a 9-notebook pipeline across four phases:
 
 5. **Treat the scoring model as a starting point.** The weights (25% payer, 20% provider, etc.) reflect reasonable priors, but different strategic priorities would produce different rankings. A sensitivity analysis varying these weights would strengthen confidence in the Tier 1 selections.
 
+6. **Adapt recruitment strategy by state archetype.** The four state archetypes identified in the analysis suggest different provider recruitment approaches. High demand + fast entry states (6 states) support aggressive recruitment through compact-enabled cross-state credentialing. High demand + access barrier states (10 states) may require longer lead times and local licensing investment. Mixed-profile states (10 states) call for selective entry based on specific dimensional strengths. Weak-overall states (2 states) should be deprioritized.
+
 ## 6. Conclusions
 
-This analysis demonstrates that a multi-dimensional, data-driven approach can meaningfully inform geographic expansion decisions for a behavioral health company. The key insight is not any single number (the $95M revenue estimate, or the 7.3M covered lives) but the framework itself: by normalizing heterogeneous data sources to a common scoring scale and weighting them by strategic relevance, we can systematically compare 28 states that might otherwise be evaluated ad hoc.
+This analysis demonstrates that a multi-dimensional, data-driven approach can meaningfully inform geographic expansion decisions for a behavioral health company. The key insight is not any single number (the $95M revenue estimate, or the 7.3M covered lives) but the framework itself: by normalizing heterogeneous data sources to a common scoring scale and weighting them by strategic relevance, we can systematically compare 28 states that might otherwise be evaluated ad hoc. The published blog post at bitterscientist.com presents these findings in a 5-tab interactive format with 22 embedded charts, designed for both portfolio demonstration and interview discussion.
 
 The scoring model reveals that the strongest expansion opportunities are not the largest states (TX, FL are already Octave states) but mid-sized states where provider density, treatment gaps, and regulatory ease create favorable conditions simultaneously. This is a finding that intuition alone — which tends to favor population size — would miss.
 
