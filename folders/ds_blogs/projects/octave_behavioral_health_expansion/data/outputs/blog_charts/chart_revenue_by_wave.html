@@ -5,39 +5,126 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f8f9fa;
-        }
-        .container {
-            max-width: 100%;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        h1 {
-            text-align: center;
-            color: #1f4788;
-            margin-bottom: 10px;
-        }
-        #plotDiv {
-            width: 100%;
-            height: 100%;
-        }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background-color: white; }
+        #plotDiv { width: 100%; height: 100%; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div id="plotDiv"></div>
-    </div>
+    <div id="plotDiv"></div>
     <script>
-        var data = [{"x": ["Wave 1: Q1-2 (6 months)", "Wave 2: Q3-4 (12 months)", "Wave 3: Year 2 (18 months)", "Wave 4: Year 2+ (24+ months)"], "y": [27.6926, 20.0148, 11.2398, 36.2908], "type": "bar", "text": ["$27.7M", "$20.0M", "$11.2M", "$36.3M"], "textposition": "outside", "marker": {"color": ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]}, "hovertemplate": "<b>%{x}</b><br>Revenue: $%{y:.1f}M<extra></extra>"}];
-        var layout = {"title": "Hypothetical Annual Revenue by Expansion Wave (Conservative: 0.5% Penetration)", "xaxis": {"title": "Expansion Wave"}, "yaxis": {"title": "Annual Revenue ($M)"}, "width": 900, "height": 500, "showlegend": false, "plot_bgcolor": "rgba(240, 240, 240, 0.5)"};
-        Plotly.newPlot('plotDiv', data, layout, {responsive: true});
+        var waveColors = ['#1a9850', '#91cf60', '#fee08b', '#3182bd'];
+
+        // Simpler x labels — no line breaks
+        var waveLabelsTop = ['Wave 1<br>(5 states)', 'Wave 2<br>(2 states)', 'Wave 3<br>(5 states)', 'Wave 4<br>(16 states)'];
+        var waveLabelsBottom = ['Wave 1<br>(5 states)', 'Wave 2<br>(2 states)', 'Wave 3<br>(5 states)', 'Wave 4<br>(16 states)'];
+
+        var totalRevenue = [27.69, 20.01, 11.24, 36.29];
+        var nStates = [5, 2, 5, 16];
+        var perStateRevenue = totalRevenue.map(function(t, i) { return t / nStates[i]; });
+
+        var stateNames = [
+            'ME, KY, DE, MO, NH',
+            'IN, WV',
+            'MT, NE, RI, OK, IA',
+            'NV, NM, LA, UT, KS, MS, WY, VT, ID, AK, ND, SD, MI, AR, HI, AL'
+        ];
+
+        // Total revenue bars (top panel)
+        var trace1 = {
+            type: 'bar',
+            x: waveLabelsTop,
+            y: totalRevenue,
+            name: 'Total Wave Revenue',
+            text: totalRevenue.map(function(v) { return '$' + v.toFixed(0) + 'M'; }),
+            textposition: 'outside',
+            textfont: { size: 13, color: '#333' },
+            marker: { color: waveColors, opacity: 0.85 },
+            hovertemplate: waveLabelsTop.map(function(label, i) {
+                return '<b>' + label.replace(/<br>/g, ' ') + '</b>' +
+                       '<br>States: ' + stateNames[i] +
+                       '<br>Total Revenue: $' + totalRevenue[i].toFixed(1) + 'M' +
+                       '<br>Per-State Avg: $' + perStateRevenue[i].toFixed(1) + 'M' +
+                       '<extra></extra>';
+            }),
+            xaxis: 'x', yaxis: 'y'
+        };
+
+        // Per-state revenue bars (bottom panel)
+        var trace2 = {
+            type: 'bar',
+            x: waveLabelsBottom,
+            y: perStateRevenue,
+            name: 'Avg Per State',
+            text: perStateRevenue.map(function(v) { return '$' + v.toFixed(1) + 'M'; }),
+            textposition: 'outside',
+            textfont: { size: 13, color: '#333' },
+            marker: { color: waveColors, opacity: 0.85 },
+            hovertemplate: waveLabelsBottom.map(function(label, i) {
+                return '<b>' + label.replace(/<br>/g, ' ') + '</b>' +
+                       '<br>States: ' + stateNames[i] +
+                       '<br>Avg Revenue Per State: $' + perStateRevenue[i].toFixed(1) + 'M' +
+                       '<br>(' + nStates[i] + ' states × $' + perStateRevenue[i].toFixed(1) + 'M = $' + totalRevenue[i].toFixed(0) + 'M total)' +
+                       '<extra></extra>';
+            }),
+            xaxis: 'x2', yaxis: 'y2'
+        };
+
+        var layout = {
+            title: {
+                text: 'Wave Revenue: Total vs. Per State',
+                x: 0.5, xanchor: 'center',
+                font: { size: 18 }
+            },
+            // Top panel: total revenue
+            xaxis: {
+                title: '',
+                domain: [0, 1],
+                anchor: 'y'
+            },
+            yaxis: {
+                title: 'Total Wave Revenue ($M)',
+                range: [0, 44],
+                domain: [0.58, 1]
+            },
+            // Bottom panel: per-state revenue
+            xaxis2: {
+                title: '',
+                domain: [0, 1],
+                anchor: 'y2'
+            },
+            yaxis2: {
+                title: 'Avg Revenue Per State ($M)',
+                range: [0, 13],
+                domain: [0, 0.38]
+            },
+            width: 950,
+            height: 700,
+            showlegend: false,
+            margin: { t: 60, b: 80, l: 70, r: 30 },
+            annotations: [
+                {
+                    text: '<b>Total Revenue by Wave</b>',
+                    x: 0.5, y: 1.02, xref: 'paper', yref: 'paper',
+                    showarrow: false, font: { size: 13, color: '#555' }
+                },
+                {
+                    text: '<b>Average Revenue Per State</b>',
+                    x: 0.5, y: 0.42, xref: 'paper', yref: 'paper',
+                    showarrow: false, font: { size: 13, color: '#555' }
+                },
+                // Color legend
+                {
+                    text: '<span style="color:#1a9850">■</span> Wave 1 (months 0–6)  ' +
+                          '<span style="color:#91cf60">■</span> Wave 2 (months 6–12)  ' +
+                          '<span style="color:#fee08b">■</span> Wave 3 (months 12–18)  ' +
+                          '<span style="color:#3182bd">■</span> Wave 4 (months 18–24+)',
+                    x: 0.5, y: -0.10, xref: 'paper', yref: 'paper',
+                    showarrow: false, font: { size: 11, color: '#555' }
+                }
+            ]
+        };
+
+        Plotly.newPlot('plotDiv', [trace1, trace2], layout, { responsive: true });
     </script>
 </body>
 </html>
