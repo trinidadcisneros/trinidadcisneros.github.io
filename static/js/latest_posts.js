@@ -23,7 +23,7 @@
     return months[m - 1] + ' ' + d + ', ' + y;
   }
 
-  fetch('/static/data/posts.json')
+  fetch('/static/data/posts.json?v=' + Date.now())
     .then(function (res) { return res.json(); })
     .then(function (posts) {
       // Sort by date descending
