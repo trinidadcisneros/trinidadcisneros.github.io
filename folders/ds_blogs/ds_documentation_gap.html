@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medicare Clinical Documentation Gaps & Revenue Impact</title>
+
+    <!-- Bootstrap 3.4.0 CDN (matches Octave blog) -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css">
+
+    <!-- Site-wide Navbar, Footer, Theme -->
+    <link rel="stylesheet" type="text/css" href="../../static/css/navbar.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/footer.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/theme.css">
+
+    <!-- Plotly -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.7;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+
+        .blog-container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            min-height: 100vh;
+        }
+
+        .blog-header {
+            margin-bottom: 40px;
+            text-align: center;
+            border-bottom: 3px solid #2E86AB;
+            padding-bottom: 30px;
+        }
+
+        .blog-title {
+            font-size: 34px;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-bottom: 10px;
+            line-height: 1.3;
+        }
+
+        .blog-subtitle {
+            font-size: 17px;
+            color: #555;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+
+        .blog-meta {
+            font-size: 13px;
+            color: #999;
+            margin-top: 15px;
+        }
+
+        .blog-meta strong { color: #1a1a2e; }
+
+        /* Tab Navigation */
+        .nav-tabs {
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .nav-tabs > li > a {
+            color: #666;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-weight: 600;
+            font-size: 14px;
+            padding: 12px 18px;
+            transition: all 0.3s ease;
+        }
+
+        .nav-tabs > li > a:hover {
+            background-color: transparent;
+            color: #2E86AB;
+            border-bottom-color: #2E86AB;
+        }
+
+        .nav-tabs > li.active > a,
+        .nav-tabs > li.active > a:hover,
+        .nav-tabs > li.active > a:focus {
+            color: #1a1a2e;
+            background-color: transparent;
+            border-bottom-color: #2E86AB;
+        }
+
+        .tab-content { padding: 20px 0; }
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+
+        /* Section Headings */
+        .section-heading {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-bottom: 25px;
+            margin-top: 0;
+            border-left: 4px solid #2E86AB;
+            padding-left: 15px;
+        }
+
+        .subsection-heading {
+            font-size: 20px;
+            color: #1a1a2e;
+            font-weight: 600;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+
+        .section-text {
+            font-size: 16px;
+            line-height: 1.7;
+            color: #444;
+            margin-bottom: 20px;
+        }
+
+        .section-text strong { color: #1a1a2e; }
+
+        .section-text ul, .section-text ol {
+            margin: 15px 0;
+            padding-left: 25px;
+        }
+
+        .section-text li { margin-bottom: 10px; }
+
+        /* Charts */
+        .chart-container { margin: 25px 0; }
+
+        .chart-frame {
+            width: 100%;
+            border: none;
+            border-radius: 4px;
+            display: block;
+        }
+
+        .chart-takeaway {
+            font-size: 17px;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .chart-caption {
+            font-size: 13px;
+            color: #888;
+            font-style: italic;
+            margin-top: 8px;
+            margin-bottom: 20px;
+        }
+
+        /* Key stat cards */
+        .stats-row {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 25px 0;
+        }
+
+        .key-stat {
+            background: linear-gradient(135deg, #2E86AB 0%, #1B6E93 100%);
+            color: #fff;
+            border-radius: 10px;
+            padding: 1.25rem;
+            text-align: center;
+            flex: 1;
+            min-width: 180px;
+        }
+
+        .key-stat .stat-number {
+            font-size: 2.2rem;
+            font-weight: 700;
+        }
+
+        .key-stat .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        /* Callout box */
+        .callout-box {
+            background: #f0f7fb;
+            border-left: 4px solid #2E86AB;
+            padding: 18px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        /* Methodology note */
+        .methodology-note {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            font-size: 0.95rem;
+        }
+
+        .methodology-note h4 {
+            margin-top: 0;
+            color: #555;
+        }
+
+        /* Notebook links */
+        .notebook-link {
+            display: inline-block;
+            background: #2E86AB;
+            color: #fff;
+            padding: 8px 18px;
+            border-radius: 5px;
+            text-decoration: none;
+            margin: 4px;
+            font-size: 0.85rem;
+        }
+
+        .notebook-link:hover {
+            background: #1B6E93;
+            color: #fff;
+            text-decoration: none;
+        }
+
+        /* Flow diagram */
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0;
+            margin: 25px 0;
+        }
+
+        .flow-step {
+            background: #2E86AB;
+            color: white;
+            padding: 12px 14px;
+            border-radius: 8px;
+            text-align: center;
+            min-width: 120px;
+            max-width: 150px;
+            font-size: 12.5px;
+            line-height: 1.4;
+            flex-shrink: 0;
+        }
+
+        .flow-step strong {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 3px;
+        }
+
+        .flow-step .flow-nb {
+            font-size: 11px;
+            opacity: 0.8;
+        }
+
+        .flow-arrow {
+            font-size: 22px;
+            color: #999;
+            padding: 0 4px;
+            flex-shrink: 0;
+        }
+
+        /* Data tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 20px 0;
+        }
+
+        .data-table thead tr {
+            background-color: #1a1a2e;
+            color: white;
+        }
+
+        .data-table th, .data-table td {
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        .data-table tbody tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+        .data-table a {
+            color: #2E86AB;
+        }
+
+        /* Details/dropdown for formulas */
+        .field-details summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: #2E86AB;
+            font-size: 12.5px;
+            margin-top: 4px;
+        }
+
+        .field-details .formula-box {
+            background: #f0f4f8;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 11.5px;
+            line-height: 1.5;
+            margin-top: 6px;
+            color: #555;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .blog-title { font-size: 24px; }
+            .blog-subtitle { font-size: 15px; }
+            .section-heading { font-size: 22px; }
+            .nav-tabs > li > a { padding: 10px 10px; font-size: 12px; }
+            .key-stat .stat-number { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="page-container">
+  <div id="content-wrap">
+    <div w3-include-html="/folders/navbar_footer/navbar_pages.html"></div>
+
+<div class="blog-container">
+
+    <!-- Header -->
+    <div class="blog-header">
+        <h1 class="blog-title">Quantifying the Medicare Documentation Gap: How Much Revenue Are U.S. Hospitals Leaving on the Table?</h1>
+        <p class="blog-subtitle">Using publicly available Medicare claims and hospital data from CMS to measure documentation risk, estimate lost revenue, and identify what drives the gap across ~3,000 U.S. hospitals</p>
+        <div class="blog-meta">
+            <strong>Author:</strong> Trinidad Cisneros, Ph.D., M.S. | <strong>Date:</strong> April 2026
+        </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <ul class="nav nav-tabs" role="tablist">
+        <li role="presentation" class="active">
+            <a href="#tab-summary" aria-controls="tab-summary" role="tab" data-toggle="tab">Executive Summary</a>
+        </li>
+        <li role="presentation">
+            <a href="#tab-background" aria-controls="tab-background" role="tab" data-toggle="tab">Background</a>
+        </li>
+        <li role="presentation">
+            <a href="#tab-methods" aria-controls="tab-methods" role="tab" data-toggle="tab">Methods</a>
+        </li>
+        <li role="presentation">
+            <a href="#tab-results" aria-controls="tab-results" role="tab" data-toggle="tab">Results</a>
+        </li>
+        <li role="presentation">
+            <a href="#tab-limitations" aria-controls="tab-limitations" role="tab" data-toggle="tab">Limitations</a>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content">
+
+        <!-- ============================================================ -->
+        <!-- TAB: EXECUTIVE SUMMARY -->
+        <!-- ============================================================ -->
+        <div role="tabpanel" class="tab-pane active" id="tab-summary">
+            <h2 class="section-heading">Executive Summary</h2>
+
+            <p class="section-text">
+                Every year, U.S. hospitals lose billions of dollars not because they deliver less care, but because their
+                clinical documentation doesn't fully capture the severity of the patients they treat. Under the <a href="https://www.cms.gov/medicare/payment/prospective-payment-systems/acute-inpatient-pps" target="_blank">Medicare
+                Severity Diagnosis Related Group system</a>, incomplete documentation means cases get classified into lower-paying tiers
+                even when the clinical reality warranted more. This analysis uses publicly available <a href="https://data.cms.gov/provider-summary-by-type-of-service" target="_blank">CMS provider utilization and payment data</a> to quantify
+                the gap across approximately 3,000 hospitals, estimate the revenue at stake, and identify what hospital
+                characteristics predict larger documentation gaps.
+            </p>
+
+            <div class="stats-row">
+                <div class="key-stat">
+                    <div class="stat-number">~$1.9B</div>
+                    <div class="stat-label">Estimated Annual National Revenue Opportunity</div>
+                </div>
+                <div class="key-stat">
+                    <div class="stat-number">$579K</div>
+                    <div class="stat-label">Mean Annual Revenue per Hospital</div>
+                </div>
+                <div class="key-stat">
+                    <div class="stat-number">~3,000</div>
+                    <div class="stat-label">Hospitals Analyzed (1 Fiscal Year)</div>
+                </div>
+            </div>
+
+            <h3 class="subsection-heading">Key Findings</h3>
+
+            <ul class="section-text">
+                <li><strong>The documentation gap is real and measurable.</strong> Using peer-group benchmarking across 49 hospital cohorts (by bed size, teaching status, and ownership), 8% of hospitals score in the "High" documentation gap tier (score &ge; 65), with another 39% in the "Medium" tier. These hospitals have Case Mix Index values, severity mixes, and payment patterns that fall significantly below structurally similar peers.</li>
+
+                <li><strong>Revenue impact is concentrated but widespread.</strong> The top 20 hospitals by estimated opportunity account for hundreds of millions, but the median hospital still has a ~$272K annual opportunity. The shift model estimates that even modest improvements in documentation could recover $5,791 per shifted case (blended Complication or Comorbidity / Major Complication or Comorbidity uplift), consistent with published <a href="https://journal.ahima.org/Portals/0/archives/AHIMA%20files/Using%20CC_MCC%20Capture%20Rates%20as%20a%20Key%20Performance%20Indicator.pdf" target="_blank">CC/MCC capture rate benchmarks</a>.</li>
+
+                <li><strong>Diagnosis Related Group Diversity is the strongest predictor.</strong> Hospitals treating a broader mix of conditions have substantially higher gap scores (+5.01 per standard deviation). A wider case mix means more documentation complexity and more opportunities for severity codes to be missed. Wage index (&minus;2.77) and CMS quality scores (&minus;1.94) are the next strongest drivers, suggesting that hospitals in lower-wage markets with fewer resources and weaker quality performance face compounding documentation challenges.</li>
+
+                <li><strong>H1 (Ownership): Partially supported.</strong> For-profit hospitals have slightly lower gap scores than government hospitals (47.5 vs 48.2), but the difference is not statistically significant (p = 0.233). Ownership alone is a weak predictor of documentation quality, suggesting that organizational structure matters less than operational factors like staffing and case mix.</li>
+
+                <li><strong>H2 (Staffing): Mixed support.</strong> Higher Registered Nurse skill mix was significantly associated with lower gap scores (&minus;0.72, p &lt; 0.001), supporting the idea that a more skilled clinical workforce contributes to better documentation. However, the resident-to-bed ratio showed the opposite pattern, likely reflecting the confounding effect of case complexity in teaching hospitals. Staffing composition matters more than staffing volume.</li>
+
+                <li><strong>The model explains ~21% of variance &mdash; and that is informative.</strong> The regression captures what publicly available structural data can predict. The remaining ~80% is driven by factors not in public datasets: Clinical Documentation Improvement program maturity, EHR system quality, coder expertise, and physician engagement. The significant predictors identified here serve as observable risk signals that can flag which hospitals are most likely to benefit from documentation improvement &mdash; even without seeing inside their operations.</li>
+            </ul>
+
+            <div class="callout-box">
+                <strong>Implication for hospital leaders and Clinical Documentation Improvement vendors:</strong>
+                <br><br>
+                The hospitals most likely to have large documentation gaps are identifiable from public data: they treat a wide variety of conditions, operate in lower-wage markets, and have a lower share of registered nurses. The data suggests three priorities:
+                <ul style="margin-top: 10px; margin-bottom: 0;">
+                    <li><strong>Invest in <a href="https://www.nature.com/articles/s41746-025-02272-z" target="_blank">AI-powered Clinical Documentation Improvement technology</a></strong> that scales across a broad case mix.</li>
+                    <li><strong>Focus coding resources on high-diversity Diagnosis Related Group families</strong> where severity capture is weakest.</li>
+                    <li><strong>Strengthen the Registered Nurse workforce</strong> &mdash; one of the few modifiable factors significantly associated with better documentation (<a href="https://www.ahima.org/media/qiapajfd/clinical-documentation-integrity-cdi-toolkit-for-new-leaders-final-aug-2024-9-19-24-_axs.pdf" target="_blank">AHIMA Clinical Documentation Improvement Toolkit, 2024</a>).</li>
+                </ul>
+            </div>
+
+            <p class="section-text" style="margin-top: 25px; font-size: 14px; color: #555;">
+                For more detail: <strong>Background</strong> covers the Medicare Severity Diagnosis Related Group payment system and severity tiers. <strong>Methods</strong> details the data pipeline, gap scoring formula, and statistical models. <strong>Results</strong> presents all charts and regression findings. <strong>Limitations</strong> discusses what the model can and cannot capture.
+            </p>
+        </div>
+
+
+        <!-- ============================================================ -->
+        <!-- TAB: BACKGROUND -->
+        <!-- ============================================================ -->
+        <div role="tabpanel" class="tab-pane" id="tab-background">
+            <h2 class="section-heading">Background: How Medicare Payment and Severity Tiers Work</h2>
+
+            <p class="section-text">
+                Medicare pays hospitals for inpatient stays through the <a href="https://www.cms.gov/medicare/payment/prospective-payment-systems/acute-inpatient-pps" target="_blank">Inpatient Prospective Payment System</a>. Each
+                admission is assigned a <a href="https://www.cms.gov/medicare/payment/prospective-payment-systems/acute-inpatient-pps/ms-drg-classifications-and-software" target="_blank">Medicare Severity Diagnosis Related Group</a>, which determines the base payment amount. Many clinical conditions have
+                three severity tiers that map to different Diagnosis Related Groups within the same family. For example, a heart failure
+                admission might be classified as Diagnosis Related Group 291 (Heart Failure with Major Complication or Comorbidity), Diagnosis Related Group 292 (with Complication or Comorbidity), or Diagnosis Related Group 293 (without
+                Complication or Comorbidity / Major Complication or Comorbidity). The payment difference between these tiers is substantial.
+            </p>
+
+            <div class="callout-box">
+                <strong>Complication or Comorbidity vs. Major Complication or Comorbidity:</strong> A Complication or Comorbidity is a secondary diagnosis that increases the
+                complexity or cost of care. A Major Complication or Comorbidity represents an even higher level of
+                severity. Shifting a single case from "without Complication or Comorbidity / Major Complication or Comorbidity" to "with Complication or Comorbidity" typically adds around <strong>$3,257</strong> in Medicare
+                reimbursement. A shift to "with Major Complication or Comorbidity" adds approximately <strong>$11,706</strong> (based on <a href="https://www.cms.gov/medicare/payment/prospective-payment-systems/acute-inpatient-pps/fy-2026-ipps-final-rule-home-page" target="_blank">FY 2026 IPPS payment rates</a>).
+            </div>
+
+            <h3 class="subsection-heading">Case Mix Index</h3>
+
+            <p class="section-text">
+                The <a href="https://www.cms.gov/medicare/medicare-fee-for-service-payment/acuteinpatientpps/acute-inpatient-files-for-download-items/cms022630" target="_blank">Case Mix Index</a> is the average Diagnosis Related Group weight across all of a hospital's discharges. A higher Case Mix Index means the
+                hospital's patient population is, on average, more complex and resource-intensive. The national average Case Mix Index
+                in the current Inpatient Prospective Payment System data is approximately 1.76. Hospitals with similar patient populations should have similar
+                Case Mix Index values. When a hospital's Case Mix Index falls significantly below its peers, one likely explanation is that its clinical
+                documentation is not fully capturing patient severity (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3931432/" target="_blank">Tieder et al., 2014</a>).
+            </p>
+
+            <h3 class="subsection-heading">The Clinical Documentation Gap</h3>
+
+            <p class="section-text">
+                The gap between care delivered and care documented sits at the heart of hospital reimbursement. A patient might
+                receive complex, resource-intensive care for multiple chronic conditions, but if the physician's notes
+                don't reflect that complexity with the right specificity, the hospital gets paid as if the case were routine.
+                <a href="https://www.ahima.org/media/qiapajfd/clinical-documentation-integrity-cdi-toolkit-for-new-leaders-final-aug-2024-9-19-24-_axs.pdf" target="_blank">Clinical Documentation Improvement programs</a> attempt to close this gap by having trained specialists
+                review charts and query physicians for additional specificity. AI-powered Clinical Documentation Improvement tools extend this approach by
+                analyzing clinical notes in real time at scale (<a href="https://journal.ahima.org/page/the-revenue-impact-of-cdi-and-coding-mismatches-and-physician-query-analysis" target="_blank">AHIMA Journal, "Revenue Impact of Clinical Documentation Improvement"</a>).
+            </p>
+
+            <h3 class="subsection-heading">Two Hypotheses</h3>
+
+            <p class="section-text">
+                This analysis tests two hypotheses about what drives documentation quality:
+            </p>
+
+            <ul class="section-text">
+                <li><strong>H1 (Ownership):</strong> For-profit hospitals have smaller documentation gaps than government hospitals, as they may be better resourced for revenue cycle operations (cf. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3931432/" target="_blank">Tieder et al., 2014</a> on hospital variables and case mix).</li>
+                <li><strong>H2 (Staffing):</strong> Hospitals with greater provider-to-patient ratios have better documentation and smaller gaps than lower-resourced hospitals (cf. <a href="https://pubmed.ncbi.nlm.nih.gov/25214820/" target="_blank">Pillai et al., 2014</a> on staffing and documentation quality).</li>
+            </ul>
+        </div>
+
+
+        <!-- ============================================================ -->
+        <!-- TAB: METHODS -->
+        <!-- ============================================================ -->
+        <div role="tabpanel" class="tab-pane" id="tab-methods">
+            <h2 class="section-heading">Methods</h2>
+
+            <!-- Flow Diagram — horizontally scrollable -->
+            <div style="overflow-x: auto; margin: 25px 0; padding-bottom: 10px; -webkit-overflow-scrolling: touch;">
+                <div class="flow-diagram" style="flex-wrap: nowrap; min-width: 1200px; justify-content: flex-start; padding: 0 10px;">
+                    <div class="flow-step">
+                        <strong>Data Collection</strong>
+                        5 CMS datasets
+                    </div>
+                    <div class="flow-arrow">&rarr;</div>
+                    <div class="flow-step">
+                        <strong>Merge &amp; Features</strong>
+                        3,280 hospitals<br>50 features
+                    </div>
+                    <div class="flow-arrow">&rarr;</div>
+                    <div class="flow-step">
+                        <strong>Gap Scoring</strong>
+                        4-component<br>composite (0&ndash;100)
+                    </div>
+                    <div class="flow-arrow">&rarr;</div>
+                    <div class="flow-step">
+                        <strong>Revenue Impact</strong>
+                        Severity shift<br>model
+                    </div>
+                    <div class="flow-arrow">&rarr;</div>
+                    <div class="flow-step">
+                        <strong>Enrichment</strong>
+                        Staffing + quality<br>from Provider of Services &amp; Hospital General Information
+                    </div>
+                    <div class="flow-arrow">&rarr;</div>
+                    <div class="flow-step" style="background: #1B6E93;">
+                        <strong>Statistical Analysis<br>&amp; Visualization</strong>
+                        Ordinary Least Squares regression,<br>hypothesis tests, interactive charts
+                    </div>
+                </div>
+            </div>
+
+            <p class="section-text">
+                This analysis draws on five publicly available CMS datasets, all linked by CMS Certification Number. I collected hospital characteristics, Diagnosis Related Group and Case Mix Index data, inpatient charges and payments, staffing levels, and quality performance measures. After merging and cleaning, the final analytic dataset covers approximately 3,280 acute care hospitals with over 50 features.
+            </p>
+
+            <p class="section-text">
+                From the merged data, I engineered features across several categories: peer-group benchmarks, gap sub-scores, revenue impact estimates, staffing ratios, and quality composites. Hospitals were grouped into peer cohorts and all gap metrics were computed relative to peer means. The pipeline culminates in a composite gap score, a revenue impact model, and a suite of regression models to identify the structural and staffing characteristics most associated with documentation risk.
+            </p>
+
+            <!-- Data Sources Table -->
+            <h3 class="subsection-heading">Data Sources</h3>
+
+            <div style="overflow-x: auto; margin: 20px 0;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Source</th>
+                            <th>What It Provides</th>
+                            <th style="text-align: center;">Year</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="font-weight: 600;"><a href="https://data.cms.gov/provider-data/dataset/xubh-q36u" target="_blank">Hospital General Information</a></td>
+                            <td>Ownership type, state, county, CMS star ratings, quality performance measures (mortality, safety, readmission counts of Better/Worse/No Different)</td>
+                            <td style="text-align: center;">2024</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;"><a href="https://data.cms.gov/provider-characteristics/hospitals-and-other-facilities/provider-of-services-file-hospital-non-hospital-facilities" target="_blank">Provider of Services (POS) QIES</a></td>
+                            <td>Certified bed count, staffing levels (Registered Nurse, Licensed Practical Nurse, physician, Physician Assistant, direct care personnel counts across 114+ staffing columns), teaching status</td>
+                            <td style="text-align: center;">Q4 2025</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;"><a href="https://www.cms.gov/medicare/payment/prospective-payment-systems/acute-inpatient-pps/fy-2025-ipps-final-rule-home-page" target="_blank">Inpatient Prospective Payment System Impact File</a></td>
+                            <td>Hospital-level Case Mix Index, Medicare discharges, wage index, Disproportionate Share Hospital percentage, resident-to-bed ratio, urban/rural status</td>
+                            <td style="text-align: center;">FY 2025</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;"><a href="https://data.cms.gov/provider-summary-by-type-of-service/medicare-inpatient-hospitals/medicare-inpatient-hospitals-by-provider-and-service" target="_blank">Medicare Inpatient Public Use File</a></td>
+                            <td>Diagnosis Related Group-level payment amounts, discharge counts, and covered charges by hospital. Used to compute severity tier distributions and payment-per-discharge</td>
+                            <td style="text-align: center;">2022</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Table 5 Diagnosis Related Group Weights (Inpatient Prospective Payment System Final Rule)</td>
+                            <td>Official Diagnosis Related Group weight schedule mapping each Medicare Severity Diagnosis Related Group to a payment weight and severity tier classification (with Major Complication or Comorbidity, with Complication or Comorbidity, without Complication or Comorbidity / Major Complication or Comorbidity)</td>
+                            <td style="text-align: center;">FY 2025</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Peer Benchmarking -->
+            <h3 class="subsection-heading">Peer Group Benchmarking</h3>
+
+            <p class="section-text">
+                To compare hospitals fairly, I grouped them into peer cohorts based on the intersection of bed size tier (8 categories from 1&ndash;24 to 600+), teaching status, and ownership type, producing 49 distinct peer groups (42 after filtering groups with fewer than 5 hospitals). All gap metrics are computed relative to peer group means to ensure apples-to-apples comparisons.
+            </p>
+
+            <!-- Documentation Gap Score -->
+            <h3 class="subsection-heading">Documentation Gap Score</h3>
+
+            <p class="section-text">
+                I constructed a composite Documentation Gap Score (0&ndash;100) that combines four normalized sub-scores:
+            </p>
+
+            <ul class="section-text">
+                <li><strong>Case Mix Index Gap Score (40% weight)</strong> &mdash; how far a hospital's Case Mix Index falls below its peer group mean</li>
+                <li><strong>Severity Score (30% weight)</strong> &mdash; the proportion of cases coded at the lowest severity tier compared to peers</li>
+                <li><strong>Payment Score (20% weight)</strong> &mdash; whether per-case payments are lower than expected given the hospital's peer group</li>
+                <li><strong>Complexity Score (10% weight)</strong> &mdash; the diversity of Diagnosis Related Group families the hospital handles, reflecting documentation complexity</li>
+            </ul>
+
+            <p class="section-text">
+                Hospitals scoring 65 or above are classified as "High" gap, 50&ndash;65 as "Medium," and below 50 as "Low."
+            </p>
+
+            <p class="section-text">
+                While no single standardized documentation gap metric exists in the literature, this composite approach builds directly on established Clinical Documentation Improvement methods:
+            </p>
+
+            <ul class="section-text">
+                <li>The American Health Information Management Association recommends using Complication/Major Complication capture rates and peer-benchmarked Case Mix Index comparisons as key performance indicators for identifying documentation opportunities (<a href="https://journal.ahima.org/Portals/0/archives/AHIMA%20files/Using%20CC_MCC%20Capture%20Rates%20as%20a%20Key%20Performance%20Indicator.pdf" target="_blank">AHIMA, "Using CC/MCC Capture Rates as a Key Performance Indicator"</a>).</li>
+                <li>Pillai et al. demonstrated that a normalized Case Mix Index can isolate documentation quality from patient acuity when comparing across Diagnosis Related Group families (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4142511/" target="_blank">Pillai et al., 2014, <em>Perspectives in Health Information Management</em></a>).</li>
+                <li>Each sub-score component is individually well-established in Clinical Documentation Improvement practice (<a href="https://www.ahima.org/media/qlkbu4ph/clinical-documentation-improvement-toolkit-2016-version-_axs.pdf" target="_blank">AHIMA Clinical Documentation Improvement Toolkit</a>).</li>
+            </ul>
+
+            <div style="background: #f0f4f8; padding: 10px 14px; border-radius: 4px; font-family: monospace; font-size: 12px; line-height: 1.6; margin: 15px 0; color: #555;">
+                <strong style="font-family: inherit;">Documentation Gap Score</strong> = Case Mix Index Gap Score &times; <strong>0.40</strong> + Severity Score &times; <strong>0.30</strong> + Payment Score &times; <strong>0.20</strong> + Complexity Score &times; <strong>0.10</strong>
+            </div>
+
+            <!-- Sub-Score Formulas -->
+            <h4 style="color: #1a1a2e; font-size: 15px; margin: 25px 0 10px;">Sub-Score Formulas</h4>
+
+            <p class="section-text">
+                Each sub-score is normalized to a 0&ndash;100 scale so that 50 represents the peer-group average and higher values indicate a larger documentation gap. Below are the formulas and the CMS data source for each component.
+            </p>
+
+            <div style="overflow-x: auto; margin: 15px 0;">
+                <table class="data-table" style="font-size: 13px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 18%;">Sub-Score</th>
+                            <th style="width: 42%;">Formula</th>
+                            <th style="width: 40%;">Source Data</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="font-weight: 600;">Case Mix Index Gap Score<br><span style="color: #2E86AB; font-size: 11px;">(40% weight)</span></td>
+                            <td>
+                                <div style="font-family: monospace; font-size: 11px; line-height: 1.5; background: #f8f9fa; padding: 6px 8px; border-radius: 3px;">
+                                    z = (Hospital CMI &minus; Peer Group Mean CMI) / Peer Group Std Dev<br>
+                                    Score = (&minus;z clipped to [&minus;3, 3] + 3) / 6 &times; 100
+                                </div>
+                                <div style="font-size: 11px; color: #666; margin-top: 4px;">Flipping the sign ensures hospitals <em>below</em> their peer mean score higher (larger gap).</div>
+                            </td>
+                            <td style="font-size: 12px;">
+                                <strong>Hospital CMI</strong> &mdash; CMS Medicare Inpatient PUF (Provider Utilization &amp; Payment, FY 2023), weighted average DRG weight per hospital<br>
+                                <strong>Peer Group</strong> &mdash; intersection of bed-size tier, teaching status, and ownership type (42 groups)
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Severity Score<br><span style="color: #2E86AB; font-size: 11px;">(30% weight)</span></td>
+                            <td>
+                                <div style="font-family: monospace; font-size: 11px; line-height: 1.5; background: #f8f9fa; padding: 6px 8px; border-radius: 3px;">
+                                    gap = Hospital MCC Ratio &minus; Peer Group Mean MCC Ratio<br>
+                                    Score = (&minus;gap clipped to [&minus;0.3, 0.3] + 0.3) / 0.6 &times; 100
+                                </div>
+                                <div style="font-size: 11px; color: #666; margin-top: 4px;">MCC Ratio = Major Complication/Comorbidity discharges &divide; total CC/MCC discharges. A lower ratio vs. peers suggests under-documentation of severity.</div>
+                            </td>
+                            <td style="font-size: 12px;">
+                                <strong>MCC/CC/Without counts</strong> &mdash; CMS Medicare Inpatient PUF, severity tier fields per DRG line<br>
+                                <strong>Peer MCC Ratio</strong> &mdash; mean of peer group hospitals
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Payment Score<br><span style="color: #2E86AB; font-size: 11px;">(20% weight)</span></td>
+                            <td>
+                                <div style="font-family: monospace; font-size: 11px; line-height: 1.5; background: #f8f9fa; padding: 6px 8px; border-radius: 3px;">
+                                    gap = Avg Payment/Discharge &minus; Peer Avg Payment<br>
+                                    z = &minus;gap / Std Dev(all payment gaps)<br>
+                                    Score = (z clipped to [&minus;3, 3] + 3) / 6 &times; 100
+                                </div>
+                                <div style="font-size: 11px; color: #666; margin-top: 4px;">Hospitals paid less per case than their peer average score higher, indicating potential under-coding.</div>
+                            </td>
+                            <td style="font-size: 12px;">
+                                <strong>Avg Payment per Discharge</strong> &mdash; CMS Medicare Inpatient PUF, total Medicare payments &divide; total discharges<br>
+                                <strong>Std Dev</strong> &mdash; computed across all 3,280 hospitals ($6,911)
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Complexity Score<br><span style="color: #2E86AB; font-size: 11px;">(10% weight)</span></td>
+                            <td>
+                                <div style="font-family: monospace; font-size: 11px; line-height: 1.5; background: #f8f9fa; padding: 6px 8px; border-radius: 3px;">
+                                    Score = DRG Diversity Percentile &times; 50<br>
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ Bed Count Percentile &times; 50
+                                </div>
+                                <div style="font-size: 11px; color: #666; margin-top: 4px;">Percentile ranks across all hospitals. Larger, more complex hospitals have more documentation surface area and thus more opportunity.</div>
+                            </td>
+                            <td style="font-size: 12px;">
+                                <strong>DRG Diversity</strong> &mdash; count of distinct DRG families per hospital (CMS Inpatient PUF)<br>
+                                <strong>Bed Count</strong> &mdash; CMS Provider of Services file (Q4 2025)
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Worked Example -->
+            <h4 style="color: #1a1a2e; font-size: 15px; margin: 25px 0 10px;">Worked Example: Southeast Health Medical Center (AL)</h4>
+
+            <p class="section-text">
+                To illustrate how the composite score comes together, here is the full calculation for Southeast Health Medical Center, a 420-bed teaching hospital in its <em>400&ndash;599, teaching, government</em> peer group (30 hospitals).
+            </p>
+
+            <div style="overflow-x: auto; margin: 15px 0;">
+                <table class="data-table" style="font-size: 13px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 18%;">Sub-Score</th>
+                            <th style="width: 32%;">Raw Values</th>
+                            <th style="width: 30%;">Calculation</th>
+                            <th style="width: 10%;">Result</th>
+                            <th style="width: 10%;">Weighted</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="font-weight: 600;">Case Mix Index Gap<br><span style="color: #2E86AB; font-size: 11px;">&times; 0.40</span></td>
+                            <td style="font-size: 12px;">
+                                Hospital CMI = 2.064<br>
+                                Peer Mean = 2.063<br>
+                                Peer Std Dev = 0.314<br>
+                                z-score = +0.003
+                            </td>
+                            <td style="font-family: monospace; font-size: 11px;">
+                                (&minus;0.003 + 3) / 6 &times; 100<br>= 2.997 / 6 &times; 100
+                            </td>
+                            <td style="font-weight: 600; text-align: center;">49.9</td>
+                            <td style="text-align: center;">20.0</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Severity<br><span style="color: #2E86AB; font-size: 11px;">&times; 0.30</span></td>
+                            <td style="font-size: 12px;">
+                                Hospital MCC Ratio = 0.713<br>
+                                Peer Mean = 0.703<br>
+                                Gap = +0.010
+                            </td>
+                            <td style="font-family: monospace; font-size: 11px;">
+                                (&minus;0.010 + 0.3) / 0.6 &times; 100<br>= 0.290 / 0.6 &times; 100
+                            </td>
+                            <td style="font-weight: 600; text-align: center;">48.4</td>
+                            <td style="text-align: center;">14.5</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Payment<br><span style="color: #2E86AB; font-size: 11px;">&times; 0.20</span></td>
+                            <td style="font-size: 12px;">
+                                Avg Payment = $14,385<br>
+                                Peer Avg = $27,513<br>
+                                Gap = &minus;$13,128<br>
+                                All-hospital &sigma; = $6,911
+                            </td>
+                            <td style="font-family: monospace; font-size: 11px;">
+                                z = &minus;(&minus;13,128) / 6,911 = +1.90<br>
+                                (1.90 + 3) / 6 &times; 100
+                            </td>
+                            <td style="font-weight: 600; text-align: center;">81.7</td>
+                            <td style="text-align: center;">16.3</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Complexity<br><span style="color: #2E86AB; font-size: 11px;">&times; 0.10</span></td>
+                            <td style="font-size: 12px;">
+                                DRG Diversity = 91 families<br>
+                                (72nd percentile)<br>
+                                Beds = 420<br>
+                                (81st percentile)
+                            </td>
+                            <td style="font-family: monospace; font-size: 11px;">
+                                72.0 &times; 0.50 + 81.0 &times; 0.50<br>
+                                = 36.0 + 40.5
+                            </td>
+                            <td style="font-weight: 600; text-align: center;">81.5</td>
+                            <td style="text-align: center;">8.1</td>
+                        </tr>
+                        <tr style="background: #e8f0f5; font-weight: 700;">
+                            <td>Documentation Gap Score</td>
+                            <td colspan="2" style="font-family: monospace; font-size: 12px;">
+                                20.0 + 14.5 + 16.3 + 8.1
+                            </td>
+                            <td style="text-align: center; color: #2E86AB; font-size: 16px;">59.0</td>
+                            <td style="text-align: center; color: #e67e22; font-size: 12px;">Medium</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <p class="section-text" style="font-size: 13px; color: #555;">
+                <strong>Reading this example:</strong> Southeast Health&rsquo;s Case Mix Index and severity mix are nearly identical to its peer group (scores near 50), meaning those dimensions show no documentation gap. However, its per-case Medicare payments are well below peer average (score 81.7), and it handles a wide range of DRG families at scale (score 81.5), so the payment and complexity sub-scores pull the composite into Medium-gap territory. A hospital with high scores across <em>all four</em> dimensions&mdash;Case Mix Index below peers, low MCC capture, low payments, and high complexity&mdash;would land in the High-gap tier above 65.
+            </p>
+
+            <!-- Revenue Impact -->
+            <h3 class="subsection-heading">Revenue Impact Model</h3>
+
+            <p class="section-text">
+                The revenue model estimates how much additional Medicare reimbursement a hospital could capture if its documentation fully reflected the true severity of its patients. The core idea is simple: when a patient&rsquo;s chart does not capture all relevant complications and comorbidities, Medicare assigns the case to a lower-paying Diagnosis Related Group. Better documentation &ldquo;shifts&rdquo; some of those cases into a higher severity tier&mdash;and a higher payment&mdash;without changing the care delivered.
+            </p>
+
+            <h4 style="color: #1a1a2e; font-size: 15px; margin: 25px 0 10px;">Key Terms in Plain Language</h4>
+
+            <ul class="section-text">
+                <li><strong>Severity shift</strong> &mdash; when improved documentation moves a case from the baseline &ldquo;Without CC/MCC&rdquo; tier (lowest payment) up to either the Complication/Comorbidity tier or the Major Complication/Comorbidity tier (higher payment). No clinical care changes; only the documentation accuracy changes.</li>
+                <li><strong>Complication/Comorbidity (CC) uplift ($3,257)</strong> &mdash; the average additional payment Medicare makes when a case moves from the baseline tier to the middle &ldquo;With CC&rdquo; tier. Computed as the mean difference across all Diagnosis Related Group families in the CMS Inpatient PUF.</li>
+                <li><strong>Major Complication/Comorbidity (MCC) uplift ($11,706)</strong> &mdash; the average additional payment when a case moves from baseline to the highest &ldquo;With MCC&rdquo; tier. This is much larger because MCC cases reflect the most resource-intensive patients.</li>
+                <li><strong>Blended uplift ($5,792)</strong> &mdash; a weighted average assuming 70% of shifted cases land in the CC tier and 30% reach the MCC tier: ($3,257 &times; 0.70) + ($11,706 &times; 0.30) = $5,792.</li>
+                <li><strong>Shift rate</strong> &mdash; the estimated percentage of a hospital&rsquo;s Medicare discharges that could be reclassified through better documentation. This rate scales with the hospital&rsquo;s Documentation Gap Score: hospitals with larger gaps have more room for improvement.</li>
+            </ul>
+
+            <h4 style="color: #1a1a2e; font-size: 15px; margin: 25px 0 10px;">Shift Rate Schedule</h4>
+
+            <p class="section-text">
+                The shift rate is not a single number&mdash;it increases linearly within each gap tier, reflecting the idea that hospitals with bigger documentation gaps have proportionally more cases that could be reclassified.
+            </p>
+
+            <div style="overflow-x: auto; margin: 15px 0;">
+                <table class="data-table" style="font-size: 13px;">
+                    <thead>
+                        <tr>
+                            <th>Gap Score Range</th>
+                            <th>Tier</th>
+                            <th>Shift Rate Range</th>
+                            <th>Formula</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>0&ndash;40</td>
+                            <td><span style="color: #27ae60; font-weight: 600;">Low</span></td>
+                            <td>1%&ndash;3%</td>
+                            <td style="font-family: monospace; font-size: 11px;">0.01 + (score / 40) &times; 0.02</td>
+                        </tr>
+                        <tr>
+                            <td>40&ndash;60</td>
+                            <td><span style="color: #e67e22; font-weight: 600;">Medium</span></td>
+                            <td>3%&ndash;6%</td>
+                            <td style="font-family: monospace; font-size: 11px;">0.03 + ((score &minus; 40) / 20) &times; 0.03</td>
+                        </tr>
+                        <tr>
+                            <td>60&ndash;80</td>
+                            <td><span style="color: #e74c3c; font-weight: 600;">High</span></td>
+                            <td>6%&ndash;10%</td>
+                            <td style="font-family: monospace; font-size: 11px;">0.06 + ((score &minus; 60) / 20) &times; 0.04</td>
+                        </tr>
+                        <tr>
+                            <td>80&ndash;100</td>
+                            <td><span style="color: #c0392b; font-weight: 600;">Critical</span></td>
+                            <td>10%&ndash;15%</td>
+                            <td style="font-family: monospace; font-size: 11px;">0.10 + ((score &minus; 80) / 20) &times; 0.05</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <p class="section-text" style="font-size: 13px; color: #555;">
+                These rates are conservative relative to industry benchmarks. Published Clinical Documentation Improvement programs typically improve 15&ndash;25% of targeted cases, but this model accounts for hospitals that may not have a full program in place.
+            </p>
+
+            <h4 style="color: #1a1a2e; font-size: 15px; margin: 25px 0 10px;">Revenue Formula</h4>
+
+            <div style="background: #f0f4f8; padding: 10px 14px; border-radius: 4px; font-family: monospace; font-size: 12px; line-height: 1.6; margin: 15px 0; color: #555;">
+                <strong style="font-family: inherit;">Annual Revenue Opportunity</strong> = Medicare Discharges &times; Shift Rate &times; Blended Uplift<br><br>
+                where <strong>Blended Uplift</strong> = (CC Uplift &times; 0.70) + (MCC Uplift &times; 0.30) = ($3,257 &times; 0.70) + ($11,706 &times; 0.30) = <strong>$5,792</strong>
+            </div>
+
+            <div style="overflow-x: auto; margin: 15px 0;">
+                <table class="data-table" style="font-size: 13px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">Input</th>
+                            <th style="width: 45%;">What It Means</th>
+                            <th style="width: 30%;">Source</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="font-weight: 600;">Medicare Discharges</td>
+                            <td>Total inpatient cases billed to Medicare at the hospital in a fiscal year&mdash;the pool of cases that <em>could</em> be re-documented</td>
+                            <td style="font-size: 12px;">CMS Medicare Inpatient PUF (FY 2023)</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Shift Rate</td>
+                            <td>The percentage of those discharges estimated to move to a higher severity tier with improved documentation (see schedule above)</td>
+                            <td style="font-size: 12px;">Derived from the hospital&rsquo;s Documentation Gap Score</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">CC Uplift ($3,257)</td>
+                            <td>Average extra payment when a case moves from &ldquo;Without CC/MCC&rdquo; to &ldquo;With CC&rdquo;&mdash;moderate severity increase</td>
+                            <td style="font-size: 12px;">Mean across all DRG families, CMS Inpatient PUF</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">MCC Uplift ($11,706)</td>
+                            <td>Average extra payment when a case moves from &ldquo;Without CC/MCC&rdquo; to &ldquo;With MCC&rdquo;&mdash;major severity increase</td>
+                            <td style="font-size: 12px;">Mean across all DRG families, CMS Inpatient PUF</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">70/30 Blend</td>
+                            <td>Assumption that most documentation improvements capture moderate complications (CC), with a smaller share reaching major complications (MCC)</td>
+                            <td style="font-size: 12px;">Conservative estimate based on Clinical Documentation Improvement literature</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Worked Example: Revenue -->
+            <h4 style="color: #1a1a2e; font-size: 15px; margin: 25px 0 10px;">Worked Example: Southeast Health Medical Center (continued)</h4>
+
+            <p class="section-text">
+                Continuing with the same hospital from the gap score example above (Documentation Gap Score = 59.0, Medium tier):
+            </p>
+
+            <div style="overflow-x: auto; margin: 15px 0;">
+                <table class="data-table" style="font-size: 13px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 8%;">Step</th>
+                            <th style="width: 30%;">What We&rsquo;re Calculating</th>
+                            <th style="width: 40%;">Calculation</th>
+                            <th style="width: 22%;">Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="text-align: center; font-weight: 700; color: #2E86AB;">1</td>
+                            <td><strong>Look up shift rate</strong><br><span style="font-size: 11px; color: #666;">Score 59.0 falls in the 40&ndash;60 (Medium) band</span></td>
+                            <td style="font-family: monospace; font-size: 11px;">
+                                0.03 + ((59.0 &minus; 40) / 20) &times; 0.03<br>
+                                = 0.03 + (0.95 &times; 0.03)<br>
+                                = 0.03 + 0.0285
+                            </td>
+                            <td style="font-weight: 600;">5.85%</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; font-weight: 700; color: #2E86AB;">2</td>
+                            <td><strong>Estimate shifted cases</strong><br><span style="font-size: 11px; color: #666;">How many of the hospital&rsquo;s 4,030 Medicare discharges could be reclassified</span></td>
+                            <td style="font-family: monospace; font-size: 11px;">
+                                4,030 &times; 0.0585 = 235.8<br>
+                                rounded to 236 cases
+                            </td>
+                            <td style="font-weight: 600;">236 cases</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: center; font-weight: 700; color: #2E86AB;">3</td>
+                            <td><strong>Calculate blended uplift</strong><br><span style="font-size: 11px; color: #666;">Weighted average payment increase per shifted case</span></td>
+                            <td style="font-family: monospace; font-size: 11px;">
+                                ($3,257 &times; 0.70) + ($11,706 &times; 0.30)<br>
+                                = $2,280 + $3,512
+                            </td>
+                            <td style="font-weight: 600;">$5,792 per case</td>
+                        </tr>
+                        <tr style="background: #e8f0f5; font-weight: 700;">
+                            <td style="text-align: center; color: #2E86AB;">4</td>
+                            <td><strong>Annual revenue opportunity</strong></td>
+                            <td style="font-family: monospace; font-size: 12px;">
+                                236 cases &times; $5,792
+                            </td>
+                            <td style="color: #2E86AB; font-size: 15px;">$1,366,912</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <p class="section-text" style="font-size: 13px; color: #555;">
+                <strong>In plain language:</strong> Southeast Health has about 4,030 Medicare patients per year. With a medium-sized documentation gap, roughly 6 out of every 100 of those patients likely have complications or comorbidities that are clinically present but not fully captured in their charts. If the hospital improved its documentation to capture those conditions, each reclassified case would generate about $5,800 more in Medicare reimbursement&mdash;adding up to approximately <strong>$1.37 million per year</strong> in revenue the hospital is currently leaving on the table.
+            </p>
+
+            <!-- Statistical Models -->
+            <h3 class="subsection-heading">Statistical Models</h3>
+
+            <p class="section-text">
+                I tested the two hypotheses using Kruskal-Wallis, Mann-Whitney U (one-sided for H1), ANOVA, and Spearman/Pearson correlations. The primary model presented in the Results is an enriched Ordinary Least Squares regression with 17 predictors (up from a base model with 10 structural features), adding staffing ratios from the Provider of Services file and quality metrics from Hospital General Information. All regression coefficients are standardized to one standard deviation units for comparability. To validate model selection, I compared Ordinary Least Squares against Ridge regression (L2 regularization), Lasso regression (L1 regularization with feature selection), and ElasticNet using 5-fold cross-validation. The regularized models offered no meaningful improvement over Ordinary Least Squares (all cross-validated R&sup2; values fell within 0.19&ndash;0.21), confirming the 17-feature specification is parsimonious enough without requiring shrinkage or feature elimination. I also fit a logistic regression to predict high-gap status (score &ge; 65), which achieved an Area Under the Curve of 0.75. Residual diagnostics (residuals vs. fitted, Q-Q plot, histogram, and scale-location plot) confirmed no major violations of linearity, normality, or homoscedasticity.
+            </p>
+
+            <!-- Calculated Fields Table -->
+            <h3 class="subsection-heading">Calculated Fields</h3>
+
+            <p class="section-text">
+                The table below documents all engineered features used in the analysis. Click any dropdown to see the formula.
+            </p>
+
+            <div style="overflow-x: auto; margin: 20px 0;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Field</th>
+                            <th>What It Measures</th>
+                            <th>Data Source</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Gap Score Components -->
+                        <tr style="background: #e8f0f5;">
+                            <td colspan="3" style="font-weight: 700; color: #1a1a2e; border-bottom: 2px solid #2E86AB;">Documentation Gap Scoring</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Documentation Gap Score</td>
+                            <td>Overall documentation improvement opportunity (0&ndash;100)
+                                <details class="field-details">
+                                    <summary>Show formula</summary>
+                                    <div class="formula-box">Case Mix Index Gap Score &times; 0.40 + Severity Score &times; 0.30 + Payment Score &times; 0.20 + Complexity Score &times; 0.10</div>
+                                </details>
+                            </td>
+                            <td>Inpatient Prospective Payment System Impact File, Medicare Inpatient Public Use File</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Case Mix Index Gap Score</td>
+                            <td>How far Case Mix Index falls below peer group mean (40% weight)
+                                <details class="field-details">
+                                    <summary>Show formula</summary>
+                                    <div class="formula-box">clip(-Case Mix Index z-score, -3, 3) &rarr; rescale to 0&ndash;100: ((clipped + 3) / 6) &times; 100</div>
+                                </details>
+                            </td>
+                            <td>Inpatient Prospective Payment System Impact File</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Severity Score</td>
+                            <td>Share of cases coded "without Complication or Comorbidity / Major Complication or Comorbidity" relative to peers (30% weight)
+                                <details class="field-details">
+                                    <summary>Show formula</summary>
+                                    <div class="formula-box">clip(-Major Complication or Comorbidity gap, -0.3, 0.3) &rarr; rescale: ((clipped + 0.3) / 0.6) &times; 100</div>
+                                </details>
+                            </td>
+                            <td>Medicare Inpatient Public Use File</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Payment Score</td>
+                            <td>Average payment per discharge vs. peer group (20% weight)
+                                <details class="field-details">
+                                    <summary>Show formula</summary>
+                                    <div class="formula-box">clip(-payment gap / payment gap std, -3, 3) &rarr; rescale to 0&ndash;100</div>
+                                </details>
+                            </td>
+                            <td>Medicare Inpatient Public Use File</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Complexity Score</td>
+                            <td>Hospital size and complexity adjustment (10% weight)
+                                <details class="field-details">
+                                    <summary>Show formula</summary>
+                                    <div class="formula-box">Diagnosis Related Group Diversity percentile rank &times; 50 + Bed Count percentile rank &times; 50, clipped to [0, 100]</div>
+                                </details>
+                            </td>
+                            <td>Medicare Inpatient Public Use File, Provider of Services QIES</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Gap Tier</td>
+                            <td>Risk classification: "Low" (&lt;50), "Medium" (50&ndash;65), "High" (&ge;65)</td>
+                            <td>Derived from Gap Score</td>
+                        </tr>
+
+                        <!-- Revenue Impact -->
+                        <tr style="background: #e8f0f5;">
+                            <td colspan="3" style="font-weight: 700; color: #1a1a2e; border-bottom: 2px solid #2E86AB;">Revenue Impact</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Estimated Shift Rate</td>
+                            <td>Percentage of cases eligible for severity reclassification
+                                <details class="field-details">
+                                    <summary>Show formula</summary>
+                                    <div class="formula-box">Piecewise linear: 1% at Gap Score = 0 &rarr; 15% at Gap Score = 100, interpolated by tier</div>
+                                </details>
+                            </td>
+                            <td>Derived from Gap Score</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Estimated Shifted Cases</td>
+                            <td>Predicted number of cases that would shift to higher severity
+                                <details class="field-details">
+                                    <summary>Show formula</summary>
+                                    <div class="formula-box">Medicare Discharges &times; Estimated Shift Rate</div>
+                                </details>
+                            </td>
+                            <td>Inpatient Prospective Payment System Impact File</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Annual Revenue Opportunity</td>
+                            <td>Potential annual revenue recovery per hospital
+                                <details class="field-details">
+                                    <summary>Show formula</summary>
+                                    <div class="formula-box">Estimated Shifted Cases &times; (Avg Complication or Comorbidity Uplift &times; 0.70 + Avg Major Complication or Comorbidity Uplift &times; 0.30)<br>where Avg Complication or Comorbidity Uplift &asymp; $3,257, Avg Major Complication or Comorbidity Uplift &asymp; $11,706 &rarr; blended &asymp; $5,791/case</div>
+                                </details>
+                            </td>
+                            <td>Medicare Inpatient Public Use File, Table 5 Diagnosis Related Group Weights</td>
+                        </tr>
+
+                        <!-- Severity & CMI Features -->
+                        <tr style="background: #e8f0f5;">
+                            <td colspan="3" style="font-weight: 700; color: #1a1a2e; border-bottom: 2px solid #2E86AB;">Severity &amp; Case Mix Index Features</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Severity Index</td>
+                            <td>Weighted severity composite (0&ndash;1)
+                                <details class="field-details">
+                                    <summary>Show formula</summary>
+                                    <div class="formula-box">(% with Major Complication or Comorbidity &times; 2 + % with Complication or Comorbidity &times; 1 + % without Complication or Comorbidity &times; 0) / 200</div>
+                                </details>
+                            </td>
+                            <td>Medicare Inpatient Public Use File</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Case Mix Index Percentile</td>
+                            <td>Percentile rank of Case Mix Index across all hospitals (0&ndash;100)
+                                <details class="field-details">
+                                    <summary>Show formula</summary>
+                                    <div class="formula-box">Case Mix Index percentile rank &times; 100</div>
+                                </details>
+                            </td>
+                            <td>Inpatient Prospective Payment System Impact File</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Diagnosis Related Group Diversity</td>
+                            <td>Count of distinct Diagnosis Related Group codes treated by the hospital</td>
+                            <td>Medicare Inpatient Public Use File</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Teaching Intensity</td>
+                            <td>Categorical: non-teaching, minor teaching (&lt;0.25), or major teaching (&ge;0.25)
+                                <details class="field-details">
+                                    <summary>Show formula</summary>
+                                    <div class="formula-box">Based on resident-to-bed ratio thresholds from Inpatient Prospective Payment System Impact File</div>
+                                </details>
+                            </td>
+                            <td>Inpatient Prospective Payment System Impact File</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Safety-Net Flag</td>
+                            <td>Binary flag for safety-net hospitals
+                                <details class="field-details">
+                                    <summary>Show formula</summary>
+                                    <div class="formula-box">1 if Disproportionate Share Hospital percentage &gt; 0.25, else 0</div>
+                                </details>
+                            </td>
+                            <td>Inpatient Prospective Payment System Impact File</td>
+                        </tr>
+
+                        <!-- Staffing Ratios -->
+                        <tr style="background: #e8f0f5;">
+                            <td colspan="3" style="font-weight: 700; color: #1a1a2e; border-bottom: 2px solid #2E86AB;">Staffing Ratios</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Registered Nurses per Bed</td>
+                            <td>Registered nurses per certified bed
+                                <details class="field-details">
+                                    <summary>Show formula</summary>
+                                    <div class="formula-box">Registered Nurse Count / Bed Count</div>
+                                </details>
+                            </td>
+                            <td>Provider of Services QIES</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Physician per Bed</td>
+                            <td>Physicians per certified bed
+                                <details class="field-details">
+                                    <summary>Show formula</summary>
+                                    <div class="formula-box">Physician Count / Bed Count</div>
+                                </details>
+                            </td>
+                            <td>Provider of Services QIES</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Clinical Staff per Bed</td>
+                            <td>Total clinical staff across all roles per bed
+                                <details class="field-details">
+                                    <summary>Show formula</summary>
+                                    <div class="formula-box">(Registered Nurse + Licensed Practical Nurse + Physicians + Physician Assistant + Pharmacists + Therapists + Technologists) / Bed Count</div>
+                                </details>
+                            </td>
+                            <td>Provider of Services QIES</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Registered Nurse Skill Mix</td>
+                            <td>Registered Nurse share of total nursing staff
+                                <details class="field-details">
+                                    <summary>Show formula</summary>
+                                    <div class="formula-box">Registered Nurse Count / (Registered Nurse Count + Licensed Practical Nurse Count)</div>
+                                </details>
+                            </td>
+                            <td>Provider of Services QIES</td>
+                        </tr>
+
+                        <!-- Quality Metrics -->
+                        <tr style="background: #e8f0f5;">
+                            <td colspan="3" style="font-weight: 700; color: #1a1a2e; border-bottom: 2px solid #2E86AB;">Quality Metrics</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Star Rating</td>
+                            <td>CMS overall hospital star rating (1&ndash;5)</td>
+                            <td>Hospital General Information</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Quality Score</td>
+                            <td>Composite quality score across mortality, safety, and readmission
+                                <details class="field-details">
+                                    <summary>Show formula</summary>
+                                    <div class="formula-box">(% Mortality Better + % Safety Better + % Readmission Better) &minus; (% Mortality Worse + % Safety Worse + % Readmission Worse)</div>
+                                </details>
+                            </td>
+                            <td>Hospital General Information</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">Domain-Specific "Worse" Rates</td>
+                            <td>Percentage of measures rated "worse than national" for mortality, safety, and readmission
+                                <details class="field-details">
+                                    <summary>Show formula</summary>
+                                    <div class="formula-box">Measures Worse / Total Measures &times; 100 (for each domain)</div>
+                                </details>
+                            </td>
+                            <td>Hospital General Information</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+
+        <!-- ============================================================ -->
+        <!-- TAB: RESULTS -->
+        <!-- ============================================================ -->
+        <div role="tabpanel" class="tab-pane" id="tab-results">
+            <h2 class="section-heading">Results</h2>
+
+            <!-- Hospital Landscape -->
+            <h3 class="subsection-heading">Hospital Ownership Shapes Patient Complexity</h3>
+
+            <p class="section-text">
+                The hospitals in this analysis span the full spectrum of U.S. acute care: small critical access hospitals
+                with fewer than 25 beds to large urban academic medical centers with 600+. The median hospital has around
+                185 beds, while the mean sits at 268. About one-third are teaching hospitals. How a hospital is structured
+                affects both its patient mix and its documentation practices. Government and nonprofit hospitals tend to have
+                higher Case Mix Index values, reflecting their role as safety-net providers treating more complex cases.
+            </p>
+
+            <!-- Chart 1: CMI by Ownership -->
+            <div class="chart-container">
+                <iframe src="projects/smarterdx_documentation_gap/data/outputs/blog_charts/chart1_cmi_by_ownership.html?v=1775100001" class="chart-frame" style="height: 560px;"></iframe>
+                <div class="chart-caption">Figure 1: Box plot of Case Mix Index across four hospital ownership categories for 3,280 U.S. acute care hospitals: Nonprofit (n = 1,944), For-Profit (n = 651), Government (n = 451), and Other (n = 234, including Veterans Health Administration, Department of Defense, and Tribal facilities). The Case Mix Index is the average Diagnosis Related Group weight across all of a hospital's Medicare discharges &mdash; a higher value means the hospital's patient population is, on average, more clinically complex and resource-intensive. The national mean Case Mix Index in this dataset is approximately 1.76. A one-way ANOVA confirms that Case Mix Index differs significantly across all four ownership categories (F(3, 3276) = 108.6, p &lt; 0.001), and Bonferroni-corrected post-hoc pairwise t-tests show that every pair of groups is significantly different from each other (all p &lt; 0.001). The &ldquo;Other&rdquo; category (primarily federal facilities such as Veterans Health Administration hospitals) stands out with the highest mean Case Mix Index (2.57), reflecting specialized patient populations such as veterans with complex, service-connected conditions. For-Profit (mean 1.79) and Nonprofit (mean 1.76) hospitals cluster near the national average, while Government hospitals have the lowest mean (1.63). The effect size is medium (&eta;&sup2; = 0.096), indicating that ownership type explains roughly 10% of the variation in Case Mix Index.</div>
+            </div>
+
+            <!-- Severity Economics -->
+            <h3 class="subsection-heading">Severity Classification Drives Massive Payment Differences</h3>
+
+            <p class="section-text">
+                The financial stakes of severity classification are significant. Across all Diagnosis Related Group families with complete
+                severity tiers, the average Complication or Comorbidity uplift is approximately $3,257 per case, and the average Major Complication or Comorbidity uplift is
+                approximately $11,706 per case. Nationally, roughly 69% of Medicare inpatient cases are classified at
+                the Major Complication or Comorbidity tier. The remaining 31% represent a massive volume of discharges being paid at lower rates.
+            </p>
+
+            <!-- Chart 2: Severity National -->
+            <div class="chart-container">
+                <iframe src="projects/smarterdx_documentation_gap/data/outputs/blog_charts/chart2_severity_national.html?v=1775100001" class="chart-frame" style="height: 560px;"></iframe>
+                <div class="chart-caption">Figure 2: National distribution of Medicare inpatient cases across three severity tiers, aggregated across all Diagnosis Related Group families. In this context, a &ldquo;complication&rdquo; refers to a secondary diagnosis &mdash; such as diabetes, heart failure, or sepsis &mdash; that increases the complexity and cost of a patient&rsquo;s hospital stay. Medicare classifies each case as &ldquo;Without Complication or Comorbidity&rdquo; (the lowest severity), &ldquo;With Complication or Comorbidity&rdquo; (moderate), or &ldquo;With Major Complication or Comorbidity&rdquo; (the highest severity). Approximately 64% of cases are already classified at the highest tier. The remaining 22% at the two lower tiers are not necessarily less sick patients &mdash; they may simply have less thorough documentation. When physicians do not record the full specificity of a patient&rsquo;s conditions (for example, writing &ldquo;diabetes&rdquo; instead of &ldquo;diabetes with chronic kidney disease stage 3&rdquo;), the case gets coded at a lower severity tier even though the patient&rsquo;s actual clinical complexity is higher. These cases represent the primary target for clinical documentation improvement programs.</div>
+            </div>
+
+            <!-- Chart 7: Uplift -->
+            <div class="chart-container">
+                <iframe src="projects/smarterdx_documentation_gap/data/outputs/blog_charts/chart7_severity_uplift.html" class="chart-frame" style="height: 640px;"></iframe>
+                <div class="chart-caption">Figure 3: Total Medicare payment at each severity tier for the top 10 Diagnosis Related Group families ranked by the largest payment increase when a major complication is documented. Each bar is broken into three segments: the grey portion represents the baseline payment when no complication or comorbidity is documented, the orange segment shows the additional payment when a complication is present, and the blue segment shows the further increase when a major complication is documented. For example, an intracranial vascular procedure pays roughly $17,700 at baseline, but documenting a major complication raises the total reimbursement to over $51,500 — nearly triple the baseline amount. These large payment differences highlight why thorough clinical documentation matters: a single undocumented complication can mean tens of thousands of dollars in unrealized revenue per case.</div>
+            </div>
+
+            <!-- Gap Analysis -->
+            <h3 class="subsection-heading">Nearly Half of All Hospitals Fall into Medium or High Gap Tiers</h3>
+
+            <p class="section-text">
+                To measure how well each hospital documents the severity of its patients, we created a single score from 0 to 100 called the Documentation Gap Score. It combines four signals: how much a hospital's Case Mix Index falls below similar hospitals, how often cases are coded at the lowest severity tier compared to peers, whether per-case payments are lower than expected, and how many different types of cases the hospital handles. A higher score means the hospital's records are more likely to understate how sick its patients really are. We then grouped all 3,280 hospitals into three tiers based on their score: Low (below 50), Medium (50 to 65), and High (65 and above). The treemap below breaks down each tier by hospital ownership type and shows the total number of distinct Diagnosis Related Groups they handle &mdash; giving a sense of where documentation gaps are most concentrated and how many types of cases are affected.
+            </p>
+
+            <!-- Chart 3: Gap Score Distribution (Treemap) -->
+            <div class="chart-container">
+                <iframe src="projects/smarterdx_documentation_gap/data/outputs/blog_charts/chart3_gap_score_distribution.html?v=1775100001" class="chart-frame" style="height: 620px;"></iframe>
+                <div class="chart-caption">Figure 4: Treemap of 3,280 U.S. hospitals organized by Documentation Gap tier (Low, Medium, High) and then by ownership type (Nonprofit, For-Profit, Government, Other). The size of each box reflects the total number of distinct Diagnosis Related Groups handled by that group of hospitals. Click on any tier to drill down into the ownership breakdown. Nonprofit hospitals dominate every tier, but the Medium gap tier stands out: its 783 Nonprofit hospitals collectively handle nearly 58,000 Diagnosis Related Groups &mdash; more than any other segment &mdash; suggesting a large volume of cases where documentation improvement could change severity classifications and reimbursement.</div>
+            </div>
+
+            <!-- CMI vs Gap -->
+            <h3 class="subsection-heading">Lower Complexity Hospitals Show the Largest Documentation Gaps</h3>
+
+            <p class="section-text">
+                If documentation gaps were random, there would be no relationship between a hospital's Case Mix Index and its gap score. Instead, the data shows a consistent negative pattern across all four ownership types: hospitals with lower Case Mix Index values tend to have larger documentation gaps. This suggests that hospitals treating less complex patient populations may be systematically under-documenting the severity that is present, possibly because their Clinical Documentation Improvement programs are less mature or because lower-acuity settings attract less coding scrutiny.
+            </p>
+
+            <!-- Chart 5: CMI vs Gap -->
+            <div class="chart-container">
+                <iframe src="projects/smarterdx_documentation_gap/data/outputs/blog_charts/chart5_cmi_vs_gap.html" class="chart-frame" style="height: 560px;"></iframe>
+                <div class="chart-caption">Figure 5: Linear trend lines showing the relationship between hospital Case Mix Index (x-axis) and Documentation Gap Score (y-axis) for approximately 3,280 hospitals, grouped by ownership type (Government, For-Profit, Nonprofit, and Other). Each line represents a linear fit for one ownership category, with faint individual hospital data points in the background. All four ownership types show a consistent negative slope: hospitals with lower Case Mix Index scores tend to have larger documentation gaps, suggesting that facilities treating less complex patient populations may be under-documenting severity. The pattern holds regardless of ownership structure, reinforcing that documentation gaps are a systemic issue rather than one confined to a particular hospital type.</div>
+            </div>
+
+            <!-- Revenue Impact -->
+            <h3 class="subsection-heading">Documentation Gaps Represent $1.9 Billion in National Revenue Opportunity</h3>
+
+            <p class="section-text">
+                Translating gap scores into dollar estimates, the model finds approximately $1.9 billion in aggregate national
+                opportunity. The mean hospital opportunity is $579K annually, while the median is $272K, reflecting the right-skewed
+                distribution where a small number of large hospitals account for outsized impact.
+            </p>
+
+            <!-- Chart 4: Revenue by Size -->
+            <div class="chart-container">
+                <iframe src="projects/smarterdx_documentation_gap/data/outputs/blog_charts/chart4_revenue_by_size.html?v=1775200001" class="chart-frame" style="height: 560px;"></iframe>
+                <div class="chart-caption">Figure 6: Bar chart of average estimated annual revenue opportunity (in dollars) by hospital bed size tier, from the smallest (1&ndash;24 beds) to the largest (600+ beds). Revenue opportunity scales with hospital size because larger facilities have more Medicare discharges eligible for severity reclassification. Hospitals with 600+ beds average over $2 million annually, while hospitals under 100 beds average under $200K. However, mid-size hospitals (100&ndash;399 beds) represent the largest share of total national opportunity due to their greater count.</div>
+            </div>
+
+            <!-- Chart 6: Revenue by State -->
+            <div class="chart-container">
+                <iframe src="projects/smarterdx_documentation_gap/data/outputs/blog_charts/chart6_revenue_by_state.html?v=1775200002" class="chart-frame" style="height: 600px;"></iframe>
+                <div class="chart-caption">Figure 7: Choropleth map of total estimated annual revenue opportunity aggregated by state across all 50 states, the District of Columbia, and U.S. territories. Darker shading indicates higher aggregate opportunity. Hover over any state to see the total dollar opportunity, number of hospitals, and average opportunity per hospital. Florida, California, and Texas lead the nation, driven by their large number of hospitals and high Medicare discharge volumes. This geographic view highlights regional concentration: the Southeast and Mid-Atlantic corridors represent substantial clusters of opportunity where clinical documentation improvement programs could have the greatest collective impact.</div>
+            </div>
+
+            <!-- Statistical Analysis -->
+            <h3 class="subsection-heading">Case Mix Diversity and Wage Index Predict the Largest Gaps</h3>
+
+            <p class="section-text">
+                To move from describing where gaps exist to understanding why, I tested two hypotheses and fit an enriched Ordinary Least Squares regression model with 17 predictors.
+            </p>
+
+            <p class="section-text">
+                <strong>H1 (Ownership): Partially supported.</strong> For-profit hospitals have a slightly lower mean gap score (47.5) than government hospitals (48.2), but the
+                difference is not statistically significant (Mann-Whitney U, one-sided p = 0.233). In the regression,
+                nonprofit status was the only ownership category that reached significance (p = 0.017), associated with a modest
+                increase in gap score relative to for-profit hospitals. Ownership alone is a weak predictor of documentation quality.
+            </p>
+
+            <p class="section-text">
+                <strong>H2 (Staffing): Mixed support.</strong> Higher Registered Nurse skill mix (the share of nursing staff who are registered nurses) was significantly associated with
+                lower gap scores (Spearman r, p &lt; 0.001), supporting the idea that a more skilled clinical workforce
+                contributes to better documentation. However, the resident-to-bed ratio showed a significant positive correlation,
+                meaning hospitals with more residents had higher gap scores &mdash; likely reflecting the confounding effect of case
+                complexity in teaching hospitals. Staffing composition matters more than staffing volume.
+            </p>
+
+            <p class="section-text">
+                The regression model (R&sup2; = 0.21, Adj R&sup2; = 0.20) explains about one-fifth of the variance in gap scores. This is a modest fit &mdash; and intentionally so. The publicly available CMS data captures hospital structure, staffing, and quality performance, but it cannot observe the factors that most directly determine documentation quality: whether a hospital has a Clinical Documentation Improvement program, how mature its EHR system is, how skilled its coders are, or how engaged its physicians are in documentation. These unmeasured operational factors almost certainly explain the remaining 80% of the variance. What the model <em>can</em> tell us is which observable, structural characteristics reliably signal higher documentation risk &mdash; and those signals are strong enough to be actionable. The following predictors all reached statistical significance (p &lt; 0.05):
+            </p>
+
+            <div class="callout-box">
+                <strong>1. Diagnosis Related Group Diversity (+5.01)</strong> &mdash; by far the strongest signal. Hospitals treating a broader mix of conditions have substantially higher gap scores. More condition types means more documentation complexity and more opportunities for severity codes to be missed. A one standard deviation increase in Diagnosis Related Group diversity is associated with a 5-point increase in gap score.<br><br>
+                <strong>2. Wage Index (&minus;2.77)</strong> &mdash; hospitals in lower-wage labor markets have larger gaps. This likely reflects that these facilities have fewer resources to invest in Clinical Documentation Improvement programs, coding staff, and EHR infrastructure.<br><br>
+                <strong>3. Quality Score (&minus;1.94)</strong> &mdash; hospitals with worse CMS quality performance (mortality, safety, readmission) also have larger documentation gaps, suggesting that documentation quality and clinical quality share common institutional drivers.<br><br>
+                <strong>4. Resident/Bed Ratio (&minus;1.88)</strong> &mdash; after controlling for teaching status, more residents per bed is associated with <em>lower</em> gap scores, possibly because residents generate more detailed clinical notes.<br><br>
+                <strong>5. Teaching Status (+0.97)</strong> &mdash; teaching hospitals show higher gaps overall, likely because their complex case mix creates more documentation opportunities to miss.<br><br>
+                <strong>6. Urban (+0.87)</strong> &mdash; urban hospitals have modestly higher gaps than rural ones.<br><br>
+                <strong>7. Readmission % Worse (&minus;0.83)</strong> &mdash; counterintuitively, hospitals with worse readmission rates show slightly lower gap scores, possibly because readmission scrutiny drives more thorough documentation of comorbidities.<br><br>
+                <strong>8. Registered Nurse Skill Mix (&minus;0.72)</strong> &mdash; a higher share of registered nurses is protective. Better-trained clinical staff appear to contribute to more complete documentation.
+            </div>
+
+            <!-- Chart 8: Ordinary Least Squares Coefficients -->
+            <div class="chart-container">
+                <iframe src="projects/smarterdx_documentation_gap/data/outputs/blog_charts/chart8_ols_coefficients.html?v=1775200003" class="chart-frame" style="height: 610px;"></iframe>
+                <div class="chart-caption">Figure 8: Forest plot of standardized Ordinary Least Squares regression coefficients for the enriched model (17 predictors), with horizontal bars showing 95% confidence intervals. Each coefficient represents the change in documentation gap score per one standard deviation increase in the predictor. Blue markers indicate statistical significance at p &lt; 0.05; gray markers are not significant. Diagnosis Related Group Diversity has the largest positive effect (+5.01), meaning hospitals treating a wider variety of conditions have substantially higher gap scores. Wage Index has the largest negative effect (&minus;2.77), meaning hospitals in higher-wage labor markets have smaller gaps.</div>
+            </div>
+
+            <div class="callout-box">
+                <strong>What this means for hospital leaders and Clinical Documentation Improvement vendors:</strong>
+                <br><br>
+                The hospitals most likely to have large documentation gaps are identifiable from public data alone &mdash; they treat a wide variety of conditions, operate in lower-wage markets, score below peers on CMS quality measures, and have a lower share of registered nurses. These are the facilities where AI-powered Clinical Documentation Improvement tools can deliver the highest return on investment: they have the volume and complexity to generate significant revenue recovery, but lack the staffing resources to scale manual chart review.
+                <br><br>
+                For hospitals fitting this profile, the data suggests prioritizing three actions:
+                <ul style="margin-top: 10px; margin-bottom: 0;">
+                    <li><strong>Invest in Clinical Documentation Improvement technology that scales across a broad case mix.</strong> Hospitals with high Diagnosis Related Group diversity have the largest gaps &mdash; manual review cannot cover the full range of conditions, but AI-powered tools can.</li>
+                    <li><strong>Focus coding resources on high-diversity Diagnosis Related Group families where severity capture is weakest.</strong> Not all documentation gaps are equal &mdash; targeting the Diagnosis Related Group families with the largest payment uplift potential maximizes return per coding hour.</li>
+                    <li><strong>Strengthen the Registered Nurse workforce.</strong> Nursing skill mix is one of the few modifiable factors significantly associated with better documentation. Hospitals with a higher share of registered nurses consistently show smaller gaps.</li>
+                </ul>
+            </div>
+
+        </div>
+
+
+        <!-- ============================================================ -->
+        <!-- TAB: LIMITATIONS -->
+        <!-- ============================================================ -->
+        <div role="tabpanel" class="tab-pane" id="tab-limitations">
+            <h2 class="section-heading">Limitations</h2>
+
+            <h3 class="subsection-heading">Why the Model Explains Only 21% of Variance</h3>
+
+            <p class="section-text">
+                As discussed in the Results, the regression R&sup2; of ~0.21 is a data limitation, not a model limitation. I validated the Ordinary Least Squares specification against Ridge, Lasso, and ElasticNet using 5-fold cross-validation, and none of the regularized alternatives improved fit (all cross-validated R&sup2; values fell within 0.19&ndash;0.21). Residual diagnostics confirmed no major violations of linearity, normality, or homoscedasticity. The model is well-specified for the data it has &mdash; the constraint is what publicly available CMS data can observe.
+            </p>
+
+            <p class="section-text">
+                The remaining ~80% of variance is almost certainly driven by operational factors that are not available in any public dataset: Clinical Documentation Improvement program maturity, EHR system quality, coder expertise, physician engagement with documentation queries, and overall revenue cycle investment. Two structurally identical hospitals can have vastly different documentation quality depending on these unmeasured factors. This means the model's significant predictors should be interpreted as <em>risk signals</em> that flag which hospitals are most likely to benefit from documentation improvement &mdash; not as causal drivers that fully explain the gap.
+            </p>
+
+            <h3 class="subsection-heading">Data and Methodology Caveats</h3>
+
+            <div class="methodology-note">
+                <h4>Key Caveats</h4>
+                <ul>
+                    <li><strong>Case Mix Index does not equal documentation quality.</strong> Case Mix Index differences between hospitals can reflect genuine patient population differences, not just documentation quality. The peer-group approach (49 cohorts by bed size, teaching status, and ownership) mitigates this but cannot fully eliminate it.</li>
+                    <li><strong>Severity shift rates are estimates.</strong> The 1&ndash;15% shift rates are based on published Clinical Documentation Improvement program benchmarks, not measured directly for each hospital. Actual capture rates vary widely by institution and specialty.</li>
+                    <li><strong>Medicare fee-for-service only.</strong> This analysis covers only Medicare fee-for-service claims. Medicare Advantage, Medicaid, and commercial payers are excluded, meaning the true national revenue impact is likely substantially larger than the $1.9 billion estimate.</li>
+                    <li><strong>Cross-sectional design.</strong> This is a snapshot, not a longitudinal analysis. Hospitals that recently implemented Clinical Documentation Improvement programs may show high gap scores that are already improving. Conversely, hospitals with declining programs may show low scores that are worsening.</li>
+                    <li><strong>Provider of Services staffing data quality.</strong> Staffing counts in the Provider of Services file are self-reported and may contain measurement error. Some staffing ratios showed extreme outliers that were capped at the 99th percentile but not excluded.</li>
+                    <li><strong>Composite score weighting.</strong> The 40/30/20/10 weighting of the four gap sub-scores (Case Mix Index gap, severity distribution, payment deviation, complexity) is based on domain knowledge, not empirically derived. Alternative weightings could shift individual hospital rankings, though the overall tier distributions are robust to moderate changes.</li>
+                    <li><strong>Geographic coverage.</strong> The choropleth includes all 50 states, the District of Columbia, and U.S. territories, but territory-based hospitals may have different payment structures and patient populations that limit direct comparability.</li>
+                </ul>
+            </div>
+
+            <h3 class="subsection-heading">What Future Work Could Address</h3>
+
+            <p class="section-text">
+                The most impactful extension of this analysis would be linking hospital-level documentation gap scores to actual Clinical Documentation Improvement program characteristics &mdash; program age, staffing levels, technology adoption, and query response rates. This would require proprietary or survey-based data, but could dramatically improve the model's explanatory power and enable more precise targeting of documentation improvement interventions.
+            </p>
+
+            <p class="section-text">
+                Other valuable extensions include longitudinal tracking of gap scores over time to measure the impact of Clinical Documentation Improvement program implementation, expanding to Medicare Advantage and commercial payers to estimate the full revenue opportunity, and validating the composite gap score against chart-level audit data to confirm that high-scoring hospitals do in fact have higher rates of under-documented severity.
+            </p>
+
+        </div>
+
+    </div>
+    <!-- End tab-content -->
+
+</div>
+<!-- End blog-container -->
+
+  </div>
+  <div w3-include-html="/folders/navbar_footer/footer.html"></div>
+</div>
+
+<!-- jQuery 3.4.1 CDN -->
+<script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+
+<!-- Bootstrap 3.4.0 JS CDN -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/js/bootstrap.min.js"></script>
+
+<script>
+    // Tab switching
+    $(function() {
+        $('[data-toggle="tab"]').on('click', function(e) {
+            e.preventDefault();
+            var target = $(this).attr('href');
+            $('.tab-pane').removeClass('active');
+            $(target).addClass('active');
+            $('.nav-tabs li').removeClass('active');
+            $(this).parent('li').addClass('active');
+        });
+    });
+</script>
+
+<!-- Site-wide includes (navbar + footer) -->
+<script type="text/javascript" src="../../static/js/include.js"></script>
+
+</body>
+</html>
