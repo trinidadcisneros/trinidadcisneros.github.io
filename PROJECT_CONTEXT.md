@@ -264,14 +264,21 @@ To add a new category color, add a CSS rule in `static/css/landing.css`:
 
 ## 5. Content Inventory
 
-### SQL (Active — March 2026, 18 posts)
+### SQL (Active — April 2026, 19 posts)
 | Post | File | Description |
 |---|---|---|
 | Which SQL Approach Do I Use? A Master Decision Tree | `sql_master_decision_tree` | Unified flowchart: Step 1 (table count) → 2A (single) → 2B (multi/JOIN) → 2C (transformation) → 3 (date fork) → 4 (subquery). Signal words table, worked example, hyperlinks to all guides. |
 | How to Pick the Right SQL Pattern for a Single Table | `sql_single_table_query_strategies` | LAG/LEAD, GROUP BY, HAVING, CASE, window functions, 3-Method Mental Model, subquery decision tree |
 | How to Query Across Multiple Tables: JOINs, Subqueries & Set Ops | `sql_multi_table_query_strategies` | INNER/LEFT/CROSS/Self JOIN, UNION, EXISTS, anti-join, Venn diagrams, row count diagnostics, subquery decision tree |
 | When a SQL Problem Needs Multiple Techniques at Once | `sql_combined_strategy_patterns` | Two-Pass Decomposition Framework, 8 combo patterns, NULL Trap, worked examples, subquery placement in combo problems |
+| SQL Debugging & Code Review — PostgreSQL | `sql_debugging_guide` | 9 error pattern categories (A-I), error classification decision tree, code review checklist, debugging workflow, interview traps. HTML flowcharts. |
 | SQL Basics: Using a Subquery in the SELECT Clause | `sql_subqueries_select` | Includes 3 examples: basic, filtering, percentage-of-total pattern |
+
+### Reference Library (Active — April 2026)
+| Post | File | Description |
+|---|---|---|
+| Python & Pandas Debugging — Data Wrangling | `python_pandas_debugging_guide` | 8 error pattern categories, traceback anatomy, silent error detection, merge diagnostics, debugging workflow. HTML flowcharts. |
+| dbt Cloud Debugging & Code Review | `dbt_debugging_guide` | 7 error categories (YAML → Jinja → SQL → Database → Test), incremental model diagnostics, code review checklists, interview trap patterns. HTML flowcharts. |
 
 ### Data Science (Selected Highlights)
 | Post | Topic |
@@ -334,6 +341,50 @@ To add a new category color, add a CSS rule in `static/css/landing.css`:
 ---
 
 ## 6. Recent Session Activity Log
+
+### Session: April 2, 2026 (Session 7 — Debugging Guides, Rolling Calculations, Row-Level Filtering)
+
+**Three New Debugging Guides (SQL, Python/Pandas, dbt Cloud):**
+Created a cohesive debugging guide series for 60-minute technical interviews, all following a shared "Read → Classify → Fix → Verify" framework:
+
+| Guide | Notebook | Wrapper | Location | Cells | Error Patterns |
+|---|---|---|---|---|---|
+| SQL Debugging & Code Review — PostgreSQL | `sql_debugging_guide.ipynb` | `sql_debugging_guide.html` | `folders/sql/` | 16 | 9 (A-I) |
+| Python & Pandas Debugging — Data Wrangling | `python_pandas_debugging_guide.ipynb` | `python_pandas_debugging_guide.html` | `folders/reference/` | 15 | 8 (A-H) |
+| dbt Cloud Debugging & Code Review | `dbt_debugging_guide.ipynb` | `dbt_debugging_guide.html` | `folders/reference/` | 14 | 7 (A-G) |
+
+Each guide contains: error anatomy section, error classification decision tree (HTML flowcharts), pattern library with examples, code review checklist, debugging workflow (HTML flowchart), and interview traps section.
+
+**ASCII → HTML Flowchart Conversion (all three guides):**
+All decision trees were initially built with ASCII box-drawing characters, then converted to the site's HTML flowchart system (`flowchart.css`). Cells converted:
+- SQL debugging: cells 2, 5, 7, 9, 14
+- Python/Pandas debugging: cells 2, 13
+- dbt debugging: cells 2, 9, 12
+
+Used both established patterns: vertical checklist (`fc-else`) for sequential elimination chains, and branching (`fc-branches`) for side-by-side category splits.
+
+**Single-Table Guide Enhancements (`sql_single_table_query_strategies.ipynb`):**
+- Added Pattern A: Row-Level Filtering (WHERE + ORDER BY) — new first pattern for simple row selection problems
+- Re-lettered all existing patterns A→B through J→K (now 11 patterns total)
+- Added first branch to decision tree (cell 2): "Just filtering rows?" → WHERE + ORDER BY
+- Expanded Pattern F from "Running Totals" to "Running & Rolling Calculations" — ROWS BETWEEN, RANGE BETWEEN, pre-aggregation CTE pattern, 4 approaches ranked by efficiency
+- Added worked example (cell 10): step-by-step rolling 7-day restaurant revenue calculation
+
+**Site Updates:**
+- `posts.json`: Added 3 new entries (SQL debugging, Python debugging, dbt debugging) — now 21 entries
+- `sql_landing.html`: Added debugging guide card, post count 18 → 19
+- `reference_landing.html`: Added "Debugging & Code Review" section with Python and dbt cards, post count 56 → 58
+- `sql_table.html`: Added SQL debugging guide entry at top
+
+**Pending nbconvert (user must run locally):**
+```bash
+python3 -m jupyter nbconvert --to html --template classic folders/sql/projects/sql_single_table_query_strategies.ipynb
+python3 -m jupyter nbconvert --to html --template classic folders/sql/projects/sql_debugging_guide.ipynb
+python3 -m jupyter nbconvert --to html --template classic folders/reference/projects/python_pandas_debugging_guide.ipynb
+python3 -m jupyter nbconvert --to html --template classic folders/reference/projects/dbt_debugging_guide.ipynb
+```
+
+---
 
 ### Session: March 29, 2026 (Session 5 — Flowchart Redesign, Competing Priorities Playbook)
 
