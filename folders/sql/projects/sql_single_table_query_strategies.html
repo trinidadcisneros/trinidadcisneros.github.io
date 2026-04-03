@@ -13108,6 +13108,8 @@ div#notebook {
 <li><a href="#pattern-i-conditional-logic">I. Conditional Logic</a> — CASE WHEN</li>
 <li><a href="#pattern-j-filtering-after-aggregation">J. Filtering After Aggregation</a> — HAVING / Self Join / CTE + Join</li>
 <li><a href="#pattern-k-pivoting">K. Pivoting</a> — CASE + GROUP BY</li>
+<li><a href="#pattern-l-string-text-operations">L. String &amp; Text Operations</a> — LIKE, Regex, LENGTH, UPPER/LOWER, SUBSTRING, STRING_AGG</li>
+<li><a href="#pattern-m-conditional-aggregation">M. Conditional Aggregation</a> — CASE inside SUM/COUNT/AVG for rates, percentages, conditional sums</li>
 </ul>
 </li>
 <li><a href="#4-critical-efficiency-rules">Critical Efficiency Rules</a></li>
@@ -13382,6 +13384,38 @@ div#notebook {
 <td>1</td>
 <td><code>CASE</code> + <code>GROUP BY</code> (manual pivot)</td>
 <td>Portable; works in all dialects</td>
+</tr>
+<tr>
+<td><strong>String &amp; text ops</strong></td>
+<td>like, contains, starts with, email, valid, case, substring, concatenate, group strings</td>
+<td>Text, email</td>
+<td>1</td>
+<td><code>LIKE</code> + wildcards, regex (<code>~</code>), <code>LENGTH()</code>, <code>UPPER()</code>/<code>LOWER()</code>, <code>SUBSTRING()</code>, <code>STRING_AGG()</code></td>
+<td>Direct text filtering and transformation; aggregates per group</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td>2</td>
+<td>Manual string parsing / application-level filtering</td>
+<td>More complex but portable</td>
+</tr>
+<tr>
+<td><strong>Conditional agg</strong></td>
+<td>rate, percentage, approval, confirmed, approved vs total, monthly breakdown</td>
+<td>Numeric (amounts), categorical (status)</td>
+<td>1</td>
+<td><code>CASE</code> inside <code>SUM()</code> / <code>COUNT()</code> / <code>AVG()</code></td>
+<td>One pass; computes multiple metrics in single GROUP BY</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td>2</td>
+<td>Multiple queries with WHERE</td>
+<td>Separate queries; redundant scans</td>
 </tr>
 <tr>
 <td></td>
@@ -14512,6 +14546,191 @@ Row 10: 2019-01-10
 <span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">customer_id</span><span class="p">;</span>
 </pre></div>
 </hr></div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><a id="pattern-l-string-text-operations"></a></p>
+<h3 id="L.-String-&amp;-Text-Operations">L. String &amp; Text Operations<a class="anchor-link" href="#L.-String-&amp;-Text-Operations">¶</a></h3><p><strong>Signals:</strong> like, contains, starts with, email, valid, case, uppercase, lowercase, substring, concatenate, group strings, comma-separated list</p>
+<hr/>
+<p><strong>Pattern matching and text transformation — <code>LIKE</code>, regex (<code>~</code>), <code>LENGTH()</code>, and case/substring functions</strong></p>
+<p><strong>Method:</strong> Use <code>LIKE</code> with wildcards for simple pattern matching (SQL standard across dialects). For more complex patterns, use regex operators like <code>~</code> (PostgreSQL). For text transformations, use <code>UPPER()</code>, <code>LOWER()</code>, <code>LEFT()</code>, <code>SUBSTRING()</code>, <code>CONCAT()</code>, or <code>||</code> (concatenation operator). For aggregating strings per group, use <code>STRING_AGG()</code> or <code>GROUP_CONCAT()</code>.</p>
+<p><strong>In plain language:</strong> String operations let you filter based on text patterns, manipulate text (change case, extract parts, join pieces), and group text values together. These are often used to clean or validate data — for example, finding patients with conditions starting with a certain code, fixing name capitalization, or listing all products sold in each category.</p>
+<div class="highlight"><pre><span></span><span class="c1">-- Example 1: Find patients with condition starting with 'DIAB'</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="n">patient_id</span><span class="p">,</span><span class="w"> </span><span class="n">condition_code</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Patients</span>
+<span class="k">WHERE</span><span class="w"> </span><span class="n">condition_code</span><span class="w"> </span><span class="k">LIKE</span><span class="w"> </span><span class="s1">'DIAB%'</span><span class="p">;</span>
+
+<span class="c1">-- Example 2: Validate email format (PostgreSQL regex)</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="n">email</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Users</span>
+<span class="k">WHERE</span><span class="w"> </span><span class="n">email</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="s1">'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}$'</span><span class="p">;</span>
+
+<span class="c1">-- Example 3: Find tweets longer than 15 characters</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="n">tweet_id</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Tweets</span>
+<span class="k">WHERE</span><span class="w"> </span><span class="k">LENGTH</span><span class="p">(</span><span class="nb">text</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">15</span><span class="p">;</span>
+
+<span class="c1">-- Example 4: Fix name capitalization</span>
+<span class="k">SELECT</span>
+<span class="w">    </span><span class="n">user_id</span><span class="p">,</span>
+<span class="w">    </span><span class="n">CONCAT</span><span class="p">(</span><span class="k">UPPER</span><span class="p">(</span><span class="k">LEFT</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)),</span><span class="w"> </span><span class="k">LOWER</span><span class="p">(</span><span class="k">SUBSTRING</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">)))</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">fixed_name</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Users</span><span class="p">;</span>
+
+<span class="c1">-- Example 5: List products sold per category (concatenate with commas)</span>
+<span class="k">SELECT</span>
+<span class="w">    </span><span class="n">category</span><span class="p">,</span>
+<span class="w">    </span><span class="n">STRING_AGG</span><span class="p">(</span><span class="n">product_name</span><span class="p">,</span><span class="w"> </span><span class="s1">', '</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">products_list</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Products</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">category</span><span class="p">;</span>
+</pre></div>
+<hr/>
+<p><strong>Common String Functions</strong></p>
+<p>| Function | Purpose | Example | Dialect Notes |
+|---|---|---|---|
+| <code>LIKE 'pattern%'</code> | Pattern matching (% = any chars, _ = single char) | <code>name LIKE 'J%'</code> (starts with J) | Universal |
+| <code>~</code> (regex operator) | Regular expression matching | <code>email ~ '^[A-Za-z0-9]+@' </code> | PostgreSQL |
+| <code>LENGTH()</code> / <code>LEN()</code> | Character count | <code>LENGTH(name) &gt; 5</code> | MySQL/PostgreSQL: LENGTH; SQL Server: LEN |
+| <code>UPPER()</code> / <code>LOWER()</code> | Case conversion | <code>UPPER(status)</code> | Universal |
+| <code>LEFT(str, n)</code> | First n characters | <code>LEFT(code, 3)</code> | Most dialects; substring-based in some |
+| <code>SUBSTRING(str, start, len)</code> | Extract substring | <code>SUBSTRING(phone, 1, 3)</code> | Universal |
+| <code>CONCAT(str1, str2, ...)</code> / <code>||</code> | Concatenate strings | <code>CONCAT(first_name, ' ', last_name)</code> or <code>first_name \|\| ' ' \|\| last_name</code> | CONCAT universal; || in PostgreSQL/Oracle |
+| <code>STRING_AGG(str, sep)</code> / <code>GROUP_CONCAT()</code> | Aggregate strings per group | <code>STRING_AGG(name, ', ')</code> | PostgreSQL: STRING_AGG; MySQL: GROUP_CONCAT |
+| <code>TRIM()</code> / <code>LTRIM()</code> / <code>RTRIM()</code> | Remove whitespace | <code>TRIM(name)</code> | Universal |</p>
+<hr/>
+<p><strong>How to recognize this pattern:</strong></p>
+<p>The question mentions <strong>text matching</strong>, <strong>text extraction</strong>, <strong>case conversion</strong>, or <strong>combining text values</strong>. Examples:</p>
+<ul>
+<li>"Find emails that don't match the format..."</li>
+<li>"Show patient conditions starting with..."</li>
+<li>"List all products sold in each category as a comma-separated string..."</li>
+<li>"Fix names by capitalizing the first letter..."</li>
+<li>"Find invalid tweets (longer than N characters)..."</li>
+</ul>
+<hr/>
+<blockquote>
+<p><strong>Interview tip:</strong> String operations vary significantly by dialect — PostgreSQL uses <code>~</code> for regex, MySQL uses <code>REGEXP</code>, SQL Server has different function names. Always ask which dialect you're using or state your assumptions. When building regex patterns, start simple (<code>LIKE</code>) and escalate to regex only if the pattern is too complex for LIKE wildcards. Aggregating strings with <code>STRING_AGG</code> / <code>GROUP_CONCAT</code> is an intermediate-level trick — mention it to show you know how to clean up output.</p>
+</blockquote>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><a id="pattern-m-conditional-aggregation"></a></p>
+<h3 id="M.-Conditional-Aggregation-(CASE-inside-SUM/COUNT/AVG)">M. Conditional Aggregation (CASE inside SUM/COUNT/AVG)<a class="anchor-link" href="#M.-Conditional-Aggregation-(CASE-inside-SUM/COUNT/AVG)">¶</a></h3><p><strong>Signals:</strong> rate, percentage, approval rate, confirmation rate, approved vs total, monthly breakdown by category, ratio, proportion, approved amount alongside total amount</p>
+<hr/>
+<p><strong>Computing rates and conditional sums — <code>CASE</code> inside <code>COUNT()</code>, <code>SUM()</code>, or <code>AVG()</code></strong></p>
+<p><strong>Method:</strong> Wrap <code>CASE WHEN</code> inside an aggregate function like <code>SUM()</code>, <code>COUNT()</code>, or <code>AVG()</code> to compute derived values per group. For rates, use <code>AVG(CASE WHEN condition THEN 1.0 ELSE 0 END)</code> to get a proportion. For separate counts/sums of different categories, use multiple <code>CASE</code> expressions in the same query. When the logic requires identifying a "first" or "special" row first, use a subquery with window functions (like <code>ROW_NUMBER()</code>), then apply conditional aggregation on the result.</p>
+<p><strong>In plain language:</strong> Instead of running multiple queries (one for "approved" transactions, one for "all" transactions), you use <code>CASE</code> to label each row inside the aggregation. Then <code>SUM()</code>, <code>COUNT()</code>, or <code>AVG()</code> processes only the rows that match. This is much faster than filtering with WHERE and re-grouping.</p>
+<div class="highlight"><pre><span></span><span class="c1">-- Example 1: Approval rate per user</span>
+<span class="k">SELECT</span>
+<span class="w">    </span><span class="n">user_id</span><span class="p">,</span>
+<span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">total_requests</span><span class="p">,</span>
+<span class="w">    </span><span class="k">SUM</span><span class="p">(</span><span class="k">CASE</span><span class="w"> </span><span class="k">WHEN</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'approved'</span><span class="w"> </span><span class="k">THEN</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="k">ELSE</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="k">END</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">approved_count</span><span class="p">,</span>
+<span class="w">    </span><span class="k">AVG</span><span class="p">(</span><span class="k">CASE</span><span class="w"> </span><span class="k">WHEN</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'approved'</span><span class="w"> </span><span class="k">THEN</span><span class="w"> </span><span class="mi">1</span><span class="p">.</span><span class="mi">0</span><span class="w"> </span><span class="k">ELSE</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="k">END</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">approval_rate</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Requests</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">user_id</span><span class="p">;</span>
+
+<span class="c1">-- Example 2: Monthly transaction breakdown (approved vs total amount)</span>
+<span class="k">SELECT</span>
+<span class="w">    </span><span class="n">TO_CHAR</span><span class="p">(</span><span class="n">created_at</span><span class="p">,</span><span class="w"> </span><span class="s1">'YYYY-MM'</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">month</span><span class="p">,</span>
+<span class="w">    </span><span class="n">country</span><span class="p">,</span>
+<span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">transaction_count</span><span class="p">,</span>
+<span class="w">    </span><span class="k">SUM</span><span class="p">(</span><span class="n">amount</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">total_amount</span><span class="p">,</span>
+<span class="w">    </span><span class="k">SUM</span><span class="p">(</span><span class="k">CASE</span><span class="w"> </span><span class="k">WHEN</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'approved'</span><span class="w"> </span><span class="k">THEN</span><span class="w"> </span><span class="n">amount</span><span class="w"> </span><span class="k">ELSE</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="k">END</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">approved_amount</span><span class="p">,</span>
+<span class="w">    </span><span class="n">ROUND</span><span class="p">(</span><span class="mi">100</span><span class="p">.</span><span class="mi">0</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">SUM</span><span class="p">(</span><span class="k">CASE</span><span class="w"> </span><span class="k">WHEN</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'approved'</span><span class="w"> </span><span class="k">THEN</span><span class="w"> </span><span class="n">amount</span><span class="w"> </span><span class="k">ELSE</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="k">END</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="k">SUM</span><span class="p">(</span><span class="n">amount</span><span class="p">),</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">approval_percentage</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Transactions</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">TO_CHAR</span><span class="p">(</span><span class="n">created_at</span><span class="p">,</span><span class="w"> </span><span class="s1">'YYYY-MM'</span><span class="p">),</span><span class="w"> </span><span class="n">country</span>
+<span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="k">month</span><span class="p">,</span><span class="w"> </span><span class="n">country</span><span class="p">;</span>
+
+<span class="c1">-- Example 3: Confirmation rate (first order per customer only)</span>
+<span class="c1">-- Step 1: Identify first order per customer</span>
+<span class="c1">-- Step 2: Calculate confirmation rate on first orders</span>
+<span class="k">WITH</span><span class="w"> </span><span class="n">first_orders</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="k">SELECT</span>
+<span class="w">        </span><span class="n">customer_id</span><span class="p">,</span>
+<span class="w">        </span><span class="n">order_date</span><span class="p">,</span>
+<span class="w">        </span><span class="n">preferred_delivery_date</span><span class="p">,</span>
+<span class="w">        </span><span class="n">ROW_NUMBER</span><span class="p">()</span><span class="w"> </span><span class="n">OVER</span><span class="w"> </span><span class="p">(</span><span class="n">PARTITION</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">customer_id</span><span class="w"> </span><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">order_date</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">order_num</span>
+<span class="w">    </span><span class="k">FROM</span><span class="w"> </span><span class="n">Orders</span>
+<span class="p">)</span>
+<span class="k">SELECT</span>
+<span class="w">    </span><span class="n">customer_id</span><span class="p">,</span>
+<span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">first_order_count</span><span class="p">,</span>
+<span class="w">    </span><span class="k">SUM</span><span class="p">(</span><span class="k">CASE</span><span class="w"> </span><span class="k">WHEN</span><span class="w"> </span><span class="n">order_date</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">preferred_delivery_date</span><span class="w"> </span><span class="k">THEN</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="k">ELSE</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="k">END</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">confirmed_on_time</span><span class="p">,</span>
+<span class="w">    </span><span class="k">AVG</span><span class="p">(</span><span class="k">CASE</span><span class="w"> </span><span class="k">WHEN</span><span class="w"> </span><span class="n">order_date</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">preferred_delivery_date</span><span class="w"> </span><span class="k">THEN</span><span class="w"> </span><span class="mi">1</span><span class="p">.</span><span class="mi">0</span><span class="w"> </span><span class="k">ELSE</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="k">END</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">confirmation_rate</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">first_orders</span>
+<span class="k">WHERE</span><span class="w"> </span><span class="n">order_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">customer_id</span><span class="p">;</span>
+
+<span class="c1">-- Example 4: Quality percentage (average rating scaled by position)</span>
+<span class="k">SELECT</span>
+<span class="w">    </span><span class="n">query_id</span><span class="p">,</span>
+<span class="w">    </span><span class="n">ROUND</span><span class="p">(</span><span class="k">AVG</span><span class="p">(</span><span class="n">rating</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="k">NULLIF</span><span class="p">(</span><span class="k">position</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)),</span><span class="w"> </span><span class="mi">4</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">quality_rating</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">QueryRatings</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">query_id</span><span class="p">;</span>
+</pre></div>
+<hr/>
+<p><strong>Key CASE Patterns for Aggregation</strong></p>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Use Case</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SUM(CASE WHEN cond THEN 1 ELSE 0 END)</code></td>
+<td>Count rows matching condition</td>
+<td><code>SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END)</code></td>
+</tr>
+<tr>
+<td><code>COUNT(CASE WHEN cond THEN 1 END)</code></td>
+<td>Same as above (COUNT ignores NULLs)</td>
+<td><code>COUNT(CASE WHEN status = 'approved' THEN 1 END)</code></td>
+</tr>
+<tr>
+<td><code>AVG(CASE WHEN cond THEN 1.0 ELSE 0 END)</code></td>
+<td>Compute rate/percentage</td>
+<td><code>AVG(CASE WHEN confirmed THEN 1.0 ELSE 0 END)</code> → 0.75 = 75%</td>
+</tr>
+<tr>
+<td><code>SUM(CASE WHEN cond THEN amount ELSE 0 END)</code></td>
+<td>Sum values matching condition</td>
+<td><code>SUM(CASE WHEN state = 'approved' THEN amount ELSE 0 END)</code></td>
+</tr>
+<tr>
+<td>Multiple CASE per GROUP BY</td>
+<td>Different aggregations in one pass</td>
+<td><code>SUM(amount)</code>, <code>SUM(CASE ... approved ...)</code>, <code>SUM(CASE ... rejected ...)</code> all in one query</td>
+</tr>
+<tr>
+<td>Subquery + CASE</td>
+<td>Identify special rows first (e.g., "first per customer"), then aggregate</td>
+<td>CTE with ROW_NUMBER, then filter WHERE rn = 1, then apply conditional aggregation</td>
+</tr>
+</tbody>
+</table>
+<hr/>
+<p><strong>How to recognize this pattern:</strong></p>
+<p>The question asks for <strong>rates</strong>, <strong>percentages</strong>, <strong>counts of matching rows</strong>, or <strong>breakdowns by category</strong>. Examples:</p>
+<ul>
+<li>"What percentage of orders were confirmed?"</li>
+<li>"Show approved and total transaction amounts per month."</li>
+<li>"Calculate the approval rate per user."</li>
+<li>"Find the confirmation rate for each customer's first order only."</li>
+<li>"Show monthly transaction counts and average approved amounts."</li>
+</ul>
+<p>Key signal: The output includes both <strong>the raw count/sum</strong> and a <strong>derived rate/percentage</strong>, OR you need different sums for different subsets of rows (approved vs rejected, confirmed vs not confirmed).</p>
+<hr/>
+<blockquote>
+<p><strong>Interview tip:</strong> Conditional aggregation is a <strong>mid-level SQL skill</strong>. Interviewers love seeing it because it shows you understand how to compute multiple metrics in a single GROUP BY — which is much faster than running separate queries. When you spot a "rate" or "percentage" in the problem, think <strong>CASE inside COUNT/SUM/AVG immediately</strong>. Also watch for the <strong>two-step subquery pattern</strong>: first, use a window function to mark special rows (like "first order per customer"), then apply conditional aggregation on the subquery result. This combo handles tricky questions like "confirmation rate on first orders only."</p>
+</blockquote>
+</div>
 </div>
 </div>
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">

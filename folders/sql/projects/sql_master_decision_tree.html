@@ -13031,8 +13031,6 @@ body {
 div#notebook {
   overflow: visible;
   border-top: none;
-}div#notebook-container{
-  padding: 6ex 12ex 8ex 12ex;
 }@media print {
   body {
     margin: 0;
@@ -13090,7 +13088,8 @@ div#notebook {
 <main>
 <div class="border-box-sizing" id="notebook" tabindex="-1">
 <div class="container" id="notebook-container">
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <h1 id="SQL-Master-Decision-Tree">SQL Master Decision Tree<a class="anchor-link" href="#SQL-Master-Decision-Tree">¶</a></h1><p><strong>Purpose:</strong> One unified flowchart to navigate from any SQL problem statement to the right approach. Instead of choosing between three separate strategy guides, start here — the tree will route you to the correct technique and tell you which guide to dig into for details.</p>
 <p><strong>How to use this guide:</strong> Read the problem statement, then walk down the tree answering each question. You'll land on the right pattern in under 30 seconds.</p>
@@ -13105,134 +13104,216 @@ div#notebook {
 <tbody>
 <tr>
 <td><a href="sql_single_table_query_strategies.html">Single-Table Strategies</a></td>
-<td>One table, need to filter / group / rank / compare rows</td>
+<td>One table — filter, group, rank, compare, string ops, rolling calculations</td>
 </tr>
 <tr>
 <td><a href="sql_multi_table_query_strategies.html">Multi-Table Strategies</a></td>
-<td>Multiple tables, need to choose the right join</td>
+<td>Two+ tables — choose the right join, anti-join, self-join, CROSS JOIN</td>
 </tr>
 <tr>
 <td><a href="sql_combined_strategy_patterns.html">Combined Strategy Patterns</a></td>
-<td>Join + transformation in the same query</td>
+<td>Join + transformation in the same query (rates, counts, ranks across tables)</td>
 </tr>
 <tr>
-<td><a href="sql_subqueries_select.html">Subqueries in SELECT</a></td>
-<td>Scalar subquery as column value or denominator</td>
+<td><a href="sql_debugging_guide.html">SQL Debugging Guide</a></td>
+<td>Stuck on an error? Systematic debugging for PostgreSQL</td>
+</tr>
+</tbody>
+</table>
+<h3 id="Decision-Tree-Steps">Decision Tree Steps<a class="anchor-link" href="#Decision-Tree-Steps">¶</a></h3><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Question</th>
+<th>Section</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#master-tree">Step 1</a></td>
+<td>How many tables?</td>
+<td>Routes to Step 2A or 2B</td>
 </tr>
 <tr>
-<td><a href="sql_subqueries_where.html">Subqueries in WHERE</a></td>
-<td>Filter rows by computed threshold</td>
+<td><a href="#single-table-path">Step 2A</a></td>
+<td>Single-table — what am I doing?</td>
+<td>14 patterns: filter → string → date → compare → aggregate → rank → roll → label → pivot → missing → dedup → delete</td>
 </tr>
 <tr>
-<td><a href="sql_subqueries_from.html">Subqueries in FROM</a></td>
-<td>Pre-aggregate then query the result</td>
+<td><a href="#multi-table-path">Step 2B</a></td>
+<td>Multi-table — how do they relate?</td>
+<td>8 join types: UNION → Self → CROSS → Anti → Range → "Bought All" → LEFT → INNER</td>
+</tr>
+<tr>
+<td><a href="#combo-path">Step 2C</a></td>
+<td>After the join — what transformation?</td>
+<td>Rate, count, rank, filter groups</td>
+</tr>
+<tr>
+<td><a href="#date-fork">Step 3</a></td>
+<td>Date fork — what kind of date work?</td>
+<td>Compare rows, extract parts, calculate difference, filter range</td>
+</tr>
+<tr>
+<td><a href="#subquery-decision">Step 4</a></td>
+<td>Do I need a subquery?</td>
+<td>SELECT vs WHERE vs FROM placement</td>
 </tr>
 </tbody>
 </table>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="master-tree"></a></p>
 <h2 id="Step-1:-How-Many-Tables?">Step 1: How Many Tables?<a class="anchor-link" href="#Step-1:-How-Many-Tables?">¶</a></h2><p>This is always the first question. Everything else follows from it.</p>
 <div class="fc">
-<div class="fc-node fc-start">READ THE PROBLEM STATEMENT<br/><br/>1. How many tables are mentioned?<br/>2. What does the expected output look like?<br/>3. Are there aggregation words (total, average, %)?</div>
+<div class="fc-node fc-start">READ THE PROBLEM STATEMENT<br/><br/>1. How many tables are mentioned?<br/>2. What does the expected output look like?<br/>3. Are there aggregation words (total, average, %)?<br/>4. Are there NULL / string / date clues?</div>
 <div class="fc-arrow">▼</div>
 <div class="fc-node fc-start">How many tables are involved in this problem?</div>
 <div class="fc-arrow">▼</div>
 <div class="fc-branches">
 <div class="fc-branch">
 <div class="fc-label fc-tag">ONE TABLE</div>
-<div class="fc-node fc-action">Go to Step 2A</div>
+<div class="fc-node fc-action"><a href="#single-table-path" style="color:inherit;text-decoration:none;">Go to <strong>Step 2A: Single-Table Path →</strong></a></div>
 </div>
 <div class="fc-branch">
 <div class="fc-label fc-tag">TWO OR MORE TABLES</div>
-<div class="fc-node fc-action">Go to Step 2B</div>
+<div class="fc-node fc-action"><a href="#multi-table-path" style="color:inherit;text-decoration:none;">Go to <strong>Step 2B: Multi-Table Path →</strong></a></div>
 </div>
 </div>
 </div>
+<blockquote>
+<p><strong>Watch out — "one table" can be tricky.</strong> A table that references itself (e.g., manager_id pointing to the same Employees table) is a <strong>Self JOIN</strong> problem. If the problem says "compare to previous row" and there's only one table, you still go to Step 2A — use <strong>LAG/LEAD</strong>, not a self-join.</p>
+</blockquote>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="single-table-path"></a></p>
 <h2 id="Step-2A:-Single-Table-Path">Step 2A: Single-Table Path<a class="anchor-link" href="#Step-2A:-Single-Table-Path">¶</a></h2><p>You only have one table. Walk through these questions in order — <strong>the first YES is your answer.</strong></p>
+<blockquote>
+<p><strong>NULL trap:</strong> If filtering involves <code>!= value</code>, remember that <code>NULL != value</code> is NULL (not TRUE). Add <code>OR col IS NULL</code> to include NULLs. <em>Example: "Find customers NOT referred by id 2" needs <code>WHERE referee_id != 2 OR referee_id IS NULL</code>.</em></p>
+</blockquote>
 <div class="fc">
 <div class="fc-node fc-start">SINGLE TABLE — What am I doing?</div>
 <div class="fc-arrow">▼</div>
-<div class="fc-node fc-start">Just filtering rows by conditions on columns?</div>
-<div class="fc-node fc-good">YES → <strong>WHERE + ORDER BY</strong><code>SELECT cols
-FROM table
-WHERE condition
-ORDER BY col</code></div>
+<div class="fc-node fc-start">Just filtering rows by conditions on columns?<br/><small>(both, either/or, not equal, greater than, odd/even)</small></div>
+<div class="fc-node fc-good">YES → <a href="sql_single_table_query_strategies.html"><strong>WHERE + ORDER BY</strong></a><code>SELECT cols FROM table
+WHERE condition1 AND condition2
+ORDER BY col</code>
+<em>Watch for NULLs — col != X does NOT include NULLs</em></div>
 <div class="fc-arrow fc-else">if no ▼</div>
-<div class="fc-node fc-start">Does it involve dates?</div>
-<div class="fc-node fc-good">YES → <strong>See DATE FORK (Step 3)</strong></div>
+<div class="fc-node fc-start">Does it involve string / text manipulation?<br/><small>(fix names, pattern match, valid emails, length, contains prefix)</small></div>
+<div class="fc-node fc-good">YES → <a href="sql_single_table_query_strategies.html"><strong>String functions</strong></a><code>-- Pattern matching:
+WHERE col LIKE 'DIAB1%' OR col LIKE '% DIAB1%'
+-- Regex (Postgres):
+WHERE col ~ '^[A-Za-z][A-Za-z0-9._-]*@domain\\.com$'
+-- Fix capitalization:
+CONCAT(UPPER(LEFT(name,1)), LOWER(SUBSTRING(name,2)))
+-- Filter by length:
+WHERE LENGTH(content) &gt; 15</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
-<div class="fc-node fc-start">Am I comparing rows?<br/>(prev vs next, row pairs)</div>
-<div class="fc-node fc-good">YES → <strong>LAG() / LEAD()</strong> — window functions<code>SELECT *,
+<div class="fc-node fc-start">Does it involve dates?<br/><small>(per month, yesterday, past 30 days, first order date)</small></div>
+<div class="fc-node fc-good">YES → <a href="#date-fork"><strong>See DATE FORK (Step 3) →</strong></a> then come back here for the structural pattern</div>
+<div class="fc-arrow fc-else">if no ▼</div>
+<div class="fc-node fc-start">Am I comparing rows to each other?<br/><small>(previous, next, consecutive, yesterday vs today, swap adjacent)</small></div>
+<div class="fc-node fc-good">YES → <a href="sql_single_table_query_strategies.html"><strong>LAG() / LEAD()</strong></a> — window functions<code>SELECT *,
   LAG(col)  OVER(ORDER BY date_col) AS prev_val,
   LEAD(col) OVER(ORDER BY date_col) AS next_val
-FROM table</code></div>
+FROM table</code>
+<em>For "3+ consecutive same value" → check LAG(col,1) AND LAG(col,2)</em></div>
 <div class="fc-arrow fc-else">if no ▼</div>
-<div class="fc-node fc-start">Am I collapsing rows into a summary?<br/>(count, sum, avg)</div>
-<div class="fc-node fc-good">YES → <strong>GROUP BY + aggregate function</strong><code>SELECT group_col, COUNT(*), SUM(val), AVG(val)
+<div class="fc-node fc-start">Am I collapsing rows into a summary?<br/><small>(count, sum, average, number of distinct, total per group)</small></div>
+<div class="fc-node fc-good">YES → <a href="sql_single_table_query_strategies.html"><strong>GROUP BY + aggregate function</strong></a><code>SELECT group_col, COUNT(*), SUM(val), AVG(val),
+       COUNT(DISTINCT other_col)
+FROM table
+GROUP BY group_col</code>
+<em>STRING_AGG(col, ',') to concatenate values per group</em></div>
+<div class="fc-arrow fc-else">if no ▼</div>
+<div class="fc-node fc-start">Filtering AFTER grouping?<br/><small>("at least 5 students", "appeared only once", "groups where count &gt; N")</small></div>
+<div class="fc-node fc-good">YES → <a href="sql_single_table_query_strategies.html"><strong>GROUP BY + HAVING</strong></a><code>SELECT group_col, COUNT(*)
+FROM table
+GROUP BY group_col
+HAVING COUNT(*) &gt;= 5</code>
+<em>"Biggest single number" → HAVING COUNT = 1, then MAX</em></div>
+<div class="fc-arrow fc-else">if no ▼</div>
+<div class="fc-node fc-start">Computing a rate, ratio, or conditional metric?<br/><small>(confirmation rate, % approved, poor query %, immediate %)</small></div>
+<div class="fc-node fc-good">YES → <a href="sql_single_table_query_strategies.html"><strong>Conditional aggregation</strong></a> — CASE inside SUM or AVG<code>SELECT group_col,
+  ROUND(AVG(CASE WHEN state = 'approved'
+    THEN 1.0 ELSE 0 END) * 100, 2) AS approved_pct,
+  SUM(CASE WHEN state = 'approved'
+    THEN amount ELSE 0 END) AS approved_total
 FROM table
 GROUP BY group_col</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
-<div class="fc-node fc-start">Filtering AFTER grouping?<br/>("groups where count &gt; 3")</div>
-<div class="fc-node fc-good">YES → <strong>GROUP BY + HAVING</strong><code>SELECT group_col, COUNT(*)
-FROM table
-GROUP BY group_col
-HAVING COUNT(*) &gt; 3</code></div>
+<div class="fc-node fc-start">Am I ranking rows?<br/><small>("top N per group", "second highest", "nth largest", "top three salaries")</small></div>
+<div class="fc-node fc-good">YES → <a href="sql_single_table_query_strategies.html"><strong>ROW_NUMBER() / RANK() / DENSE_RANK()</strong></a><code>SELECT * FROM (
+  SELECT *, DENSE_RANK()
+    OVER(PARTITION BY group_col
+         ORDER BY val DESC) AS rn
+  FROM table
+) sub WHERE rn &lt;= 3</code>
+<em>ROW_NUMBER = unique ranks; DENSE_RANK = ties share rank</em></div>
 <div class="fc-arrow fc-else">if no ▼</div>
-<div class="fc-node fc-start">Am I ranking rows?<br/>("top N per group")</div>
-<div class="fc-node fc-good">YES → <strong>ROW_NUMBER() / RANK()</strong> — window functions<code>SELECT *, ROW_NUMBER()
-  OVER(PARTITION BY group_col
-       ORDER BY val DESC) AS rn
-FROM table</code></div>
+<div class="fc-node fc-start">Running total, cumulative sum, or rolling window?<br/><small>(running sum, moving average, 7-day window, last person under limit)</small></div>
+<div class="fc-node fc-good">YES → <a href="sql_single_table_query_strategies.html"><strong>SUM() / AVG() OVER()</strong></a> — window function<code>-- Running total:
+SUM(amount) OVER(ORDER BY turn) AS running_total
+-- 7-day rolling average (pre-aggregate first):
+AVG(daily_total) OVER(
+  ORDER BY visit_date
+  ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+) AS rolling_7_avg</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
-<div class="fc-node fc-start">Running total / cumulative?</div>
-<div class="fc-node fc-good">YES → <strong>SUM() OVER()</strong> — window function<code>SELECT *,
-  SUM(amount) OVER(ORDER BY date_col) AS running_total
-FROM table</code></div>
-<div class="fc-arrow fc-else">if no ▼</div>
-<div class="fc-node fc-start">Labeling / categorizing?<br/>("if X then label Y")</div>
-<div class="fc-node fc-good">YES → <strong>CASE WHEN</strong><code>SELECT *,
-  CASE WHEN val &gt; 100 THEN 'High'
-       WHEN val &gt; 50  THEN 'Medium'
-       ELSE 'Low' END AS tier
-FROM table</code></div>
+<div class="fc-node fc-start">Labeling / categorizing / swapping?<br/><small>("if X then Y", "triangle judgement", "swap seats", salary categories)</small></div>
+<div class="fc-node fc-good">YES → <a href="sql_single_table_query_strategies.html"><strong>CASE WHEN</strong></a><code>SELECT *,
+  CASE WHEN x + y &gt; z AND x + z &gt; y AND y + z &gt; x
+       THEN 'Yes' ELSE 'No' END AS triangle
+FROM table</code>
+<em>For "must include all categories even with zero count" → generate categories with VALUES or UNION, then LEFT JOIN</em></div>
 <div class="fc-arrow fc-else">if no ▼</div>
 <div class="fc-node fc-start">Pivoting rows → columns?</div>
-<div class="fc-node fc-good">YES → <strong>CASE + GROUP BY (pivot)</strong><code>SELECT group_col,
+<div class="fc-node fc-good">YES → <a href="sql_single_table_query_strategies.html"><strong>CASE + GROUP BY (pivot)</strong></a><code>SELECT group_col,
   SUM(CASE WHEN category = 'A' THEN val ELSE 0 END) AS A,
   SUM(CASE WHEN category = 'B' THEN val ELSE 0 END) AS B
 FROM table
 GROUP BY group_col</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
-<div class="fc-node fc-start">Finding missing data?</div>
-<div class="fc-node fc-good">YES → <strong>NOT EXISTS / IS NULL</strong><code>SELECT * FROM table t1
+<div class="fc-node fc-start">Finding missing data or "NOT IN" another set?</div>
+<div class="fc-node fc-good">YES → <strong>NOT EXISTS / NOT IN / IS NULL</strong><code>SELECT * FROM table t1
 WHERE NOT EXISTS (
   SELECT 1 FROM table t2
   WHERE t2.id = t1.related_id
 )</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
-<div class="fc-node fc-good">Still here? → <strong>Removing duplicates</strong><code>-- Keep one row per key:
+<div class="fc-node fc-start">Removing or identifying duplicates?</div>
+<div class="fc-node fc-good">YES → <strong>ROW_NUMBER() to deduplicate</strong><code>-- Keep one row per key:
 SELECT * FROM (
   SELECT *, ROW_NUMBER()
-    OVER(PARTITION BY key_col ORDER BY date DESC) AS rn
+    OVER(PARTITION BY key_col ORDER BY id ASC) AS rn
   FROM table
 ) sub WHERE rn = 1</code></div>
+<div class="fc-arrow fc-else">if no ▼</div>
+<div class="fc-node fc-warn">DELETE statement required?<br/><small>(delete duplicates, keep smallest id)</small></div>
+<div class="fc-node fc-good">YES → <strong>DELETE with self-reference</strong><code>DELETE FROM Person p1
+USING Person p2
+WHERE p1.email = p2.email
+  AND p1.id &gt; p2.id</code></div>
+</div>
+<blockquote>
+<p><strong>After choosing your pattern →</strong> check <a href="#subquery-decision"><strong>Step 4: Do I Need a Subquery?</strong></a> if your formula mixes aggregation levels (e.g., "percentage of total", "above the average").</p>
+</blockquote>
 </div>
 </div>
 </div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="multi-table-path"></a></p>
@@ -13240,41 +13321,68 @@ SELECT * FROM (
 <div class="fc">
 <div class="fc-node fc-start">MULTIPLE TABLES — How do they relate?</div>
 <div class="fc-arrow">▼</div>
-<div class="fc-node fc-start">Same structure / similar data?<br/>("combine", "merge", "together")</div>
-<div class="fc-node fc-good">YES → <strong>UNION ALL (or UNION)</strong><br/>Stack rows from both tables<code>SELECT col1, col2 FROM table_a
+<div class="fc-node fc-start">Two separate questions combined into one result?<br/><small>(e.g., "user who rated most movies" AND "movie with highest avg rating")</small></div>
+<div class="fc-node fc-good">YES → <a href="sql_multi_table_query_strategies.html"><strong>UNION ALL (separate queries)</strong></a><br/>Write each query independently, stack with UNION ALL<code>(SELECT name AS results FROM ... ORDER BY ... LIMIT 1)
 UNION ALL
-SELECT col1, col2 FROM table_b</code></div>
+(SELECT title AS results FROM ... ORDER BY ... LIMIT 1)</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
-<div class="fc-node fc-start">Table references itself?<br/>("manager", "parent", "reports to")</div>
-<div class="fc-node fc-good">YES → <strong>Self JOIN</strong><code>SELECT a.name AS employee,
+<div class="fc-node fc-start">Same structure / similar data to combine?<br/><small>("combine", "merge", "both requesters and accepters")</small></div>
+<div class="fc-node fc-good">YES → <a href="sql_multi_table_query_strategies.html"><strong>UNION ALL (or UNION)</strong></a><br/>Stack rows from both sources<code>SELECT requester_id AS id FROM RequestAccepted
+UNION ALL
+SELECT accepter_id AS id FROM RequestAccepted</code>
+<em>UNION ALL keeps dupes (faster); UNION removes them</em></div>
+<div class="fc-arrow fc-else">if no ▼</div>
+<div class="fc-node fc-start">Table references itself?<br/><small>("manager", "parent", "reports to", "same table twice")</small></div>
+<div class="fc-node fc-good">YES → <a href="sql_multi_table_query_strategies.html"><strong>Self JOIN</strong></a><code>SELECT a.name AS employee,
        b.name AS manager
 FROM employees a
-JOIN employees b ON a.manager_id = b.id</code></div>
+JOIN employees b ON a.manager_id = b.id</code>
+<em>"Manager left" = LEFT JOIN self, WHERE manager IS NULL</em></div>
 <div class="fc-arrow fc-else">if no ▼</div>
-<div class="fc-node fc-start">Need ALL combinations?<br/>("every X with every Y")</div>
-<div class="fc-node fc-good">YES → <strong>CROSS JOIN</strong><code>SELECT s.name, sub.name
-FROM students s
-CROSS JOIN subjects sub</code></div>
+<div class="fc-node fc-start">Need ALL combinations?<br/><small>("every student with every subject", generate all pairs)</small></div>
+<div class="fc-node fc-good">YES → <a href="sql_multi_table_query_strategies.html"><strong>CROSS JOIN</strong></a><code>SELECT s.student_name, sub.subject_name
+FROM Students s
+CROSS JOIN Subjects sub</code>
+<em>Often followed by LEFT JOIN to count actuals vs all possibilities</em></div>
 <div class="fc-arrow fc-else">if no ▼</div>
-<div class="fc-node fc-start">Need to find what's MISSING?<br/>("never", "didn't", "no match")</div>
-<div class="fc-node fc-good">YES → <strong>LEFT JOIN + WHERE IS NULL</strong><br/>(anti-join pattern)<code>SELECT a.*
+<div class="fc-node fc-start">Need to find what's MISSING?<br/><small>("never", "didn't", "no match", "visited but no transaction")</small></div>
+<div class="fc-node fc-good">YES → <a href="sql_multi_table_query_strategies.html"><strong>LEFT JOIN + WHERE IS NULL</strong></a><br/>(anti-join pattern)<code>SELECT a.*
 FROM customers a
 LEFT JOIN orders b ON a.id = b.customer_id
 WHERE b.customer_id IS NULL</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
-<div class="fc-node fc-start">Must keep ALL rows from one table even if no match?</div>
-<div class="fc-node fc-good">YES → <strong>LEFT JOIN</strong><code>SELECT a.*, COALESCE(b.val, 0) AS val
+<div class="fc-node fc-start">Joining on a date range or non-equality condition?<br/><small>("price valid between start and end date", "within N days")</small></div>
+<div class="fc-node fc-good">YES → <a href="sql_multi_table_query_strategies.html"><strong>Range JOIN (non-equi)</strong></a><code>SELECT a.*, b.price
+FROM UnitsSold a
+JOIN Prices b
+  ON a.product_id = b.product_id
+  AND a.purchase_date
+    BETWEEN b.start_date AND b.end_date</code></div>
+<div class="fc-arrow fc-else">if no ▼</div>
+<div class="fc-node fc-start">"Bought ALL products" / must match every item in a set?<br/><small>("customers who bought all products", relational division)</small></div>
+<div class="fc-node fc-good">YES → <a href="sql_multi_table_query_strategies.html"><strong>GROUP BY + HAVING COUNT(DISTINCT) = subquery</strong></a><code>SELECT customer_id
+FROM Customer
+GROUP BY customer_id
+HAVING COUNT(DISTINCT product_key) =
+  (SELECT COUNT(*) FROM Product)</code></div>
+<div class="fc-arrow fc-else">if no ▼</div>
+<div class="fc-node fc-start">Must keep ALL rows from one table even if no match?<br/><small>("show null if no match", "include users with zero orders")</small></div>
+<div class="fc-node fc-good">YES → <a href="sql_multi_table_query_strategies.html"><strong>LEFT JOIN</strong></a><code>SELECT a.*, COALESCE(b.val, 0) AS val
 FROM main_table a
 LEFT JOIN detail_table b ON a.id = b.fk</code></div>
 <div class="fc-arrow fc-else">if no ▼</div>
-<div class="fc-node fc-good">Matching rows only → <strong>INNER JOIN</strong><code>SELECT a.*, b.col
+<div class="fc-node fc-good">Matching rows only → <a href="sql_multi_table_query_strategies.html"><strong>INNER JOIN</strong></a><code>SELECT a.*, b.col
 FROM table_a a
 JOIN table_b b ON a.id = b.fk</code></div>
 </div>
+<blockquote>
+<p><strong>After choosing your JOIN →</strong> Do you also need a transformation (aggregate, rank, rate)? Go to <a href="#combo-path"><strong>Step 2C: After the JOIN →</strong></a></p>
+</blockquote>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="combo-path"></a></p>
@@ -13282,38 +13390,43 @@ JOIN table_b b ON a.id = b.fk</code></div>
 <div class="fc">
 <div class="fc-node fc-start">You have joined data. What transformation is needed?</div>
 <div class="fc-arrow">▼</div>
-<div class="fc-branches fc-three">
+<div class="fc-branches fc-four">
 <div class="fc-branch">
-<div class="fc-node fc-action">Rate / Ratio<br/>Conditional metric<code>SUM(CASE WHEN cond
+<div class="fc-node fc-action"><a href="sql_combined_strategy_patterns.html" style="color:inherit;text-decoration:none;"><strong>Rate / Ratio</strong><br/>Conditional metric</a><code>SUM(CASE WHEN cond
   THEN 1.0 ELSE 0
-END) / COUNT(*)</code></div>
+END) / COUNT(*)</code>
+<em>Confirmation rate, approval %</em></div>
 </div>
 <div class="fc-branch">
-<div class="fc-node fc-action">Count / Sum<br/>per entity<br/>(incl. zeros)<code>SELECT a.name,
+<div class="fc-node fc-action"><a href="sql_combined_strategy_patterns.html" style="color:inherit;text-decoration:none;"><strong>Count / Sum</strong><br/>per entity (incl. zeros)</a><code>SELECT a.name,
   COUNT(b.id)
 FROM a LEFT JOIN b
   ON a.id = b.fk
-GROUP BY a.name</code></div>
+GROUP BY a.name</code>
+<em>Visits without transactions, exam attendance</em></div>
 </div>
 <div class="fc-branch">
-<div class="fc-node fc-action">Rank across<br/>joined data<code>ROW_NUMBER()
-OVER(PARTITION BY grp
-     ORDER BY val DESC)</code></div>
+<div class="fc-node fc-action"><a href="sql_combined_strategy_patterns.html" style="color:inherit;text-decoration:none;"><strong>Rank across</strong><br/>joined data</a><code>DENSE_RANK()
+OVER(PARTITION BY dept
+     ORDER BY sal DESC)</code>
+<em>Top 3 salaries per department</em></div>
 </div>
 <div class="fc-branch">
-<div class="fc-node fc-action">Filter groups<br/>by threshold<code>GROUP BY col
-HAVING COUNT(*) &gt; n</code></div>
+<div class="fc-node fc-action"><a href="sql_combined_strategy_patterns.html" style="color:inherit;text-decoration:none;"><strong>Filter groups</strong><br/>by threshold</a><code>GROUP BY col
+HAVING COUNT(*) &gt;= n</code>
+<em>Managers with 5+ reports</em></div>
 </div>
 </div>
 </div>
 <p>All combo patterns above are covered in the <a href="sql_combined_strategy_patterns.html"><strong>Combined Strategy Patterns Guide</strong></a>.</p>
 <blockquote>
-<p><strong>Does your transformation also need a subquery?</strong> Go to <a href="#subquery-decision"><strong>Step 4: Do I Need a Subquery?</strong></a></p>
+<p><strong>Does your transformation also need a subquery?</strong> Go to <a href="#subquery-decision"><strong>Step 4: Do I Need a Subquery? →</strong></a></p>
 </blockquote>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="date-fork"></a></p>
@@ -13321,40 +13434,53 @@ HAVING COUNT(*) &gt; n</code></div>
 <div class="fc">
 <div class="fc-node fc-start">What kind of date work?</div>
 <div class="fc-arrow">▼</div>
-<div class="fc-branches fc-three">
+<div class="fc-branches fc-four">
 <div class="fc-branch">
-<div class="fc-label fc-tag">Comparing consecutive rows</div>
-<div class="fc-node fc-action">(yesterday, next day)</div>
+<div class="fc-label fc-tag">Compare rows</div>
+<div class="fc-node fc-action">(yesterday, next day, consecutive)</div>
 <div class="fc-arrow">▼</div>
 <div class="fc-node fc-good">LAG / LEAD<br/>+ date math<code>LAG(date_col) OVER(
   ORDER BY date_col
-) AS prev_date</code></div>
+) AS prev_date
+-- check: date - prev = 1</code></div>
 </div>
 <div class="fc-branch">
-<div class="fc-label fc-tag">Extracting parts</div>
-<div class="fc-node fc-action">(per month, per year)</div>
+<div class="fc-label fc-tag">Extract parts</div>
+<div class="fc-node fc-action">(per month, per year, monthly)</div>
 <div class="fc-arrow">▼</div>
-<div class="fc-node fc-good">EXTRACT /<br/>DATE_PART<br/>+ GROUP BY<code>EXTRACT(MONTH FROM date_col)
+<div class="fc-node fc-good">EXTRACT /<br/>TO_CHAR<br/>+ GROUP BY<code>TO_CHAR(date_col, 'YYYY-MM')
 -- or --
-DATE_PART('month', date_col)</code></div>
+EXTRACT(MONTH FROM date_col)</code></div>
 </div>
 <div class="fc-branch">
-<div class="fc-label fc-tag">Calculating difference</div>
-<div class="fc-node fc-action">(days between, gaps)</div>
+<div class="fc-label fc-tag">Calculate diff</div>
+<div class="fc-node fc-action">(days between, gaps, age)</div>
 <div class="fc-arrow">▼</div>
-<div class="fc-node fc-good">DATEDIFF /<br/>subtraction<code>DATEDIFF(day, start_date, end_date)
--- or (Postgres) --
-end_date - start_date</code></div>
+<div class="fc-node fc-good">Date subtraction<code>-- Postgres:
+end_date - start_date
+-- days as integer
+-- MySQL:
+DATEDIFF(end, start)</code></div>
+</div>
+<div class="fc-branch">
+<div class="fc-label fc-tag">Filter range</div>
+<div class="fc-node fc-action">(past 30 days, in February, before date)</div>
+<div class="fc-arrow">▼</div>
+<div class="fc-node fc-good">WHERE +<br/>date condition<code>WHERE date_col BETWEEN
+  '2019-06-28' AND '2019-07-27'
+-- or --
+WHERE date_col &lt; '2019-08-16'</code></div>
 </div>
 </div>
 </div>
 <blockquote>
-<p><strong>Key insight:</strong> Date problems almost always combine with another pattern. The date fork tells you <em>which date tool</em> you need, then you still flow into the main tree for the structural pattern.</p>
+<p><strong>Key insight:</strong> Date problems almost always combine with another pattern. The date fork tells you <em>which date tool</em> you need, then you flow back into the main tree (<a href="#single-table-path">Step 2A</a>) for the structural pattern (GROUP BY, LAG, RANK, etc.).</p>
 </blockquote>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="subquery-decision"></a></p>
@@ -13410,149 +13536,263 @@ WHERE cnt &gt; 5</code></div>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="quick-reference"></a></p>
 <h2 id="Quick-Reference:-Signal-Words-%E2%86%92-Pattern">Quick Reference: Signal Words → Pattern<a class="anchor-link" href="#Quick-Reference:-Signal-Words-%E2%86%92-Pattern">¶</a></h2><p>When you're stuck, scan the problem for these words:</p>
-<table>
+<h3 id="Single-Table-Patterns-(Single-Table-Guide)">Single-Table Patterns (<a href="sql_single_table_query_strategies.html">Single-Table Guide</a>)<a class="anchor-link" href="#Single-Table-Patterns-(Single-Table-Guide)">¶</a></h3><table>
 <thead>
 <tr>
 <th>Signal Words in Problem</th>
 <th>Pattern</th>
-<th>Guide</th>
+<th>Example Problem</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>"filter", "where", "only rows that"</td>
-<td>WHERE + ORDER BY</td>
-<td><a href="sql_single_table_query_strategies.html">Single-Table</a></td>
+<td>"find rows where", "both", "either/or", "not equal"</td>
+<td><a href="#single-table-path">WHERE + ORDER BY</a></td>
+<td>Recyclable and Low Fat Products</td>
 </tr>
 <tr>
-<td>"previous", "next", "consecutive", "change from"</td>
-<td>LAG / LEAD</td>
-<td><a href="sql_single_table_query_strategies.html">Single-Table</a></td>
+<td>"not referred by" + possible NULLs</td>
+<td>WHERE + <strong>IS NULL handling</strong></td>
+<td>Find Customer Referee</td>
 </tr>
 <tr>
-<td>"per month", "per year", "extract"</td>
-<td>DATE functions + GROUP BY</td>
-<td><a href="sql_single_table_query_strategies.html">Single-Table</a></td>
+<td>"odd-numbered", "MOD", even/odd filtering</td>
+<td>WHERE + MOD() or %</td>
+<td>Not Boring Movies</td>
+</tr>
+<tr>
+<td>"fix names", "uppercase", "lowercase"</td>
+<td><strong>String: UPPER / LOWER / CONCAT</strong></td>
+<td>Fix Names in a Table</td>
+</tr>
+<tr>
+<td>"starts with prefix", "contains", "pattern"</td>
+<td><strong>String: LIKE / REGEXP</strong></td>
+<td>Patients With a Condition</td>
+</tr>
+<tr>
+<td>"valid email", "matches format"</td>
+<td><strong>String: ~ (regex)</strong></td>
+<td>Find Users With Valid E-Mails</td>
+</tr>
+<tr>
+<td>"length", "number of characters"</td>
+<td><strong>String: LENGTH()</strong></td>
+<td>Invalid Tweets</td>
+</tr>
+<tr>
+<td>"previous", "next", "yesterday", "consecutive"</td>
+<td><a href="#single-table-path">LAG / LEAD</a></td>
+<td>Rising Temperature, Consecutive Numbers</td>
+</tr>
+<tr>
+<td>"swap adjacent", "exchange pairs"</td>
+<td>CASE WHEN + MOD + LEAD/LAG</td>
+<td>Exchange Seats</td>
 </tr>
 <tr>
 <td>"total", "average", "count per", "sum of"</td>
-<td>GROUP BY + aggregate</td>
-<td><a href="sql_single_table_query_strategies.html">Single-Table</a></td>
+<td><a href="#single-table-path">GROUP BY + aggregate</a></td>
+<td>Followers Count, Unique Subjects</td>
 </tr>
 <tr>
-<td>"top N", "rank", "nth highest"</td>
-<td>ROW_NUMBER / RANK</td>
-<td><a href="sql_single_table_query_strategies.html">Single-Table</a></td>
+<td>"number of distinct", "count unique"</td>
+<td>GROUP BY + COUNT(DISTINCT)</td>
+<td>Unique Subjects per Teacher</td>
 </tr>
 <tr>
-<td>"running total", "cumulative"</td>
-<td>SUM() OVER()</td>
-<td><a href="sql_single_table_query_strategies.html">Single-Table</a></td>
+<td>"concatenate per group", "list products"</td>
+<td>GROUP BY + STRING_AGG()</td>
+<td>Group Sold Products By Date</td>
 </tr>
 <tr>
-<td>"never", "didn't", "no match", "missing"</td>
-<td>NOT EXISTS / LEFT JOIN IS NULL</td>
-<td><a href="sql_multi_table_query_strategies.html">Multi-Table</a></td>
+<td>"at least N", "appeared only once"</td>
+<td><a href="#single-table-path">GROUP BY + HAVING</a></td>
+<td>Classes With 5+ Students, Biggest Single Number</td>
 </tr>
 <tr>
-<td>"duplicates", "unique", "first occurrence"</td>
-<td>ROW_NUMBER / DISTINCT</td>
-<td><a href="sql_single_table_query_strategies.html">Single-Table</a></td>
+<td>"confirmation rate", "% approved", "poor query %"</td>
+<td><a href="#single-table-path">Conditional aggregation</a> (CASE in SUM)</td>
+<td>Monthly Transactions, Queries Quality</td>
 </tr>
 <tr>
-<td>"label", "categorize", "if...then"</td>
-<td>CASE WHEN</td>
-<td><a href="sql_single_table_query_strategies.html">Single-Table</a></td>
+<td>"immediate %", "fraction that..."</td>
+<td>AVG(CASE WHEN ... THEN 1.0 ELSE 0 END)</td>
+<td>Immediate Food Delivery II</td>
 </tr>
 <tr>
-<td>"groups having", "at least N"</td>
-<td>GROUP BY + HAVING</td>
-<td><a href="sql_single_table_query_strategies.html">Single-Table</a></td>
+<td>"top N", "rank", "second highest", "nth largest"</td>
+<td><a href="#single-table-path">ROW_NUMBER / RANK / DENSE_RANK</a></td>
+<td>Second Highest Salary</td>
+</tr>
+<tr>
+<td>"first year", "earliest occurrence"</td>
+<td>RANK + filter rn = 1</td>
+<td>Product Sales Analysis III</td>
+</tr>
+<tr>
+<td>"running total", "cumulative", "weight limit"</td>
+<td><a href="#single-table-path">SUM() OVER()</a></td>
+<td>Last Person to Fit in the Bus</td>
+</tr>
+<tr>
+<td>"moving average", "7-day window", "rolling"</td>
+<td>SUM/AVG OVER(ROWS BETWEEN)</td>
+<td>Restaurant Growth</td>
+</tr>
+<tr>
+<td>"label", "categorize", "if...then", "triangle"</td>
+<td><a href="#single-table-path">CASE WHEN</a></td>
+<td>Triangle Judgement, Count Salary Categories</td>
+</tr>
+<tr>
+<td>"only department" OR "primary flag" (conditional logic)</td>
+<td>CASE WHEN or UNION</td>
+<td>Primary Department for Each Employee</td>
 </tr>
 <tr>
 <td>"pivot", "rows to columns"</td>
 <td>CASE + GROUP BY</td>
-<td><a href="sql_single_table_query_strategies.html">Single-Table</a></td>
+<td>Monthly Transactions I</td>
 </tr>
 <tr>
-<td>"look up", "get name from", "enrich"</td>
-<td>INNER JOIN</td>
-<td><a href="sql_multi_table_query_strategies.html">Multi-Table</a></td>
+<td>"missing", "NOT IN", "doesn't exist"</td>
+<td>NOT EXISTS / IS NULL</td>
+<td>Employees Whose Manager Left</td>
 </tr>
 <tr>
-<td>"all X even if no Y", "include unmatched"</td>
-<td>LEFT JOIN</td>
-<td><a href="sql_multi_table_query_strategies.html">Multi-Table</a></td>
+<td>"duplicates", "unique", "first occurrence"</td>
+<td>ROW_NUMBER / DISTINCT</td>
+<td>Product Price at Given Date</td>
+</tr>
+<tr>
+<td>"<strong>delete</strong> duplicates", "keep smallest id"</td>
+<td>DELETE + self-reference</td>
+<td>Delete Duplicate Emails</td>
+</tr>
+</tbody>
+</table>
+<h3 id="Multi-Table-Patterns-(Multi-Table-Guide)">Multi-Table Patterns (<a href="sql_multi_table_query_strategies.html">Multi-Table Guide</a>)<a class="anchor-link" href="#Multi-Table-Patterns-(Multi-Table-Guide)">¶</a></h3><table>
+<thead>
+<tr>
+<th>Signal Words in Problem</th>
+<th>Pattern</th>
+<th>Example Problem</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Two independent questions → one result</td>
+<td><a href="#multi-table-path">UNION ALL (separate queries)</a></td>
+<td>Movie Rating</td>
+</tr>
+<tr>
+<td>"both sides" of a relationship, "requesters AND accepters"</td>
+<td><a href="#multi-table-path">UNION ALL (reshape)</a></td>
+<td>Friend Requests: Most Friends</td>
+</tr>
+<tr>
+<td>"manager", "reports to", "parent", self-referencing FK</td>
+<td><a href="#multi-table-path">Self JOIN</a></td>
+<td>Managers with 5+ Reports</td>
 </tr>
 <tr>
 <td>"every X with every Y", "all combinations"</td>
-<td>CROSS JOIN</td>
-<td><a href="sql_multi_table_query_strategies.html">Multi-Table</a></td>
+<td><a href="#multi-table-path">CROSS JOIN</a></td>
+<td>Students and Examinations</td>
 </tr>
 <tr>
-<td>"combine", "merge tables", "stack"</td>
-<td>UNION ALL</td>
-<td><a href="sql_multi_table_query_strategies.html">Multi-Table</a></td>
+<td>"never", "didn't", "no match", "without", "not make"</td>
+<td><a href="#multi-table-path">LEFT JOIN + IS NULL</a></td>
+<td>Visited but No Transactions</td>
 </tr>
 <tr>
-<td>"manager", "parent", "reports to"</td>
-<td>Self JOIN</td>
-<td><a href="sql_multi_table_query_strategies.html">Multi-Table</a></td>
+<td>"price valid between dates", range condition</td>
+<td><a href="#multi-table-path">Range JOIN (BETWEEN)</a></td>
+<td>Average Selling Price</td>
 </tr>
 <tr>
-<td>"users who bought X", "exists in"</td>
-<td>EXISTS / IN</td>
-<td><a href="sql_multi_table_query_strategies.html">Multi-Table</a></td>
+<td>"bought ALL products", "matches every item"</td>
+<td><a href="#multi-table-path">HAVING COUNT(DISTINCT) = subquery</a></td>
+<td>Customers Who Bought All Products</td>
 </tr>
 <tr>
-<td>"percentage of total", "ratio to all"</td>
-<td>Scalar subquery in SELECT</td>
-<td><a href="sql_subqueries_select.html">Subquery SELECT</a></td>
+<td>"show null if no match", "even if no bonus"</td>
+<td><a href="#multi-table-path">LEFT JOIN</a></td>
+<td>Employee Bonus, Replace Employee ID</td>
 </tr>
 <tr>
-<td>"above average", "greater than median"</td>
-<td>Scalar subquery in WHERE</td>
-<td><a href="sql_subqueries_where.html">Subquery WHERE</a></td>
+<td>"look up name", "get details from", "enrich"</td>
+<td><a href="#multi-table-path">INNER JOIN</a></td>
+<td>Product Sales Analysis I</td>
 </tr>
+</tbody>
+</table>
+<h3 id="Combined-Patterns-(Combined-Guide)">Combined Patterns (<a href="sql_combined_strategy_patterns.html">Combined Guide</a>)<a class="anchor-link" href="#Combined-Patterns-(Combined-Guide)">¶</a></h3><table>
+<thead>
+<tr>
+<th>Signal Words in Problem</th>
+<th>Pattern</th>
+<th>Example Problem</th>
+</tr>
+</thead>
+<tbody>
 <tr>
 <td>"rate per entity including zeros"</td>
-<td>LEFT JOIN + GROUP BY + CASE</td>
-<td><a href="sql_combined_strategy_patterns.html">Combined</a></td>
+<td>LEFT JOIN + CASE + GROUP BY</td>
+<td>Confirmation Rate</td>
 </tr>
 <tr>
 <td>"count per entity including zeros"</td>
-<td>LEFT JOIN + GROUP BY + COUNT</td>
-<td><a href="sql_combined_strategy_patterns.html">Combined</a></td>
+<td>LEFT JOIN + COUNT + GROUP BY</td>
+<td>Students and Examinations</td>
+</tr>
+<tr>
+<td>"top N per group" across tables</td>
+<td>JOIN + DENSE_RANK</td>
+<td>Department Top Three Salaries</td>
+</tr>
+<tr>
+<td>"percentage of total" from another table</td>
+<td>Subquery in SELECT (denominator)</td>
+<td>Percentage of Users in Contest</td>
+</tr>
+<tr>
+<td>"weighted average" with range join</td>
+<td>Range JOIN + SUM(a*b)/SUM(b)</td>
+<td>Average Selling Price</td>
 </tr>
 </tbody>
 </table>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="full-flow"></a></p>
 <h2 id="The-Complete-Flow-%E2%80%94-All-Steps-on-One-Diagram">The Complete Flow — All Steps on One Diagram<a class="anchor-link" href="#The-Complete-Flow-%E2%80%94-All-Steps-on-One-Diagram">¶</a></h2><div class="fc">
 <div class="fc-node fc-start">READ THE PROBLEM</div>
 <div class="fc-arrow">▼</div>
-<div class="fc-node fc-start">How many tables?</div>
+<div class="fc-node fc-start"><a href="#master-tree" style="color:inherit;text-decoration:none;">Step 1: How many tables?</a></div>
 <div class="fc-arrow">▼</div>
 <div class="fc-branches">
 <div class="fc-branch">
 <div class="fc-label fc-tag">ONE TABLE</div>
 <div class="fc-arrow">▼</div>
-<div class="fc-node fc-action">Walk Step 2A<br/>(single-table patterns)</div>
+<div class="fc-node fc-action"><a href="#single-table-path" style="color:inherit;text-decoration:none;">Walk <strong>Step 2A →</strong></a><br/>(filter, string, date, compare, aggregate, rank, roll, label, pivot, missing, dedup, delete)</div>
 </div>
 <div class="fc-branch">
 <div class="fc-label fc-tag">2+ TABLES</div>
 <div class="fc-arrow">▼</div>
-<div class="fc-node fc-action">Walk Step 2B<br/>(pick the JOIN)</div>
+<div class="fc-node fc-action"><a href="#multi-table-path" style="color:inherit;text-decoration:none;">Walk <strong>Step 2B →</strong></a><br/>(UNION, self, CROSS, anti, range, "all", LEFT, INNER)</div>
 <div class="fc-arrow">▼</div>
 <div class="fc-node fc-start">Need transformation after the join?</div>
 <div class="fc-arrow">▼</div>
@@ -13565,7 +13805,7 @@ WHERE cnt &gt; 5</code></div>
 <div class="fc-branch">
 <div class="fc-label fc-yes">YES</div>
 <div class="fc-arrow">▼</div>
-<div class="fc-node fc-action">Walk Step 2C<br/>(pick transform)</div>
+<div class="fc-node fc-action"><a href="#combo-path" style="color:inherit;text-decoration:none;">Walk <strong>Step 2C →</strong></a><br/>(rate, count, rank, filter)</div>
 </div>
 </div>
 </div>
@@ -13580,49 +13820,84 @@ WHERE cnt &gt; 5</code></div>
 </div>
 <div class="fc-branch">
 <div class="fc-label fc-yes">YES</div>
-<div class="fc-node fc-action">Walk Step 4<br/>(subquery placement)</div>
+<div class="fc-node fc-action"><a href="#subquery-decision" style="color:inherit;text-decoration:none;">Walk <strong>Step 4 →</strong></a><br/>(SELECT / WHERE / FROM)</div>
 </div>
 </div>
 </div>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="worked-example"></a></p>
-<h2 id="Worked-Example:-Walking-the-Tree">Worked Example: Walking the Tree<a class="anchor-link" href="#Worked-Example:-Walking-the-Tree">¶</a></h2><p><strong>Problem:</strong> Find the percentage of total users registered in each contest, rounded to two decimal places. Order by percentage descending, then contest_id ascending.</p>
+<h2 id="Worked-Examples:-Walking-the-Tree">Worked Examples: Walking the Tree<a class="anchor-link" href="#Worked-Examples:-Walking-the-Tree">¶</a></h2><h3 id="Example-1:-Percentage-of-Users-Registered-per-Contest">Example 1: Percentage of Users Registered per Contest<a class="anchor-link" href="#Example-1:-Percentage-of-Users-Registered-per-Contest">¶</a></h3><p><strong>Problem:</strong> Find the percentage of total users registered in each contest, rounded to two decimal places.</p>
 <p><strong>Tables:</strong> Users (user_id, user_name) and Register (contest_id, user_id)</p>
-<hr>
-<h3 id="Walking-the-tree:">Walking the tree:<a class="anchor-link" href="#Walking-the-tree:">¶</a></h3><p><strong>Step 1 — How many tables?</strong> Two (Users and Register) → Go to Step 2B</p>
-<p><strong>Step 2B — Pick the JOIN:</strong></p>
-<ul>
-<li>Same structure? No</li>
-<li>Self-referencing? No</li>
-<li>All combinations? No</li>
-<li>Finding missing? No</li>
-<li>Keep all rows? No</li>
-<li>Matching rows only? Hmm... do I actually need columns from Users?</li>
-</ul>
-<p><strong>Pause:</strong> The output only needs <code>contest_id</code> and <code>percentage</code>. I don't need <code>user_name</code> or any other column from Users. I just need a <strong>count</strong> from it. → No JOIN needed, but I do need data from another table.</p>
-<p><strong>Step 2C — Transformation:</strong> GROUP BY <code>contest_id</code> + COUNT per group → GROUP BY + aggregate</p>
-<p><strong>Step 4 — Do I need a subquery?</strong> My formula is <code>group_count / total_count * 100</code>. The <code>total_count</code> comes from a different table at a different grain. Can I use a window function? No — it's a different table entirely. → <strong>Subquery needed, in the SELECT clause</strong> (denominator role).</p>
-<hr>
-<h3 id="Final-query:">Final query:<a class="anchor-link" href="#Final-query:">¶</a></h3><div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">contest_id</span><span class="p">,</span>
-<span class="w">       </span><span class="n">ROUND</span><span class="p">(</span>
-<span class="w">           </span><span class="p">(</span><span class="k">COUNT</span><span class="p">(</span><span class="k">DISTINCT</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">user_id</span><span class="p">)::</span><span class="nb">numeric</span>
-<span class="w">            </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="k">SELECT</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="k">DISTINCT</span><span class="w"> </span><span class="n">user_id</span><span class="p">)</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">Users</span><span class="p">)</span>
-<span class="w">           </span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span>
-<span class="w">       </span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">percentage</span>
-<span class="k">FROM</span><span class="w"> </span><span class="n">Register</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">r</span>
+<p><strong>Walking the tree:</strong></p>
+<p><strong><a href="#master-tree">Step 1</a> — How many tables?</strong> Two (Users and Register) → <a href="#multi-table-path">Go to Step 2B</a></p>
+<p><strong><a href="#multi-table-path">Step 2B</a> — Pick the JOIN:</strong> The output only needs <code>contest_id</code> and <code>percentage</code> — I don't need columns from Users, just a count. → No JOIN needed, but I need data from another table.</p>
+<p><strong><a href="#combo-path">Step 2C</a> — Transformation:</strong> GROUP BY <code>contest_id</code> + COUNT per group → GROUP BY + aggregate</p>
+<p><strong><a href="#subquery-decision">Step 4</a> — Subquery?</strong> Formula is <code>group_count / total_count * 100</code>. Total comes from a different table at different grain. → <strong>Subquery in SELECT</strong> (denominator).</p>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">contest_id</span><span class="p">,</span>
+<span class="w">       </span><span class="n">ROUND</span><span class="p">(</span><span class="k">COUNT</span><span class="p">(</span><span class="k">DISTINCT</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">user_id</span><span class="p">)::</span><span class="nb">numeric</span>
+<span class="w">             </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="k">SELECT</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">Users</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">percentage</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Register</span><span class="w"> </span><span class="n">r</span>
 <span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">contest_id</span>
 <span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">percentage</span><span class="w"> </span><span class="k">DESC</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">contest_id</span><span class="w"> </span><span class="k">ASC</span><span class="p">;</span>
 </pre></div>
-<p><strong>Tree path:</strong> Step 1 (2 tables) → Step 2B (no join needed) → Step 2C (GROUP BY) → Step 4 (scalar subquery in SELECT)</p>
+<p><strong>Path:</strong> Step 1 (2 tables) → 2B (skip join) → 2C (GROUP BY) → 4 (subquery in SELECT)</p>
+<hr>
+<h3 id="Example-2:-Restaurant-7-Day-Moving-Average">Example 2: Restaurant 7-Day Moving Average<a class="anchor-link" href="#Example-2:-Restaurant-7-Day-Moving-Average">¶</a></h3><p><strong>Problem:</strong> Compute the moving average of customer payments over a 7-day window (current day + 6 days before).</p>
+<p><strong>Table:</strong> Customer (customer_id, name, visited_on, amount) — <strong>one table</strong></p>
+<p><strong>Walking the tree:</strong></p>
+<p><strong><a href="#master-tree">Step 1</a> — How many tables?</strong> One → <a href="#single-table-path">Go to Step 2A</a></p>
+<p><strong><a href="#single-table-path">Step 2A</a> — Walk the checklist:</strong></p>
+<ul>
+<li>Just filtering? No.</li>
+<li>String manipulation? No.</li>
+<li><strong>Involves dates?</strong> Yes → <a href="#date-fork">Step 3 Date Fork</a>: What kind? Compare rows over time + range calculation → need <strong>date filtering</strong> (ROWS BETWEEN) + back to 2A.</li>
+<li>Back in 2A: Running total / rolling window? <strong>YES</strong> → SUM/AVG OVER(ROWS BETWEEN).</li>
+</ul>
+<p><strong>Key insight:</strong> Multiple customers per day means we must pre-aggregate daily totals first, then apply the window.</p>
+<div class="highlight"><pre><span></span><span class="k">WITH</span><span class="w"> </span><span class="n">daily</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="p">(</span>
+<span class="w">  </span><span class="k">SELECT</span><span class="w"> </span><span class="n">visited_on</span><span class="p">,</span><span class="w"> </span><span class="k">SUM</span><span class="p">(</span><span class="n">amount</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">day_total</span>
+<span class="w">  </span><span class="k">FROM</span><span class="w"> </span><span class="n">Customer</span>
+<span class="w">  </span><span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">visited_on</span>
+<span class="p">)</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="n">visited_on</span><span class="p">,</span>
+<span class="w">       </span><span class="k">SUM</span><span class="p">(</span><span class="n">day_total</span><span class="p">)</span><span class="w"> </span><span class="n">OVER</span><span class="p">(</span><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">visited_on</span>
+<span class="w">         </span><span class="k">ROWS</span><span class="w"> </span><span class="k">BETWEEN</span><span class="w"> </span><span class="mi">6</span><span class="w"> </span><span class="n">PRECEDING</span><span class="w"> </span><span class="k">AND</span><span class="w"> </span><span class="k">CURRENT</span><span class="w"> </span><span class="k">ROW</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">amount</span><span class="p">,</span>
+<span class="w">       </span><span class="n">ROUND</span><span class="p">(</span><span class="k">AVG</span><span class="p">(</span><span class="n">day_total</span><span class="p">)</span><span class="w"> </span><span class="n">OVER</span><span class="p">(</span><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">visited_on</span>
+<span class="w">         </span><span class="k">ROWS</span><span class="w"> </span><span class="k">BETWEEN</span><span class="w"> </span><span class="mi">6</span><span class="w"> </span><span class="n">PRECEDING</span><span class="w"> </span><span class="k">AND</span><span class="w"> </span><span class="k">CURRENT</span><span class="w"> </span><span class="k">ROW</span><span class="p">),</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">average_amount</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">daily</span>
+<span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">visited_on</span>
+<span class="k">OFFSET</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span>
+</pre></div>
+<p><strong>Path:</strong> Step 1 (1 table) → 2A (dates → Step 3 → back to 2A → rolling window)</p>
+<hr>
+<h3 id="Example-3:-Students-and-Examinations-(CROSS-JOIN-+-LEFT-JOIN-+-COUNT)">Example 3: Students and Examinations (CROSS JOIN + LEFT JOIN + COUNT)<a class="anchor-link" href="#Example-3:-Students-and-Examinations-(CROSS-JOIN-+-LEFT-JOIN-+-COUNT)">¶</a></h3><p><strong>Problem:</strong> Find how many times each student attended each exam. Must show 0 for exams not attended.</p>
+<p><strong>Tables:</strong> Students, Subjects, Examinations — <strong>three tables</strong></p>
+<p><strong>Walking the tree:</strong></p>
+<p><strong><a href="#master-tree">Step 1</a></strong> — Three tables → <a href="#multi-table-path">Step 2B</a></p>
+<p><strong><a href="#multi-table-path">Step 2B</a></strong> — I need every student paired with every subject (including zeros). → <strong>CROSS JOIN</strong> (Students x Subjects) to generate all combos, then LEFT JOIN Examinations to count actuals.</p>
+<p><strong><a href="#combo-path">Step 2C</a></strong> — Transformation: COUNT per student-subject pair → <strong>GROUP BY + COUNT</strong></p>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_name</span><span class="p">,</span><span class="w"> </span><span class="n">sub</span><span class="p">.</span><span class="n">subject_name</span><span class="p">,</span>
+<span class="w">       </span><span class="k">COUNT</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">student_id</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">attended_exams</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Students</span><span class="w"> </span><span class="n">s</span>
+<span class="k">CROSS</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Subjects</span><span class="w"> </span><span class="n">sub</span>
+<span class="k">LEFT</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Examinations</span><span class="w"> </span><span class="n">e</span>
+<span class="w">  </span><span class="k">ON</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">student_id</span>
+<span class="w">  </span><span class="k">AND</span><span class="w"> </span><span class="n">sub</span><span class="p">.</span><span class="n">subject_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">subject_name</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_name</span><span class="p">,</span><span class="w"> </span><span class="n">sub</span><span class="p">.</span><span class="n">subject_name</span>
+<span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">student_id</span><span class="p">,</span><span class="w"> </span><span class="n">sub</span><span class="p">.</span><span class="n">subject_name</span><span class="p">;</span>
+</pre></div>
+<p><strong>Path:</strong> Step 1 (3 tables) → 2B (CROSS JOIN + LEFT JOIN) → 2C (COUNT per group)</p>
 </hr></hr></div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="final-takeaway"></a></p>

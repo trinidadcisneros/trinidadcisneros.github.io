@@ -13031,8 +13031,6 @@ body {
 div#notebook {
   overflow: visible;
   border-top: none;
-}div#notebook-container{
-  padding: 6ex 12ex 8ex 12ex;
 }@media print {
   body {
     margin: 0;
@@ -13090,7 +13088,8 @@ div#notebook {
 <main>
 <div class="border-box-sizing" id="notebook" tabindex="-1">
 <div class="container" id="notebook-container">
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <h1 id="SQL-Multi-Table-Query-Strategies">SQL Multi-Table Query Strategies<a class="anchor-link" href="#SQL-Multi-Table-Query-Strategies">¶</a></h1><p><strong>Purpose:</strong> This guide is a quick-reference strategy sheet for SQL interview questions that involve combining data across multiple tables. It covers the most common multi-table patterns you'll encounter — joining for lookups, generating complete combinations, finding mismatches, aggregating across relationships, and more — with a focus on identifying the right join strategy before writing any code, choosing the most efficient approach, and explaining your reasoning clearly to an interviewer.</p>
 <hr/>
@@ -13107,6 +13106,9 @@ div#notebook {
 <li><a href="#pattern-g-self-join">G. Self-Referencing (Self JOIN)</a></li>
 <li><a href="#pattern-h-exists-in">H. Filter by Another Table (EXISTS / IN)</a></li>
 <li><a href="#pattern-i-aggregate-then-join">I. Aggregate Then Join (Subquery/CTE + JOIN)</a></li>
+<li><a href="#pattern-j-range-join">J. Range JOIN / Non-Equi JOIN (JOIN with BETWEEN)</a></li>
+<li><a href="#pattern-k-relational-division">K. Relational Division ("Bought ALL")</a></li>
+<li><a href="#pattern-l-union-all-separate-queries">L. UNION ALL for Separate Queries &amp; Data Reshaping</a></li>
 </ul>
 <p><strong><a href="#4-critical-efficiency-rules">4. Critical Efficiency Rules</a></strong> — Five rules to avoid common performance traps</p>
 <p><strong><a href="#5-join-type-quick-reference">5. JOIN Type Quick Reference</a></strong> — Side-by-side comparison of all join types</p>
@@ -13118,7 +13120,8 @@ div#notebook {
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="1-first-step-identify-the-pattern"></a></p>
@@ -13291,12 +13294,61 @@ div#notebook {
 <td>Window function + <code>JOIN</code></td>
 <td>Add aggregate column without collapsing, then join</td>
 </tr>
+<tr>
+<td><strong>Range JOIN (Non-Equi)</strong></td>
+<td>"price valid between dates", "join on range", "date overlaps"</td>
+<td>Fact + Dimension (range)</td>
+<td>1</td>
+<td><code>JOIN</code> with <code>BETWEEN</code> or inequality</td>
+<td>Match rows based on range conditions; can expand row count</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td>2</td>
+<td><code>JOIN</code> with <code>AND</code> conditions</td>
+<td>Same logic, explicit; slightly more verbose</td>
+</tr>
+<tr>
+<td><strong>Relational Division (Bought ALL)</strong></td>
+<td>"customers who bought ALL products", "students who passed EVERY exam", "has all items"</td>
+<td>Fact + Reference Set</td>
+<td>1</td>
+<td><code>GROUP BY</code> + <code>HAVING COUNT(DISTINCT) = (SELECT COUNT(*))</code></td>
+<td>Find entities matching every item in reference set</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td>2</td>
+<td><code>GROUP BY</code> + <code>HAVING COUNT(*) = (SELECT COUNT(DISTINCT))</code></td>
+<td>Variant; less robust with duplicates</td>
+</tr>
+<tr>
+<td><strong>UNION ALL (Separate Queries or Reshape)</strong></td>
+<td>"Find X. Also find Y.", "combine requester_id and accepter_id", "stack two unrelated results"</td>
+<td>Two independent queries or columns</td>
+<td>1</td>
+<td><code>UNION ALL</code> with two <code>SELECT</code> blocks</td>
+<td>Each query independent; simple vertical stacking</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td>2</td>
+<td><code>UNION ALL</code> with data reshaping</td>
+<td>Reshape wide data (multiple columns) to long format (one column)</td>
+</tr>
 </tbody>
 </table>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="2-decision-tree-5-second-version"></a></p>
@@ -13338,7 +13390,8 @@ JOIN table_b b ON a.id = b.fk</code></div>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="3-pattern-library-with-examples"></a></p>
@@ -13346,7 +13399,8 @@ JOIN table_b b ON a.id = b.fk</code></div>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <p><a id="pattern-a-inner-join"></a></p>
 <h3 id="A.-Lookup-/-Enrich-(INNER-JOIN)">A. Lookup / Enrich (INNER JOIN)<a class="anchor-link" href="#A.-Lookup-/-Enrich-(INNER-JOIN)">¶</a></h3><p><strong>Signals:</strong> "get the name," "include the department," "find matching records"</p>
@@ -13387,7 +13441,8 @@ JOIN table_b b ON a.id = b.fk</code></div>
 </hr></hr></div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-b-left-join"></a></p>
@@ -13430,7 +13485,8 @@ JOIN table_b b ON a.id = b.fk</code></div>
 </hr></hr></div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-c-cross-join"></a></p>
@@ -13471,7 +13527,8 @@ JOIN table_b b ON a.id = b.fk</code></div>
 </hr></div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-d-cross-join-left-join"></a></p>
@@ -13530,7 +13587,8 @@ JOIN table_b b ON a.id = b.fk</code></div>
 </hr></div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-e-find-missing"></a></p>
@@ -13579,7 +13637,8 @@ JOIN table_b b ON a.id = b.fk</code></div>
 </hr></div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-f-union"></a></p>
@@ -13632,7 +13691,8 @@ JOIN table_b b ON a.id = b.fk</code></div>
 </hr></div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-g-self-join"></a></p>
@@ -13700,7 +13760,8 @@ JOIN table_b b ON a.id = b.fk</code></div>
 </hr></div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-h-exists-in"></a></p>
@@ -13748,7 +13809,8 @@ JOIN table_b b ON a.id = b.fk</code></div>
 </hr></div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 2px solid black;"/>
 <p><a id="pattern-i-aggregate-then-join"></a></p>
@@ -13813,7 +13875,270 @@ JOIN table_b b ON a.id = b.fk</code></div>
 </hr></div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border: 2px solid black;"/>
+<p><a id="pattern-j-range-join"></a></p>
+<h3 id="J.-Range-JOIN-/-Non-Equi-JOIN-(JOIN-with-BETWEEN)">J. Range JOIN / Non-Equi JOIN (JOIN with BETWEEN)<a class="anchor-link" href="#J.-Range-JOIN-/-Non-Equi-JOIN-(JOIN-with-BETWEEN)">¶</a></h3><p><strong>Signals:</strong> "price valid between start_date and end_date," "join on date range," "date overlaps," "price tier"</p>
+<div class="fc" style="max-width: 500px; margin: 20px auto;">
+<div style="display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 10px;">
+<div style="background: #e8e8e8; border: 2px solid #333; padding: 15px 10px; text-align: center; min-width: 100px;"><strong>Fact Table</strong><br/><span style="font-size: 0.85em;">(Transactions)</span></div>
+<div style="font-size: 18px; font-weight: bold;">📍</div>
+<div style="background: #e8e8e8; border: 2px solid #333; padding: 15px 10px; text-align: center; min-width: 100px;"><strong>Range Table</strong><br/><span style="font-size: 0.85em;">(Prices)</span></div>
+</div>
+<div style="text-align: center; font-size: 0.9em; font-style: italic;">Join on BETWEEN or inequality; fact rows match ranges in dimension table.</div>
+</div>
+<hr>
+<p><strong>Best approach — <code>JOIN</code> with <code>BETWEEN</code> or inequality</strong></p>
+<p><strong>Method:</strong> A non-equi join matches rows using a condition other than equality (e.g., <code>BETWEEN</code>, <code>&lt;</code>, <code>&gt;</code>, <code>&gt;=</code>, <code>&lt;=</code>). Fact table rows are matched to dimension rows based on a range condition.</p>
+<p><strong>In plain language:</strong> "Find the dimension row whose range contains each fact row's value — like finding what price tier a transaction falls into, or what time period a date belongs to."</p>
+<div class="highlight"><pre><span></span><span class="c1">-- Average selling price: join transactions to price tiers by date range</span>
+<span class="c1">-- For each unit sold, find the price that was valid on that purchase_date</span>
+<span class="k">SELECT</span><span class="w"> </span>
+<span class="w">    </span><span class="n">u</span><span class="p">.</span><span class="n">unit_id</span><span class="p">,</span>
+<span class="w">    </span><span class="n">u</span><span class="p">.</span><span class="n">units_sold</span><span class="p">,</span>
+<span class="w">    </span><span class="n">p</span><span class="p">.</span><span class="n">price</span><span class="p">,</span>
+<span class="w">    </span><span class="p">(</span><span class="n">u</span><span class="p">.</span><span class="n">units_sold</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">price</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">total_value</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">UnitsSold</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">u</span>
+<span class="k">JOIN</span><span class="w"> </span><span class="n">Prices</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">p</span>
+<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">u</span><span class="p">.</span><span class="n">product_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">product_id</span>
+<span class="w">    </span><span class="k">AND</span><span class="w"> </span><span class="n">u</span><span class="p">.</span><span class="n">purchase_date</span><span class="w"> </span><span class="k">BETWEEN</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">start_date</span><span class="w"> </span><span class="k">AND</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">end_date</span><span class="p">;</span>
+</pre></div>
+<hr/>
+<p><strong>Alternative — Explicit <code>AND</code> conditions</strong></p>
+<p><strong>Method:</strong> Use <code>AND</code> to combine multiple inequality conditions explicitly. Same logic as <code>BETWEEN</code>, just more verbose.</p>
+<p><strong>In plain language:</strong> "Join where the fact value is greater than the lower bound AND less than the upper bound."</p>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span>
+<span class="w">    </span><span class="n">u</span><span class="p">.</span><span class="n">unit_id</span><span class="p">,</span>
+<span class="w">    </span><span class="n">u</span><span class="p">.</span><span class="n">units_sold</span><span class="p">,</span>
+<span class="w">    </span><span class="n">p</span><span class="p">.</span><span class="n">price</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">UnitsSold</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">u</span>
+<span class="k">JOIN</span><span class="w"> </span><span class="n">Prices</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">p</span>
+<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="n">u</span><span class="p">.</span><span class="n">product_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">product_id</span>
+<span class="w">    </span><span class="k">AND</span><span class="w"> </span><span class="n">u</span><span class="p">.</span><span class="n">purchase_date</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">start_date</span>
+<span class="w">    </span><span class="k">AND</span><span class="w"> </span><span class="n">u</span><span class="p">.</span><span class="n">purchase_date</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">end_date</span><span class="p">;</span>
+</pre></div>
+<hr/>
+<p><strong>Critical Caveat — Row Count Expansion:</strong></p>
+<p>Non-equi joins can produce more output rows than input rows. If a fact row matches multiple ranges (e.g., overlapping date ranges in your dimension table), you'll get one output row per match.</p>
+<p><strong>Verification query:</strong></p>
+<div class="highlight"><pre><span></span><span class="c1">-- Sanity check: do we have unexpected duplicates?</span>
+<span class="k">SELECT</span><span class="w"> </span>
+<span class="w">    </span><span class="n">unit_id</span><span class="p">,</span>
+<span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">match_count</span>
+<span class="k">FROM</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="k">SELECT</span><span class="w"> </span><span class="n">u</span><span class="p">.</span><span class="n">unit_id</span>
+<span class="w">    </span><span class="k">FROM</span><span class="w"> </span><span class="n">UnitsSold</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">u</span>
+<span class="w">    </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Prices</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">p</span>
+<span class="w">        </span><span class="k">ON</span><span class="w"> </span><span class="n">u</span><span class="p">.</span><span class="n">product_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">product_id</span>
+<span class="w">        </span><span class="k">AND</span><span class="w"> </span><span class="n">u</span><span class="p">.</span><span class="n">purchase_date</span><span class="w"> </span><span class="k">BETWEEN</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">start_date</span><span class="w"> </span><span class="k">AND</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">end_date</span>
+<span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">joined</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">unit_id</span>
+<span class="k">HAVING</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="c1">-- If this returns rows, ranges overlap and each fact row matched multiple tiers</span>
+</pre></div>
+<p>When to use <code>BETWEEN</code> vs explicit <code>AND</code>: <code>BETWEEN</code> is cleaner for date ranges; use explicit <code>AND</code> if ranges are complex or asymmetric (e.g., price &gt;= lower AND price &lt; upper).</p>
+</hr></div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border: 2px solid black;"/>
+<p><a id="pattern-k-relational-division"></a></p>
+<h3 id="K.-Relational-Division-(%22Bought-ALL%22)">K. Relational Division ("Bought ALL")<a class="anchor-link" href="#K.-Relational-Division-(%22Bought-ALL%22)">¶</a></h3><p><strong>Signals:</strong> "customers who bought ALL products," "students who passed EVERY exam," "has all items," "appears in every category"</p>
+<hr>
+<p><strong>Best approach — <code>GROUP BY</code> + <code>HAVING COUNT(DISTINCT) = reference count</code></strong></p>
+<p><strong>Method:</strong> Group the fact table by the entity (e.g., customer_id), count the distinct items matched to each entity, then filter for groups whose count equals the total count of items in the reference set.</p>
+<p><strong>In plain language:</strong> "Group by customer, count how many distinct products each bought, and keep only customers whose count matches the total number of products. If there are 5 products total and a customer bought all 5, their count is 5 — they're in the result."</p>
+<div class="highlight"><pre><span></span><span class="c1">-- Find customers who bought ALL products</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="n">customer_id</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Orders</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">customer_id</span>
+<span class="k">HAVING</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="k">DISTINCT</span><span class="w"> </span><span class="n">product_id</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="k">SELECT</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">Products</span><span class="p">);</span>
+</pre></div>
+<p><strong>Why this works:</strong></p>
+<ul>
+<li>If a customer bought products A, B, and C, and there are 3 total products, their <code>COUNT(DISTINCT product_id)</code> is 3.</li>
+<li>If they're missing one product, their count is only 2, so they don't match the <code>HAVING</code> clause.</li>
+<li>The subquery <code>(SELECT COUNT(*) FROM Products)</code> gives the reference count — the total number of items the entity must match.</li>
+</ul>
+<hr/>
+<p><strong>Alternative — JOIN to reference, then GROUP BY, then check count</strong></p>
+<p><strong>Method:</strong> Explicitly join to the reference set first, then group and verify the count.</p>
+<div class="highlight"><pre><span></span><span class="c1">-- Same logic, more explicit</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="n">o</span><span class="p">.</span><span class="n">customer_id</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Orders</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">o</span>
+<span class="k">INNER</span><span class="w"> </span><span class="k">JOIN</span><span class="w"> </span><span class="n">Products</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">p</span>
+<span class="w">    </span><span class="k">ON</span><span class="w"> </span><span class="mi">1</span><span class="o">=</span><span class="mi">1</span><span class="w">  </span><span class="c1">-- Cartesian join setup (all combinations)</span>
+<span class="k">WHERE</span><span class="w"> </span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">product_id</span><span class="p">)</span><span class="w"> </span><span class="k">IN</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="k">SELECT</span><span class="w"> </span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="n">product_id</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">Orders</span>
+<span class="p">)</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">o</span><span class="p">.</span><span class="n">customer_id</span>
+<span class="k">HAVING</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="k">DISTINCT</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">product_id</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="k">SELECT</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">Products</span><span class="p">);</span>
+</pre></div>
+<p><strong>Note:</strong> This variant is less common; the original approach (group then count) is cleaner.</p>
+<hr/>
+<p><strong>Critical Detail — Use COUNT(DISTINCT):</strong></p>
+<p>The <code>DISTINCT</code> is crucial if your fact table has duplicate rows (e.g., a customer ordered the same product twice). Without <code>DISTINCT</code>, you'd count 2 and think the customer bought 2 different products when they only bought 1.</p>
+<div class="highlight"><pre><span></span><span class="c1">-- WRONG: counts 2 for duplicate rows</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="n">product_id</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">product_count</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Orders</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">customer_id</span><span class="p">;</span>
+
+<span class="c1">-- CORRECT: counts only 1 distinct product even if customer ordered it twice</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="n">customer_id</span><span class="p">,</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="k">DISTINCT</span><span class="w"> </span><span class="n">product_id</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">product_count</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Orders</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">customer_id</span><span class="p">;</span>
+</pre></div>
+<p><strong>Real-world example — Customers Who Bought All Products (#1045):</strong></p>
+<table>
+<thead>
+<tr>
+<th>customers</th>
+<th>orders</th>
+<th>products</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>customer_id</td>
+<td>order_id, customer_id, product_id</td>
+<td>product_id</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><span class="k">SELECT</span><span class="w"> </span><span class="n">customer_id</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">Orders</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">customer_id</span>
+<span class="k">HAVING</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="k">DISTINCT</span><span class="w"> </span><span class="n">product_id</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="k">SELECT</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="k">DISTINCT</span><span class="w"> </span><span class="n">product_id</span><span class="p">)</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">Orders</span><span class="p">);</span>
+</pre></div>
+<p>Alternative reference: <code>(SELECT COUNT(*) FROM Products)</code> if you have a separate products dimension table.</p>
+</hr></div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<hr style="border: 2px solid black;"/>
+<p><a id="pattern-l-union-all-separate-queries"></a></p>
+<h3 id="L.-UNION-ALL-for-Separate-Queries-&amp;-Data-Reshaping">L. UNION ALL for Separate Queries &amp; Data Reshaping<a class="anchor-link" href="#L.-UNION-ALL-for-Separate-Queries-&amp;-Data-Reshaping">¶</a></h3><p><strong>Signals for separate queries:</strong> "Find X. Also find Y." (two independent questions in one output), "return these two different things together"</p>
+<p><strong>Signals for data reshaping:</strong> "combine requester_id and accepter_id columns," "stack multiple columns into one," "transform wide data to long format"</p>
+<div class="fc" style="max-width: 400px; margin: 20px auto;">
+<div style="background: #e8e8e8; border: 2px solid #333; padding: 12px; margin: 8px 0; text-align: center; font-size: 0.9em;">Query 1 Result<br><span style="font-size: 0.85em;">(col_a, col_b)</span></br></div>
+<div style="text-align: center; border-top: 2px solid #333; border-bottom: 2px solid #333; padding: 8px; font-weight: bold; background: #f5f5f5;">UNION ALL</div>
+<div style="background: #e8e8e8; border: 2px solid #333; padding: 12px; margin: 8px 0; text-align: center; font-size: 0.9em;">Query 2 Result<br><span style="font-size: 0.85em;">(col_a, col_b)</span></br></div>
+<div style="text-align: center; font-size: 0.9em; margin-top: 10px; font-style: italic;">Both queries independent; results stacked vertically with same columns.</div>
+</div>
+<hr>
+<p><strong>Best approach — Two independent <code>SELECT</code> blocks with <code>UNION ALL</code></strong></p>
+<p><strong>Method:</strong> Write each query independently with its own logic, then stack the results vertically. Both queries must return the same number of columns with compatible types.</p>
+<p><strong>In plain language:</strong> "Answer question 1, answer question 2, glue the results on top of each other."</p>
+<div class="highlight"><pre><span></span><span class="c1">-- Find user with most ratings + movie with highest avg rating in Feb 2020</span>
+<span class="c1">-- (Movie Rating #1341 example)</span>
+
+<span class="c1">-- First query: user with most ratings</span>
+<span class="k">SELECT</span><span class="w"> </span>
+<span class="w">    </span><span class="n">user_id</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">id</span><span class="p">,</span>
+<span class="w">    </span><span class="s1">'user'</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">type</span><span class="p">,</span>
+<span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">metric_value</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">MovieRating</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">user_id</span>
+<span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">DESC</span><span class="p">,</span><span class="w"> </span><span class="n">user_id</span><span class="w"> </span><span class="k">ASC</span>
+<span class="k">LIMIT</span><span class="w"> </span><span class="mi">1</span>
+
+<span class="k">UNION</span><span class="w"> </span><span class="k">ALL</span>
+
+<span class="c1">-- Second query: movie with highest avg rating in Feb 2020</span>
+<span class="k">SELECT</span><span class="w"> </span>
+<span class="w">    </span><span class="n">movie_id</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">id</span><span class="p">,</span>
+<span class="w">    </span><span class="s1">'movie'</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">type</span><span class="p">,</span>
+<span class="w">    </span><span class="k">AVG</span><span class="p">(</span><span class="n">rating</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">metric_value</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">MovieRating</span>
+<span class="k">WHERE</span><span class="w"> </span><span class="k">YEAR</span><span class="p">(</span><span class="n">created_at</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2020</span><span class="w"> </span><span class="k">AND</span><span class="w"> </span><span class="k">MONTH</span><span class="p">(</span><span class="n">created_at</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">movie_id</span>
+<span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="k">AVG</span><span class="p">(</span><span class="n">rating</span><span class="p">)</span><span class="w"> </span><span class="k">DESC</span><span class="p">,</span><span class="w"> </span><span class="n">movie_id</span><span class="w"> </span><span class="k">ASC</span>
+<span class="k">LIMIT</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+</pre></div>
+<p><strong>Key points:</strong></p>
+<ul>
+<li>Each query is written from scratch; they don't reference each other.</li>
+<li>The <code>LIMIT</code> in each query applies to that query independently, not the final result.</li>
+<li>The column names in the final result come from the first query (or you can rename with <code>AS</code> for clarity).</li>
+</ul>
+<hr/>
+<p><strong>Alternative — UNION ALL for Data Reshaping (Wide → Long)</strong></p>
+<p><strong>Method:</strong> When a table has multiple similar columns that you want to "unpivot" into one column, use multiple <code>SELECT</code> blocks that each pull a different source column.</p>
+<p><strong>In plain language:</strong> "Transform multiple columns into a single column by selecting each column in a separate query, then stacking results."</p>
+<div class="highlight"><pre><span></span><span class="c1">-- Friend Requests (#602): combine requester_id and accepter_id into one 'id' column</span>
+<span class="c1">-- Original table: requester_id, accepter_id, accept_date</span>
+<span class="c1">-- Goal: single 'id' column with count of acceptances</span>
+
+<span class="k">SELECT</span><span class="w"> </span>
+<span class="w">    </span><span class="n">requester_id</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">id</span><span class="p">,</span>
+<span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">num</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">FriendRequest</span>
+<span class="k">WHERE</span><span class="w"> </span><span class="n">accept_date</span><span class="w"> </span><span class="k">IS</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">requester_id</span>
+
+<span class="k">UNION</span><span class="w"> </span><span class="k">ALL</span>
+
+<span class="k">SELECT</span><span class="w"> </span>
+<span class="w">    </span><span class="n">accepter_id</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">id</span><span class="p">,</span>
+<span class="w">    </span><span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">num</span>
+<span class="k">FROM</span><span class="w"> </span><span class="n">FriendRequest</span>
+<span class="k">WHERE</span><span class="w"> </span><span class="n">accept_date</span><span class="w"> </span><span class="k">IS</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span>
+<span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">accepter_id</span><span class="p">;</span>
+</pre></div>
+<p><strong>Why this approach:</strong></p>
+<ul>
+<li>Without reshaping, you'd have to write complex conditional logic (e.g., <code>SUM(CASE WHEN ... THEN 1 ELSE 0 END)</code>).</li>
+<li><code>UNION ALL</code> keeps the logic simple: each column gets its own SELECT, results stack, then you GROUP BY the consolidated column.</li>
+</ul>
+<hr/>
+<p><strong>When to use <code>UNION ALL</code> vs <code>UNION</code>:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Use</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>UNION ALL</code></td>
+<td>Results could have duplicates (expected from logic) OR you don't care about deduplication</td>
+</tr>
+<tr>
+<td><code>UNION</code></td>
+<td>You specifically need to remove duplicate rows (costs extra computation)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Default to <code>UNION ALL</code></strong> — it's faster and simpler.</p>
+<hr/>
+<p><strong>Common Trap — ORDER BY and LIMIT with UNION:</strong></p>
+<ul>
+<li><code>ORDER BY</code> and <code>LIMIT</code> in subqueries apply <strong>only</strong> to that subquery.</li>
+<li>To order the final result, place <code>ORDER BY</code> <strong>after</strong> the entire <code>UNION ALL</code> block (without <code>LIMIT</code> in subqueries, or with careful consideration).</li>
+</ul>
+<div class="highlight"><pre><span></span><span class="c1">-- WRONG: LIMIT 1 in first query returns only 1 user, then stacks with 1 movie</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="n">user_id</span><span class="p">,</span><span class="w"> </span><span class="s1">'user'</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">MovieRating</span><span class="w"> </span><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">rating</span><span class="w"> </span><span class="k">DESC</span><span class="w"> </span><span class="k">LIMIT</span><span class="w"> </span><span class="mi">1</span>
+<span class="k">UNION</span><span class="w"> </span><span class="k">ALL</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="n">movie_id</span><span class="p">,</span><span class="w"> </span><span class="s1">'movie'</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">MovieRating</span><span class="w"> </span><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">rating</span><span class="w"> </span><span class="k">DESC</span><span class="w"> </span><span class="k">LIMIT</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+
+<span class="c1">-- CORRECT (if you want to order final result):</span>
+<span class="p">(</span><span class="k">SELECT</span><span class="w"> </span><span class="n">user_id</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="s1">'user'</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">type</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">MovieRating</span><span class="p">...)</span>
+<span class="k">UNION</span><span class="w"> </span><span class="k">ALL</span>
+<span class="p">(</span><span class="k">SELECT</span><span class="w"> </span><span class="n">movie_id</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="s1">'movie'</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="k">type</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">MovieRating</span><span class="p">...)</span>
+<span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">id</span><span class="p">;</span>
+</pre></div>
+</hr></div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="4-critical-efficiency-rules"></a></p>
@@ -13895,7 +14220,8 @@ JOIN table_b b ON a.id = b.fk</code></div>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="5-join-type-quick-reference"></a></p>
@@ -13950,7 +14276,8 @@ JOIN table_b b ON a.id = b.fk</code></div>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="6-row-count-diagnostics"></a></p>
@@ -14190,7 +14517,8 @@ JOIN table_b b ON a.id = b.fk</code></div>
 </hr></hr></hr></div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="7-how-to-think-from-the-vignette"></a></p>
@@ -14227,7 +14555,8 @@ JOIN table_b b ON a.id = b.fk</code></div>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr>
 <h3 id="Worked-Examples">Worked Examples<a class="anchor-link" href="#Worked-Examples">¶</a></h3><p><strong>Students × Subjects × Examinations Problem:</strong></p>
@@ -14338,7 +14667,8 @@ JOIN table_b b ON a.id = b.fk</code></div>
 </hr></div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="9-interview-prompt-templates"></a></p>
@@ -14397,7 +14727,8 @@ JOIN table_b b ON a.id = b.fk</code></div>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="subquery-decision-tree"></a></p>
@@ -14492,7 +14823,8 @@ JOIN table_b b ON a.id = b.fk</code></div>
 </hr></hr></div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="10-what-to-avoid"></a></p>
@@ -14545,7 +14877,8 @@ JOIN table_b b ON a.id = b.fk</code></div>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <hr style="border: 3px solid black;"/>
 <p><a id="11-final-takeaway"></a></p>
