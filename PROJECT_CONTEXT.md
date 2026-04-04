@@ -2,7 +2,7 @@
 
 **Owner:** Trinidad Cisneros (trinidad.cisneros@gmail.com)
 **Domain:** bitterscientist.com
-**Last Updated:** 2026-03-30 (Session 6)
+**Last Updated:** 2026-04-03 (Session 8)
 
 ---
 
@@ -81,15 +81,20 @@ bitterscientist.com/
 │   │   ├── navbar_pages.html           # Navbar for all content pages
 │   │   └── footer.html                 # Shared footer
 │   │
-│   ├── sql/                            # SQL section (18 posts)
-│   │   ├── sql_landing.html            # SQL landing page
-│   │   ├── sql_table.html              # SQL post listing table
-│   │   ├── sql_posts.html              # SQL posts overview
-│   │   ├── sql_master_decision_tree.html              # Wrapper page
-│   │   ├── sql_single_table_query_strategies.html     # Wrapper page
-│   │   ├── sql_multi_table_query_strategies.html      # Wrapper page
-│   │   ├── sql_combined_strategy_patterns.html        # Wrapper page
-│   │   ├── (14+ additional SQL concept pages)
+│   ├── sql/                            # SQL section (5 consolidated guides)
+│   │   ├── sql_landing.html            # SQL landing page (5 guide cards)
+│   │   ├── sql_foundations.html        # ★ Standalone HTML — 6 tabs: SELECT, Filtering, Sorting, Functions, GROUP BY, Dialects
+│   │   ├── sql_subqueries_ctes.html    # ★ Standalone HTML — 6 tabs: Why Subqueries, WHERE/SELECT/FROM, Combining, CTEs + CTE vs Subquery comparison
+│   │   ├── sql_strategy_guide.html     # ★ Standalone HTML — 5 tabs: Master Decision Tree, Single/Multi/Combined Patterns, Window Functions
+│   │   ├── sql_problem_patterns.html   # ★ Standalone HTML — 6 tabs: 50 problems (Filtering, Joins, Aggregation, Window, Subqueries, Transforms)
+│   │   ├── sql_debugging_guide.html    # ★ Standalone HTML — 14 tabs: Diagnose, Reading, 9 error categories, Execution Order, Code Review, Interview Traps
+│   │   ├── sql_table.html              # SQL post listing table (legacy)
+│   │   ├── sql_posts.html              # SQL posts overview (legacy)
+│   │   ├── sql_master_decision_tree.html              # Wrapper page (legacy — content consolidated into sql_strategy_guide.html)
+│   │   ├── sql_single_table_query_strategies.html     # Wrapper page (legacy)
+│   │   ├── sql_multi_table_query_strategies.html      # Wrapper page (legacy)
+│   │   ├── sql_combined_strategy_patterns.html        # Wrapper page (legacy)
+│   │   ├── (10+ additional legacy SQL concept pages — sql_select, sql_filter, sql_sort, etc.)
 │   │   └── projects/                   # Jupyter notebooks + converted HTML
 │   │       ├── sql_master_decision_tree.ipynb / .html
 │   │       ├── sql_single_table_query_strategies.ipynb / .html
@@ -233,6 +238,71 @@ To add a new category color, add a CSS rule in `static/css/landing.css`:
 
 **Important:** The landing page always shows the latest 10 posts by date. Older posts are not deleted — they remain in the JSON for completeness and are available on their respective landing pages. As new posts are added, older ones naturally scroll off the landing page.
 
+### Creating Standalone HTML Pages (Tabbed Guide Pattern — NEW in Session 8)
+
+For content-heavy reference guides that don't originate from notebooks, use the standalone HTML pattern. This is now the preferred approach for new SQL, reference, and debugging guides.
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Page Title</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/js/bootstrap.min.js"></script>
+  <link rel="stylesheet" type="text/css" href="../../static/css/navbar.css">
+  <link rel="stylesheet" type="text/css" href="../../static/css/footer.css">
+  <link rel="stylesheet" type="text/css" href="../../static/css/theme.css">
+  <link rel="stylesheet" type="text/css" href="../../static/css/flowchart.css"> <!-- if using flowcharts -->
+  <style>
+    /* All page-specific CSS embedded here — no external page CSS file */
+    .blog-container { max-width: 960px; margin: 0 auto; ... }
+    .tab-navigation { display: flex; border-bottom: 2px solid #e0e0e0; ... }
+    .tab-nav-item { ... }
+    .tab-nav-item.active { color: #b33000; border-bottom: 3px solid #b33000; ... }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+    .problem-card { ... }  /* collapsible cards */
+    .code-block { background-color: #1a1a2e; color: #e8e8e8; ... }
+    /* etc. — see sql_problem_patterns.html for the full CSS reference */
+  </style>
+</head>
+<body>
+  <div id="page-container">
+    <div id="content-wrap">
+      <div w3-include-html="/folders/navbar_footer/navbar_pages.html"></div>
+      <div class="blog-container">
+        <div class="blog-header">...</div>
+        <div class="tab-navigation" id="tab-nav">
+          <button class="tab-nav-item active" data-tab="tab-first">First Tab</button>
+          <button class="tab-nav-item" data-tab="tab-second">Second Tab</button>
+        </div>
+        <div id="tab-first" class="tab-pane active">...</div>
+        <div id="tab-second" class="tab-pane">...</div>
+      </div>
+    </div>
+    <div w3-include-html="/folders/navbar_footer/footer.html"></div>
+  </div>
+  <script src="https://www.w3schools.com/lib/w3.js"></script>
+  <script>
+    // Tab switching + problem card toggling + w3.includeHTML()
+  </script>
+</body>
+</html>
+```
+
+**Key components in standalone pages:**
+- `.blog-container` — max-width 960px centered content area
+- `.blog-header` — centered title, subtitle, meta (e.g., "9 error categories · 14 sections · PostgreSQL")
+- `.tab-navigation` / `.tab-nav-item` — horizontal scrollable tab bar, sticky on scroll
+- `.tab-pane` — content panels toggled by JS
+- `.problem-card` — collapsible cards with header, optional excerpt, and hidden content
+- `.section-heading` — left-bordered section titles within tabs
+- `.code-block` — dark-themed SQL code with syntax highlighting spans (.keyword, .string, .function, .comment, .number)
+- `.info-box`, `.business-example`, `.performance-note`, `.guide-link` — colored callout boxes
+
 ### Notebook Cell Conventions
 
 - **Section dividers:** `<hr style="border: 3px solid black;">` for major sections, `2px` for subsections, `---` for thin within-subsection dividers
@@ -264,21 +334,28 @@ To add a new category color, add a CSS rule in `static/css/landing.css`:
 
 ## 5. Content Inventory
 
-### SQL (Active — April 2026, 19 posts)
-| Post | File | Description |
-|---|---|---|
-| Which SQL Approach Do I Use? A Master Decision Tree | `sql_master_decision_tree` | Unified flowchart: Step 1 (table count) → 2A (single) → 2B (multi/JOIN) → 2C (transformation) → 3 (date fork) → 4 (subquery). Signal words table, worked example, hyperlinks to all guides. |
-| How to Pick the Right SQL Pattern for a Single Table | `sql_single_table_query_strategies` | LAG/LEAD, GROUP BY, HAVING, CASE, window functions, 3-Method Mental Model, subquery decision tree |
-| How to Query Across Multiple Tables: JOINs, Subqueries & Set Ops | `sql_multi_table_query_strategies` | INNER/LEFT/CROSS/Self JOIN, UNION, EXISTS, anti-join, Venn diagrams, row count diagnostics, subquery decision tree |
-| When a SQL Problem Needs Multiple Techniques at Once | `sql_combined_strategy_patterns` | Two-Pass Decomposition Framework, 8 combo patterns, NULL Trap, worked examples, subquery placement in combo problems |
-| SQL Debugging & Code Review — PostgreSQL | `sql_debugging_guide` | 9 error pattern categories (A-I), error classification decision tree, code review checklist, debugging workflow, interview traps. HTML flowcharts. |
-| SQL Basics: Using a Subquery in the SELECT Clause | `sql_subqueries_select` | Includes 3 examples: basic, filtering, percentage-of-total pattern |
+### SQL (Active — April 2026, 5 consolidated guides)
+
+**All 5 SQL guides are standalone HTML pages** (not Jupyter notebook wrappers). They use Bootstrap 3.4.0, embedded CSS, and a tabbed interface with custom JS tab switching. Each uses the `page-container > content-wrap > blog-container` nesting, `w3-include-html` for navbar/footer, and `include.js`.
+
+| # | Guide | File | Tabs | Description |
+|---|---|---|---|---|
+| 1 | SQL Foundations: A Complete Reference | `sql_foundations.html` | 6 | SELECT & FROM, Filtering, Sorting & Calculated Fields, Functions, GROUP BY & Aggregation, SQL Dialects. Consolidates 10 former basics posts. |
+| 2 | SQL Subqueries & CTEs | `sql_subqueries_ctes.html` | 6 | Why Subqueries Exist (execution order), WHERE/SELECT/FROM Subqueries, Combining Subqueries, CTEs. Includes comprehensive CTE vs Subquery comparison table. Consolidates 4 former subquery posts. |
+| 3 | SQL Strategy & Decision Trees | `sql_strategy_guide.html` | 5 | Master Decision Tree, Single-Table Patterns, Multi-Table Patterns, Combined Patterns, Window Functions. Preserves all HTML flowcharts. Consolidates 4 former strategy posts. |
+| 4 | SQL Problem Patterns: A Practice Guide | `sql_problem_patterns.html` | 6 | 50 problems across Filtering, Joins, Aggregation, Window Functions, Subqueries, Transforms. Collapsible cards with visible excerpts, ranked solutions with performance analysis. |
+| 5 | SQL Debugging & Code Review — PostgreSQL | `sql_debugging_guide.html` | 14 | Diagnose Your Error, Reading Errors, Syntax/Reference/Type/Aggregation/NULL/JOIN/Window Function/Subquery/Arithmetic Errors, Execution Order Errors, Code Review Checklist, Common Interview Traps (9 collapsible examples). |
+
+**Legacy SQL pages still exist** (sql_select.html, sql_filter.html, sql_sort.html, sql_groupby.html, etc.) but are no longer linked from sql_landing.html. The landing page now shows only the 5 consolidated guides.
 
 ### Reference Library (Active — April 2026)
-| Post | File | Description |
-|---|---|---|
-| Python & Pandas Debugging — Data Wrangling | `python_pandas_debugging_guide` | 8 error pattern categories, traceback anatomy, silent error detection, merge diagnostics, debugging workflow. HTML flowcharts. |
-| dbt Cloud Debugging & Code Review | `dbt_debugging_guide` | 7 error categories (YAML → Jinja → SQL → Database → Test), incremental model diagnostics, code review checklists, interview trap patterns. HTML flowcharts. |
+
+**Both debugging guides are standalone HTML pages** (same tabbed framework as the SQL guides). They use Bootstrap 3.4.0, embedded CSS, and collapsible problem-cards.
+
+| # | Guide | File | Tabs | Accent Color | Description |
+|---|---|---|---|---|---|
+| 1 | Python & Pandas Debugging — Data Wrangling | `python_pandas_debugging_guide.html` | 13 | Blue (#1565c0) | Diagnose Your Error, Reading Tracebacks, 8 error categories (Type, Key/Index, Value, Copy Warning, Merge, Shape, Silent Data, Import), Code Review Checklist, Debugging Workflow, Common Interview Traps with collapsible examples. |
+| 2 | dbt Cloud Debugging & Code Review | `dbt_debugging_guide.html` | 12 | Green (#2e7d32) | Diagnose Your Error, Reading Errors, 7 error categories (YAML, Compilation, SQL Runtime, Test, DAG, Incremental, Environment), Code Review Checklist, Debugging Workflow, Common Interview Traps with collapsible examples. |
 
 ### Data Science (Selected Highlights)
 | Post | Topic |
@@ -341,6 +418,96 @@ To add a new category color, add a CSS rule in `static/css/landing.css`:
 ---
 
 ## 6. Recent Session Activity Log
+
+### Session: April 3, 2026 (Session 8 — SQL Consolidation, Tabbed Pages, Debugging Guide Rebuild)
+
+**Major Restructure: 20 SQL Posts → 5 Consolidated Tabbed Guides**
+
+Identified significant content overlap across 20 individual SQL posts and consolidated them into 5 comprehensive standalone HTML pages using a tabbed interface. This eliminated redundancy while preserving all content.
+
+**Consolidation Map:**
+| New Guide | Former Posts Absorbed | Tabs |
+|---|---|---|
+| `sql_foundations.html` | sql_select, sql_filter, sql_adv_filter, sql_wildcard_filter, sql_sort, sql_calculated_fields, sql_data_functions, sql_date_compotent_intro, sql_groupby, sql_intro_dialects | 6 |
+| `sql_subqueries_ctes.html` | sql_subqueries_where, sql_subqueries_select, sql_subqueries_from, sql_multi_subqueries | 6 |
+| `sql_strategy_guide.html` | sql_master_decision_tree, sql_single_table_query_strategies, sql_multi_table_query_strategies, sql_combined_strategy_patterns | 5 |
+| `sql_problem_patterns.html` | (already existed — enhanced) | 6 |
+| `sql_debugging_guide.html` | (rebuilt from notebook to standalone HTML) | 14 |
+
+**New Standalone HTML Page Pattern (replaces Jupyter wrapper pattern for new content):**
+All 5 SQL guides use a shared architecture:
+- Bootstrap 3.4.0 with embedded `<style>` block (no external page-specific CSS)
+- Tab navigation with `data-tab` attributes and custom JS switching
+- Collapsible `.problem-card` components with `.problem-card-header`, `.problem-card-content`, `.problem-card-excerpt`
+- `page-container > content-wrap > blog-container` nesting
+- `w3-include-html` for navbar/footer + `include.js`
+- `flowchart.css` linked where HTML flowcharts are used (strategy guide, debugging guide)
+- Font sizes scaled to ~1.5625x original via rem units (after multiple adjustment rounds: 2.5x → 50% reduction → 25% increase)
+
+**sql_problem_patterns.html Enhancements:**
+- Added visible problem excerpts to all 50 collapsible cards (`.problem-card-excerpt` class)
+- Left-aligned collapsible solution titles (changed `justify-content` from `space-between` to `flex-start` with `gap: 10px`)
+- Added `white-space: pre-wrap` to `.code-block` and `.code-block code`
+- Removed "LeetCode" branding from subtitle and intro paragraph
+- Multiple font size scaling rounds (net ~1.5625x original)
+
+**sql_debugging_guide.html Complete Rebuild:**
+- Converted from Jupyter notebook wrapper to standalone HTML
+- Expanded from 8 tabs to 14 tabs:
+  1. Diagnose Your Error (renamed from "Error Tree", moved to first position)
+  2. Reading Errors
+  3. Syntax Errors (split from "Syntax & Reference")
+  4. Reference Errors (split from "Syntax & Reference")
+  5. Type Errors (split from "Types & Aggregation")
+  6. Aggregation Errors (split from "Types & Aggregation")
+  7. NULL Errors (split from "Silent Errors")
+  8. JOIN Errors (split from "Silent Errors")
+  9. Window Function Errors (split from "Advanced")
+  10. Subquery Errors (split from "Advanced")
+  11. Arithmetic Errors (split from "Advanced")
+  12. Execution Order Errors (renamed, includes DENSE_RANK example, subquery placement rationale, CTE vs subquery comparison, multi-step CTE example)
+  13. Code Review Checklist (split from "Code Review")
+  14. Common Interview Traps (NEW — 9 collapsible cards with buggy query, explanation, fix, and interview response for each trap)
+- Old version backed up as `sql_debugging_guide_old.html`
+
+**sql_subqueries_ctes.html — CTE vs Subquery Comparison Added:**
+- Comprehensive comparison table added to CTEs tab with 5 sections:
+  - Definitions with syntax examples and plain-language analogies
+  - Head-to-head on 7 dimensions (readability, reusability, performance, debugging, recursion, scope, maintainability)
+  - 9 use cases with best-choice recommendations
+  - "When NOT to use each" anti-patterns
+  - Real-world example: same problem solved both ways with explanation
+
+**sql_landing.html Updated:**
+- Reduced from 20 post cards to 5 guide cards
+- Changed meta from "20 posts" to "5 guides"
+- Debugging guide card now lists all 9 error categories
+
+**dbt & Python/Pandas Debugging Guides — Converted to Standalone Tabbed HTML:**
+
+Both reference debugging guides were converted from Jupyter notebook wrappers to standalone HTML pages matching the SQL debugging guide framework:
+
+| Guide | Tabs | Accent | Cards | File |
+|---|---|---|---|---|
+| dbt Cloud Debugging & Code Review | 12 | Green (#2e7d32) | 33 | `folders/reference/dbt_debugging_guide.html` |
+| Python & Pandas Debugging — Data Wrangling | 13 | Blue (#1565c0) | 43 | `folders/reference/python_pandas_debugging_guide.html` |
+
+Key changes:
+- Each error pattern (A1, B1, etc.) converted to collapsible problem-cards with excerpt, error message, explanation, fix, and verification
+- Interview traps converted from tables to individual collapsible cards with full examples
+- Error classification decision trees use HTML flowchart system (fc- classes)
+- All three debugging guides now share the same visual framework with different accent colors (SQL=red, Python=blue, dbt=green)
+- Cross-linked Related Guides sections between all three guides
+- Updated `reference_landing.html` descriptions to reflect new tabbed format
+
+**Bug Fixes:**
+- Fixed floating footer on `sql_subqueries_ctes.html` (Related Guides div was outside blog-container nesting)
+- Fixed missing navbar/footer on all 3 new pages (sql_foundations, sql_subqueries_ctes, sql_strategy_guide)
+- Fixed extra `</div>` in `sql_foundations.html` causing footer to render outside page-container
+- Fixed div imbalance in `sql_debugging_guide.html` after rebuild
+- Removed extra closing div in `sql_subqueries_ctes.html` (line 1450 orphan tag)
+
+---
 
 ### Session: April 2, 2026 (Session 7 — Debugging Guides, Rolling Calculations, Row-Level Filtering)
 
@@ -672,6 +839,11 @@ The original ASCII box-drawing decision trees were replaced with HTML div-based 
 13. **SQL post titles should be descriptive** — Titles are question-style or "How to..." format for clarity. Old generic names (e.g., "SQL Combined Strategy Patterns") were replaced. Keep this convention for new SQL posts.
 14. **Flowchart deep nesting is forbidden** — Never nest `fc-branches` more than 2 levels deep. For sequential YES/NO chains (3+ decisions), use the vertical checklist pattern: question → `fc-good` YES answer → `fc-arrow fc-else` "if no ▼" → next question. See Step 2A in master decision tree for the reference implementation.
 15. **flowchart.css must be linked in wrapper pages** — Any wrapper page that includes a notebook with HTML flowcharts needs `<link rel="stylesheet" href="../../static/css/flowchart.css">` in its `<head>`. Currently linked in all 5 playbook + 5 SQL wrapper pages.
+16. **Standalone HTML pages use Bootstrap 3.4.0** — The 5 consolidated SQL guides use Bootstrap 3.4.0 (not 4.3.1 like other content pages). This is because the tabbed interface and embedded CSS were built for 3.4.0. Be consistent when editing these pages.
+17. **Div balance is critical in standalone HTML pages** — Unlike notebook wrappers (where the notebook HTML is included via XHR), standalone pages have all divs in one file. Off-by-one `</div>` errors cause the footer to float or the page-container to close early. Always verify div balance after editing: `opens = content.count('<div')` must equal `closes = content.count('</div>')`.
+18. **Standalone HTML tab switching uses two patterns** — `sql_problem_patterns.html` and `sql_debugging_guide.html` use `data-tab` attributes with event listeners. `sql_foundations.html`, `sql_subqueries_ctes.html`, and `sql_strategy_guide.html` use `onclick="switchTab(event, 'tab-name')"`. Both patterns work — be consistent within each file.
+19. **Legacy SQL pages still exist** — Old individual pages (sql_select.html, sql_filter.html, etc.) are no longer linked from sql_landing.html but still exist on disk and may be linked from other parts of the site. Do not delete without checking for inbound links.
+20. **Font sizes in consolidated SQL pages use rem units** — After multiple scaling rounds (2.5x → 50% → 25%), the effective font sizes are ~1.5625x the original values. All sizes are in rem for consistency. Don't mix px and rem.
 
 ---
 
