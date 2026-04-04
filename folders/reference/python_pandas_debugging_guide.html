@@ -697,7 +697,7 @@
         <div class="blog-header">
           <h1>Python &amp; Pandas Debugging — Data Wrangling</h1>
           <p class="subtitle">A hands-on reference for reading tracebacks, classifying bugs, and fixing common Python/Pandas errors — with patterns, examples, and interview tips</p>
-          <p class="meta">8 error categories · 14 sections · 30-question knowledge check · Python &amp; Pandas</p>
+          <p class="meta">8 error categories · 14 sections · 41-question knowledge check · Python &amp; Pandas</p>
         </div>
 
         <!-- Intro Paragraph -->
@@ -3064,6 +3064,221 @@ df = pd.concat([df, new_row], ignore_index=True)</code></div>
           "",
           "NaN handling isn't the distinguishing factor. The key difference is how duplicates are handled.",
           "pivot_table has overhead from aggregation, but it's the correct tool when duplicates exist."
+        ]
+      },
+      {
+        category: "Key & Index Errors",
+        question: "After df.rename(columns={'user_id': 'customer_id'}), your code still uses df['user_id']. What happens?",
+        code: "df = df.rename(columns={'user_id': 'customer_id'})\nvalue = df['user_id']",
+        options: [
+          "It silently returns NaN",
+          "KeyError: 'user_id' — the old column name no longer exists",
+          "The rename is undone when you access the old name",
+          "Pandas auto-maps old names to new names"
+        ],
+        correct: 1,
+        explanations: [
+          "Pandas doesn't auto-fill with NaN for missing columns — it raises an error to prevent silent data loss.",
+          "",
+          "Rename is permanent. Once a column is renamed, the old name is gone forever.",
+          "Pandas does NOT maintain mappings between old and new column names. The old name becomes inaccessible."
+        ]
+      },
+      {
+        category: "Shape Errors",
+        question: "You're working with a DataFrame that has MultiIndex columns. Why does df['A'] fail?",
+        code: "# MultiIndex columns: ('A', 'x'), ('A', 'y'), ('B', 'x')\nvalue = df['A']  # Error or unexpected behavior",
+        options: [
+          "You need to use .iloc instead",
+          "Single-level access returns ALL columns matching that first level, not an error",
+          "MultiIndex columns can't be accessed directly — use .loc[] only",
+          "The column name must be lowercase"
+        ],
+        correct: 1,
+        explanations: [
+          "iloc is for position-based access. It would also fail with a MultiIndex because the keys are tuples, not integers.",
+          "",
+          "MultiIndex columns can be accessed with df['A'] — it returns a DataFrame of all second-level columns under 'A'.",
+          "Case sensitivity applies, but the real issue is understanding how MultiIndex access works — you use tuples."
+        ]
+      },
+      {
+        category: "Shape Errors",
+        question: "pd.concat([df1, df2]) produces NaN-filled columns where expected. What went wrong?",
+        code: "# df1 has columns: ['id', 'name']\n# df2 has columns: ['id', 'email']\nresult = pd.concat([df1, df2])",
+        options: [
+          "The indices don't match",
+          "pd.concat aligns on COLUMN names, not values — missing columns get NaN",
+          "You need to specify axis=1 to concatenate side-by-side",
+          "df1 and df2 must have identical column names"
+        ],
+        correct: 1,
+        explanations: [
+          "Index matching is about rows, not the NaN issue here. The problem is column names.",
+          "",
+          "axis=0 (default) stacks vertically and aligns columns. axis=1 would stack horizontally. Either way, missing columns produce NaN.",
+          "They don't need to be identical. pd.concat matches on column names and fills NaN where columns don't overlap."
+        ]
+      },
+      {
+        category: "Shape Errors",
+        question: "You filter with df[df['status']=='active'] and try to merge the result. It fails unexpectedly. Why?",
+        code: "filtered = df[df['status']=='active']\nresult = df_other.merge(filtered, on='id')",
+        options: [
+          "filtered is a Series, not a DataFrame",
+          "filtered returns a 1D Series when you use single brackets — you need double brackets",
+          "filtered is a DataFrame, but the merge fails because filtered is ambiguous",
+          "Merging on filtered DataFrames is not allowed"
+        ],
+        correct: 0,
+        explanations: [
+          "",
+          "The filtering df[df['status']=='active'] returns a DataFrame (all rows where status is 'active'), not a Series.",
+          "Boolean filtering always returns a DataFrame when you filter the entire DataFrame. Double brackets are for single-column selection.",
+          "Merging filtered DataFrames is completely allowed. The issue is something else — likely a shape or key mismatch."
+        ]
+      },
+      {
+        category: "Shape Errors",
+        question: "df.shape is (100, 5). After df.T, what is df.shape?",
+        code: "df = pd.DataFrame(...)\nprint(df.shape)   # (100, 5)\ndf_transposed = df.T\nprint(df_transposed.shape)",
+        options: [
+          "(100, 5) — transpose doesn't change shape",
+          "(5, 100) — rows become columns and vice versa",
+          "(100, 5) unless the DataFrame is square",
+          "Undefined — transpose breaks the shape attribute"
+        ],
+        correct: 1,
+        explanations: [
+          ".T completely swaps rows and columns. The shape definitely changes.",
+          "",
+          "Whether the DataFrame is square or not, .T always swaps dimensions: (m, n) becomes (n, m).",
+          ".T creates a valid transposed DataFrame with a well-defined shape."
+        ]
+      },
+      {
+        category: "Type Errors",
+        question: "df['product_id'].str.upper() raises AttributeError. The column looks like text. What's the likely issue?",
+        code: "result = df['product_id'].str.upper()  # AttributeError",
+        options: [
+          "The column is not string type — it's likely int or object with mixed types",
+          ".str only works on Series, not DataFrames",
+          "You need to use .apply(str.upper) instead",
+          "The column is empty"
+        ],
+        correct: 0,
+        explanations: [
+          "",
+          ".str works perfectly fine on Series. If the column is a Series, the issue is dtype.",
+          ".apply(str.upper) would work, but the root cause is the column dtype isn't actually 'object' (string).",
+          "Empty columns can still use .str accessor — the issue is dtype, not emptiness."
+        ]
+      },
+      {
+        category: "Import Errors",
+        question: "You run df = pd.read_CSV('data.csv') and get: 'module 'pandas' has no attribute 'read_CSV'. What's wrong?",
+        code: "df = pd.read_CSV('data.csv')  # Error",
+        options: [
+          "Pandas isn't installed",
+          "Python is case-sensitive — the function is read_csv (lowercase), not read_CSV",
+          "You need to import CSV separately",
+          "read_CSV only exists in older Pandas versions"
+        ],
+        correct: 1,
+        explanations: [
+          "If Pandas wasn't installed, you'd get a ModuleNotFoundError on import, not an attribute error.",
+          "",
+          "CSV is a separate module in Python, but pd.read_csv() doesn't require an import — it's a Pandas function.",
+          "read_csv has always been lowercase. There's no version difference here."
+        ]
+      },
+      {
+        category: "Best Practices",
+        question: "You're using Pandas 1.5 code on Pandas 2.0 and df.append() raises AttributeError. What happened?",
+        code: "df = df.append(new_row)  # AttributeError in Pandas 2.0",
+        options: [
+          "append() was deprecated but still works with a warning",
+          ".append() was removed entirely in Pandas 2.0 — use pd.concat() instead",
+          "You need to import append from pandas.core",
+          "append() only works on Series, not DataFrames"
+        ],
+        correct: 1,
+        explanations: [
+          "Deprecated features usually show a warning but still work. .append() was completely removed — no fallback.",
+          "",
+          "append is not importable from pandas.core in v2.0 — it's gone. Use pd.concat([df, new_row], ignore_index=True).",
+          ".append() worked on both Series and DataFrames in older versions. It was removed entirely in v2.0."
+        ]
+      },
+      {
+        category: "Interview Trap",
+        question: "What is the result of: result = df.drop('col_name', inplace=True)?",
+        code: "result = df.drop('col_name', inplace=True)\nprint(result)",
+        options: [
+          "result is a DataFrame with col_name removed",
+          "result is None — inplace=True modifies df directly and returns nothing",
+          "result is a boolean indicating success or failure",
+          "result is the dropped column"
+        ],
+        correct: 1,
+        explanations: [
+          "inplace=True doesn't return the modified DataFrame. This is a major interview trap.",
+          "",
+          "Pandas always returns None for inplace=True, regardless of success.",
+          "inplace=True doesn't return the dropped column — it returns None. To get the dropped column, use df.drop() without inplace."
+        ]
+      },
+      {
+        category: "Best Practices",
+        question: "You need to drop rows. Should you use axis=0 or axis=1?",
+        code: "# Goal: remove rows 5-10\ndf = df.drop([5, 6, 7, 8, 9, 10], axis=???)",
+        options: [
+          "axis=1 — this drops columns",
+          "axis=0 — this drops rows by their index labels",
+          "axis='rows' — the axis parameter accepts string names",
+          "axis is for sorting, not dropping — use inplace instead"
+        ],
+        correct: 1,
+        explanations: [
+          "axis=1 drops columns, not rows. You'd lose the wrong dimension.",
+          "",
+          "axis accepts only 0 or 1 (or 'index'/'columns' in some functions). It doesn't accept 'rows'.",
+          "axis specifies which dimension to operate on. inplace controls whether to modify in-place vs return a result."
+        ]
+      },
+      {
+        category: "Code Review",
+        question: "Best practice: what should you ALWAYS do after loading data with pd.read_csv()?",
+        options: [
+          "Sort the DataFrame by index",
+          "Check df.dtypes and df.shape immediately — verify the data loaded as expected",
+          "Convert all columns to numeric",
+          "Remove all NaN values"
+        ],
+        correct: 1,
+        explanations: [
+          "Sorting the data on load is unnecessary for data validation.",
+          "",
+          "Converting everything to numeric breaks columns that should be strings or categories. Verify dtypes first.",
+          "Removing all NaN can destroy important data patterns. Check dtypes and shape first, then decide what to do."
+        ]
+      },
+      {
+        category: "Code Review",
+        question: "After merging two DataFrames, the row count doubled unexpectedly. What should you check FIRST?",
+        code: "result = df1.merge(df2, on='id')\nprint(result.shape)",
+        options: [
+          "Check if the merge type (inner/left/right/outer) is correct",
+          "Check if there are duplicate values in the 'id' column — they create a Cartesian product",
+          "Check if the DataFrames are sorted",
+          "Check if column dtypes match"
+        ],
+        correct: 1,
+        explanations: [
+          "Wrong merge type changes WHICH rows appear, but doesn't create row multiplication from duplicates.",
+          "",
+          "Sorting doesn't affect merge behavior. The issue is likely duplicate keys creating many-to-many matches.",
+          "Type mismatches cause zero matches (or silent misses), not row doubling. Check for duplicate key values first."
         ]
       }
     ];
