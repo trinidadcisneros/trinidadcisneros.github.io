@@ -645,7 +645,8 @@
 
         <!-- Tab Navigation -->
         <div class="tab-navigation" id="tab-nav">
-          <button class="tab-nav-item active" data-tab="tab-filtering">Filtering</button>
+          <button class="tab-nav-item active" data-tab="tab-decision-tree">Decision Tree</button>
+          <button class="tab-nav-item" data-tab="tab-filtering">Filtering</button>
           <button class="tab-nav-item" data-tab="tab-joins">Joins</button>
           <button class="tab-nav-item" data-tab="tab-aggregation">Aggregation</button>
           <button class="tab-nav-item" data-tab="tab-window">Window Functions</button>
@@ -653,8 +654,360 @@
           <button class="tab-nav-item" data-tab="tab-transforms">Transforms</button>
         </div>
 
+        <!-- TAB: DECISION TREE -->
+        <div id="tab-decision-tree" class="tab-pane active">
+
+          <div class="section-heading">SQL Problem Decision Tree</div>
+          <p style="margin-bottom: 20px; line-height: 1.8;">Use this decision tree to identify the right SQL approach for any problem. Start at the top and follow the branches based on your problem's characteristics.</p>
+
+          <!-- LEVEL 1: How many tables? -->
+          <div class="fc-node fc-start">START: Read the problem carefully. How many tables are involved?</div>
+          <div class="fc-arrow">&darr;</div>
+
+          <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px;">
+            <div style="flex: 1; min-width: 280px;">
+              <div class="fc-node fc-good" style="cursor:pointer;" onclick="document.getElementById('single-table-tree').style.display = document.getElementById('single-table-tree').style.display === 'none' ? 'block' : 'none'">
+                <strong>ONE TABLE</strong><br>
+                No JOIN needed. Go to Single-Table Patterns &darr;
+              </div>
+            </div>
+            <div style="flex: 1; min-width: 280px;">
+              <div class="fc-node fc-warn" style="cursor:pointer;" onclick="document.getElementById('multi-table-tree').style.display = document.getElementById('multi-table-tree').style.display === 'none' ? 'block' : 'none'">
+                <strong>TWO+ TABLES</strong><br>
+                Start with JOIN / subquery. Go to Multi-Table Patterns &darr;
+              </div>
+            </div>
+          </div>
+
+          <!-- SINGLE TABLE DECISION TREE -->
+          <div id="single-table-tree">
+            <div class="section-heading" style="margin-top: 40px;">Single-Table Decision Tree</div>
+            <div class="fc-node fc-start">What does the problem ask you to DO?</div>
+            <div class="fc-arrow">&darr;</div>
+
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
+              <div style="flex: 1; min-width: 200px;">
+                <div class="fc-node fc-good" style="font-size: 1.4rem;">
+                  <strong>FILTER rows</strong><br>
+                  "Find rows where..."<br>"Exclude..."<br>
+                  <span style="color: #b33000;">&rarr; WHERE clause</span><br>
+                  <code style="font-size: 1.2rem;">WHERE col = value AND ...</code>
+                </div>
+              </div>
+              <div style="flex: 1; min-width: 200px;">
+                <div class="fc-node fc-good" style="font-size: 1.4rem;">
+                  <strong>AGGREGATE</strong><br>
+                  "Count/sum/avg per..."<br>"For each..."<br>
+                  <span style="color: #b33000;">&rarr; GROUP BY + aggregate</span><br>
+                  <code style="font-size: 1.2rem;">GROUP BY col HAVING ...</code>
+                </div>
+              </div>
+              <div style="flex: 1; min-width: 200px;">
+                <div class="fc-node fc-good" style="font-size: 1.4rem;">
+                  <strong>RANK / TOP-N</strong><br>
+                  "Find highest..."<br>"Top 3..."<br>
+                  <span style="color: #b33000;">&rarr; Window functions / LIMIT</span><br>
+                  <code style="font-size: 1.2rem;">RANK() OVER (ORDER BY ...)</code>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
+              <div style="flex: 1; min-width: 200px;">
+                <div class="fc-node fc-warn" style="font-size: 1.4rem;">
+                  <strong>COMPARE ROWS</strong><br>
+                  "Previous row..."<br>"Consecutive..."<br>
+                  <span style="color: #b33000;">&rarr; LAG() / LEAD() window</span><br>
+                  <code style="font-size: 1.2rem;">LAG(col) OVER (ORDER BY ...)</code>
+                </div>
+              </div>
+              <div style="flex: 1; min-width: 200px;">
+                <div class="fc-node fc-warn" style="font-size: 1.4rem;">
+                  <strong>RUNNING TOTAL</strong><br>
+                  "Cumulative..."<br>"Rolling avg..."<br>
+                  <span style="color: #b33000;">&rarr; SUM() OVER (ROWS ...)</span><br>
+                  <code style="font-size: 1.2rem;">SUM(col) OVER (ORDER BY ... ROWS ...)</code>
+                </div>
+              </div>
+              <div style="flex: 1; min-width: 200px;">
+                <div class="fc-node fc-warn" style="font-size: 1.4rem;">
+                  <strong>TRANSFORM / REFORMAT</strong><br>
+                  "Classify..."<br>"Fix format..."<br>
+                  <span style="color: #b33000;">&rarr; CASE / string functions</span><br>
+                  <code style="font-size: 1.2rem;">CASE WHEN ... THEN ... END</code>
+                </div>
+              </div>
+            </div>
+
+            <!-- FILTERING SUB-DECISIONS -->
+            <div style="background-color: #fdf0ed; border: 2px solid #b33000; border-radius: 6px; padding: 20px; margin: 20px 0;">
+              <h4 style="margin-top: 0; color: #b33000;">Filtering Sub-Decisions</h4>
+              <table style="width: 100%; border-collapse: collapse; font-size: 1.4rem;">
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Simple condition</td>
+                  <td style="padding: 8px;"><code>WHERE col = value</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #1757, #595</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">NULL handling</td>
+                  <td style="padding: 8px;"><code>WHERE col IS NULL</code> or <code>COALESCE()</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #584</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Pattern matching</td>
+                  <td style="padding: 8px;"><code>WHERE col LIKE '%pattern%'</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #1527</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Regex matching</td>
+                  <td style="padding: 8px;"><code>WHERE col ~ 'regex'</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #1517</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">NOT IN / exclusion</td>
+                  <td style="padding: 8px;"><code>WHERE col NOT IN (subquery)</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #1148, #1978</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; font-weight: 600;">Date range</td>
+                  <td style="padding: 8px;"><code>WHERE date BETWEEN '...' AND '...'</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #1327</td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- AGGREGATION SUB-DECISIONS -->
+            <div style="background-color: #fdf0ed; border: 2px solid #b33000; border-radius: 6px; padding: 20px; margin: 20px 0;">
+              <h4 style="margin-top: 0; color: #b33000;">Aggregation Sub-Decisions</h4>
+              <table style="width: 100%; border-collapse: collapse; font-size: 1.4rem;">
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Simple count/sum</td>
+                  <td style="padding: 8px;"><code>SELECT col, COUNT(*) GROUP BY col</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #2356, #1729</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Filter groups (HAVING)</td>
+                  <td style="padding: 8px;"><code>GROUP BY col HAVING COUNT(*) >= N</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #596, #619</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Conditional aggregation</td>
+                  <td style="padding: 8px;"><code>SUM(CASE WHEN ... THEN 1 END)</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #1193, #1211</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Percentage / ratio</td>
+                  <td style="padding: 8px;"><code>ROUND(100.0 * COUNT(CASE...) / COUNT(*), 2)</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #1633</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; font-weight: 600;">Bidirectional aggregation</td>
+                  <td style="padding: 8px;"><code>UNION ALL</code> to stack sender+receiver, then <code>GROUP BY</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #602</td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- WINDOW FUNCTION SUB-DECISIONS -->
+            <div style="background-color: #fdf0ed; border: 2px solid #b33000; border-radius: 6px; padding: 20px; margin: 20px 0;">
+              <h4 style="margin-top: 0; color: #b33000;">Window Function Sub-Decisions</h4>
+              <table style="width: 100%; border-collapse: collapse; font-size: 1.4rem;">
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Compare to previous row</td>
+                  <td style="padding: 8px;"><code>LAG(col) OVER (ORDER BY date)</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #197</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Consecutive pattern</td>
+                  <td style="padding: 8px;"><code>LAG()/LEAD()</code> or <code>ROW_NUMBER() - value</code> trick</td>
+                  <td style="padding: 8px; color: #666;">Problems: #180</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Running total / rolling avg</td>
+                  <td style="padding: 8px;"><code>SUM() OVER (ORDER BY ... ROWS BETWEEN ...)</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #1204, #1321</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Top-N per group</td>
+                  <td style="padding: 8px;"><code>DENSE_RANK() OVER (PARTITION BY ... ORDER BY ...)</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #185</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">First/last value per group</td>
+                  <td style="padding: 8px;"><code>FIRST_VALUE() OVER (PARTITION BY ...)</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #1070, #1164</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; font-weight: 600;">Row-pair operations</td>
+                  <td style="padding: 8px;">Self-join or <code>LEAD()</code> to pair adjacent rows</td>
+                  <td style="padding: 8px; color: #666;">Problems: #1661, #626</td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- SUBQUERY SUB-DECISIONS -->
+            <div style="background-color: #fdf0ed; border: 2px solid #b33000; border-radius: 6px; padding: 20px; margin: 20px 0;">
+              <h4 style="margin-top: 0; color: #b33000;">Subquery Sub-Decisions</h4>
+              <table style="width: 100%; border-collapse: collapse; font-size: 1.4rem;">
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Scalar subquery (single value)</td>
+                  <td style="padding: 8px;"><code>WHERE col = (SELECT MAX(col) ...)</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #176</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Correlated subquery</td>
+                  <td style="padding: 8px;"><code>WHERE col > (SELECT AVG(...) WHERE outer.key = inner.key)</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #1174</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Derived table (FROM subquery)</td>
+                  <td style="padding: 8px;"><code>FROM (SELECT ... GROUP BY ...) sub</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #550, #1934</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Date-range join</td>
+                  <td style="padding: 8px;"><code>WHERE date BETWEEN start_date AND end_date</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #1251</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; font-weight: 600;">Existence check</td>
+                  <td style="padding: 8px;"><code>WHERE NOT EXISTS (SELECT 1 FROM ... WHERE ...)</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #585, #1978</td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- TRANSFORM SUB-DECISIONS -->
+            <div style="background-color: #fdf0ed; border: 2px solid #b33000; border-radius: 6px; padding: 20px; margin: 20px 0;">
+              <h4 style="margin-top: 0; color: #b33000;">Transform Sub-Decisions</h4>
+              <table style="width: 100%; border-collapse: collapse; font-size: 1.4rem;">
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">String formatting</td>
+                  <td style="padding: 8px;"><code>UPPER(), LOWER(), CONCAT(), SUBSTRING()</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #1667</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Conditional classification</td>
+                  <td style="padding: 8px;"><code>CASE WHEN ... THEN 'A' WHEN ... THEN 'B' END</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #1795, #1907</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Delete duplicates</td>
+                  <td style="padding: 8px;"><code>DELETE FROM t1 USING t1 JOIN t1 AS t2 ...</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #196</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">String aggregation</td>
+                  <td style="padding: 8px;"><code>STRING_AGG(col, ',' ORDER BY col)</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #1484</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; font-weight: 600;">Relational division ("all of")</td>
+                  <td style="padding: 8px;"><code>GROUP BY + HAVING COUNT(DISTINCT) = total</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #1045</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+
+          <!-- MULTI-TABLE DECISION TREE -->
+          <div id="multi-table-tree">
+            <div class="section-heading" style="margin-top: 40px;">Multi-Table Decision Tree</div>
+            <div class="fc-node fc-start">What kind of relationship between the tables?</div>
+            <div class="fc-arrow">&darr;</div>
+
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
+              <div style="flex: 1; min-width: 200px;">
+                <div class="fc-node fc-good" style="font-size: 1.4rem;">
+                  <strong>LOOKUP / ENRICH</strong><br>
+                  One table has the key, other has details<br>
+                  <span style="color: #b33000;">&rarr; INNER JOIN or LEFT JOIN</span><br>
+                  <code style="font-size: 1.2rem;">FROM t1 JOIN t2 ON t1.id = t2.fk</code><br>
+                  <span style="font-size: 1.2rem; color: #666;">Problems: #1378, #1068, #577, #1075</span>
+                </div>
+              </div>
+              <div style="flex: 1; min-width: 200px;">
+                <div class="fc-node fc-good" style="font-size: 1.4rem;">
+                  <strong>LEFT JOIN (keep all)</strong><br>
+                  "Regardless of whether..."<br>
+                  <span style="color: #b33000;">&rarr; LEFT JOIN ... IS NULL check</span><br>
+                  <code style="font-size: 1.2rem;">FROM t1 LEFT JOIN t2 ON ... WHERE t2.id IS NULL</code><br>
+                  <span style="font-size: 1.2rem; color: #666;">Problems: #1581</span>
+                </div>
+              </div>
+              <div style="flex: 1; min-width: 200px;">
+                <div class="fc-node fc-warn" style="font-size: 1.4rem;">
+                  <strong>CROSS JOIN</strong><br>
+                  Every combination of rows<br>
+                  <span style="color: #b33000;">&rarr; CROSS JOIN + filter</span><br>
+                  <code style="font-size: 1.2rem;">FROM t1 CROSS JOIN t2</code><br>
+                  <span style="font-size: 1.2rem; color: #666;">Problems: #1280</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
+              <div style="flex: 1; min-width: 200px;">
+                <div class="fc-node fc-warn" style="font-size: 1.4rem;">
+                  <strong>SELF-JOIN</strong><br>
+                  Compare rows within same table<br>
+                  <span style="color: #b33000;">&rarr; JOIN table to itself</span><br>
+                  <code style="font-size: 1.2rem;">FROM t1 a JOIN t1 b ON a.mgr = b.id</code><br>
+                  <span style="font-size: 1.2rem; color: #666;">Problems: #197, #180, #1731</span>
+                </div>
+              </div>
+              <div style="flex: 1; min-width: 200px;">
+                <div class="fc-node fc-warn" style="font-size: 1.4rem;">
+                  <strong>DATE-RANGE JOIN</strong><br>
+                  Join on overlapping date ranges<br>
+                  <span style="color: #b33000;">&rarr; BETWEEN in JOIN condition</span><br>
+                  <code style="font-size: 1.2rem;">ON date BETWEEN start_date AND end_date</code><br>
+                  <span style="font-size: 1.2rem; color: #666;">Problems: #1251, #1164</span>
+                </div>
+              </div>
+              <div style="flex: 1; min-width: 200px;">
+                <div class="fc-node fc-good" style="font-size: 1.4rem;">
+                  <strong>UNION / COMBINE</strong><br>
+                  Stack rows from separate queries<br>
+                  <span style="color: #b33000;">&rarr; UNION ALL then aggregate</span><br>
+                  <code style="font-size: 1.2rem;">SELECT ... UNION ALL SELECT ...</code><br>
+                  <span style="font-size: 1.2rem; color: #666;">Problems: #602, #1341</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="background-color: #fff3e0; border-left: 5px solid #f57f17; padding: 15px; margin: 20px 0; border-radius: 4px;">
+              <p style="margin: 0; font-weight: 600; color: #e65100;">JOIN Checklist</p>
+              <ol style="margin: 10px 0 0 20px; line-height: 1.8; color: #bf360c; font-size: 1.4rem;">
+                <li>Identify the <strong>join key(s)</strong> &mdash; columns that connect the tables</li>
+                <li>Choose <strong>join type</strong>: INNER (default), LEFT (keep all from first table), CROSS (all combinations)</li>
+                <li>Check for <strong>duplicates in keys</strong> &mdash; many-to-many creates row explosion (Cartesian product)</li>
+                <li>Handle <strong>NULL join keys</strong> &mdash; NULLs never match in a standard JOIN</li>
+                <li>After joining: <strong>verify row count</strong> to ensure no unexpected multiplication</li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- SQL EXECUTION ORDER REMINDER -->
+          <div style="background-color: #f0f4ff; border: 2px solid #1565c0; border-radius: 6px; padding: 20px; margin: 30px 0;">
+            <h4 style="margin-top: 0; color: #1565c0;">SQL Execution Order (How the Engine Processes Your Query)</h4>
+            <p style="margin: 10px 0; line-height: 1.8; font-size: 1.4rem;">Understanding this order helps you predict which clauses can reference which aliases and columns:</p>
+            <ol style="margin: 10px 0 0 20px; line-height: 2.0; font-size: 1.4rem;">
+              <li><strong>FROM / JOIN</strong> &mdash; Tables are loaded and joined first</li>
+              <li><strong>WHERE</strong> &mdash; Row-level filtering (no aggregates allowed here)</li>
+              <li><strong>GROUP BY</strong> &mdash; Rows are grouped</li>
+              <li><strong>HAVING</strong> &mdash; Group-level filtering (aggregates allowed here)</li>
+              <li><strong>SELECT</strong> &mdash; Columns are computed (window functions run here)</li>
+              <li><strong>DISTINCT</strong> &mdash; Deduplication</li>
+              <li><strong>ORDER BY</strong> &mdash; Sorting (can reference SELECT aliases)</li>
+              <li><strong>LIMIT / OFFSET</strong> &mdash; Final row restriction</li>
+            </ol>
+          </div>
+
+        </div>
+
         <!-- TAB 1: FILTERING -->
-        <div id="tab-filtering" class="tab-pane active">
+        <div id="tab-filtering" class="tab-pane">
           <!-- TAB CONTENT: Filtering -->
 
           <div class="section-heading">Pattern Recognition: Row-Level Filtering</div>
