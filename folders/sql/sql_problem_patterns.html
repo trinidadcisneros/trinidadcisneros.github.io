@@ -3743,8 +3743,11 @@ WHERE d.order_date = (
                     <div class="code-block"><code>SELECT
   s.user_id,
   ROUND(
-    COALESCE(COUNT(CASE WHEN c.action = 'confirmed' THEN 1 END), 0) * 1.0
-    / NULLIF(COUNT(c.user_id), 0),
+    COALESCE(
+      COUNT(CASE WHEN c.action = 'confirmed' THEN 1 END) * 1.0
+      / NULLIF(COUNT(c.user_id), 0),
+      0
+    ),
     2
   ) AS confirmation_rate
 FROM Signups s
@@ -3752,7 +3755,7 @@ LEFT JOIN Confirmations c ON s.user_id = c.user_id
 GROUP BY s.user_id
 ORDER BY s.user_id;</code></div>
                     <p style="color: #666; margin-top: 10px; font-size: 1.406rem;">
-                      <strong>Why this ranks first:</strong> LEFT JOIN ensures all signups appear, even those with no confirmations. CASE WHEN counts confirmed only. NULLIF guards against division by zero. Includes 0.00 rates.
+                      <strong>Why this ranks first:</strong> LEFT JOIN ensures all signups appear, even those with no confirmations. CASE WHEN counts confirmed only. NULLIF turns 0 into NULL so division yields NULL, then COALESCE converts that NULL to 0. This ensures users with zero confirmations get 0.00 instead of NULL.
                     </p>
                   </div>
                 </details>
