@@ -942,6 +942,7 @@
           <button class="tab-nav-item" data-tab="tab-execution">Execution Order Errors</button>
           <button class="tab-nav-item" data-tab="tab-review">Code Review Checklist</button>
           <button class="tab-nav-item" data-tab="tab-traps">Common Interview Traps</button>
+          <button class="tab-nav-item" data-tab="tab-row-vs-group">Row vs Group</button>
           <button class="tab-nav-item" data-tab="tab-quiz">Knowledge Check</button>
         </div>
 
@@ -1414,6 +1415,145 @@ FROM Projects;
             </div>
           </div>
 
+          <!-- C5 -->
+          <div class="problem-card collapsed">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title">C5. ROUND() fails on double precision — PostgreSQL strict typing</h3>
+              <span class="problem-toggle">+</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p><code>function round(double precision, integer) does not exist</code></p>
+            </div>
+            <div class="problem-card-content">
+              <p>This is one of the most common surprises in PostgreSQL. The <code>ROUND(value, decimal_places)</code> function <strong>only accepts <code>numeric</code></strong> as its first argument — not <code>double precision</code> or <code>real</code>.</p>
+
+              <div class="code-block"><code>-- BROKEN: timestamp is float/double precision on many platforms
+-- AVG() of double precision returns double precision
+SELECT
+    machine_id,
+    ROUND(AVG(processing_time), 3) AS processing_time
+FROM (
+    SELECT machine_id, process_id,
+        MAX(CASE WHEN activity_type = 'end' THEN timestamp END) -
+        MIN(CASE WHEN activity_type = 'start' THEN timestamp END) AS processing_time
+    FROM Activity
+    GROUP BY machine_id, process_id
+) AS t
+GROUP BY machine_id;
+
+-- ERROR: function round(double precision, integer) does not exist
+-- HINT: No function matches the given name and argument types.</code></div>
+
+              <p><strong>Why this happens:</strong> PostgreSQL defines two overloads of <code>ROUND()</code>:</p>
+
+              <div class="table-wrapper">
+                <table>
+                  <thead>
+                    <tr><th>Signature</th><th>What it does</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td><code>ROUND(numeric)</code></td><td>Rounds to nearest integer</td></tr>
+                    <tr><td><code>ROUND(numeric, integer)</code></td><td>Rounds to N decimal places</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <p>There is <strong>no</strong> <code>ROUND(double precision, integer)</code>. If your value is <code>double precision</code> (common when subtracting <code>float</code> columns or using <code>AVG()</code> on floats), PostgreSQL cannot find a matching function.</p>
+
+              <p><strong>Fix:</strong> Cast to <code>numeric</code> before rounding.</p>
+
+              <div class="code-block"><code>-- CORRECT: cast to numeric
+SELECT
+    machine_id,
+    ROUND(AVG(processing_time)::numeric, 3) AS processing_time
+FROM (
+    SELECT machine_id, process_id,
+        MAX(CASE WHEN activity_type = 'end' THEN timestamp END) -
+        MIN(CASE WHEN activity_type = 'start' THEN timestamp END) AS processing_time
+    FROM Activity
+    GROUP BY machine_id, process_id
+) AS t
+GROUP BY machine_id;</code></div>
+
+              <p><strong>Other functions with the same strict typing:</strong></p>
+
+              <div class="table-wrapper">
+                <table>
+                  <thead>
+                    <tr><th>Function</th><th>Requires <code>numeric</code></th><th>Fix</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td><code>ROUND(val, N)</code></td><td>Yes — two-argument form</td><td><code>ROUND(val::numeric, N)</code></td></tr>
+                    <tr><td><code>TRUNC(val, N)</code></td><td>Yes — two-argument form</td><td><code>TRUNC(val::numeric, N)</code></td></tr>
+                    <tr><td><code>MOD(a, b)</code></td><td>Yes</td><td><code>MOD(a::numeric, b::numeric)</code></td></tr>
+                    <tr><td><code>a / b</code> (integer)</td><td>Returns integer, not decimal</td><td><code>a::numeric / b</code></td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div style="background-color: #e8f5e9; border-left: 4px solid #4caf50; padding: 15px; margin: 20px 0; border-radius: 4px;">
+                <strong>MySQL vs PostgreSQL:</strong> MySQL's <code>ROUND()</code> accepts any numeric type — you'll never hit this error there. This is purely a PostgreSQL strictness. LeetCode, HackerRank, and DataLemur all use PostgreSQL, so you <strong>will</strong> encounter this in practice problems.
+              </div>
+            </div>
+          </div>
+
+          <!-- C6 -->
+          <div class="problem-card collapsed">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title">C6. Subquery missing alias — mandatory in PostgreSQL</h3>
+              <span class="problem-toggle">+</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p><code>subquery in FROM must have an alias</code></p>
+            </div>
+            <div class="problem-card-content">
+              <p>Every derived table (subquery used in <code>FROM</code> or <code>JOIN</code>) <strong>must</strong> have an alias in PostgreSQL. This is also required by the SQL standard, though some databases are more lenient.</p>
+
+              <div class="code-block"><code>-- BROKEN: no alias on subquery
+SELECT machine_id, ROUND(AVG(processing_time)::numeric, 3)
+FROM (
+    SELECT machine_id, process_id,
+        MAX(CASE WHEN activity_type = 'end' THEN timestamp END) -
+        MIN(CASE WHEN activity_type = 'start' THEN timestamp END) AS processing_time
+    FROM Activity
+    GROUP BY machine_id, process_id
+)                        -- &lt;-- missing alias!
+GROUP BY machine_id;
+
+-- ERROR: subquery in FROM must have an alias</code></div>
+
+              <p><strong>Fix:</strong> Add <code>AS alias_name</code> after the closing parenthesis.</p>
+
+              <div class="code-block"><code>-- CORRECT: alias added
+SELECT machine_id, ROUND(AVG(processing_time)::numeric, 3)
+FROM (
+    SELECT machine_id, process_id,
+        MAX(CASE WHEN activity_type = 'end' THEN timestamp END) -
+        MIN(CASE WHEN activity_type = 'start' THEN timestamp END) AS processing_time
+    FROM Activity
+    GROUP BY machine_id, process_id
+) AS t                   -- &lt;-- alias required
+GROUP BY machine_id;</code></div>
+
+              <p><strong>The alias also matters when referencing columns.</strong> If your outer query joins multiple subqueries, you must qualify column names with the alias:</p>
+
+              <div class="code-block"><code>-- Joining two subqueries — aliases are essential for disambiguation
+SELECT a.dept_id, a.total_sales, b.total_returns
+FROM (
+    SELECT dept_id, SUM(amount) AS total_sales
+    FROM Sales GROUP BY dept_id
+) AS a
+JOIN (
+    SELECT dept_id, SUM(amount) AS total_returns
+    FROM Returns GROUP BY dept_id
+) AS b ON a.dept_id = b.dept_id;</code></div>
+
+              <div style="background-color: #e3f2fd; border-left: 4px solid #1976d2; padding: 15px; margin: 20px 0; border-radius: 4px;">
+                <strong>Rule of thumb:</strong> Any time you write a subquery in <code>FROM</code> or <code>JOIN</code>, immediately add <code>AS t</code> (or a descriptive alias) after the closing parenthesis. Make it a habit — PostgreSQL will always require it, and using meaningful aliases like <code>AS sales_summary</code> makes your query more readable.
+              </div>
+            </div>
+          </div>
+
           <div style="background-color: #fff3e0; border: 1px solid #ddd; border-radius: 4px; padding: 20px; margin: 30px 0;">
             <h4 style="margin-top: 0; color: #333;">Type Error Quick Reference</h4>
             <div class="table-wrapper">
@@ -1445,6 +1585,16 @@ FROM Projects;
                     <td>Division returns 0</td>
                     <td>Integer division</td>
                     <td>Cast to <code>DECIMAL</code> or <code>NUMERIC</code></td>
+                  </tr>
+                  <tr>
+                    <td><code>function round(double precision, integer) does not exist</code></td>
+                    <td><code>ROUND()</code> only accepts <code>numeric</code></td>
+                    <td><code>ROUND(val::numeric, N)</code></td>
+                  </tr>
+                  <tr>
+                    <td><code>subquery in FROM must have an alias</code></td>
+                    <td>Derived table missing alias</td>
+                    <td>Add <code>AS t</code> after <code>)</code></td>
                   </tr>
                 </tbody>
               </table>
@@ -2985,6 +3135,329 @@ ticket_counts <span class="keyword">AS</span> (
           <div class="performance-note">
             <p class="performance-note-title">Final Tip</p>
             <p class="performance-note-content">In a debugging interview, the process matters as much as the answer. Read the error, classify it, fix the root cause, and verify. Show that you're methodical, not just lucky.</p>
+          </div>
+
+        </div>
+
+        <!-- TAB: ROW VS GROUP OPERATIONS -->
+        <div class="tab-pane" id="tab-row-vs-group">
+          <div class="section-heading">Row-Level vs Group-Level Operations</div>
+
+          <p>One of the most common SQL misunderstandings — especially in interviews — is confusing <strong>row-level operations</strong> with <strong>group-level operations</strong>. This distinction is fundamental to how SQL processes data and explains why certain queries return NULL or errors when you expect a result.</p>
+
+          <div class="info-box" style="background-color: #e3f2fd; border-left: 5px solid #1565c0; padding: 15px; margin: 20px 0; border-radius: 4px;">
+            <p style="margin: 0; font-weight: 600; color: #0d47a1;">The Core Rule</p>
+            <p style="margin: 10px 0 0 0;">SQL evaluates expressions <strong>one row at a time</strong> unless you explicitly tell it to combine rows with an <strong>aggregate function</strong> (SUM, MAX, MIN, AVG, COUNT) or a <strong>window function</strong>. A CASE expression, arithmetic, string functions, and comparison operators are all row-level — they see only the current row, never other rows in the group.</p>
+          </div>
+
+          <hr style="border: 2px solid #ddd; margin: 40px 0;">
+
+          <div class="section-heading" style="margin-top: 40px;">The Problem: CASE Cannot Look Across Rows</div>
+
+          <p>Imagine you have a factory process table where each process has a <code>start</code> row and an <code>end</code> row. You want the completion time (end - start) per process. A natural first attempt is:</p>
+
+          <div class="code-block"><code><span class="comment">-- BROKEN: CASE sees one row at a time, not both rows</span>
+<span class="keyword">SELECT</span> machine_id, process_id,
+    (<span class="keyword">CASE WHEN</span> activity_type = <span class="string">'end'</span> <span class="keyword">THEN</span> timestamp <span class="keyword">END</span>
+     -
+     <span class="keyword">CASE WHEN</span> activity_type = <span class="string">'start'</span> <span class="keyword">THEN</span> timestamp <span class="keyword">END</span>) <span class="keyword">AS</span> completion_time
+<span class="keyword">FROM</span> Activity
+<span class="keyword">GROUP BY</span> machine_id, process_id;</code></div>
+
+          <p>This returns <strong>NULL for every row</strong>. Here's exactly why.</p>
+
+          <p>SQL processes the CASE expression on each row <em>before</em> grouping collapses anything. On the <code>start</code> row, the first CASE evaluates to NULL (because activity_type is not 'end'), and the subtraction becomes <code>NULL - 0.712 = NULL</code>. On the <code>end</code> row, the second CASE evaluates to NULL, giving <code>1.520 - NULL = NULL</code>. Neither row can see the other row's timestamp.</p>
+
+          <div style="background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; padding: 20px; margin: 20px 0;">
+            <h4 style="margin-top: 0; color: #333;">Row-by-Row Trace (machine_id=0, process_id=0)</h4>
+            <table style="width: 100%; border-collapse: collapse; font-size: 1.4rem; margin-top: 10px;">
+              <thead>
+                <tr style="border-bottom: 2px solid #b33000; color: #b33000;">
+                  <th style="padding: 10px; text-align: left;">Row</th>
+                  <th style="padding: 10px; text-align: left;">activity_type</th>
+                  <th style="padding: 10px; text-align: left;">CASE 'end'</th>
+                  <th style="padding: 10px; text-align: left;">CASE 'start'</th>
+                  <th style="padding: 10px; text-align: left;">Subtraction</th>
+                  <th style="padding: 10px; text-align: left;">Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 10px;">1</td>
+                  <td style="padding: 10px;"><code>start</code></td>
+                  <td style="padding: 10px; color: #c62828;"><strong>NULL</strong></td>
+                  <td style="padding: 10px;">0.712</td>
+                  <td style="padding: 10px;"><code>NULL - 0.712</code></td>
+                  <td style="padding: 10px; color: #c62828;"><strong>NULL</strong></td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px;">2</td>
+                  <td style="padding: 10px;"><code>end</code></td>
+                  <td style="padding: 10px;">1.520</td>
+                  <td style="padding: 10px; color: #c62828;"><strong>NULL</strong></td>
+                  <td style="padding: 10px;"><code>1.520 - NULL</code></td>
+                  <td style="padding: 10px; color: #c62828;"><strong>NULL</strong></td>
+                </tr>
+              </tbody>
+            </table>
+            <p style="margin: 15px 0 0 0; color: #666; font-size: 1.3rem;">Each CASE hits NULL on one side because it can only see the current row's activity_type — not the other row in the group. And anything minus NULL is NULL.</p>
+          </div>
+
+          <hr style="border: 2px solid #ddd; margin: 40px 0;">
+
+          <div class="section-heading" style="margin-top: 40px;">The Fix: Aggregate Functions Bridge Rows</div>
+
+          <p>The solution is to wrap each CASE inside an <strong>aggregate function</strong>. The aggregate collapses all rows in the group into one value, which is what lets you grab the <code>end</code> timestamp and the <code>start</code> timestamp from different rows and subtract them:</p>
+
+          <div class="code-block"><code><span class="comment">-- CORRECT: MAX/MIN collapse the group into one value per side</span>
+<span class="keyword">SELECT</span> machine_id, process_id,
+    <span class="function">MAX</span>(<span class="keyword">CASE WHEN</span> activity_type = <span class="string">'end'</span> <span class="keyword">THEN</span> timestamp <span class="keyword">END</span>)
+    -
+    <span class="function">MAX</span>(<span class="keyword">CASE WHEN</span> activity_type = <span class="string">'start'</span> <span class="keyword">THEN</span> timestamp <span class="keyword">END</span>) <span class="keyword">AS</span> completion_time
+<span class="keyword">FROM</span> Activity
+<span class="keyword">GROUP BY</span> machine_id, process_id;</code></div>
+
+          <div style="background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; padding: 20px; margin: 20px 0;">
+            <h4 style="margin-top: 0; color: #333;">How MAX Bridges the Rows (machine_id=0, process_id=0)</h4>
+            <table style="width: 100%; border-collapse: collapse; font-size: 1.4rem; margin-top: 10px;">
+              <thead>
+                <tr style="border-bottom: 2px solid #2e7d32; color: #2e7d32;">
+                  <th style="padding: 10px; text-align: left;">Step</th>
+                  <th style="padding: 10px; text-align: left;">What Happens</th>
+                  <th style="padding: 10px; text-align: left;">Values Seen</th>
+                  <th style="padding: 10px; text-align: left;">Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 10px;">1</td>
+                  <td style="padding: 10px;">CASE 'end' on row 1 (start)</td>
+                  <td style="padding: 10px;">NULL</td>
+                  <td style="padding: 10px; color: #999;">—</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 10px;">2</td>
+                  <td style="padding: 10px;">CASE 'end' on row 2 (end)</td>
+                  <td style="padding: 10px;">1.520</td>
+                  <td style="padding: 10px; color: #999;">—</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd; background-color: #e8f5e9;">
+                  <td style="padding: 10px;">3</td>
+                  <td style="padding: 10px;"><strong>MAX collapses group</strong></td>
+                  <td style="padding: 10px;">MAX(NULL, 1.520)</td>
+                  <td style="padding: 10px; color: #2e7d32;"><strong>1.520</strong></td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 10px;">4</td>
+                  <td style="padding: 10px;">CASE 'start' produces</td>
+                  <td style="padding: 10px;">MAX(0.712, NULL)</td>
+                  <td style="padding: 10px; color: #2e7d32;"><strong>0.712</strong></td>
+                </tr>
+                <tr style="background-color: #e8f5e9;">
+                  <td style="padding: 10px;">5</td>
+                  <td style="padding: 10px;"><strong>Subtraction</strong></td>
+                  <td style="padding: 10px;">1.520 - 0.712</td>
+                  <td style="padding: 10px; color: #2e7d32;"><strong>0.808</strong></td>
+                </tr>
+              </tbody>
+            </table>
+            <p style="margin: 15px 0 0 0; color: #666; font-size: 1.3rem;">MAX ignores NULLs, so it picks the one non-NULL value from each group. This is the standard "conditional aggregation" pattern — CASE filters within the row, the aggregate combines across rows.</p>
+          </div>
+
+          <p>Note that MAX and MIN give the same result here because each (machine_id, process_id) has exactly one start and one end. In cases with duplicates, you'd choose the aggregate that matches the business logic.</p>
+
+          <hr style="border: 2px solid #ddd; margin: 40px 0;">
+
+          <div class="section-heading" style="margin-top: 40px;">The Complete Classification: Which SQL Operations Are Row-Level vs Group-Level?</div>
+
+          <p>This isn't unique to CASE. The same row-level vs group-level distinction applies to every SQL expression:</p>
+
+          <div style="display: flex; gap: 20px; flex-wrap: wrap; margin: 20px 0;">
+            <div style="flex: 1; min-width: 300px; background-color: #fff3e0; border: 2px solid #f57f17; border-radius: 6px; padding: 20px;">
+              <h4 style="margin-top: 0; color: #e65100;">Row-Level (sees ONE row at a time)</h4>
+              <table style="width: 100%; border-collapse: collapse; font-size: 1.35rem;">
+                <tr style="border-bottom: 1px solid #ffe0b2;">
+                  <td style="padding: 8px; font-weight: 600;">CASE WHEN</td>
+                  <td style="padding: 8px;">Conditional logic per row</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ffe0b2;">
+                  <td style="padding: 8px; font-weight: 600;">Arithmetic (+, -, *, /)</td>
+                  <td style="padding: 8px;">Computes on current row's columns</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ffe0b2;">
+                  <td style="padding: 8px; font-weight: 600;">COALESCE / NULLIF</td>
+                  <td style="padding: 8px;">NULL handling per row</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ffe0b2;">
+                  <td style="padding: 8px; font-weight: 600;">String functions</td>
+                  <td style="padding: 8px;">UPPER(), CONCAT(), SUBSTRING() etc.</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ffe0b2;">
+                  <td style="padding: 8px; font-weight: 600;">Date functions</td>
+                  <td style="padding: 8px;">DATE_TRUNC(), EXTRACT(), AGE()</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ffe0b2;">
+                  <td style="padding: 8px; font-weight: 600;">CAST / type conversion</td>
+                  <td style="padding: 8px;">Converts the current row's value</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; font-weight: 600;">Comparison operators</td>
+                  <td style="padding: 8px;">=, !=, >, <, LIKE, IN, BETWEEN</td>
+                </tr>
+              </table>
+            </div>
+
+            <div style="flex: 1; min-width: 300px; background-color: #e8f5e9; border: 2px solid #2e7d32; border-radius: 6px; padding: 20px;">
+              <h4 style="margin-top: 0; color: #2e7d32;">Group-Level (sees ALL rows in the group)</h4>
+              <table style="width: 100%; border-collapse: collapse; font-size: 1.35rem;">
+                <tr style="border-bottom: 1px solid #c8e6c9;">
+                  <td style="padding: 8px; font-weight: 600;">COUNT()</td>
+                  <td style="padding: 8px;">Counts rows in group</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #c8e6c9;">
+                  <td style="padding: 8px; font-weight: 600;">SUM()</td>
+                  <td style="padding: 8px;">Adds values across group</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #c8e6c9;">
+                  <td style="padding: 8px; font-weight: 600;">AVG()</td>
+                  <td style="padding: 8px;">Averages values across group</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #c8e6c9;">
+                  <td style="padding: 8px; font-weight: 600;">MAX() / MIN()</td>
+                  <td style="padding: 8px;">Picks extreme value from group</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #c8e6c9;">
+                  <td style="padding: 8px; font-weight: 600;">STRING_AGG()</td>
+                  <td style="padding: 8px;">Concatenates values from group</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #c8e6c9;">
+                  <td style="padding: 8px; font-weight: 600;">ARRAY_AGG()</td>
+                  <td style="padding: 8px;">Collects values into array</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; font-weight: 600;">BOOL_AND() / BOOL_OR()</td>
+                  <td style="padding: 8px;">Boolean aggregates</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+
+          <div style="background-color: #e8eaf6; border: 2px solid #3f51b5; border-radius: 6px; padding: 20px; margin: 20px 0;">
+            <h4 style="margin-top: 0; color: #283593;">Window Functions: Row-Level Output, Group-Level Awareness</h4>
+            <p style="margin: 10px 0; line-height: 1.7;">Window functions are a special third category. They can see across rows (like aggregates) but they <strong>don't collapse the group</strong> — they return one value per row. This makes them row-level in output but group-level in awareness.</p>
+            <table style="width: 100%; border-collapse: collapse; font-size: 1.35rem; margin-top: 10px;">
+              <tr style="border-bottom: 1px solid #c5cae9;">
+                <td style="padding: 8px; font-weight: 600;">LAG() / LEAD()</td>
+                <td style="padding: 8px;">See previous/next row without collapsing</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #c5cae9;">
+                <td style="padding: 8px; font-weight: 600;">ROW_NUMBER() / RANK()</td>
+                <td style="padding: 8px;">Assign position relative to other rows</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #c5cae9;">
+                <td style="padding: 8px; font-weight: 600;">SUM() OVER (...)</td>
+                <td style="padding: 8px;">Running total without collapsing rows</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; font-weight: 600;">FIRST_VALUE() / NTH_VALUE()</td>
+                <td style="padding: 8px;">Grab a specific row's value from the window</td>
+              </tr>
+            </table>
+          </div>
+
+          <hr style="border: 2px solid #ddd; margin: 40px 0;">
+
+          <div class="section-heading" style="margin-top: 40px;">More Examples of the Same Mistake</div>
+
+          <p>The CASE problem above isn't unique. The same row-level misunderstanding appears in several common patterns:</p>
+
+          <h4 style="color: #333; margin-top: 25px;">Example 2: Arithmetic across rows fails without aggregation</h4>
+
+          <div class="code-block"><code><span class="comment">-- BROKEN: trying to subtract this month from last month in the same row</span>
+<span class="keyword">SELECT</span> month,
+       revenue - <span class="comment">/* there's no "previous row's revenue" accessible here */</span>
+<span class="keyword">FROM</span> monthly_sales;</code></div>
+
+          <p>Arithmetic is row-level. To reference another row's value, you need either a <strong>self-join</strong> or a <strong>window function</strong>:</p>
+
+          <div class="code-block"><code><span class="comment">-- CORRECT: LAG() is a window function that reaches the previous row</span>
+<span class="keyword">SELECT</span> month, revenue,
+       revenue - <span class="function">LAG</span>(revenue) <span class="keyword">OVER</span> (<span class="keyword">ORDER BY</span> month) <span class="keyword">AS</span> mom_change
+<span class="keyword">FROM</span> monthly_sales;</code></div>
+
+          <h4 style="color: #333; margin-top: 25px;">Example 3: String concatenation across rows needs an aggregate</h4>
+
+          <div class="code-block"><code><span class="comment">-- BROKEN: CONCAT is row-level — it can't combine values from multiple rows</span>
+<span class="keyword">SELECT</span> department_id, <span class="function">CONCAT</span>(employee_name, <span class="string">', '</span>) <span class="keyword">AS</span> team
+<span class="keyword">FROM</span> Employees
+<span class="keyword">GROUP BY</span> department_id;</code></div>
+
+          <p><strong>Error:</strong> <code>column "employee_name" must appear in the GROUP BY clause or be used in an aggregate function</code></p>
+
+          <p>CONCAT works on a single row's values. To combine names from multiple rows in a group, you need the group-level <code>STRING_AGG</code>:</p>
+
+          <div class="code-block"><code><span class="comment">-- CORRECT: STRING_AGG is an aggregate that combines values across the group</span>
+<span class="keyword">SELECT</span> department_id,
+       <span class="function">STRING_AGG</span>(employee_name, <span class="string">', '</span> <span class="keyword">ORDER BY</span> employee_name) <span class="keyword">AS</span> team
+<span class="keyword">FROM</span> Employees
+<span class="keyword">GROUP BY</span> department_id;</code></div>
+
+          <h4 style="color: #333; margin-top: 25px;">Example 4: COALESCE can't fix a cross-row problem</h4>
+
+          <div class="code-block"><code><span class="comment">-- BROKEN: COALESCE is row-level — it picks the first non-NULL in THIS row</span>
+<span class="keyword">SELECT</span> user_id,
+       <span class="function">COALESCE</span>(
+           <span class="keyword">CASE WHEN</span> event = <span class="string">'login'</span> <span class="keyword">THEN</span> timestamp <span class="keyword">END</span>,
+           <span class="keyword">CASE WHEN</span> event = <span class="string">'logout'</span> <span class="keyword">THEN</span> timestamp <span class="keyword">END</span>
+       ) <span class="keyword">AS</span> event_time
+<span class="keyword">FROM</span> user_events;</code></div>
+
+          <p>COALESCE picks the first non-NULL value, but both CASE expressions are still evaluated on the <em>same row</em>. If the row is a 'login', the second CASE is NULL — COALESCE just returns the login timestamp. It doesn't reach across to a different row. The underlying data still needs an aggregate or window function to bridge rows.</p>
+
+          <hr style="border: 2px solid #ddd; margin: 40px 0;">
+
+          <div class="section-heading" style="margin-top: 40px;">The Mental Model</div>
+
+          <p>Think of SQL processing in three layers:</p>
+
+          <div style="background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; padding: 20px; margin: 20px 0;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 1.45rem;">
+              <thead>
+                <tr style="border-bottom: 2px solid #b33000; color: #b33000;">
+                  <th style="padding: 12px; text-align: left;">Layer</th>
+                  <th style="padding: 12px; text-align: left;">What It Does</th>
+                  <th style="padding: 12px; text-align: left;">Can See</th>
+                  <th style="padding: 12px; text-align: left;">Examples</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 12px; font-weight: 600;">Row-Level</td>
+                  <td style="padding: 12px;">Transforms one row at a time</td>
+                  <td style="padding: 12px;">Only columns in the current row</td>
+                  <td style="padding: 12px;">CASE, +, UPPER(), COALESCE()</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 12px; font-weight: 600;">Group-Level</td>
+                  <td style="padding: 12px;">Collapses many rows into one</td>
+                  <td style="padding: 12px;">All rows in the GROUP BY bucket</td>
+                  <td style="padding: 12px;">SUM(), MAX(), COUNT(), STRING_AGG()</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; font-weight: 600;">Window-Level</td>
+                  <td style="padding: 12px;">Looks across rows without collapsing</td>
+                  <td style="padding: 12px;">Rows in the OVER() partition/frame</td>
+                  <td style="padding: 12px;">LAG(), RANK(), SUM() OVER()</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p>Whenever you need to combine values from <strong>different rows</strong>, ask yourself: do I need to collapse the group (use an aggregate) or keep all rows (use a window function)? If you're using only row-level operations (CASE, arithmetic, string functions), you're limited to what's on the current row.</p>
+
+          <div class="performance-note" style="background-color: #ffebee; border-left: 5px solid #c62828; padding: 15px; margin: 20px 0; border-radius: 4px;">
+            <p class="performance-note-title" style="font-weight: 600; color: #b71c1c; margin: 0 0 8px 0;">Interview Quick Check</p>
+            <p class="performance-note-content" style="color: #333; margin: 0; line-height: 1.7; font-size: 1.4rem;">If your query is subtracting, comparing, or combining values that live on <em>different rows</em>, and you haven't used an aggregate or window function, your result will either be NULL or an error. The pattern to remember: <strong>CASE filters within rows; aggregates bridge across rows.</strong></p>
           </div>
 
         </div>
