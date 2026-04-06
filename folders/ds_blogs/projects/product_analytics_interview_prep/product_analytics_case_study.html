@@ -1,0 +1,1594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Analytics in Practice: An E-Commerce Case Study</title>
+
+    <!-- Bootstrap 3.4.0 CDN (matches CMS blog) -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css">
+
+    <!-- Site-wide Navbar, Footer, Theme -->
+    <link rel="stylesheet" type="text/css" href="../../../../static/css/navbar.css">
+    <link rel="stylesheet" type="text/css" href="../../../../static/css/footer.css">
+    <link rel="stylesheet" type="text/css" href="../../../../static/css/theme.css">
+
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.7;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+
+        .blog-container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            min-height: 100vh;
+        }
+
+        .blog-header {
+            margin-bottom: 40px;
+            text-align: center;
+            border-bottom: 3px solid #2E86AB;
+            padding-bottom: 30px;
+        }
+
+        .blog-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-bottom: 10px;
+            line-height: 1.3;
+        }
+
+        .blog-subtitle {
+            font-size: 17px;
+            color: #555;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+
+        .blog-meta {
+            font-size: 13px;
+            color: #999;
+            margin-top: 15px;
+        }
+
+        .blog-meta strong { color: #1a1a2e; }
+
+        /* Tab Navigation */
+        .nav-tabs {
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .nav-tabs > li > a {
+            color: #666;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-weight: 600;
+            font-size: 14px;
+            padding: 12px 18px;
+            transition: all 0.3s ease;
+        }
+
+        .nav-tabs > li > a:hover {
+            background-color: transparent;
+            color: #2E86AB;
+            border-bottom-color: #2E86AB;
+        }
+
+        .nav-tabs > li.active > a,
+        .nav-tabs > li.active > a:hover,
+        .nav-tabs > li.active > a:focus {
+            color: #1a1a2e;
+            background-color: transparent;
+            border-bottom-color: #2E86AB;
+        }
+
+        .tab-content { padding: 20px 0; }
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+
+        /* Section Headings */
+        .section-heading {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-bottom: 25px;
+            margin-top: 0;
+            border-left: 4px solid #2E86AB;
+            padding-left: 15px;
+        }
+
+        .phase-subtitle {
+            font-size: 18px;
+            color: #555;
+            font-weight: 400;
+            margin-top: -20px;
+            margin-bottom: 25px;
+            padding-left: 19px;
+        }
+
+        .subsection-heading {
+            font-size: 20px;
+            color: #1a1a2e;
+            font-weight: 600;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+
+        /* Framework Boxes */
+        .framework-box {
+            background: linear-gradient(135deg, #f0f7ff 0%, #e8f4f8 100%);
+            border-left: 4px solid #2E86AB;
+            padding: 20px 25px;
+            margin: 25px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .framework-box h4 {
+            color: #2E86AB;
+            font-weight: 700;
+            margin-top: 0;
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+
+        /* Step Cards */
+        .step-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px 25px;
+            margin: 15px 0;
+            position: relative;
+            transition: box-shadow 0.2s ease;
+        }
+
+        .step-card:hover {
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+
+        .step-number {
+            display: inline-block;
+            width: 32px;
+            height: 32px;
+            background-color: #2E86AB;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 32px;
+            font-weight: 700;
+            font-size: 15px;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+
+        .step-title {
+            font-weight: 700;
+            font-size: 17px;
+            color: #1a1a2e;
+            display: inline;
+        }
+
+        .step-body {
+            margin-top: 10px;
+            color: #444;
+        }
+
+        /* Metric Cards */
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .metric-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 18px;
+            border-top: 3px solid #2E86AB;
+        }
+
+        .metric-card.orange { border-top-color: #F18F01; }
+        .metric-card.green { border-top-color: #2CA58D; }
+        .metric-card.red { border-top-color: #E15554; }
+
+        .metric-card h5 {
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-top: 0;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+
+        .metric-card p {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 0;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        /* Phase Banner */
+        .phase-banner {
+            display: flex;
+            align-items: center;
+            background: #1a1a2e;
+            color: white;
+            padding: 14px 20px;
+            border-radius: 8px;
+            margin: 30px 0 20px 0;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .phase-icon {
+            font-size: 24px;
+            margin-right: 12px;
+        }
+
+        /* Example Callouts */
+        .example-callout {
+            background: #fffbf0;
+            border-left: 4px solid #F18F01;
+            padding: 18px 22px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .example-callout .callout-label {
+            font-weight: 700;
+            color: #F18F01;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        /* Source Citations */
+        .source-callout {
+            background: #f0f7ff;
+            border-left: 4px solid #6c63ff;
+            padding: 14px 18px;
+            margin: 20px 0;
+            border-radius: 0 6px 6px 0;
+            font-size: 14px;
+        }
+
+        .source-callout .source-label {
+            font-weight: 700;
+            color: #6c63ff;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        /* Math Details (Collapsible) */
+        .math-details {
+            margin: 20px 0;
+        }
+
+        .math-details summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: #2E86AB;
+            padding: 10px 15px;
+            background: #f0f7ff;
+            border-left: 4px solid #2E86AB;
+            border-radius: 0 6px 6px 0;
+            font-size: 14px;
+            user-select: none;
+        }
+
+        .math-details summary:hover {
+            background: #e8f0fe;
+        }
+
+        .math-details[open] summary {
+            margin-bottom: 0;
+            border-radius: 0 6px 0 0;
+        }
+
+        .math-content {
+            background: #f8fbff;
+            border-left: 4px solid #2E86AB;
+            padding: 15px 20px;
+            font-size: 14px;
+            line-height: 1.8;
+            border-radius: 0 0 6px 6px;
+        }
+
+        .math-content code {
+            background: #e8f0fe;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+
+        .math-content pre {
+            background: #e8f0fe;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        /* Comparison Table */
+        .styled-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+
+        .styled-table thead {
+            background-color: #1a1a2e;
+            color: white;
+        }
+
+        .styled-table th {
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .styled-table td {
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .styled-table tbody tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+        .styled-table tbody tr:hover {
+            background-color: #f0f7ff;
+        }
+
+        /* Lifecycle Diagram */
+        .lifecycle-flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0;
+            margin: 30px 0;
+        }
+
+        .lifecycle-stage {
+            text-align: center;
+            padding: 15px 20px;
+            border-radius: 8px;
+            min-width: 130px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+        }
+
+        .lifecycle-stage:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+        }
+
+        .lifecycle-stage.lc-active {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+            outline: 3px solid #1a1a2e;
+            outline-offset: 2px;
+        }
+
+        .lifecycle-stage.lc-dimmed { opacity: 0.4; }
+
+        .lifecycle-stage .stage-label {
+            font-size: 11px;
+            opacity: 0.85;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .lc-table-hint {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+            font-size: 14px;
+            padding: 24px 0;
+        }
+
+        .lc-detail-card {
+            display: none;
+            border-left: 4px solid #ccc;
+            padding: 20px 24px;
+            margin: 0 0 10px 0;
+            border-radius: 0 8px 8px 0;
+            background: #fafbfc;
+            animation: lcFadeIn 0.3s ease;
+        }
+
+        .lc-detail-card.lc-visible { display: block; }
+        .lc-detail-card h4 { margin-top: 0; font-size: 17px; }
+        .lc-detail-card .lc-meta { font-size: 13px; color: #888; margin-top: 12px; }
+        .lc-detail-card .lc-meta strong { color: #666; }
+
+        .lc-card-discovery { border-left-color: #6c63ff; }
+        .lc-card-validation { border-left-color: #2E86AB; }
+        .lc-card-build { border-left-color: #2CA58D; }
+        .lc-card-rollout { border-left-color: #F18F01; }
+        .lc-card-scale { border-left-color: #E15554; }
+
+        @keyframes lcFadeIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .lifecycle-arrow {
+            font-size: 24px;
+            color: #999;
+            padding: 0 5px;
+        }
+
+        .stage-discovery { background: #6c63ff; }
+        .stage-validation { background: #2E86AB; }
+        .stage-build { background: #2CA58D; }
+        .stage-rollout { background: #F18F01; }
+        .stage-scale { background: #E15554; }
+
+        /* Checklist */
+        .checklist {
+            list-style: none;
+            padding: 0;
+            margin: 15px 0;
+        }
+
+        .checklist li {
+            padding: 8px 0 8px 30px;
+            position: relative;
+            font-size: 15px;
+        }
+
+        .checklist li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #2CA58D;
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        /* Key Insight Box */
+        .insight-box {
+            background: linear-gradient(135deg, #e8f8f0 0%, #f0fff8 100%);
+            border-left: 4px solid #2CA58D;
+            padding: 18px 22px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .insight-box .insight-label {
+            font-weight: 700;
+            color: #2CA58D;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        /* Warning Box */
+        .warning-box {
+            background: #fff5f5;
+            border-left: 4px solid #E15554;
+            padding: 18px 22px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .warning-box .warning-label {
+            font-weight: 700;
+            color: #E15554;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            margin: 25px 0;
+            padding: 15px;
+            background: #fafbfc;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .blog-title { font-size: 24px; }
+            .nav-tabs > li > a { padding: 10px 10px; font-size: 12px; }
+            .metric-grid { grid-template-columns: 1fr; }
+            .lifecycle-flow { flex-direction: column; }
+            .lifecycle-arrow { transform: rotate(90deg); }
+            .phase-banner { font-size: 15px; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="page-container">
+  <div id="content-wrap">
+    <div w3-include-html="/folders/navbar_footer/navbar_pages.html"></div>
+
+<div class="blog-container">
+
+    <!-- Header -->
+    <div class="blog-header">
+        <h1 class="blog-title">Product Analytics in Practice: An E-Commerce Case Study</h1>
+        <p class="blog-subtitle">Applying the five-phase analytics framework to an AI-powered recommendation platform, with worked examples, interactive charts, and the math behind each method</p>
+        <div class="blog-meta">
+            <strong>Author:</strong> Trinidad Cisneros &nbsp;|&nbsp;
+            <strong>Published:</strong> April 2026 &nbsp;|&nbsp;
+            <strong>Read time:</strong> ~15 minutes
+        </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <ul class="nav nav-tabs" role="tablist">
+        <li role="presentation" class="active"><a href="#tab-overview" role="tab" data-toggle="tab">Overview</a></li>
+        <li role="presentation"><a href="#tab-discovery" role="tab" data-toggle="tab">Discovery</a></li>
+        <li role="presentation"><a href="#tab-validation" role="tab" data-toggle="tab">Validation</a></li>
+        <li role="presentation"><a href="#tab-build" role="tab" data-toggle="tab">Build</a></li>
+        <li role="presentation"><a href="#tab-rollout" role="tab" data-toggle="tab">Rollout</a></li>
+        <li role="presentation"><a href="#tab-scale" role="tab" data-toggle="tab">Scale</a></li>
+        <li role="presentation"><a href="#tab-methods" role="tab" data-toggle="tab">Methods Reference</a></li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content">
+
+        <!-- ==================== TAB 1: OVERVIEW ==================== -->
+        <div role="tabpanel" class="tab-pane active" id="tab-overview">
+            <h2 class="section-heading">Overview: The Five-Phase Analytics Lifecycle</h2>
+
+            <p>This case study demonstrates how a product analyst applies the five-phase analytics framework to an AI-powered e-commerce recommendation engine.</p>
+
+            <p>The framework provides a structured approach to answering a single question at each phase:</p>
+            <ul>
+                <li>Is there an opportunity?</li>
+                <li>Does it work?</li>
+                <li>Can it be measured?</li>
+                <li>Is the rollout successful?</li>
+                <li>Where should the team optimize next?</li>
+            </ul>
+
+            <p>The underlying principle is simple: analytics should inform every decision before, during, and after launch.</p>
+
+            <p>A product analyst embeds measurement into the product lifecycle from the beginning, starting with market sizing and opportunity analysis, moving through validation and instrumentation, and concluding with adoption tracking, performance monitoring, and retention optimization.</p>
+
+            <h3 class="subsection-heading">Why This Framework Matters</h3>
+
+            <p>Many product teams approach analytics reactively; building dashboards only after launch, waiting for problems to surface, or measuring metrics that do not connect to business outcomes.</p>
+
+            <p>The 5-phase framework inverts this: analytics drives the questions the team asks and the decisions they make at each phase.</p>
+
+            <div class="source-callout">
+                <div class="source-label">Framework Reference</div>
+                For the full framework treatment, see the <a href="../../playbooks/playbook_product_analytics_framework.html">Product Analytics Playbook</a>. This case study walks through each phase with concrete examples, worked calculations, and interactive charts. The goal is to show how the five phases translate into practice.
+            </div>
+
+            <!-- Product Lifecycle Diagram (Interactive) -->
+            <h3 class="subsection-heading">The Product Analytics Lifecycle</h3>
+
+            <p>At each phase, the analyst addresses a different core question. Click a phase to explore its details:</p>
+
+            <div class="lifecycle-flow" id="lc-phases">
+                <div class="lifecycle-stage stage-discovery" data-phase="discovery">
+                    <div class="stage-label">Phase 1</div>
+                    Discovery
+                </div>
+                <div class="lifecycle-arrow">→</div>
+                <div class="lifecycle-stage stage-validation" data-phase="validation">
+                    <div class="stage-label">Phase 2</div>
+                    Validation
+                </div>
+                <div class="lifecycle-arrow">→</div>
+                <div class="lifecycle-stage stage-build" data-phase="build">
+                    <div class="stage-label">Phase 3</div>
+                    Build
+                </div>
+                <div class="lifecycle-arrow">→</div>
+                <div class="lifecycle-stage stage-rollout" data-phase="rollout">
+                    <div class="stage-label">Phase 4</div>
+                    Rollout
+                </div>
+                <div class="lifecycle-arrow">→</div>
+                <div class="lifecycle-stage stage-scale" data-phase="scale">
+                    <div class="stage-label">Phase 5</div>
+                    Scale
+                </div>
+            </div>
+
+            <div id="lc-detail-area">
+                <div class="lc-table-hint" id="lc-hint">Click a phase above to see the core question, deliverables, and data sources.</div>
+
+                <div class="lc-detail-card lc-card-discovery" id="lc-card-discovery">
+                    <h4 style="color:#6c63ff;">Phase 1: Discovery</h4>
+                    <p><strong>Core question:</strong> Is there a problem worth solving, and how big is it?</p>
+                    <p><strong>Primary deliverable:</strong> Market sizing, Total Addressable Market estimation, customer segmentation</p>
+                    <p><strong>Data source:</strong> Product Manager led. Industry reports, competitive benchmarks, and domain knowledge for Total Addressable Market. The analyst validates assumptions using internal product data (conversion gaps, search failure rates, segment behavior).</p>
+                    <p class="lc-meta"><strong>Analyst role:</strong> Sources evidence and validates sizing. The Product Manager synthesizes the go/no-go recommendation.</p>
+                </div>
+
+                <div class="lc-detail-card lc-card-validation" id="lc-card-validation">
+                    <h4 style="color:#2E86AB;">Phase 2: Validation</h4>
+                    <p><strong>Core question:</strong> Does the product actually solve the problem?</p>
+                    <p><strong>Primary deliverable:</strong> Pilot design, success metrics, A/B test results</p>
+                    <p><strong>Data source:</strong> Pilot or minimum viable product experiment data. A controlled test on a small user segment using a prototype or minimal version of the feature, not the fully built product.</p>
+                    <p class="lc-meta"><strong>Analyst role:</strong> Designs the pilot, defines success thresholds, and measures baseline performance before the full product is built.</p>
+                </div>
+
+                <div class="lc-detail-card lc-card-build" id="lc-card-build">
+                    <h4 style="color:#2CA58D;">Phase 3: Build</h4>
+                    <p><strong>Core question:</strong> How does the team measure the product's impact at scale?</p>
+                    <p><strong>Primary deliverable:</strong> Event taxonomy, metrics tree, dashboard design</p>
+                    <p><strong>Data source:</strong> No new data collected. The analyst defines what to track and where to source it, informed by the pilot results from Validation. Instrumentation is built here for collection during Rollout.</p>
+                    <p class="lc-meta"><strong>Analyst role:</strong> Works with engineering to define events before development so instrumentation is built in from the start, not bolted on after.</p>
+                </div>
+
+                <div class="lc-detail-card lc-card-rollout" id="lc-card-rollout">
+                    <h4 style="color:#F18F01;">Phase 4: Rollout</h4>
+                    <p><strong>Core question:</strong> Is the product working in the real world?</p>
+                    <p><strong>Primary deliverable:</strong> Adoption funnels, cohort analysis, model performance tracking</p>
+                    <p><strong>Data source:</strong> Production user data. Real customer activity, model predictions, and funnel events flowing through the instrumentation built in Phase 3.</p>
+                    <p class="lc-meta"><strong>Analyst role:</strong> Monitors adoption, measures impact against baselines, and applies the Expand / Iterate / Pause framework.</p>
+                </div>
+
+                <div class="lc-detail-card lc-card-scale" id="lc-card-scale">
+                    <h4 style="color:#E15554;">Phase 5: Scale</h4>
+                    <p><strong>Core question:</strong> Where should the team optimize and where should it expand?</p>
+                    <p><strong>Primary deliverable:</strong> Retention analysis, churn prediction, expansion targeting</p>
+                    <p><strong>Data source:</strong> Longitudinal production data. Accumulated customer behavior over weeks or months, enabling retention curves, churn models, and lifetime value calculations.</p>
+                    <p class="lc-meta"><strong>Analyst role:</strong> Builds feedback loops that tell the team whether the product is delivering value and where to invest next, including the kill/pivot assessment.</p>
+                </div>
+            </div>
+
+            <h2 class="section-heading">About This Case Study</h2>
+
+            <p>The following tabs walk through each phase using a real-world scenario: an AI-powered product recommendation engine for e-commerce. Each tab includes mock data, worked examples, collapsible math sections (for analysts who want to understand the statistical foundations), and embedded interactive charts showing what real analysis looks like.</p>
+
+            <p>The case study is structured to serve two audiences: product analysts preparing for interviews (who can follow the framework and narratives) and those diving deeper into the statistical methods (via the collapsible sections). All the analysis flows from a single product hypothesis: AI-powered recommendations increase customer lifetime value by reducing friction in the discovery process.</p>
+
+            <div class="insight-box">
+                <div class="insight-label">Key Principle</div>
+                The framework is repeatable. Whether the product is a recommendation engine, a SaaS application, or an AI-powered healthcare tool, the five phases and the core questions at each stage remain the same. Only the metrics and data sources change.
+            </div>
+
+        </div>
+
+        <!-- ==================== TAB 2: DISCOVERY ==================== -->
+        <div role="tabpanel" class="tab-pane" id="tab-discovery">
+            <h2 class="section-heading">Phase 1: Discovery</h2>
+            <p class="phase-subtitle">Size the Opportunity</p>
+
+            <p>The Discovery phase answers the question: Is there a problem worth solving, and how large is the addressable market? Market sizing and Total Addressable Market estimation are typically driven by the product manager or business leadership. The product analyst's role in this phase is to:</p>
+            <ul>
+                <li>Support with internal data analysis</li>
+                <li>Validate the Product Manager's assumptions with evidence</li>
+                <li>Identify the highest-value customer segments using existing datasets</li>
+            </ul>
+
+            <div class="insight-box">
+                <div class="insight-label">Role Clarity</div>
+                The Product Manager owns the strategic market sizing exercise and the go/no-go decision. The analyst provides the data backbone:
+                <ul style="margin: 8px 0; padding-left: 20px;">
+                    <li>Pulling internal conversion metrics</li>
+                    <li>Identifying behavioral patterns that signal unmet demand</li>
+                    <li>Stress-testing the Product Manager's Total Addressable Market assumptions against real usage data</li>
+                </ul>
+                In organizations with a Business Intelligence team, market research and competitive intelligence may also come from that function.
+            </div>
+
+            <h3 class="subsection-heading">Step 1: Market Sizing and Total Addressable Market</h3>
+
+            <p>The Product Manager assembles the top-down market estimate using industry reports, competitive benchmarks, and domain knowledge. The analyst supports by pulling internal data that validates or challenges those assumptions. For an e-commerce recommendation engine, this means quantifying current search failure rates, product discovery friction, and conversion gaps that the recommendation engine could address.</p>
+
+            <div class="step-card">
+                <span class="step-number">1</span>
+                <span class="step-title">Gather Market Data (Product Manager Led)</span>
+                <div class="step-body">
+                    <p>The Product Manager assembles baseline market statistics from public sources: total e-commerce market size, growth rates, adoption rates for AI tools, and benchmarks for recommendation engine performance.</p>
+                    <ul style="margin-top: 10px;">
+                        <li>Total US e-commerce market: $1.1 trillion (2026, United States only)</li>
+                        <li>Merchants using AI recommendations: 35% adoption rate</li>
+                        <li>Average recommendation revenue lift: 12% increase in transaction value</li>
+                    </ul>
+                    <details class="math-details">
+                        <summary>Show Math: Total Addressable Market Estimation (Top-Down)</summary>
+                        <div class="math-content">
+                            <p><strong>Total Addressable Market = Total Market Size × Adoption Rate × Revenue Lift</strong></p>
+                            <pre>
+Total Addressable Market = $1.1 trillion × 0.35 × 0.12
+Total Addressable Market = $46.2 billion (US market only)</pre>
+                            <p>This is a top-down estimate based on industry averages. It answers: "How big could this market be if every eligible merchant adopted AI recommendations?" The Product Manager uses this to justify investment, but it does not tell the team whether the opportunity is real for this specific platform.</p>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <span class="step-number">2</span>
+                <span class="step-title">Validate with Internal Data (Analyst Led)</span>
+                <div class="step-body">
+                    <p>The analyst pulls internal metrics that ground the market estimate in actual product behavior: What percentage of users abandon search without clicking? How often do customers purchase only one item when the catalog suggests complementary products? These signals quantify the internal opportunity the recommendation engine could capture.</p>
+                    <details class="math-details">
+                        <summary>Show Math: Internal Opportunity Estimation (Bottom-Up)</summary>
+                        <div class="math-content">
+                            <p>The analyst uses the platform's own data to estimate the revenue the recommendation engine could recover. This is a bottom-up calculation that the team can compare against the Product Manager's top-down market estimate.</p>
+
+                            <p><strong>Platform baseline (from internal data):</strong></p>
+                            <pre>
+Monthly sessions:        10,000,000
+Conversion rate:         12.5% (from Validation baseline)
+Average order value:     $65
+Current annual revenue:  10M × 12 × 0.125 × $65 = $975M/year</pre>
+
+                            <p><strong>Opportunity 1: Recovering abandoned search sessions</strong></p>
+                            <pre>
+Sessions with no product click:   22% × 10M = 2,200,000/month
+If recommendations capture 10% of those and convert at baseline rate:
+  2,200,000 × 0.10 × 0.125 × $65 = $1.79M/month
+  Annual recovery: ~$21.4M/year</pre>
+
+                            <p><strong>Opportunity 2: Increasing cross-sell through recommendations</strong></p>
+                            <pre>
+Current avg cart size:     1.3 items
+Target with recommendations: 1.8 items (+0.5 items)
+Avg price per added item:  $30
+Incremental cross-sell:    10M × 0.125 × 12 × 0.5 × $30 = $225M/year</pre>
+
+                            <p><strong>Combined internal opportunity: ~$246M/year for this one platform</strong></p>
+
+                            <p><strong>Interpretation:</strong> If one mid-to-large e-commerce platform sees a $246M internal opportunity, and there are thousands of similar platforms across the US market, the Product Manager's $46.2 billion top-down estimate is plausible at an order-of-magnitude level. The internal data does not prove the market estimate is correct, but it confirms the problem is real for this platform and the scale is directionally consistent.</p>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <h3 class="subsection-heading">Step 2: Customer Segmentation (Analyst Led)</h3>
+
+            <p>Not all customers are equal. The analyst segments the addressable market by characteristics that predict need, willingness to pay, and likelihood of adoption. This is squarely analyst territory, grouping merchants by:</p>
+            <ul>
+                <li>Store size</li>
+                <li>Product catalog size</li>
+                <li>Current recommendation maturity</li>
+                <li>Traffic volume</li>
+            </ul>
+
+            <div class="example-callout">
+                <div class="callout-label">Customer Segmentation Example</div>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><strong>Segment A (High-Value):</strong> Large merchants ($10M+ annual GMV) with extensive catalogs (10,000+ SKUs) and existing recommendation systems. Pain point: optimizing conversion lift. Addressable market: $24B.</li>
+                    <li><strong>Segment B (Growth):</strong> Mid-market merchants ($1M-$10M GMV) with moderate catalogs. Pain point: starting to scale recommendations. Addressable market: $18B.</li>
+                    <li><strong>Segment C (Long-tail):</strong> Small merchants (<$1M GMV). Pain point: no recommendation capability. Addressable market: $4.2B.</li>
+                </ul>
+            </div>
+
+            <p>Segmentation reveals that 52% of the total opportunity comes from Segment A (large merchants), but Segment B offers faster growth. The team's go-to-market strategy depends on this segmentation: invest in Segment A first for revenue, or Segment B first for growth and learning?</p>
+
+            <h3 class="subsection-heading">Step 3: Competitive Landscape (Product Manager Led, Analyst Supports)</h3>
+
+            <p>The Product Manager maps existing solutions, their market coverage, and identifies whitespace. The analyst supports by pulling usage data that reveals where existing solutions fall short for current customers. For AI recommendations, the landscape includes established players (Amazon SageMaker, Google Recommendations AI, Shopify's built-in engine) and emerging startups.</p>
+
+            <div class="framework-box">
+                <h4>Competitive Positioning Matrix</h4>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><strong>Established players (60% market share):</strong> Comprehensive but expensive. Require significant technical infrastructure. Best for large merchants.</li>
+                    <li><strong>Emerging SaaS (25% market share):</strong> Faster implementation, lower cost. Target mid-market and growth merchants.</li>
+                    <li><strong>Whitespace (15% market share):</strong> Long-tail merchants with no recommendation capability. Opportunity for a specialized, easy-to-integrate solution.</li>
+                </ul>
+            </div>
+
+            <div class="insight-box">
+                <div class="insight-label">Discovery Insight</div>
+                The competitive landscape analysis reveals the product's target market. If the market is dominated by well-funded competitors (Amazon, Google), the team must either find a defensible niche (e.g., specific vertical like fashion) or build a more specialized capability (e.g., live-stream shopping recommendations). If the market has whitespace, the team should prioritize speed-to-market and customer acquisition.
+            </div>
+
+        </div>
+
+        <!-- ==================== TAB 3: VALIDATION ==================== -->
+        <div role="tabpanel" class="tab-pane" id="tab-validation">
+            <h2 class="section-heading">Phase 2: Validation</h2>
+            <p class="phase-subtitle">Define and Measure Success</p>
+
+            <p>The Validation phase answers: Does the product actually solve the problem? This phase moves from market analysis to pilot testing. The analyst designs a controlled experiment (A/B test), collects baseline data, and measures whether the product delivers the promised benefit.</p>
+
+            <h3 class="subsection-heading">Step 1: Design the Pilot and Set Baselines</h3>
+
+            <p>Before running a full A/B test, the analyst must establish a baseline: the conversion rate, average order value, and other metrics without the recommendation engine. This baseline is the control group in the later experiment.</p>
+
+            <div class="example-callout">
+                <div class="callout-label">Baseline Metrics (Control Group)</div>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><strong>Sample size:</strong> 2,000 users (4-week period)</li>
+                    <li><strong>Conversion rate:</strong> 12.5% (250 conversions / 2,000 sessions)</li>
+                    <li><strong>Average order value:</strong> $65</li>
+                    <li><strong>Primary metric:</strong> Purchase conversion rate</li>
+                </ul>
+            </div>
+
+            <h3 class="subsection-heading">Step 2: Run the A/B Test</h3>
+
+            <p>The analyst runs a controlled experiment, assigning half the traffic to the control group (no recommendations) and half to the treatment group (with the AI recommendation engine). The test runs until statistical significance is reached.</p>
+
+            <div class="example-callout">
+                <div class="callout-label">A/B Test Results (Treatment Group)</div>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><strong>Sample size:</strong> 2,000 users (same 4-week period)</li>
+                    <li><strong>Conversion rate:</strong> 18.0% (360 conversions / 2,000 sessions)</li>
+                    <li><strong>Lift:</strong> +5.5 percentage points (43.75% relative increase)</li>
+                    <li><strong>Statistical significance:</strong> p < 0.0001 (highly significant)</li>
+                </ul>
+            </div>
+
+            <h3 class="subsection-heading">Step 3: Statistical Analysis, The Z-Test</h3>
+
+            <p>To confirm the lift is real and not due to randomness, the analyst performs a Z-test to compare the two proportions (control vs. treatment conversion rates).</p>
+
+            <details class="math-details">
+                <summary>Show Math: Two-Sample Z-Test for Proportions</summary>
+                <div class="math-content">
+                    <p><strong>Null Hypothesis (H₀):</strong> The treatment has no effect on conversion rate.</p>
+                    <p><strong>Alternative Hypothesis (H₁):</strong> The treatment increases conversion rate.</p>
+                    <pre>
+Given:
+  n₁ = 2,000 (control group size)
+  x₁ = 250 (control conversions)
+  p₁ = 0.125 (control conversion rate)
+
+  n₂ = 2,000 (treatment group size)
+  x₂ = 360 (treatment conversions)
+  p₂ = 0.180 (treatment conversion rate)
+
+Step 1: Calculate pooled proportion
+  p̂ = (x₁ + x₂) / (n₁ + n₂)
+  p̂ = (250 + 360) / 4,000
+  p̂ = 0.1525
+
+Step 2: Calculate standard error
+  SE = sqrt(p̂(1 - p̂) × (1/n₁ + 1/n₂))
+  SE = sqrt(0.1525 × 0.8475 × (0.0005 + 0.0005))
+  SE = sqrt(0.1292 × 0.001)
+  SE = 0.01136
+
+Step 3: Calculate Z-statistic
+  Z = (p₂ - p₁) / SE
+  Z = (0.180 - 0.125) / 0.01136
+  Z = 0.055 / 0.01136
+  Z = 4.84
+
+Step 4: Find p-value
+  p-value = P(Z > 4.84) < 0.0001
+
+Conclusion: The Z-statistic of 4.84 far exceeds the critical value of 1.96
+(for α = 0.05, two-tailed). The result is statistically significant.
+The recommendation engine increases conversion rate.</pre>
+                </div>
+            </details>
+
+            <h3 class="subsection-heading">Step 4: Bayesian Sequential Testing</h3>
+
+            <p>For faster decision-making, the analyst can use Bayesian sequential testing, which allows stopping the test early if the posterior probability of the treatment effect crosses a decision threshold (e.g., 95% confidence).</p>
+
+            <details class="math-details">
+                <summary>Show Math: Bayesian Beta-Binomial Update</summary>
+                <div class="math-content">
+                    <p><strong>Prior belief:</strong> Assume a Beta(1, 1) prior (uniform).</p>
+                    <p><strong>Update with treatment data:</strong> After observing 360 conversions in 2,000 trials, the posterior follows Beta(361, 1,641).</p>
+                    <pre>
+Posterior: Beta(α_post, β_post)
+  α_post = 1 + 360 = 361
+  β_post = 1 + (2,000 - 360) = 1,641
+
+Posterior mean: 361 / (361 + 1,641) = 0.180
+Posterior 95% credible interval: [0.163, 0.197]
+
+The analyst calculates P(p_treatment > p_control | data).
+This probability is 0.997, indicating very strong evidence in favor
+of the treatment effect.</pre>
+                </div>
+            </details>
+
+            <div class="chart-container">
+                <p><strong>Interactive Chart: Validation Funnel</strong></p>
+                <p>Embed the interactive funnel chart here (relative path from project root):</p>
+                <iframe src="data/outputs/nb02/nb02_01_classic_funnel_interactive.html" width="100%" height="500" frameborder="0" style="border: 1px solid #e0e0e0; border-radius: 6px;"></iframe>
+            </div>
+
+            <div class="insight-box">
+                <div class="insight-label">Validation Insight</div>
+                The A/B test confirms the product works. The 5.5 percentage point lift in conversion rate translates to significant revenue impact. The next phase (Build) focuses on instrumentation: how to measure this lift reliably at scale, across different user segments and product variations.
+            </div>
+
+        </div>
+
+        <!-- ==================== TAB 4: BUILD ==================== -->
+        <div role="tabpanel" class="tab-pane" id="tab-build">
+            <h2 class="section-heading">Phase 3: Build</h2>
+            <p class="phase-subtitle">Instrument the Product for Measurement</p>
+
+            <p>The Build phase answers: How does the team measure the product's impact at scale? The analyst works with the engineering team to:</p>
+            <ul>
+                <li>Design the event taxonomy</li>
+                <li>Create the metrics tree</li>
+                <li>Define dashboards</li>
+                <li>Set guardrail thresholds</li>
+            </ul>
+            <p>Build is about embedding measurement into the product architecture.</p>
+
+            <h3 class="subsection-heading">Step 1: Event Taxonomy for an AI Product</h3>
+
+            <p>For an e-commerce recommendation engine, the analyst defines events that capture the full user journey: recommendation display, click, add-to-cart, and purchase. The taxonomy includes context (which recommendation algorithm fired, position on page, user segment) that enables later segmentation and debugging.</p>
+
+            <div class="example-callout">
+                <div class="callout-label">Event Taxonomy for AI Recommendation Engine</div>
+                <pre style="background: #f0f7ff; padding: 12px; border-radius: 4px; font-size: 13px; line-height: 1.6; color: #333;">
+recommendation_displayed
+  ├─ recommendation_id: unique ID for this recommendation
+  ├─ algorithm_version: "v1.0_collaborative" or "v2.0_hybrid"
+  ├─ position: 1-10 (position on page)
+  ├─ user_segment: "new", "returning", "vip"
+  └─ product_id: ID of recommended product
+
+recommendation_clicked
+  ├─ recommendation_id: (links to display event)
+  ├─ dwell_time: milliseconds spent viewing before click
+  └─ conversion_within_30min: true/false (recorded later)
+
+product_added_to_cart
+  ├─ product_id, price, source_type: "recommendation" or "search"
+  └─ recommendation_id: (if from recommendation)
+
+purchase_completed
+  ├─ order_value, num_items, items_from_recommendations: count
+  └─ recommendation_influence: "direct" or "discovery"
+                </pre>
+            </div>
+
+            <h3 class="subsection-heading">Step 2: Metrics Tree</h3>
+
+            <p>The metrics tree breaks the North Star Metric (e.g., "Revenue per User") into the input levers the team can actually move: recommendation click-through rate, conversion rate per recommendation, and customer lifetime value.</p>
+
+            <div class="chart-container">
+                <p><strong>Interactive Chart: Metrics Tree</strong></p>
+                <p>The metrics tree shows how each component contributes to the North Star:</p>
+                <iframe src="data/outputs/nb07/nb07_metrics_tree_interactive.html" width="100%" height="500" frameborder="0" style="border: 1px solid #e0e0e0; border-radius: 6px;"></iframe>
+            </div>
+
+            <h3 class="subsection-heading">Step 3: Dashboard Design</h3>
+
+            <p>The analyst sketches a real-time dashboard that shows the team at a glance whether the product is working. For the recommendation engine, the dashboard tracks recommendation impression volume, CTR, conversion rate, revenue per recommendation, and model performance metrics (precision, recall).</p>
+
+            <div class="framework-box">
+                <h4>Core Dashboard Sections</h4>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><strong>Adoption Metrics:</strong> Daily active users seeing recommendations, click-through rate, add-to-cart rate</li>
+                    <li><strong>Conversion Metrics:</strong> Purchase conversion rate by recommendation source, average order value</li>
+                    <li><strong>Model Performance:</strong> Precision, recall, F1-score; recommendation acceptance rate</li>
+                    <li><strong>Guardrails:</strong> Negative incidents (returns, complaints, null recommendations)</li>
+                </ul>
+            </div>
+
+            <h3 class="subsection-heading">Step 4: Power Analysis and Sample Size Calculation</h3>
+
+            <p>Before launch, the analyst calculates the sample size needed to detect the expected effect size with adequate power. This ensures the team does not waste time on underpowered experiments.</p>
+
+            <details class="math-details">
+                <summary>Show Math: Power Analysis for Sample Size</summary>
+                <div class="math-content">
+                    <p><strong>Scenario:</strong> The team expects a 5 percentage point lift in conversion rate, from 13% (baseline) to 18% (treatment). They want 80% power and 5% significance level.</p>
+                    <pre>
+Given:
+  p₀ = 0.13 (baseline conversion rate)
+  p₁ = 0.18 (expected treatment rate)
+  α = 0.05 (significance level, two-tailed) → Z_α/2 = 1.96
+  β = 0.20 (Type II error rate) → Z_β = 0.84 (power = 1 - β = 0.80)
+
+Formula (two-sample proportion test):
+  n = ((Z_α/2 + Z_β)² × (p₀(1-p₀) + p₁(1-p₁))) / (p₁ - p₀)²
+
+Step 1: Calculate variance terms
+  p₀(1-p₀) = 0.13 × 0.87 = 0.1131
+  p₁(1-p₁) = 0.18 × 0.82 = 0.1476
+
+Step 2: Calculate standard variance
+  p₀(1-p₀) + p₁(1-p₁) = 0.1131 + 0.1476 = 0.2607
+
+Step 3: Plug into formula
+  n = ((1.96 + 0.84)² × 0.2607) / (0.18 - 0.13)²
+  n = (2.80² × 0.2607) / 0.0025
+  n = (7.84 × 0.2607) / 0.0025
+  n = 2.047 / 0.0025
+  n = 818.8
+
+Conclusion: The team needs approximately 819 samples per group
+(1,638 total) to detect a 5 percentage point lift with 80% power
+and 5% significance level. This is achievable in 2-3 weeks of traffic.</pre>
+                </div>
+            </details>
+
+            <h3 class="subsection-heading">Step 5: Guardrail Definitions</h3>
+
+            <p>The analyst defines guardrails: metrics that must NOT degrade when the new feature launches. For a recommendation engine, guardrails include:</p>
+            <ul>
+                <li>User satisfaction (support tickets, returns)</li>
+                <li>Page load time</li>
+                <li>Null recommendation rates</li>
+            </ul>
+
+            <div class="metric-grid">
+                <div class="metric-card red">
+                    <h5>Support Tickets (Guardrail)</h5>
+                    <p class="metric-label">Recommendation-related complaints per 1,000 users</p>
+                    <p><strong>Threshold:</strong> ≤ 5 per 1,000 users (baseline: 2 per 1,000)</p>
+                </div>
+                <div class="metric-card red">
+                    <h5>Page Load Time (Guardrail)</h5>
+                    <p class="metric-label">Median load time (ms)</p>
+                    <p><strong>Threshold:</strong> ≤ 2,500ms (baseline: 2,000ms)</p>
+                </div>
+                <div class="metric-card red">
+                    <h5>Null Recommendations (Guardrail)</h5>
+                    <p class="metric-label">% of users shown blank recommendations</p>
+                    <p><strong>Threshold:</strong> ≤ 2% (baseline: 0.5%)</p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ==================== TAB 5: ROLLOUT ==================== -->
+        <div role="tabpanel" class="tab-pane" id="tab-rollout">
+            <h2 class="section-heading">Phase 4: Rollout</h2>
+            <p class="phase-subtitle">Monitor Adoption and Model Performance</p>
+
+            <p>The Rollout phase answers: Is the product working in the real world? This phase moves from controlled pilot to production. The analyst:</p>
+            <ul>
+                <li>Tracks adoption funnels</li>
+                <li>Monitors model performance (precision and recall)</li>
+                <li>Measures recommendation acceptance rates</li>
+                <li>Decides whether to expand, iterate, or pause the rollout</li>
+            </ul>
+
+            <h3 class="subsection-heading">Step 1: Adoption Funnel Analysis</h3>
+
+            <p>The analyst tracks how many users see the recommendations, click on them, add to cart, and purchase. The funnel reveals where users drop off and where the product delivers value.</p>
+
+            <div class="example-callout">
+                <div class="callout-label">AI Recommendation Funnel (30-Day Rollout Period)</div>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><strong>Step 1 – Recommendation Impressions:</strong> 10,150 users shown at least one recommendation</li>
+                    <li><strong>Step 2 – Recommendation Clicks:</strong> 6,200 users clicked a recommendation (61.1% click-through rate)</li>
+                    <li><strong>Step 3 – Viewed Product Page:</strong> 4,850 users viewed the recommended product detail page (78.2% of clickers)</li>
+                    <li><strong>Step 4 – Added to Cart:</strong> 3,900 users added a recommended product to cart (80.4% of viewers)</li>
+                    <li><strong>Step 5 – Completed Purchase:</strong> 3,730 users purchased (95.6% of cart adders)</li>
+                </ul>
+            </div>
+
+            <div class="chart-container">
+                <p><strong>Interactive Chart: AI Recommendation Funnel</strong></p>
+                <iframe src="data/outputs/nb08/nb08_01_ai_funnel_interactive.html" width="100%" height="500" frameborder="0" style="border: 1px solid #e0e0e0; border-radius: 6px;"></iframe>
+            </div>
+
+            <h3 class="subsection-heading">Step 2: Cohort Retention Analysis</h3>
+
+            <p>The analyst creates retention cohorts to track whether users who received recommendations come back and repurchase. Week 1 retention (% of users who purchased in week 1 and returned in week 2) indicates product engagement and stickiness.</p>
+
+            <div class="chart-container">
+                <p><strong>Interactive Chart: N-Week Retention Curves</strong></p>
+                <iframe src="data/outputs/nb06/nb06_01_nweek_retention_curve_interactive.html" width="100%" height="500" frameborder="0" style="border: 1px solid #e0e0e0; border-radius: 6px;"></iframe>
+            </div>
+
+            <h3 class="subsection-heading">Step 3: Kaplan-Meier Survival Analysis</h3>
+
+            <p>For long-term product retention, the analyst uses Kaplan-Meier survival curves to estimate the probability that a user remains active (making purchases) over time. This accounts for users who churn at different points in time.</p>
+
+            <div class="chart-container">
+                <p><strong>Interactive Chart: Kaplan-Meier Survival Curve</strong></p>
+                <iframe src="data/outputs/nb06/nb06_03_kaplan_meier_interactive.html" width="100%" height="500" frameborder="0" style="border: 1px solid #e0e0e0; border-radius: 6px;"></iframe>
+            </div>
+
+            <details class="math-details">
+                <summary>Show Math: Kaplan-Meier Survival Estimator</summary>
+                <div class="math-content">
+                    <p><strong>Purpose:</strong> Estimate the probability of surviving (remaining active) past time t, accounting for censoring (users who leave for other reasons).</p>
+                    <pre>
+S(t) = ∏ (1 - d_i / n_i)
+
+Where:
+  S(t) = probability of surviving past time t
+  d_i = number of events (churn) at time i
+  n_i = number at risk just before time i
+
+Example calculation at Week 4:
+  Time 0: n₀ = 3,730, d₀ = 0
+  Time 1: n₁ = 3,650, d₁ = 80 (churned)
+  Time 2: n₂ = 3,500, d₂ = 150 (churned)
+  Time 3: n₃ = 3,300, d₃ = 200 (churned)
+  Time 4: n₄ = 3,100, d₄ = 200 (churned)
+
+S(4) = (1 - 80/3,650) × (1 - 150/3,500) × (1 - 200/3,300) × (1 - 200/3,100)
+S(4) = 0.978 × 0.957 × 0.939 × 0.935
+S(4) = 0.851
+
+Interpretation: 85.1% of users who received recommendations are
+still active at week 4.</pre>
+                </div>
+            </details>
+
+            <h3 class="subsection-heading">Step 4: Model Performance Metrics</h3>
+
+            <p>For AI-powered products, the analyst tracks model performance metrics: precision (are the recommendations good?), recall (does the model find all good recommendations?), and acceptance rate (do users like the suggestions?).</p>
+
+            <div class="example-callout">
+                <div class="callout-label">AI Recommendation Model Performance</div>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><strong>Total recommendations shown:</strong> 10,150</li>
+                    <li><strong>True Positives (recommended & purchased):</strong> 5,088</li>
+                    <li><strong>False Positives (recommended but not purchased):</strong> 738</li>
+                    <li><strong>False Negatives (not recommended but purchased anyway):</strong> 0 (not directly observable)</li>
+                    <li><strong>Precision:</strong> 87.3% (good recommendations / all recommendations)</li>
+                    <li><strong>Recall:</strong> 100% (the model surfaces all good options)</li>
+                </ul>
+            </div>
+
+            <div class="chart-container">
+                <p><strong>Interactive Chart: Confusion Matrix</strong></p>
+                <iframe src="data/outputs/nb08/nb08_04_confusion_matrix_interactive.html" width="100%" height="500" frameborder="0" style="border: 1px solid #e0e0e0; border-radius: 6px;"></iframe>
+            </div>
+
+            <details class="math-details">
+                <summary>Show Math: Precision, Recall, and F1-Score</summary>
+                <div class="math-content">
+                    <p><strong>Definitions for AI recommendation model:</strong></p>
+                    <pre>
+Precision = TP / (TP + FP)
+            = 5,088 / (5,088 + 738)
+            = 5,088 / 5,826
+            = 0.873 (87.3%)
+
+Recall = TP / (TP + FN)
+       = 5,088 / (5,088 + 0)
+       = 1.0 (100%)
+
+F1-Score = 2 × (Precision × Recall) / (Precision + Recall)
+         = 2 × (0.873 × 1.0) / (0.873 + 1.0)
+         = 1.746 / 1.873
+         = 0.932 (93.2%)
+
+Interpretation:
+  - Precision (87.3%): Of 100 recommendations the model makes,
+    87 will be purchased and 13 will be ignored. High precision
+    means fewer wasted recommendations.
+  - Recall (100%): The model recommends all good products.
+    Users are not missing good options.
+  - F1-Score (93.2%): Balanced measure of precision-recall
+    trade-off. Very strong performance.</pre>
+                </div>
+            </details>
+
+            <div class="insight-box">
+                <div class="insight-label">Rollout Insight</div>
+                The funnel, retention, and model performance metrics tell a consistent story: the recommendation engine is working. Users engage with recommendations at high rates, convert to purchase, come back repeatedly, and the model is precise. The next question (Scale phase) is: how to expand to more users, optimize for retention, and increase revenue per user?
+            </div>
+
+        </div>
+
+        <!-- ==================== TAB 6: SCALE ==================== -->
+        <div role="tabpanel" class="tab-pane" id="tab-scale">
+            <h2 class="section-heading">Phase 5: Scale</h2>
+            <p class="phase-subtitle">Optimize Growth and Retention</p>
+
+            <p>The Scale phase answers: Where should the team optimize and where should it expand? With the product validated and working in production, the analyst focuses on retention strategies, churn prediction, and customer lifetime value optimization. The goal is to maximize the total value delivered and captured by the business.</p>
+
+            <h3 class="subsection-heading">Step 1: Churn Risk Scoring</h3>
+
+            <p>The analyst builds a predictive model that identifies users at risk of churning (not returning to purchase again). This enables proactive intervention: special offers, personalized recommendations, or support outreach.</p>
+
+            <div class="chart-container">
+                <p><strong>Interactive Chart: Churn Risk Scoring Model Features</strong></p>
+                <iframe src="data/outputs/nb06/nb06_05_churn_risk_features_interactive.html" width="100%" height="500" frameborder="0" style="border: 1px solid #e0e0e0; border-radius: 6px;"></iframe>
+            </div>
+
+            <details class="math-details">
+                <summary>Show Math: Logistic Regression for Churn Prediction</summary>
+                <div class="math-content">
+                    <p><strong>Model:</strong> Logistic regression predicts churn probability based on user features.</p>
+                    <pre>
+P(Churn) = 1 / (1 + e^(-z))
+
+Where z = β₀ + β₁×days_since_last_purchase + β₂×purchase_frequency
+          + β₃×avg_order_value + β₄×support_tickets
+
+Example fitted coefficients:
+  β₀ (intercept) = -2.5
+  β₁ (days since last purchase) = 0.08   (higher days → higher churn risk)
+  β₂ (purchase frequency) = -0.15        (more frequent purchasers → lower risk)
+  β₃ (average order value) = -0.002      (higher spending → lower risk)
+  β₄ (support tickets) = 0.12            (more tickets → higher risk)
+
+For a user with:
+  days_since_last_purchase = 30
+  purchase_frequency = 5
+  avg_order_value = 80
+  support_tickets = 1
+
+z = -2.5 + 0.08×30 - 0.15×5 - 0.002×80 + 0.12×1
+z = -2.5 + 2.4 - 0.75 - 0.16 + 0.12
+z = -0.89
+
+P(Churn) = 1 / (1 + e^0.89)
+P(Churn) = 1 / (1 + 2.44)
+P(Churn) = 0.29 (29% churn risk)
+
+Action: Flag this user for intervention. Offer a personalized
+discount or recommendation to re-engage.</pre>
+                </div>
+            </details>
+
+            <h3 class="subsection-heading">Step 2: Outcome Matrix and Decision Framework</h3>
+
+            <p>The analyst creates a 2×2 matrix to prioritize optimization opportunities: which user segments should the team focus on (high value + high churn risk), which segments are stable, and which are growing?</p>
+
+            <div class="chart-container">
+                <p><strong>Interactive Chart: Outcome Matrix (LTV vs. Churn Risk)</strong></p>
+                <iframe src="data/outputs/nb08/nb08_08_outcome_matrix_interactive.html" width="100%" height="500" frameborder="0" style="border: 1px solid #e0e0e0; border-radius: 6px;"></iframe>
+            </div>
+
+            <div class="framework-box">
+                <h4>Outcome Matrix Quadrants</h4>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><strong>Top-Right (High Value, High Churn Risk):</strong> VIP customers at risk. Top priority for retention investments.</li>
+                    <li><strong>Top-Left (High Value, Low Churn Risk):</strong> Stable, profitable customers. Upsell opportunities.</li>
+                    <li><strong>Bottom-Right (Low Value, High Churn Risk):</strong> Low-engagement users. Consider win-back campaigns or accept churn.</li>
+                    <li><strong>Bottom-Left (Low Value, Low Churn Risk):</strong> New users or small-spenders with potential. Growth opportunity.</li>
+                </ul>
+            </div>
+
+            <h3 class="subsection-heading">Step 3: North Star Tracking by Cohort</h3>
+
+            <p>The analyst tracks the North Star Metric (e.g., Revenue per User) broken down by cohort (acquisition date, geographic region, user segment). This reveals where growth is strongest and where optimization is needed.</p>
+
+            <div class="chart-container">
+                <p><strong>Interactive Chart: North Star Metric Tracking</strong></p>
+                <iframe src="data/outputs/nb08/nb08_10_north_star_interactive.html" width="100%" height="500" frameborder="0" style="border: 1px solid #e0e0e0; border-radius: 6px;"></iframe>
+            </div>
+
+            <h3 class="subsection-heading">Step 4: Impact-Effort Prioritization Matrix</h3>
+
+            <p>The analyst maps optimization opportunities on an impact-effort matrix to identify quick wins (high impact, low effort) vs. long-term bets (high impact, high effort).</p>
+
+            <div class="chart-container">
+                <p><strong>Interactive Chart: Impact-Effort Prioritization</strong></p>
+                <iframe src="data/outputs/nb07/nb07_impact_effort_matrix_interactive.html" width="100%" height="500" frameborder="0" style="border: 1px solid #e0e0e0; border-radius: 6px;"></iframe>
+            </div>
+
+            <div class="example-callout">
+                <div class="callout-label">Prioritized Optimization Roadmap</div>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><strong>Quick Win:</strong> Increase recommendation impressions on homepage (low effort, estimated 3% revenue lift)</li>
+                    <li><strong>Quick Win:</strong> Show personalized recommendations in post-purchase email (low effort, estimated 5% repeat purchase rate lift)</li>
+                    <li><strong>Medium-term:</strong> A/B test recommendation display format (moderate effort, estimated 8% CTR improvement)</li>
+                    <li><strong>Long-term:</strong> Implement real-time model retraining to capture seasonal trends (high effort, estimated 12% precision improvement)</li>
+                </ul>
+            </div>
+
+            <h3 class="subsection-heading">Step 5: Executive Dashboard</h3>
+
+            <p>The analyst creates a high-level dashboard for leadership that shows whether the product is delivering business value. This includes North Star Metric, cohort performance, churn trend, and revenue impact.</p>
+
+            <div class="chart-container">
+                <p><strong>Interactive Chart: Executive Dashboard</strong></p>
+                <iframe src="data/outputs/nb07/nb07_executive_dashboard_interactive.html" width="100%" height="600" frameborder="0" style="border: 1px solid #e0e0e0; border-radius: 6px;"></iframe>
+            </div>
+
+            <h3 class="subsection-heading">Step 6: Calibration and Model Monitoring</h3>
+
+            <p>As the recommendation model runs in production, the analyst monitors whether the model's predicted probabilities match observed reality. This is calibration: when the model predicts 70% conversion rate for a segment, does that segment actually convert 70% of the time?</p>
+
+            <div class="chart-container">
+                <p><strong>Interactive Chart: Calibration Curves</strong></p>
+                <iframe src="data/outputs/nb08/nb08_06_calibration_interactive.html" width="100%" height="500" frameborder="0" style="border: 1px solid #e0e0e0; border-radius: 6px;"></iframe>
+            </div>
+
+            <details class="math-details">
+                <summary>Show Math: Calibration Error and Brier Score</summary>
+                <div class="math-content">
+                    <p><strong>Calibration Error:</strong> Measures how well predicted probabilities match observed outcomes.</p>
+                    <pre>
+For each confidence bin (e.g., 0-10%, 10-20%, ..., 90-100%),
+calculate the mean predicted probability and mean observed accuracy.
+
+Example:
+  Confidence bin 70-80%:
+    Mean predicted probability: 0.75
+    Mean observed accuracy: 0.82 (82% of recommended items were purchased)
+    Calibration error at this bin: |0.75 - 0.82| = 0.07
+
+Mean Calibration Error (MCE) = (1/B) × Σ |predicted_i - actual_i|
+                              = 0.168 (over all bins)
+
+Brier Score = (1/n) × Σ (predicted_i - actual_i)²
+            = 0.042
+
+Interpretation:
+  - MCE of 0.168 means the model is on average off by 16.8 percentage
+    points. This is reasonable for e-commerce.
+  - Brier score of 0.042 (lower is better) indicates good calibration.
+  - Action: The model is slightly overconfident at lower confidence
+    levels. Retrain with regularization to improve.</pre>
+                </div>
+            </details>
+
+            <div class="insight-box">
+                <div class="insight-label">Scale Insight</div>
+                At the Scale phase, the analyst's focus shifts from "Is it working?" to "How to grow and optimize?" The churn risk model, outcome matrix, and prioritization framework enable the team to allocate resources efficiently and maximize customer lifetime value. This is where good analytics becomes strategic advantage.
+            </div>
+
+        </div>
+
+        <!-- ==================== TAB 7: METHODS REFERENCE ==================== -->
+        <div role="tabpanel" class="tab-pane" id="tab-methods">
+            <h2 class="section-heading">Methods Reference: All Analytics Methods Across the Lifecycle</h2>
+
+            <p>This table summarizes all the statistical and analytical methods used across the five phases and the notebooks that demonstrate them. Use this as a quick reference guide when designing your own analyses or preparing for interviews.</p>
+
+            <table class="styled-table">
+                <thead>
+                    <tr>
+                        <th>Method Name</th>
+                        <th>Phase</th>
+                        <th>Key Formula / Concept</th>
+                        <th>When to Use It</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Market Sizing (Total Addressable Market)</strong></td>
+                        <td>Discovery</td>
+                        <td>Total Addressable Market = Total Market × Adoption Rate × Revenue Lift</td>
+                        <td>Estimate addressable market size before product development</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Customer Segmentation</strong></td>
+                        <td>Discovery</td>
+                        <td>Segment by willingness to pay, problem acuteness, adoption readiness</td>
+                        <td>Prioritize customer targets and tailor messaging</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Competitive Landscape Mapping</strong></td>
+                        <td>Discovery</td>
+                        <td>Feature matrix, market share analysis, whitespace identification</td>
+                        <td>Understand competitive positioning and market gaps</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Two-Sample Z-Test</strong></td>
+                        <td>Validation</td>
+                        <td>Z = (p₂ - p₁) / SE where SE = sqrt(p̂(1-p̂)(1/n₁+1/n₂))</td>
+                        <td>Test whether A/B test results are statistically significant</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Bayesian Sequential Testing</strong></td>
+                        <td>Validation</td>
+                        <td>Posterior = Beta(α + successes, β + failures)</td>
+                        <td>Run A/B tests that stop early when evidence is conclusive</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Chi-Square Test</strong></td>
+                        <td>Validation</td>
+                        <td>χ² = Σ (observed - expected)² / expected</td>
+                        <td>Test independence between categorical variables (e.g., segment × conversion)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Power Analysis & Sample Size</strong></td>
+                        <td>Build</td>
+                        <td>n = ((Z_α/2 + Z_β)² × (p₁(1-p₁) + p₂(1-p₂))) / (p₂ - p₁)²</td>
+                        <td>Calculate sample size needed for an experiment</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Event Taxonomy Design</strong></td>
+                        <td>Build</td>
+                        <td>Hierarchical event naming with context attributes</td>
+                        <td>Instrument product to enable measurement at scale</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Metrics Tree (North Star Decomposition)</strong></td>
+                        <td>Build</td>
+                        <td>North Star = Input Lever 1 × Input Lever 2 × Input Lever 3</td>
+                        <td>Break down North Star into actionable levers</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Guardrail Definition</strong></td>
+                        <td>Build</td>
+                        <td>Set upper/lower bounds on acceptable metric values</td>
+                        <td>Protect against negative side effects during experiments</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Funnel Analysis</strong></td>
+                        <td>Rollout</td>
+                        <td>Conversion rate = Step N completions / Step N entries</td>
+                        <td>Identify where users drop off in the user journey</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Cohort Retention (N-Week)</strong></td>
+                        <td>Rollout</td>
+                        <td>Retention_N = Users active in week N / Users active in week 1</td>
+                        <td>Measure long-term product engagement and sticky features</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Kaplan-Meier Survival</strong></td>
+                        <td>Rollout</td>
+                        <td>S(t) = ∏ (1 - d_i / n_i) for each time step i</td>
+                        <td>Estimate survival probability accounting for censoring</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Precision, Recall, F1-Score</strong></td>
+                        <td>Rollout</td>
+                        <td>Precision = TP/(TP+FP), Recall = TP/(TP+FN), F1 = 2×P×R/(P+R)</td>
+                        <td>Evaluate AI model recommendation quality</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Confusion Matrix</strong></td>
+                        <td>Rollout</td>
+                        <td>TP, FP, FN, TN cross-tabulation</td>
+                        <td>Visualize model performance across all outcome types</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Logistic Regression (Churn Prediction)</strong></td>
+                        <td>Scale</td>
+                        <td>P(churn) = 1 / (1 + e^(-(β₀ + β₁×x₁ + ...)))</td>
+                        <td>Predict user churn risk and identify at-risk segments</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Outcome Matrix (LTV × Churn Risk)</strong></td>
+                        <td>Scale</td>
+                        <td>Segment users into 4 quadrants based on value and risk</td>
+                        <td>Prioritize retention investments and expansion opportunities</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Impact-Effort Prioritization</strong></td>
+                        <td>Scale</td>
+                        <td>Plot opportunities on impact vs. effort 2×2 matrix</td>
+                        <td>Identify quick wins and allocate engineering resources</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Cohort Analysis (LTV by Cohort)</strong></td>
+                        <td>Scale</td>
+                        <td>LTV = Average Revenue per User × Customer Lifetime</td>
+                        <td>Understand how different user cohorts (acquisition date, source) perform</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Calibration & Brier Score</strong></td>
+                        <td>Scale</td>
+                        <td>Brier Score = (1/n) × Σ (predicted_i - actual_i)²</td>
+                        <td>Monitor whether model predictions match reality in production</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Exponential Decay (Retention Fitting)</strong></td>
+                        <td>Scale</td>
+                        <td>Retention(t) = R₀ × e^(-λt) where λ is decay constant</td>
+                        <td>Model churn as exponential decay and project long-term retention</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3 class="subsection-heading">How to Use This Reference</h3>
+
+            <p>When designing your own analysis or answering interview questions:</p>
+
+            <ul class="checklist">
+                <li>Identify the phase of product development (Discovery, Validation, Build, Rollout, or Scale)</li>
+                <li>Look up the appropriate method(s) from this table</li>
+                <li>Review the formula and the "when to use it" section</li>
+                <li>Use the collapsible math sections in the earlier tabs to understand the derivation</li>
+                <li>Reference the interactive charts to see what the output looks like</li>
+            </ul>
+
+            <div class="insight-box">
+                <div class="insight-label">Key Takeaway</div>
+                The 20+ methods in this reference span probability theory, statistics, machine learning, and product thinking. None of them are esoteric. Each solves a real problem that product teams face. Master these methods and you can answer virtually any product analytics question.
+            </div>
+
+        </div>
+
+    </div>
+    <!-- End Tab Content -->
+
+</div>
+<!-- End Blog Container -->
+
+    <div w3-include-html="/folders/navbar_footer/footer.html"></div>
+  </div>
+</div>
+
+<!-- jQuery and Bootstrap for tab functionality -->
+<script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/js/bootstrap.min.js"></script>
+
+<script>
+// Bootstrap tab functionality
+$(function() {
+    // Initialize tabs
+    $('#myTabs a').click(function (e) {
+        e.preventDefault();
+        $(this).tab('show');
+    });
+
+    // Show first tab on page load
+    $('a[href="#tab-overview"]').tab('show');
+});
+
+// ===== Lifecycle Phase Selector (Overview tab) =====
+(function() {
+    var phases = ['discovery', 'validation', 'build', 'rollout', 'scale'];
+    var activePhase = null;
+    var container = document.getElementById('lc-phases');
+    if (!container) return;
+
+    container.addEventListener('click', function(e) {
+        var stage = e.target.closest('.lifecycle-stage');
+        if (!stage) return;
+        var phase = stage.getAttribute('data-phase');
+
+        var allStages = container.querySelectorAll('.lifecycle-stage');
+        var allCards = phases.map(function(p) { return document.getElementById('lc-card-' + p); });
+        var hint = document.getElementById('lc-hint');
+
+        if (activePhase === phase) {
+            activePhase = null;
+            allStages.forEach(function(s) { s.classList.remove('lc-active', 'lc-dimmed'); });
+            allCards.forEach(function(c) { if (c) c.classList.remove('lc-visible'); });
+            if (hint) hint.style.display = 'block';
+            return;
+        }
+
+        activePhase = phase;
+        if (hint) hint.style.display = 'none';
+
+        allStages.forEach(function(s) {
+            if (s.getAttribute('data-phase') === phase) {
+                s.classList.add('lc-active');
+                s.classList.remove('lc-dimmed');
+            } else {
+                s.classList.remove('lc-active');
+                s.classList.add('lc-dimmed');
+            }
+        });
+
+        allCards.forEach(function(c) { if (c) c.classList.remove('lc-visible'); });
+        var target = document.getElementById('lc-card-' + phase);
+        if (target) target.classList.add('lc-visible');
+    });
+})();
+</script>
+
+</body>
+</html>
