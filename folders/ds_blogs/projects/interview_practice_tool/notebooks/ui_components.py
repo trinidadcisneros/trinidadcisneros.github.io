@@ -502,6 +502,273 @@ NOTEBOOK_CSS = """
 .ipu-badge-strong { background: #dcfce7; color: #166534; }
 .ipu-badge-developing { background: #fef9c3; color: #854d0e; }
 .ipu-badge-needs-work { background: #fee2e2; color: #991b1b; }
+
+/* ── Phase Guide (collapsible) ─────────────────────── */
+.ipu-guide {
+    background: #f0f7ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    margin: 8px 0;
+    overflow: hidden;
+}
+.ipu-guide-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e40af;
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+}
+.ipu-guide-toggle:hover { background: #dbeafe; }
+.ipu-guide-arrow { transition: transform 0.2s; font-size: 10px; }
+.ipu-guide.open .ipu-guide-arrow { transform: rotate(90deg); }
+.ipu-guide-body {
+    display: none;
+    padding: 0 14px 14px 14px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #334155;
+}
+.ipu-guide.open .ipu-guide-body { display: block; }
+.ipu-guide-body h4 {
+    margin: 10px 0 4px 0;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #1e40af;
+}
+.ipu-guide-body ul {
+    margin: 2px 0 8px 16px;
+    padding: 0;
+}
+.ipu-guide-body li {
+    margin: 3px 0;
+}
+
+/* ── Speaking Script (collapsible) ─────────────────── */
+.ipu-script {
+    background: #faf5ff;
+    border: 1px solid #d8b4fe;
+    border-radius: 8px;
+    margin: 8px 0;
+    overflow: hidden;
+}
+.ipu-script-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: #7c3aed;
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+}
+.ipu-script-toggle:hover { background: #f3e8ff; }
+.ipu-script-arrow { transition: transform 0.2s; font-size: 10px; }
+.ipu-script.open .ipu-script-arrow { transform: rotate(90deg); }
+.ipu-script-body {
+    display: none;
+    padding: 0 14px 14px 14px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #334155;
+}
+.ipu-script.open .ipu-script-body { display: block; }
+
+.ipu-script-section {
+    margin: 8px 0;
+    border: 1px solid #e9d5ff;
+    border-radius: 6px;
+    overflow: hidden;
+}
+.ipu-script-section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    background: #faf5ff;
+}
+.ipu-script-section-header:hover { background: #f3e8ff; }
+.ipu-script-label {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 36px;
+    text-align: center;
+}
+.ipu-script-label-open { background: #2E86AB; color: white; }
+.ipu-script-label-action { background: #F18F01; color: white; }
+.ipu-script-label-number { background: #6c63ff; color: white; }
+.ipu-script-label-bridge { background: #2CA58D; color: white; }
+.ipu-script-section-title { font-weight: 600; color: #1a1a2e; }
+.ipu-script-section-arrow { margin-left: auto; font-size: 10px; transition: transform 0.2s; }
+.ipu-script-section.open .ipu-script-section-arrow { transform: rotate(90deg); }
+
+.ipu-script-section-body {
+    display: none;
+    padding: 8px 12px 12px 12px;
+    border-top: 1px solid #e9d5ff;
+}
+.ipu-script-section.open .ipu-script-section-body { display: block; }
+
+.ipu-script-bullet {
+    display: flex;
+    gap: 8px;
+    margin: 4px 0;
+    font-size: 13px;
+}
+.ipu-script-bullet-arrow { color: #7c3aed; flex-shrink: 0; }
+.ipu-script-bullet-kw { font-weight: 700; color: #1a1a2e; }
+.ipu-script-quote {
+    margin: 6px 0 6px 20px;
+    padding: 8px 12px;
+    background: #f8fafc;
+    border-left: 3px solid #7c3aed;
+    border-radius: 0 4px 4px 0;
+    font-size: 12px;
+    font-style: italic;
+    color: #555;
+}
+.ipu-script-quote-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #7c3aed;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+/* ── Phase Separator ───────────────────────────────── */
+.ipu-phase-separator {
+    margin: 40px 0 24px 0;
+    padding: 20px 24px;
+    border-radius: 12px;
+    border-left: 5px solid;
+}
+.ipu-phase-separator h2 {
+    margin: 0 0 4px 0;
+    font-size: 20px;
+    font-weight: 700;
+}
+.ipu-phase-separator p {
+    margin: 0;
+    font-size: 13px;
+    color: #64748b;
+}
+
+/* ── Sub-step Cards ────────────────────────────────── */
+.ipu-substep {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin: 12px 0;
+    overflow: hidden;
+}
+.ipu-substep-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #f1f5f9;
+}
+.ipu-substep-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+}
+.ipu-substep-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a2e;
+}
+.ipu-substep-body {
+    padding: 12px 16px;
+}
+.ipu-substep-instruction {
+    font-size: 13px;
+    color: #475569;
+    margin: 0 0 8px 0;
+    line-height: 1.5;
+}
+.ipu-substep-hint {
+    font-size: 12px;
+    color: #7c8db0;
+    background: #f8fafc;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin: 0 0 10px 0;
+    border-left: 3px solid #cbd5e1;
+    line-height: 1.5;
+}
+.ipu-substep-feedback {
+    margin-top: 8px;
+}
+.ipu-substep-score-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+.ipu-substep-feedback-text {
+    font-size: 13px;
+    line-height: 1.5;
+    color: #334155;
+}
+.ipu-substep-missing {
+    font-size: 12px;
+    color: #92400e;
+    margin-top: 4px;
+}
+
+/* ── Speaking Sub-step ─────────────────────────────── */
+.ipu-substep-speaking {
+    border: 2px solid;
+    background: #faf5ff;
+}
+.ipu-substep-speaking .ipu-substep-header {
+    border-bottom-color: #e9d5ff;
+}
+
+/* ── Score All Button ──────────────────────────────── */
+.ipu-score-all-btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    margin: 16px 0;
+    transition: opacity 0.2s;
+}
+.ipu-score-all-btn:hover { opacity: 0.9; }
+.ipu-score-all-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>
 """
 
@@ -782,6 +1049,79 @@ def format_session_summary_html(phase_scores):
 # Phase Widget Builder
 # ============================================================
 
+def _build_guide_html(phase_id, ipu_module):
+    """Build collapsible guide HTML for a phase."""
+    guide = getattr(ipu_module, 'PHASE_GUIDES', {}).get(phase_id)
+    if not guide:
+        return ""
+
+    questions_li = "".join(f"<li>{q}</li>" for q in guide["key_questions"])
+    remember_li = "".join(f"<li>{r}</li>" for r in guide["remember"])
+
+    return f"""
+    <div class="ipu-guide" id="ipu-guide-{phase_id}">
+        <button class="ipu-guide-toggle" onclick="this.parentElement.classList.toggle('open')">
+            <span class="ipu-guide-arrow">&#9654;</span> {guide['title']}
+        </button>
+        <div class="ipu-guide-body">
+            <p style="margin:0 0 8px 0; color:#475569;">{guide['what_this_is']}</p>
+            <h4>Key questions to answer</h4>
+            <ul>{questions_li}</ul>
+            <h4>Things to remember</h4>
+            <ul>{remember_li}</ul>
+        </div>
+    </div>"""
+
+
+def _build_script_html(phase_id, ipu_module):
+    """Build collapsible speaking outline HTML for a phase."""
+    script = getattr(ipu_module, 'PHASE_SCRIPTS', {}).get(phase_id)
+    if not script:
+        return ""
+
+    sections_html = ""
+    for sec in script["sections"]:
+        label_class = f"ipu-script-label-{sec['label_type']}"
+
+        bullets_html = ""
+        for kw, text in sec["bullets"]:
+            bullets_html += f"""<div class="ipu-script-bullet">
+                <span class="ipu-script-bullet-arrow">&rarr;</span>
+                <span><span class="ipu-script-bullet-kw">{kw}:</span> {text}</span>
+            </div>"""
+
+        quote_html = ""
+        if sec.get("how_to_say_it"):
+            quote_html = f"""<div class="ipu-script-quote">
+                <div class="ipu-script-quote-label">How to say it</div>
+                {sec['how_to_say_it']}
+            </div>"""
+
+        sections_html += f"""
+        <div class="ipu-script-section" id="ipu-ss-{phase_id}-{sec['label'].lower().replace(' ', '')}">
+            <div class="ipu-script-section-header" onclick="this.parentElement.classList.toggle('open')">
+                <span class="ipu-script-label {label_class}">{sec['label']}</span>
+                <span class="ipu-script-section-title">{sec['title']}</span>
+                <span class="ipu-script-section-arrow">&#9654;</span>
+            </div>
+            <div class="ipu-script-section-body">
+                {bullets_html}
+                {quote_html}
+            </div>
+        </div>"""
+
+    return f"""
+    <div class="ipu-script" id="ipu-script-{phase_id}">
+        <button class="ipu-script-toggle" onclick="this.parentElement.classList.toggle('open')">
+            <span class="ipu-script-arrow">&#9654;</span> {script['title']}
+        </button>
+        <div class="ipu-script-body">
+            <p style="margin:0 0 8px 0; color:#6b21a8; font-size:12px;">Click any section to expand the talking points and suggested phrasing. Use these to practice speaking out loud.</p>
+            {sections_html}
+        </div>
+    </div>"""
+
+
 def make_phase_widget(phase, state, session_id, ipu_module):
     """
     Build the full interactive widget for a single phase.
@@ -797,6 +1137,10 @@ def make_phase_widget(phase, state, session_id, ipu_module):
 
     phase_num = phase["phase_num"]
     phase_id = phase["phase_id"]
+
+    # ── Guide + Script static HTML ──
+    guide_html_widget = widgets.HTML(_build_guide_html(phase_id, ipu_module))
+    script_html_widget = widgets.HTML(_build_script_html(phase_id, ipu_module))
 
     # ── Text input ──
     text_input = widgets.Textarea(
@@ -939,6 +1283,8 @@ def make_phase_widget(phase, state, session_id, ipu_module):
 
     return widgets.VBox([
         header_widget,
+        guide_html_widget,
+        script_html_widget,
         text_input,
         record_html,
         speech_js_html,
@@ -946,3 +1292,224 @@ def make_phase_widget(phase, state, session_id, ipu_module):
         feedback_output,
         hint_output,
     ], layout=widgets.Layout(margin="0 0 20px 0"))
+
+
+def make_decomposed_phase_widget(phase_id, state, session_id, ipu_module):
+    """
+    Build a decomposed phase widget with individual sub-step input fields,
+    per-step Check buttons, and a Score All button.
+    """
+    import time as _time
+
+    substeps_data = getattr(ipu_module, 'PHASE_SUBSTEPS', {}).get(phase_id)
+    if not substeps_data:
+        return widgets.HTML(f'<p>No sub-steps defined for {phase_id}</p>')
+
+    phase_color = substeps_data["phase_color"]
+    phase_bg = substeps_data["phase_bg"]
+    phase_title = substeps_data["phase_title"]
+
+    # ── Phase separator header ──
+    separator_html = widgets.HTML(f"""
+    <div class="ipu-phase-separator" style="background:{phase_bg}; border-left-color:{phase_color};">
+        <h2 style="color:{phase_color};">{phase_title}</h2>
+        <p>Complete each section below. Use Check to get feedback on individual sections, or Score All to evaluate the full phase.</p>
+    </div>
+    """)
+
+    # ── Build sub-step widgets ──
+    substep_widgets = []
+    text_inputs = {}  # id -> textarea widget
+    feedback_outputs = {}  # id -> output widget
+
+    for step in substeps_data["steps"]:
+        step_id = step["id"]
+        is_speaking = step.get("is_speaking", False)
+
+        # Textarea
+        height = "250px" if is_speaking else "120px"
+        placeholder = "Record or type your full conversation here..." if is_speaking else "Type your response..."
+        ta = widgets.Textarea(
+            placeholder=placeholder,
+            layout=widgets.Layout(width="100%", height=height),
+        )
+        text_inputs[step_id] = ta
+
+        # Feedback output
+        fb_out = widgets.Output()
+        feedback_outputs[step_id] = fb_out
+
+        # Check button
+        check_btn = widgets.Button(
+            description="Check",
+            button_style="info",
+            layout=widgets.Layout(width="80px", height="30px"),
+        )
+
+        def make_check_handler(sid, step_def, textarea, fb_output, btn):
+            def on_check(b):
+                response = textarea.value.strip()
+                if not response:
+                    with fb_output:
+                        clear_output(wait=True)
+                        display(HTML('<div style="color:#dc2626; font-size:13px; padding:4px;">Write something first.</div>'))
+                    return
+                scenario = state.get("scenario")
+                if not scenario:
+                    with fb_output:
+                        clear_output(wait=True)
+                        display(HTML('<div style="color:#dc2626; font-size:13px; padding:4px;">Generate a scenario first.</div>'))
+                    return
+
+                btn.disabled = True
+                btn.description = "..."
+                result = ipu_module.score_substep(scenario, phase_id, step_def, response)
+                btn.disabled = False
+                btn.description = "Check"
+
+                if result:
+                    score = result.get("score", 0)
+                    if score >= 4:
+                        sc_color, sc_bg = "#166534", "#dcfce7"
+                    elif score >= 3:
+                        sc_color, sc_bg = "#854d0e", "#fef9c3"
+                    else:
+                        sc_color, sc_bg = "#991b1b", "#fee2e2"
+
+                    missing_html = ""
+                    missing = result.get("missing", [])
+                    if missing:
+                        items = ", ".join(missing)
+                        missing_html = f'<div class="ipu-substep-missing">Missing: {items}</div>'
+
+                    with fb_output:
+                        clear_output(wait=True)
+                        display(HTML(f"""<div class="ipu-substep-feedback">
+                            <span class="ipu-substep-score-badge" style="background:{sc_bg}; color:{sc_color};">{score}/5</span>
+                            <div class="ipu-substep-feedback-text">{result.get('feedback', '')}</div>
+                            {missing_html}
+                        </div>"""))
+            return on_check
+
+        check_btn.on_click(make_check_handler(step_id, step, ta, fb_out, check_btn))
+
+        # Speaking section gets record button too
+        extra_widgets = []
+        if is_speaking:
+            # Find the phase_num for speech JS
+            phase_nums = {"discovery": 1, "validation": 2, "build": 3, "rollout": 4, "scale": 5}
+            pnum = phase_nums.get(phase_id, 0)
+            rec_html = widgets.HTML(f"""
+            <div style="margin-top:4px;">
+                <button class="ipu-record-btn" id="ipu-rec-btn-{pnum}0">
+                    <span class="ipu-record-dot"></span> Record
+                </button>
+                <span class="ipu-record-status" id="ipu-rec-status-{pnum}0" style="font-size:11px; color:#888;"></span>
+            </div>
+            """)
+            speech_js = widgets.HTML(_speech_js(f"{pnum}0"))
+            extra_widgets = [rec_html, speech_js]
+
+        # Build the card HTML
+        speaking_class = " ipu-substep-speaking" if is_speaking else ""
+        card_header = widgets.HTML(f"""
+        <div class="ipu-substep{speaking_class}">
+            <div class="ipu-substep-header">
+                <div class="ipu-substep-icon" style="background:{phase_color};">{step['icon']}</div>
+                <div class="ipu-substep-title">{step['title']}</div>
+            </div>
+            <div class="ipu-substep-body">
+                <div class="ipu-substep-instruction">{step['instruction']}</div>
+                <div class="ipu-substep-hint">{step['hint']}</div>
+            </div>
+        </div>
+        """)
+
+        # We need to nest the textarea inside the card visually.
+        # Since ipywidgets can't inject inside HTML, we'll use a VBox approach
+        # with the card header, then the textarea below it with matching styling
+        btn_row = widgets.HBox([check_btn], layout=widgets.Layout(justify_content="flex-end", margin="4px 0 0 0"))
+
+        step_container = widgets.VBox(
+            [card_header] + extra_widgets + [ta, btn_row, fb_out],
+            layout=widgets.Layout(
+                margin="12px 0",
+                padding="0",
+            )
+        )
+        substep_widgets.append(step_container)
+
+    # ── Score All button ──
+    score_all_output = widgets.Output()
+    score_all_btn = widgets.Button(
+        description=f"Score All {phase_title.split(':')[0].strip()}",
+        button_style="success",
+        layout=widgets.Layout(width="100%", height="44px"),
+    )
+
+    def on_score_all(b):
+        scenario = state.get("scenario")
+        if not scenario:
+            with score_all_output:
+                clear_output(wait=True)
+                display(HTML('<div style="color:#dc2626; padding:8px;">Generate a scenario first.</div>'))
+            return
+
+        # Collect all non-empty responses
+        all_responses = []
+        for step in substeps_data["steps"]:
+            val = text_inputs[step["id"]].value.strip()
+            if val:
+                all_responses.append(f"[{step['title']}]\n{val}")
+
+        if not all_responses:
+            with score_all_output:
+                clear_output(wait=True)
+                display(HTML('<div style="color:#dc2626; padding:8px;">Fill in at least one section first.</div>'))
+            return
+
+        combined = "\n\n".join(all_responses)
+
+        # Find the matching PHASES entry for full scoring
+        phase_def = None
+        for p in ipu_module.PHASES:
+            if p["phase_id"] == phase_id:
+                phase_def = p
+                break
+
+        if not phase_def:
+            return
+
+        score_all_btn.disabled = True
+        score_all_btn.description = "Scoring..."
+
+        t0 = _time.time()
+        result = ipu_module.score_response(scenario, phase_def, combined)
+        elapsed = round(_time.time() - t0, 1)
+
+        ipu_module.log_phase_result(session_id, scenario, phase_def, combined, result, time_spent_sec=elapsed)
+
+        state["phase_results"][phase_def["phase_num"]] = {
+            "phase_num": phase_def["phase_num"],
+            "phase_name": phase_def["phase_name"],
+            "composite": result.get("composite", 0),
+            "scores": result.get("scores", {}),
+        }
+
+        with score_all_output:
+            clear_output(wait=True)
+            display(HTML(format_score_html(phase_def, result)))
+
+        score_all_btn.disabled = False
+        score_all_btn.description = f"Re-Score All {phase_title.split(':')[0].strip()}"
+
+    score_all_btn.on_click(on_score_all)
+
+    # ── Guide + Script (reuse existing) ──
+    guide_widget = widgets.HTML(_build_guide_html(phase_id, ipu_module))
+    script_widget = widgets.HTML(_build_script_html(phase_id, ipu_module))
+
+    return widgets.VBox(
+        [separator_html, guide_widget, script_widget] + substep_widgets + [score_all_btn, score_all_output],
+        layout=widgets.Layout(margin="0 0 40px 0"),
+    )
