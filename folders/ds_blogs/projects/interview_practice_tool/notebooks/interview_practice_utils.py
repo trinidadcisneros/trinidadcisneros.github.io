@@ -78,6 +78,24 @@ COMPANY_ARCHETYPES = [
         "domain_context": "Hospital systems, electronic health record integration, clinical workflows, regulatory compliance, physician adoption",
         "users": ["physicians", "clinical coders", "hospital administrators", "clinical documentation specialists", "nurses"],
         "metrics_flavor": "accuracy rates, chart review time saved, query response rates, denial rate reduction",
+        "product_descriptions": [
+            "an AI-powered clinical documentation tool that reads patient charts and suggests accurate diagnosis codes, reducing the time clinical coders spend on each case from 20 minutes to under 5",
+            "an AI assistant that reviews discharge summaries and flags missing diagnoses or documentation gaps that could lead to claim denials, helping hospitals recover lost revenue",
+            "a natural language query tool that lets physicians ask questions about patient history in plain English instead of navigating through dozens of EHR screens",
+            "an AI system that monitors patient vitals in real time and alerts nurses to early signs of deterioration before traditional scoring systems would catch them",
+        ],
+        "problems": [
+            "Clinical coders spend 65% of their day on repetitive chart review, leading to burnout, high turnover, and missed diagnoses that cost the hospital millions in denied claims",
+            "Hospitals lose an estimated 5-10% of revenue to claim denials caused by incomplete or inaccurate clinical documentation that reviewers catch too late",
+            "Physicians waste 15+ minutes per patient navigating fragmented EHR systems to find relevant history, reducing the time available for actual patient care",
+            "Nurses are overwhelmed with low-priority alerts, causing alarm fatigue — and when a real deterioration happens, the signal gets lost in the noise",
+        ],
+        "customers": [
+            "Mid-to-large hospital systems with 200+ beds, typically processing 50,000+ patient encounters per year, under pressure from payers to improve documentation accuracy",
+            "Community hospitals and health networks that lack the staffing to keep up with increasingly complex coding requirements and face growing claim denial rates",
+            "Academic medical centers and large health systems where physicians are already frustrated with EHR burden and documentation requirements eating into clinical time",
+            "Acute care hospitals with high patient volumes where early detection of patient deterioration can reduce ICU transfers and improve outcomes",
+        ],
     },
     {
         "type": "B2B SaaS",
@@ -85,6 +103,24 @@ COMPANY_ARCHETYPES = [
         "domain_context": "Enterprise software, multi-seat contracts, onboarding complexity, integration with existing tools",
         "users": ["operations managers", "data teams", "IT administrators", "executives", "analysts"],
         "metrics_flavor": "seat utilization, feature adoption, time-to-value, net revenue retention, expansion revenue",
+        "product_descriptions": [
+            "a data integration platform that connects siloed business tools (CRM, ERP, support tickets) into a unified dashboard, letting operations teams see the full picture without waiting for engineering to build custom pipelines",
+            "a workflow automation tool that lets non-technical teams build cross-application processes (like approval chains, data syncs, and escalation rules) without writing code",
+            "an analytics platform that pulls metrics from multiple SaaS tools and presents them in a single executive view, replacing the weekly spreadsheet that takes 3 hours to build manually",
+            "a cloud infrastructure management tool that helps DevOps teams monitor costs, optimize resource allocation, and prevent budget overruns across AWS, GCP, and Azure",
+        ],
+        "problems": [
+            "Operations teams spend 30% of their week manually copying data between tools because existing integrations are brittle or nonexistent, leading to errors and delays",
+            "Business teams submit 40+ requests per quarter to engineering for simple workflow changes, creating a bottleneck that delays critical processes by weeks",
+            "Executives make decisions based on stale data because the weekly metrics report takes a full-time analyst 3 hours to compile from 6 different tools every Monday morning",
+            "Companies overspend on cloud infrastructure by 25-40% because no one has visibility into which resources are idle, and the bills arrive 30 days after the spend",
+        ],
+        "customers": [
+            "Mid-market companies (200-2000 employees) running 10+ SaaS tools with no centralized data team, where operations managers are stuck being the glue between systems",
+            "Growth-stage companies scaling from 50 to 500 employees where manual processes that worked at 50 people are breaking down and causing cross-team friction",
+            "Enterprise organizations where leadership has mandated data-driven decision making but the analytics team is buried in ad-hoc report requests instead of strategic analysis",
+            "Technology companies spending $500K-5M annually on cloud infrastructure with no automated cost governance, where finance and engineering blame each other for overruns",
+        ],
     },
     {
         "type": "Consumer Marketplace",
@@ -92,6 +128,24 @@ COMPANY_ARCHETYPES = [
         "domain_context": "Two-sided marketplace dynamics, supply and demand balance, trust and safety, geographic density",
         "users": ["buyers", "sellers", "freelancers", "hosts", "small business owners"],
         "metrics_flavor": "gross merchandise value, take rate, liquidity, repeat transaction rate, time-to-first-match",
+        "product_descriptions": [
+            "a local services marketplace connecting homeowners with vetted contractors for home improvement projects, handling everything from matching and quoting to payment and reviews",
+            "a freelance skills marketplace where companies post short-term projects and independent professionals bid on them, with built-in project management and milestone-based payments",
+            "a peer-to-peer marketplace for buying and selling pre-owned professional equipment, with built-in escrow, condition verification, and shipping logistics",
+            "a marketplace connecting local food producers (farms, bakeries, specialty makers) directly with consumers, offering subscription boxes and on-demand ordering",
+        ],
+        "problems": [
+            "Homeowners struggle to find reliable contractors — 60% report being ghosted after initial contact, and there is no easy way to compare quotes or verify quality before committing",
+            "Companies waste 3-4 weeks finding qualified freelancers through referrals and job boards, and 30% of projects fail because of mismatched expectations on scope and deliverables",
+            "Professional equipment sits idle 80% of the time, losing value, while other professionals in the same city are renting inferior alternatives at high monthly rates",
+            "Local food producers lose 40% of potential revenue because they lack the distribution infrastructure to reach consumers beyond their immediate geographic area",
+        ],
+        "customers": [
+            "Homeowners in suburban areas spending $5K-50K on renovation projects, frustrated with the current process of getting recommendations from friends and hoping for the best",
+            "Small-to-mid companies (20-200 employees) that hire 5-15 freelancers per quarter and currently rely on a mix of Upwork, referrals, and LinkedIn outreach",
+            "Small businesses and independent professionals who own $10K-100K in specialized equipment that sits unused most days — photography gear, construction tools, lab instruments",
+            "Health-conscious urban consumers willing to pay a premium for locally sourced food but frustrated by the effort required to find, order from, and coordinate with multiple small producers",
+        ],
     },
     {
         "type": "Fintech",
@@ -99,6 +153,24 @@ COMPANY_ARCHETYPES = [
         "domain_context": "Regulatory requirements, fraud detection, financial data sensitivity, trust building",
         "users": ["consumers", "small business owners", "accountants", "financial advisors", "compliance officers"],
         "metrics_flavor": "transaction volume, fraud rate, approval rate, cost per acquisition, activation to first transaction",
+        "product_descriptions": [
+            "an AI-powered bookkeeping tool that automatically categorizes transactions, reconciles accounts, and flags anomalies, replacing 80% of the manual work accountants do for small business clients",
+            "a real-time cash flow forecasting tool for small businesses that predicts upcoming shortfalls 30 days in advance and suggests specific actions (delay this payment, invoice that client now)",
+            "a smart expense management platform that uses AI to detect duplicate charges, subscription creep, and spending anomalies, saving the average user $200/month in waste they did not know about",
+            "a payment processing platform for small businesses that uses machine learning to optimize approval rates while minimizing fraud, increasing revenue by reducing false declines",
+        ],
+        "problems": [
+            "Small business accountants spend 60% of their time on data entry and reconciliation — low-value work that could be automated — leaving little time for advisory services that clients actually value",
+            "45% of small businesses fail because of cash flow problems, not profitability problems — they run out of money between paying suppliers and collecting from customers because they cannot see the shortfall coming",
+            "The average consumer loses $500/year to forgotten subscriptions, duplicate charges, and price increases they never noticed, because no one has time to audit every transaction on every account",
+            "Small merchants lose 2-5% of legitimate revenue to false payment declines — the fraud detection is too aggressive, blocking real customers, and the merchant has no visibility into why transactions fail",
+        ],
+        "customers": [
+            "Accounting firms with 50-500 small business clients who are under margin pressure and need to serve more clients per accountant without sacrificing quality",
+            "Small businesses with $500K-5M annual revenue and fewer than 20 employees, where the owner or office manager manages cash flow in spreadsheets and is often surprised by shortfalls",
+            "Consumers with 3+ financial accounts (checking, credit cards, subscriptions) who know they are overspending somewhere but do not have the time or energy to track every charge manually",
+            "E-commerce and retail businesses processing $1M-50M in annual payments who are losing revenue to false declines but lack the data science team to tune their fraud models",
+        ],
     },
     {
         "type": "Developer Tools",
@@ -106,6 +178,24 @@ COMPANY_ARCHETYPES = [
         "domain_context": "Developer experience, API reliability, documentation quality, community adoption, open-source dynamics",
         "users": ["software engineers", "DevOps teams", "engineering managers", "technical architects"],
         "metrics_flavor": "API calls per user, p99 latency, docs-to-first-call time, SDK adoption, community contributions",
+        "product_descriptions": [
+            "a code quality platform that scans pull requests in real time and identifies bugs, security vulnerabilities, and performance issues before they reach production, integrated directly into the CI/CD pipeline",
+            "a deployment automation tool that lets engineering teams ship to production with one click, handling rollbacks, canary releases, and infrastructure provisioning without manual DevOps work",
+            "a database schema management tool that tracks changes across environments, prevents breaking migrations, and lets teams safely evolve their data model without downtime",
+            "an API testing and monitoring platform that automatically generates test suites from API specifications, runs them on every deploy, and alerts on regressions before customers notice",
+        ],
+        "problems": [
+            "Engineering teams catch only 30% of bugs in code review — the rest make it to production, where they cost 10x more to fix and erode customer trust with every incident",
+            "Deployments take 2-4 hours of manual DevOps work per release, creating a bottleneck that limits teams to shipping once a week instead of multiple times a day",
+            "Database migrations are the number one cause of production outages — teams are afraid to change schemas because one bad migration can take down the entire application",
+            "API regressions account for 40% of customer-reported bugs, but teams only discover them after customers complain because there is no automated testing against the live API contract",
+        ],
+        "customers": [
+            "Engineering teams at mid-stage startups (50-300 engineers) shipping fast but starting to feel the pain of bugs in production, looking for automated quality gates that do not slow them down",
+            "Growth-stage companies deploying 5-20 times per week where manual deployment processes are the bottleneck, and the DevOps team is a single overworked engineer",
+            "Companies with complex data models (100+ tables, multiple services) where schema changes are a source of fear and production incidents, typically in fintech, healthcare, or e-commerce",
+            "API-first companies (SaaS platforms, developer tools, integrations) where API reliability is a core product promise and every regression directly impacts paying customers",
+        ],
     },
     {
         "type": "EdTech",
@@ -113,6 +203,24 @@ COMPANY_ARCHETYPES = [
         "domain_context": "Learning outcomes measurement, engagement vs. completion tension, institutional vs. consumer sales",
         "users": ["students", "instructors", "school administrators", "corporate learning managers", "parents"],
         "metrics_flavor": "course completion rate, assessment scores, time-to-proficiency, instructor engagement, renewal rate",
+        "product_descriptions": [
+            "an adaptive learning platform that personalizes lesson difficulty in real time based on student performance, ensuring each student is challenged at the right level instead of following a one-size-fits-all curriculum",
+            "an AI tutoring assistant that answers student questions 24/7 with step-by-step explanations, reducing the load on instructors while giving students immediate help when they are stuck",
+            "a classroom analytics dashboard that shows instructors which concepts students are struggling with in real time, so they can adjust their teaching mid-lesson instead of finding out on the exam",
+            "a corporate training platform that maps employee skills to role requirements, identifies gaps, and recommends personalized learning paths that align with both career goals and company needs",
+        ],
+        "problems": [
+            "In a class of 30 students, some are bored because the material is too easy while others fall behind because it moves too fast — teachers cannot personalize for every student with one lesson plan",
+            "Students get stuck at 11pm the night before an assignment is due, and there is no one to help — 35% of students who drop out cite lack of support as a primary reason",
+            "Instructors do not know which students are struggling until the midterm exam, by which point it is too late to intervene — the feedback loop between teaching and learning is weeks long",
+            "Companies spend $1,500 per employee per year on training with no measurable impact on performance — 70% of employees forget what they learned within a week because the content was not relevant to their actual job",
+        ],
+        "customers": [
+            "K-12 school districts with 5,000-50,000 students looking to improve standardized test scores and reduce achievement gaps between student populations",
+            "Universities and online learning platforms with 10,000+ enrolled students where instructor-to-student ratios make individual support impossible at scale",
+            "High schools and community colleges where instructors teach 4-5 sections per day and have no time to analyze individual student performance data manually",
+            "Enterprise companies with 500-5,000 employees investing in upskilling programs but struggling to show ROI to leadership because learning completion does not correlate with job performance improvement",
+        ],
     },
 ]
 
@@ -201,8 +309,17 @@ def generate_scenario(scope_filter=None, seed=None):
     company_name = rng.choice(archetype["examples"])
     user_type = rng.choice(archetype["users"])
 
+    # Pick matching product description, problem, and customer profile
+    idx = rng.randrange(len(archetype["product_descriptions"]))
+    product_description = archetype["product_descriptions"][idx]
+    problem = archetype["problems"][idx]
+    customer_profile = archetype["customers"][idx]
+
     full_prompt = (
         f"Company: {company_name} — a {archetype['type'].lower()} company.\n"
+        f"Product: {company_name} is {product_description}.\n"
+        f"Problem: {problem}.\n"
+        f"Customers: {customer_profile}.\n"
         f"Context: {archetype['domain_context']}.\n"
         f"Situation: {situation['description']} "
         f"The primary users affected are {user_type}.\n"
@@ -216,8 +333,12 @@ def generate_scenario(scope_filter=None, seed=None):
         "company_name": company_name,
         "archetype_type": archetype["type"],
         "archetype_metrics": archetype["metrics_flavor"],
+        "product_description": product_description,
+        "problem": problem,
+        "customer_profile": customer_profile,
         "situation_id": situation["id"],
         "situation_label": situation["label"],
+        "situation_description": situation["description"],
         "scope": situation["scope"],
         "emphasis_phases": situation["emphasis_phases"],
         "constraint": constraint,

@@ -905,30 +905,47 @@ def render_header():
 def format_scenario_html(scenario):
     """Return styled HTML for the scenario card."""
     scope_label = "New Product" if scenario["scope"] == "product" else "Feature on Existing Product"
+    product_desc = scenario.get('product_description', '')
+    problem = scenario.get('problem', '')
+    customer_profile = scenario.get('customer_profile', '')
+
+    # Capitalize first letter of product description (comes after "is")
+    if product_desc:
+        product_desc = product_desc[0].upper() + product_desc[1:]
+
     return f"""
     <div class="ipu-scenario">
       <h3>Case Study Scenario</h3>
       <div class="ipu-scenario-row">
         <span class="ipu-scenario-label">Company</span>
-        <span class="ipu-scenario-value">{scenario['company_name']} — {scenario['archetype_type']}</span>
+        <span class="ipu-scenario-value"><strong>{scenario['company_name']}</strong> — {scenario['archetype_type']}</span>
+      </div>
+      <div class="ipu-scenario-row">
+        <span class="ipu-scenario-label">The Product</span>
+        <span class="ipu-scenario-value">{product_desc}</span>
+      </div>
+      <div class="ipu-scenario-row">
+        <span class="ipu-scenario-label">The Problem</span>
+        <span class="ipu-scenario-value">{problem}</span>
+      </div>
+      <div class="ipu-scenario-row">
+        <span class="ipu-scenario-label">Target Customers</span>
+        <span class="ipu-scenario-value">{customer_profile}</span>
       </div>
       <div class="ipu-scenario-row">
         <span class="ipu-scenario-label">Situation</span>
-        <span class="ipu-scenario-value">{scenario['situation_label']}</span>
-      </div>
-      <div class="ipu-scenario-row">
-        <span class="ipu-scenario-label">Scope</span>
-        <span class="ipu-scenario-value">{scope_label}</span>
+        <span class="ipu-scenario-value">{scenario['situation_label']}: {scenario.get('situation_description', '') or ''}</span>
       </div>
       <div class="ipu-scenario-row">
         <span class="ipu-scenario-label">Primary Users</span>
-        <span class="ipu-scenario-value">{scenario['user_type']}</span>
+        <span class="ipu-scenario-value">{scenario['user_type'].title()}</span>
       </div>
       <div class="ipu-scenario-row">
         <span class="ipu-scenario-label">Constraint</span>
         <span class="ipu-scenario-constraint">{scenario['constraint']}</span>
       </div>
       <div class="ipu-scenario-meta">
+        Scope: {scope_label} |
         Emphasis phases: {', '.join(p.title() for p in scenario['emphasis_phases'])} |
         Domain metrics: {scenario['archetype_metrics']}
       </div>
@@ -1410,8 +1427,9 @@ def make_decomposed_phase_widget(phase_id, state, session_id, ipu_module):
             speech_js = widgets.HTML(_speech_js(f"{pnum}0"))
             extra_widgets = [rec_html, speech_js]
 
-        # Build the card HTML
+        # Build the card HTML with collapsible hint
         speaking_class = " ipu-substep-speaking" if is_speaking else ""
+        hint_id = f"hint-{phase_id}-{step['id']}"
         card_header = widgets.HTML(f"""
         <div class="ipu-substep{speaking_class}">
             <div class="ipu-substep-header">
@@ -1420,7 +1438,10 @@ def make_decomposed_phase_widget(phase_id, state, session_id, ipu_module):
             </div>
             <div class="ipu-substep-body">
                 <div class="ipu-substep-instruction">{step['instruction']}</div>
-                <div class="ipu-substep-hint">{step['hint']}</div>
+                <div class="ipu-substep-hint-toggle" onclick="var b=document.getElementById('{hint_id}'); var a=this.querySelector('.hint-arrow'); if(b.style.display==='none'){{b.style.display='block'; a.textContent='▼';}} else {{b.style.display='none'; a.textContent='▶';}}" style="cursor:pointer; color:#6c63ff; font-size:12px; font-weight:600; padding:4px 0; user-select:none;">
+                    <span class="hint-arrow" style="font-size:10px; margin-right:4px;">▶</span> Show Hint
+                </div>
+                <div id="{hint_id}" class="ipu-substep-hint" style="display:none;">{step['hint']}</div>
             </div>
         </div>
         """)
