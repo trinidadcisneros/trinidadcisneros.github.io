@@ -3017,6 +3017,94 @@ result = merged[merged[&#x27;_merge&#x27;] == &#x27;left_only&#x27;][[&#x27;user
               </div>
             </div>
           </div>
+
+          <div class="problem-card collapsed">
+            <div class="problem-card-header" onclick="this.parentElement.classList.toggle('collapsed')">
+              <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <span style="display: inline-block; background-color: #c62828; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Hard</span>
+                #101. The Cheapest Airline Connection
+              </h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>Find the cheapest trip between every origin and destination pair, allowing up to two stops. A single flights table contains origin, destination, and cost columns.</p>
+            </div>
+            <div class="problem-card-content">
+              <p><strong>Tables:</strong> <code>da.flights (id, origin, destination, cost)</code></p>
+
+              <div class="guide-link">
+                <div class="guide-link-icon">&rarr;</div>
+                <div class="guide-link-content">
+                  <p class="guide-link-title">Key Pandas Concepts</p>
+                  <p class="guide-link-text">Chained self-merge (df.merge(df) up to 3 legs), pd.concat() to stack route options, .groupby().min() for cheapest per pair</p>
+                </div>
+              </div>
+
+              <div style="background-color: #f0f4ff; border-left: 4px solid #1565c0; padding: 15px; margin: 15px 0; border-radius: 4px;">
+                <p style="margin: 0 0 8px 0; font-weight: 600; color: #1565c0;">Decision Tree Path</p>
+                <p style="margin: 0; line-height: 1.8; font-size: 1.4rem;">START &rarr; ONE TABLE &rarr; but it requires <strong>SELF-JOIN</strong> (Multi-Table tree) &rarr; <strong>CHAINED SELF-JOIN</strong> because you need to build multi-hop routes by merging the flights table with itself 2 and 3 times, then combine all route lengths with pd.concat() and take the min cost per pair.</p>
+              </div>
+
+              <div style="background-color: #fff8e1; border-left: 4px solid #f57f17; padding: 15px; margin: 15px 0; border-radius: 4px;">
+                <p style="margin: 0 0 8px 0; font-weight: 600; color: #e65100;">Strategy Breakdown</p>
+                <ol style="margin: 0; padding-left: 20px; line-height: 2.0; font-size: 1.4rem;">
+                  <li><strong>Direct flights (0 stops):</strong> just the raw table as is</li>
+                  <li><strong>One stop flights (2 legs):</strong> self-merge where leg1.destination == leg2.origin, sum costs, filter out circular trips</li>
+                  <li><strong>Two stop flights (3 legs):</strong> chain a third self-merge, sum all three costs, filter out any leg that loops back</li>
+                  <li><strong>Combine:</strong> pd.concat() all three DataFrames</li>
+                  <li><strong>Find cheapest:</strong> .groupby([&#x27;origin&#x27;, &#x27;destination&#x27;])[&#x27;cost&#x27;].min()</li>
+                </ol>
+              </div>
+
+              <div class="solution-container">
+                <details>
+                  <summary>
+                    <span class="summary-arrow">&#9654;</span>
+                    <span class="rank-badge rank-1">Solution</span>
+                    <strong>Pandas Approach</strong>
+                  </summary>
+                  <div class="solution-content">
+                    <div class="code-block"><code># Direct flights (0 stops)
+direct = da.flights[[&#x27;origin&#x27;, &#x27;destination&#x27;, &#x27;cost&#x27;]].copy()
+
+# 1-stop flights (2 legs)
+one_stop = (
+    da.flights.merge(da.flights, left_on=&#x27;destination&#x27;, right_on=&#x27;origin&#x27;,
+                     suffixes=(&#x27;_1&#x27;, &#x27;_2&#x27;))
+    .query(&#x27;origin_1 != destination_2&#x27;)
+    .assign(origin=lambda x: x[&#x27;origin_1&#x27;],
+            destination=lambda x: x[&#x27;destination_2&#x27;],
+            cost=lambda x: x[&#x27;cost_1&#x27;] + x[&#x27;cost_2&#x27;])
+    [[&#x27;origin&#x27;, &#x27;destination&#x27;, &#x27;cost&#x27;]]
+)
+
+# 2-stop flights (3 legs)
+two_stop = (
+    da.flights.merge(da.flights, left_on=&#x27;destination&#x27;, right_on=&#x27;origin&#x27;,
+                     suffixes=(&#x27;_1&#x27;, &#x27;_2&#x27;))
+    .merge(da.flights, left_on=&#x27;destination_2&#x27;, right_on=&#x27;origin&#x27;)
+    .query(&#x27;origin_1 != destination_2 and origin_1 != destination and origin_2 != destination&#x27;)
+    .assign(origin=lambda x: x[&#x27;origin_1&#x27;],
+            destination_final=lambda x: x[&#x27;destination&#x27;],
+            cost=lambda x: x[&#x27;cost_1&#x27;] + x[&#x27;cost_2&#x27;] + x[&#x27;cost&#x27;])
+    .rename(columns={&#x27;destination_final&#x27;: &#x27;destination&#x27;})
+    [[&#x27;origin&#x27;, &#x27;destination&#x27;, &#x27;cost&#x27;]]
+)
+
+# Combine all routes and find cheapest per pair
+result = (
+    pd.concat([direct, one_stop, two_stop])
+    .groupby([&#x27;origin&#x27;, &#x27;destination&#x27;], as_index=False)[&#x27;cost&#x27;]
+    .min()
+    .rename(columns={&#x27;cost&#x27;: &#x27;min_price&#x27;})
+    .sort_values([&#x27;origin&#x27;, &#x27;destination&#x27;])
+    .reset_index(drop=True)
+)</code></div>
+                  </div>
+                </details>
+              </div>
+            </div>
+          </div>
         </div>
         <!-- TAB: RANKING -->
         <div id="tab-ranking" class="tab-pane">
@@ -6273,7 +6361,13 @@ df['channel_share'] = df['revenue'] / df.groupby('order_id')['channel'].transfor
                   Compare rows within same table<br>
                   <span style="color: #1565c0;">&rarr; Merge table with itself</span><br>
                   <code style="font-size: 1.2rem;">df.merge(df, left_on='mgr_id', right_on='id')</code><br>
-                  <span style="font-size: 1.2rem; color: #666;">Problems: #38</span>
+                  <span style="font-size: 1.2rem; color: #666;">Problems: #38</span><br>
+                  <br>
+                  <strong>CHAINED SELF-JOIN</strong><br>
+                  Build multi-hop paths through a single table<br>
+                  <span style="color: #1565c0;">&rarr; Chain 2+ self-merges, concat, groupby min</span><br>
+                  <code style="font-size: 1.2rem;">df.merge(df, ...).merge(df, ...)</code><br>
+                  <span style="font-size: 1.2rem; color: #666;">Problems: #101</span>
                 </div>
               </div>
               <div style="flex: 1; min-width: 200px;">
