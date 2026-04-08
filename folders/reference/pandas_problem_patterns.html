@@ -554,6 +554,34 @@
       padding-left: 12px;
     }
 
+    .strategy-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: white;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+
+    .strategy-badge.filter { background-color: #0288d1; }
+    .strategy-badge.aggregate { background-color: #7b1fa2; }
+    .strategy-badge.rank { background-color: #00695c; }
+    .strategy-badge.datetime { background-color: #d84315; }
+    .strategy-badge.transform { background-color: #4e342e; }
+    .strategy-badge.merge { background-color: #1565c0; }
+
+    .problem-link {
+      color: #1565c0;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .problem-link:hover {
+      color: #0d47a1;
+    }
+
     .sd-toggle {
       display: inline-flex;
       align-items: center;
@@ -6445,6 +6473,137 @@ df['channel_share'] = df['revenue'] / df.groupby('order_id')['channel'].transfor
         this.classList.add('active');
         document.getElementById(targetId).classList.add('active');
         window.scrollTo({ top: document.getElementById('tab-nav').offsetTop - 10, behavior: 'smooth' });
+      });
+    });
+
+    // Add IDs to problem cards based on their title number
+    document.querySelectorAll('.problem-card-title').forEach(function(title) {
+      var match = title.textContent.match(/#(\d+)\./);
+      if (match) {
+        var card = title.closest('.problem-card');
+        card.id = 'problem-' + match[1];
+      }
+    });
+
+    // Convert problem number references into clickable links
+    function linkifyProblems(el) {
+      var html = el.innerHTML;
+      html = html.replace(/#(\d+)/g, function(full, num) {
+        return '<a href="#problem-' + num + '" class="problem-link" data-problem="' + num + '">' + full + '</a>';
+      });
+      el.innerHTML = html;
+    }
+
+    // Apply to decision tree problem references (both sd-problems spans and inline spans)
+    document.querySelectorAll('.sd-problems').forEach(linkifyProblems);
+    document.querySelectorAll('#multi-table-tree span[style*="color: #666"]').forEach(linkifyProblems);
+    document.querySelectorAll('#single-table-tree span[style*="color: #666"]').forEach(linkifyProblems);
+
+    // Click handler: switch to the right tab, expand the card, scroll to it
+    document.addEventListener('click', function(e) {
+      var link = e.target.closest('.problem-link');
+      if (!link) return;
+      e.preventDefault();
+      var problemId = 'problem-' + link.dataset.problem;
+      var card = document.getElementById(problemId);
+      if (!card) return;
+
+      // Find which tab pane contains this card and switch to it
+      var tabPane = card.closest('.tab-pane');
+      if (tabPane) {
+        document.querySelectorAll('.tab-nav-item').forEach(function(b) { b.classList.remove('active'); });
+        document.querySelectorAll('.tab-pane').forEach(function(p) { p.classList.remove('active'); });
+        var tabBtn = document.querySelector('[data-tab="' + tabPane.id + '"]');
+        if (tabBtn) tabBtn.classList.add('active');
+        tabPane.classList.add('active');
+      }
+
+      // Expand the card if collapsed
+      if (card.classList.contains('collapsed')) {
+        card.classList.remove('collapsed');
+      }
+
+      // Scroll to the card
+      setTimeout(function() {
+        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    });
+
+    // Strategy badge mapping: problem number -> [{label, category}]
+    var strategyMap = {
+      // Filtering
+      37: [{l:'Simple condition',c:'filter'}], 55: [{l:'Simple condition',c:'filter'}],
+      76: [{l:'Simple condition',c:'filter'}], 83: [{l:'Simple condition',c:'filter'}],
+      53: [{l:'Multiple conditions',c:'filter'}], 93: [{l:'Multiple conditions',c:'filter'}],
+      22: [{l:'Multiple conditions',c:'filter'},{l:'Membership check',c:'filter'}],
+      54: [{l:'String pattern',c:'filter'}],
+      77: [{l:'Membership check',c:'filter'}],
+      81: [{l:'Compare to aggregate',c:'filter'}], 44: [{l:'Compare to aggregate',c:'filter'}],
+      // Aggregation
+      41: [{l:'Simple count/sum',c:'aggregate'}], 47: [{l:'Simple count/sum',c:'aggregate'}],
+      65: [{l:'Simple count/sum',c:'aggregate'}], 73: [{l:'Simple count/sum',c:'aggregate'}],
+      92: [{l:'Simple count/sum',c:'aggregate'}],
+      34: [{l:'Count distinct',c:'aggregate'}], 50: [{l:'Count distinct',c:'aggregate'}],
+      78: [{l:'Count distinct',c:'aggregate'}],
+      21: [{l:'Multiple agg',c:'aggregate'}], 71: [{l:'Multiple agg',c:'aggregate'}],
+      98: [{l:'Multiple agg',c:'aggregate'}],
+      16: [{l:'Row-level group stat',c:'aggregate'}],
+      36: [{l:'Best per group',c:'aggregate'}], 100: [{l:'Best per group',c:'aggregate'}],
+      // Ranking
+      40: [{l:'Global top-N',c:'rank'}], 60: [{l:'Global top-N',c:'rank'}],
+      39: [{l:'Top-N per group',c:'rank'}], 59: [{l:'Top-N per group',c:'rank'}],
+      43: [{l:'Top-N per group',c:'rank'}],
+      20: [{l:'Dense rank',c:'rank'}], 30: [{l:'Dense rank',c:'rank'}],
+      91: [{l:'Dense rank',c:'rank'}],
+      12: [{l:'Unique rank',c:'rank'}],
+      // DateTime
+      2: [{l:'Time difference',c:'datetime'}], 3: [{l:'Time difference',c:'datetime'}],
+      72: [{l:'Time difference',c:'datetime'}], 84: [{l:'Time difference',c:'datetime'}],
+      7: [{l:'Month-over-month',c:'datetime'}], 19: [{l:'Month-over-month',c:'datetime'}],
+      89: [{l:'Month-over-month',c:'datetime'}], 97: [{l:'Month-over-month',c:'datetime'}],
+      31: [{l:'Rolling window',c:'datetime'}],
+      42: [{l:'Retention/cohort',c:'datetime'}], 46: [{l:'Retention/cohort',c:'datetime'}],
+      88: [{l:'Retention/cohort',c:'datetime'}],
+      6: [{l:'Date range filter',c:'datetime'}], 45: [{l:'Date range filter',c:'datetime'}],
+      95: [{l:'Date range filter',c:'datetime'}],
+      // Transform
+      28: [{l:'Conditional classification',c:'transform'}], 29: [{l:'Conditional classification',c:'transform'}],
+      9: [{l:'Stack/reshape',c:'transform'}], 61: [{l:'Stack/reshape',c:'transform'}],
+      35: [{l:'String pattern',c:'filter'},{l:'Regex text search',c:'transform'}],
+      70: [{l:'Regex text search',c:'transform'}],
+      33: [{l:'Explode list',c:'transform'}],
+      49: [{l:'Consecutive streak',c:'transform'}], 68: [{l:'Consecutive streak',c:'transform'}],
+      96: [{l:'Consecutive streak',c:'transform'}],
+      52: [{l:'Vote/weight split',c:'transform'}],
+      // Multi-table: Merge
+      1: [{l:'Lookup/Enrich',c:'merge'}], 5: [{l:'Lookup/Enrich',c:'merge'}],
+      15: [{l:'Lookup/Enrich',c:'merge'}], 23: [{l:'Lookup/Enrich',c:'merge'}],
+      48: [{l:'Lookup/Enrich',c:'merge'}], 66: [{l:'Lookup/Enrich',c:'merge'}],
+      90: [{l:'Lookup/Enrich',c:'merge'}], 14: [{l:'Lookup/Enrich',c:'merge'}],
+      38: [{l:'Self-join',c:'merge'}],
+      101: [{l:'Chained self-join',c:'merge'},{l:'Global top-N',c:'rank'}],
+      10: [{l:'3+ Tables',c:'merge'}], 11: [{l:'3+ Tables',c:'merge'}],
+      25: [{l:'3+ Tables',c:'merge'}], 75: [{l:'3+ Tables',c:'merge'}],
+      82: [{l:'3+ Tables',c:'merge'},{l:'Conditional classification',c:'transform'}],
+      17: [{l:'Set membership',c:'merge'}], 51: [{l:'Set membership',c:'merge'}],
+      67: [{l:'Set membership',c:'merge'}], 87: [{l:'Set membership',c:'merge'}],
+      63: [{l:'Cross-join/Match',c:'merge'}],
+      24: [{l:'Aggregate then join',c:'merge'}], 69: [{l:'Aggregate then join',c:'merge'}],
+      94: [{l:'Aggregate then join',c:'merge'}], 99: [{l:'Aggregate then join',c:'merge'}]
+    };
+
+    // Inject strategy badges into problem card headers
+    document.querySelectorAll('.problem-card-title').forEach(function(title) {
+      var match = title.textContent.match(/#(\d+)\./);
+      if (!match) return;
+      var num = parseInt(match[1]);
+      var strategies = strategyMap[num];
+      if (!strategies) return;
+      strategies.forEach(function(s) {
+        var badge = document.createElement('span');
+        badge.className = 'strategy-badge ' + s.c;
+        badge.textContent = s.l;
+        title.appendChild(badge);
       });
     });
   </script>
