@@ -572,6 +572,25 @@
     .strategy-badge.transform { background-color: #4e342e; }
     .strategy-badge.merge { background-color: #1565c0; }
 
+    .dt-tab-link {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 3px 10px;
+      background-color: #1565c0;
+      color: white !important;
+      border-radius: 3px;
+      font-size: 1.15rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .dt-tab-link:hover {
+      background-color: #0d47a1;
+      text-decoration: none;
+      color: white !important;
+    }
+
     .problem-link {
       color: #1565c0;
       text-decoration: underline;
@@ -6245,6 +6264,85 @@ df_long = pd.concat([
                 </div>
               </div>
 
+              <!-- Pivot (long to wide) -->
+              <div class="sd-row" onclick="this.classList.toggle('sd-open')">
+                <div class="sd-header">
+                  <div class="sd-header-left">
+                    <span class="sd-name">Pivot (long to wide)</span>
+                    <span class="sd-code"><code>.pivot_table()</code> or <code>.unstack()</code></span>
+                  </div>
+                  <span class="sd-problems">Problems: #63, #75</span>
+                  <span class="sd-toggle">&#9660;</span>
+                </div>
+                <div class="sd-detail">
+                  <div class="sd-detail-section">
+                    <div class="sd-detail-label sd-when">When to use</div>
+                    <p>The problem asks you to spread values from rows into columns. Look for "show each category as its own column," "compare paying vs non-paying side by side," "create a matrix of users by months," or any time you need one row per entity with multiple value columns.</p>
+                  </div>
+                  <div class="sd-detail-section">
+                    <div class="sd-detail-label sd-how">How to use</div>
+                    <p>Use <code>.pivot_table()</code> when you need aggregation (handles duplicates), or <code>.unstack()</code> after a groupby to convert an index level into columns. Applied to a <strong>DataFrame</strong>.</p>
+                    <div class="sd-code-example"><code># Pivot table with aggregation
+df.pivot_table(index='date', columns='category',
+               values='revenue', aggfunc='sum', fill_value=0)
+
+# Unstack after groupby (same result, different syntax)
+df.groupby(['date', 'category'])['revenue'].sum().unstack(fill_value=0)
+
+# Simple pivot (no aggregation, requires unique index/column pairs)
+df.pivot(index='user_id', columns='metric', values='value')</code></div>
+                  </div>
+                  <div class="sd-detail-section">
+                    <div class="sd-detail-label sd-not">When NOT to use</div>
+                    <p>If the index + column combination has duplicates and you use <code>.pivot()</code> instead of <code>.pivot_table()</code>, you get a ValueError. Always use <code>.pivot_table()</code> when in doubt. If you want the opposite direction (wide to long), use <code>.melt()</code>.</p>
+                  </div>
+                  <div class="sd-detail-section">
+                    <div class="sd-detail-label sd-scope">Applied to</div>
+                    <p><strong>DataFrame level.</strong> <code>.pivot_table()</code> reshapes the entire DataFrame by spreading a column's unique values into new columns. <code>.unstack()</code> works on a MultiIndex and moves one index level to become column headers.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Melt (wide to long) -->
+              <div class="sd-row" onclick="this.classList.toggle('sd-open')">
+                <div class="sd-header">
+                  <div class="sd-header-left">
+                    <span class="sd-name">Melt (wide to long)</span>
+                    <span class="sd-code"><code>.melt()</code> or <code>.stack()</code></span>
+                  </div>
+                  <span class="sd-problems">Problems: #9, #61</span>
+                  <span class="sd-toggle">&#9660;</span>
+                </div>
+                <div class="sd-detail">
+                  <div class="sd-detail-section">
+                    <div class="sd-detail-label sd-when">When to use</div>
+                    <p>The problem asks you to collapse multiple columns into rows. Look for "unpivot quarterly columns into one column," "combine q1, q2, q3, q4 into a single revenue column with a quarter label," or any time repeated column groups should become rows.</p>
+                  </div>
+                  <div class="sd-detail-section">
+                    <div class="sd-detail-label sd-how">How to use</div>
+                    <p>Specify which columns stay fixed (<code>id_vars</code>) and which get melted into rows (<code>value_vars</code>). Applied to a <strong>DataFrame</strong>.</p>
+                    <div class="sd-code-example"><code># Melt quarterly columns into rows
+df.melt(id_vars=['company', 'year'],
+        value_vars=['q1', 'q2', 'q3', 'q4'],
+        var_name='quarter', value_name='revenue')
+
+# Stack (similar but works on column MultiIndex)
+df.set_index('id').stack().reset_index()
+
+# Melt all non-id columns (omit value_vars)
+df.melt(id_vars=['user_id'], var_name='metric', value_name='score')</code></div>
+                  </div>
+                  <div class="sd-detail-section">
+                    <div class="sd-detail-label sd-not">When NOT to use</div>
+                    <p>If you just need to vertically stack two columns with different names into one (like sender and receiver into a single users column), <code>pd.concat()</code> is simpler. Use <code>.melt()</code> when you have a structured set of repeated columns and want to preserve the column name as a label.</p>
+                  </div>
+                  <div class="sd-detail-section">
+                    <div class="sd-detail-label sd-scope">Applied to</div>
+                    <p><strong>DataFrame level.</strong> <code>.melt()</code> transforms wide DataFrames into long format by turning column headers into row values. The result has more rows and fewer columns than the input.</p>
+                  </div>
+                </div>
+              </div>
+
               <!-- Explode list column -->
               <div class="sd-row" onclick="this.classList.toggle('sd-open')">
                 <div class="sd-header">
@@ -6529,6 +6627,63 @@ df['channel_share'] = df['revenue'] / df.groupby('order_id')['channel'].transfor
       }, 100);
     });
 
+    // Add tab navigation links and problem numbers to decision tree cards
+    var tabLinkMap = {
+      'FILTER rows': {tab: 'tab-filtering', label: 'Filtering', problems: '#37, #55, #76, #83, #53, #93, #22, #54, #35, #77, #81, #44'},
+      'AGGREGATE': {tab: 'tab-groupby', label: 'Aggregation', problems: '#41, #47, #65, #73, #92, #34, #50, #78, #21, #71, #98, #16, #36, #100'},
+      'RANK / TOP-N': {tab: 'tab-ranking', label: 'Ranking', problems: '#40, #60, #101, #39, #59, #43, #20, #30, #91, #12'},
+      'TIME-BASED': {tab: 'tab-datetime', label: 'DateTime', problems: '#2, #3, #72, #84, #7, #19, #89, #97, #31, #42, #46, #88, #6, #45, #95'},
+      'CLASSIFY / BIN': {tab: 'tab-transform', label: 'Transform', problems: '#28, #29, #82'},
+      'RESHAPE / STACK': {tab: 'tab-transform', label: 'Transform', problems: '#9, #61, #33, #35, #70, #49, #68, #96, #52'},
+      'LOOKUP / ENRICH': {tab: 'tab-merge', label: 'Merge & Join'},
+      'SELF-JOIN': {tab: 'tab-merge', label: 'Merge & Join'},
+      'CHAINED SELF-JOIN': {tab: 'tab-merge', label: 'Merge & Join'},
+      '3+ TABLES': {tab: 'tab-merge', label: 'Merge & Join'},
+      'SET MEMBERSHIP': {tab: 'tab-merge', label: 'Merge & Join'},
+      'CROSS-JOIN / MATCH': {tab: 'tab-merge', label: 'Merge & Join'},
+      'AGGREGATE THEN JOIN': {tab: 'tab-merge', label: 'Merge & Join'}
+    };
+
+    // Inject tab links into decision tree cards
+    document.querySelectorAll('.fc-node strong').forEach(function(strong) {
+      var key = strong.textContent.trim();
+      var info = tabLinkMap[key];
+      if (!info) return;
+      var node = strong.closest('.fc-node');
+      if (!node) return;
+
+      // Add tab link
+      var link = document.createElement('a');
+      link.href = '#';
+      link.className = 'dt-tab-link';
+      link.textContent = '→ ' + info.label + ' tab';
+      link.dataset.tab = info.tab;
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        document.querySelectorAll('.tab-nav-item').forEach(function(b) { b.classList.remove('active'); });
+        document.querySelectorAll('.tab-pane').forEach(function(p) { p.classList.remove('active'); });
+        var tabBtn = document.querySelector('[data-tab="' + info.tab + '"]');
+        if (tabBtn) tabBtn.classList.add('active');
+        document.getElementById(info.tab).classList.add('active');
+        window.scrollTo({ top: document.getElementById('tab-nav').offsetTop - 10, behavior: 'smooth' });
+      });
+      node.appendChild(document.createElement('br'));
+      node.appendChild(link);
+
+      // Add problem numbers to single-table cards that don't have them
+      if (info.problems && !node.querySelector('span[style*="color: #666"]')) {
+        var probSpan = document.createElement('span');
+        probSpan.style.cssText = 'font-size: 1.2rem; color: #666; display: block; margin-top: 4px;';
+        probSpan.className = 'dt-problems-injected';
+        probSpan.textContent = 'Problems: ' + info.problems;
+        node.appendChild(probSpan);
+      }
+    });
+
+    // Linkify the injected problem spans too
+    document.querySelectorAll('.dt-problems-injected').forEach(linkifyProblems);
+
     // Strategy badge mapping: problem number -> [{label, category}]
     var strategyMap = {
       // Filtering
@@ -6583,11 +6738,11 @@ df['channel_share'] = df['revenue'] / df.groupby('order_id')['channel'].transfor
       38: [{l:'Self-join',c:'merge'}],
       101: [{l:'Chained self-join',c:'merge'},{l:'Global top-N',c:'rank'}],
       10: [{l:'3+ Tables',c:'merge'}], 11: [{l:'3+ Tables',c:'merge'}],
-      25: [{l:'3+ Tables',c:'merge'}], 75: [{l:'3+ Tables',c:'merge'}],
+      25: [{l:'3+ Tables',c:'merge'}], 75: [{l:'3+ Tables',c:'merge'},{l:'Pivot',c:'transform'}],
       82: [{l:'3+ Tables',c:'merge'},{l:'Conditional classification',c:'transform'}],
       17: [{l:'Set membership',c:'merge'}], 51: [{l:'Set membership',c:'merge'}],
       67: [{l:'Set membership',c:'merge'}], 87: [{l:'Set membership',c:'merge'}],
-      63: [{l:'Cross-join/Match',c:'merge'}],
+      63: [{l:'Cross-join/Match',c:'merge'},{l:'Pivot',c:'transform'}],
       24: [{l:'Aggregate then join',c:'merge'}], 69: [{l:'Aggregate then join',c:'merge'}],
       94: [{l:'Aggregate then join',c:'merge'}], 99: [{l:'Aggregate then join',c:'merge'}]
     };
