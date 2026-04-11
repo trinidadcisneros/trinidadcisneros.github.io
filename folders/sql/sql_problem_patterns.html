@@ -606,6 +606,74 @@
       text-align: center;
     }
 
+    /* ============================================================ */
+    /* DECISION TREE LINKING + STRATEGY BADGES                        */
+    /* ============================================================ */
+    .dt-tab-link {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 3px 10px;
+      background-color: #b33000;
+      color: white !important;
+      border-radius: 3px;
+      font-size: 1.15rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .dt-tab-link:hover {
+      background-color: #8a2400;
+      text-decoration: none;
+      color: white !important;
+    }
+
+    .problem-link {
+      color: #b33000;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .problem-link:hover {
+      color: #8a2400;
+    }
+
+    .strategy-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: white;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+
+    .strategy-badge.filter { background-color: #0288d1; }
+    .strategy-badge.aggregate { background-color: #7b1fa2; }
+    .strategy-badge.window { background-color: #00695c; }
+    .strategy-badge.subquery { background-color: #d84315; }
+    .strategy-badge.transform { background-color: #4e342e; }
+    .strategy-badge.join { background-color: #1565c0; }
+
+    .leetcode-link {
+      display: inline-block;
+      margin: 10px 0 4px 0;
+      padding: 4px 12px;
+      background-color: #ffa116;
+      color: white !important;
+      border-radius: 3px;
+      font-size: 1.25rem;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .leetcode-link:hover {
+      background-color: #e68f00;
+      text-decoration: none;
+      color: white !important;
+    }
+
   </style>
 
 </head>
@@ -771,7 +839,7 @@
                 <tr>
                   <td style="padding: 8px; font-weight: 600;">Date range</td>
                   <td style="padding: 8px;"><code>WHERE date BETWEEN '...' AND '...'</code></td>
-                  <td style="padding: 8px; color: #666;">Problems: #1327</td>
+                  <td style="padding: 8px; color: #666;">Problems: #1327, #1141</td>
                 </tr>
               </table>
             </div>
@@ -783,7 +851,7 @@
                 <tr style="border-bottom: 1px solid #ddd;">
                   <td style="padding: 8px; font-weight: 600;">Simple count/sum</td>
                   <td style="padding: 8px;"><code>SELECT col, COUNT(*) GROUP BY col</code></td>
-                  <td style="padding: 8px; color: #666;">Problems: #2356, #1729</td>
+                  <td style="padding: 8px; color: #666;">Problems: #2356, #1729, #1141</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #ddd;">
                   <td style="padding: 8px; font-weight: 600;">Filter groups (HAVING)</td>
@@ -4878,6 +4946,8 @@ ORDER BY e.employee_id;</code></div>
 
               <p><strong>Tables:</strong> <code>Activity</code> (user_id, session_id, activity_date, activity_type)</p>
 
+              <p><a class="leetcode-link" href="https://leetcode.com/problems/user-activity-for-the-past-30-days-i/" target="_blank" rel="noopener">View on LeetCode &rarr;</a></p>
+
               <div class="guide-link">
                 <div class="guide-link-icon">→</div>
                 <div class="guide-link-content">
@@ -5249,13 +5319,190 @@ ORDER BY e.employee_id;</code></div>
     // SMOOTH SCROLL FOR ANCHOR LINKS
     // ============================================================
     document.addEventListener('click', function(e) {
-      if (e.target.tagName === 'A' && e.target.getAttribute('href').startsWith('#')) {
+      if (e.target.tagName === 'A' && e.target.getAttribute('href') && e.target.getAttribute('href').startsWith('#') && !e.target.classList.contains('problem-link')) {
         e.preventDefault();
         const target = document.querySelector(e.target.getAttribute('href'));
         if (target) {
           target.scrollIntoView({ behavior: 'smooth' });
         }
       }
+    });
+
+    // ============================================================
+    // DECISION TREE LINKING: problem-number refs, tab links, badges
+    // ============================================================
+
+    // Add IDs to problem cards based on their title number (e.g. "#1141" -> "problem-1141")
+    document.querySelectorAll('.problem-card-title').forEach(function(title) {
+      var match = title.textContent.match(/#(\d+)/);
+      if (match) {
+        var card = title.closest('.problem-card');
+        if (card) card.id = 'problem-' + match[1];
+      }
+    });
+
+    // Convert problem number references into clickable links
+    function linkifyProblems(el) {
+      var html = el.innerHTML;
+      html = html.replace(/#(\d+)/g, function(full, num) {
+        return '<a href="#problem-' + num + '" class="problem-link" data-problem="' + num + '">' + full + '</a>';
+      });
+      el.innerHTML = html;
+    }
+
+    // Apply to sub-decision problem cells (single-table uses <td>, multi-table uses <span>)
+    document.querySelectorAll('#single-table-tree td[style*="color: #666"]').forEach(linkifyProblems);
+    document.querySelectorAll('#multi-table-tree span[style*="color: #666"]').forEach(linkifyProblems);
+    document.querySelectorAll('#single-table-tree span[style*="color: #666"]').forEach(linkifyProblems);
+
+    // Click handler: switch to the right tab, expand the card, scroll to it
+    document.addEventListener('click', function(e) {
+      var link = e.target.closest('.problem-link');
+      if (!link) return;
+      e.preventDefault();
+      var problemId = 'problem-' + link.dataset.problem;
+      var card = document.getElementById(problemId);
+      if (!card) return;
+
+      // Find which tab pane contains this card and switch to it
+      var tabPane = card.closest('.tab-pane');
+      if (tabPane) {
+        document.querySelectorAll('.tab-nav-item').forEach(function(b) { b.classList.remove('active'); });
+        document.querySelectorAll('.tab-pane').forEach(function(p) { p.classList.remove('active'); });
+        var tabBtn = document.querySelector('[data-tab="' + tabPane.id + '"]');
+        if (tabBtn) tabBtn.classList.add('active');
+        tabPane.classList.add('active');
+      }
+
+      // Expand the card if collapsed
+      if (card.classList.contains('collapsed')) {
+        card.classList.remove('collapsed');
+      }
+
+      // Scroll to the card
+      setTimeout(function() {
+        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    });
+
+    // Map main decision-tree category labels to their content tab
+    var tabLinkMap = {
+      'FILTER rows': {tab: 'tab-filtering', label: 'Filtering'},
+      'AGGREGATE': {tab: 'tab-aggregation', label: 'Aggregation'},
+      'RANK / TOP-N': {tab: 'tab-window', label: 'Window Functions'},
+      'COMPARE ROWS': {tab: 'tab-window', label: 'Window Functions'},
+      'RUNNING TOTAL': {tab: 'tab-window', label: 'Window Functions'},
+      'TRANSFORM / REFORMAT': {tab: 'tab-transforms', label: 'Transforms'},
+      'LOOKUP / ENRICH': {tab: 'tab-joins', label: 'Joins'},
+      'LEFT JOIN (keep all)': {tab: 'tab-joins', label: 'Joins'},
+      'CROSS JOIN': {tab: 'tab-joins', label: 'Joins'},
+      'SELF-JOIN': {tab: 'tab-joins', label: 'Joins'},
+      'DATE-RANGE JOIN': {tab: 'tab-joins', label: 'Joins'},
+      'UNION / COMBINE': {tab: 'tab-joins', label: 'Joins'}
+    };
+
+    // Inject tab links into decision tree cards
+    document.querySelectorAll('.fc-node strong').forEach(function(strong) {
+      var key = strong.textContent.trim();
+      var info = tabLinkMap[key];
+      if (!info) return;
+      var node = strong.closest('.fc-node');
+      if (!node) return;
+
+      var link = document.createElement('a');
+      link.href = '#';
+      link.className = 'dt-tab-link';
+      link.textContent = '→ ' + info.label + ' tab';
+      link.dataset.tab = info.tab;
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        document.querySelectorAll('.tab-nav-item').forEach(function(b) { b.classList.remove('active'); });
+        document.querySelectorAll('.tab-pane').forEach(function(p) { p.classList.remove('active'); });
+        var tabBtn = document.querySelector('[data-tab="' + info.tab + '"]');
+        if (tabBtn) tabBtn.classList.add('active');
+        var targetPane = document.getElementById(info.tab);
+        if (targetPane) targetPane.classList.add('active');
+        var navEl = document.getElementById('tab-nav');
+        if (navEl) window.scrollTo({ top: navEl.offsetTop - 10, behavior: 'smooth' });
+      });
+      node.appendChild(document.createElement('br'));
+      node.appendChild(link);
+    });
+
+    // Strategy badge mapping: problem number -> [{l:label, c:category}]
+    var strategyMap = {
+      // Filtering
+      1757: [{l:'Simple condition',c:'filter'}],
+      595:  [{l:'Simple condition',c:'filter'}],
+      584:  [{l:'NULL handling',c:'filter'}],
+      1527: [{l:'Pattern matching',c:'filter'}],
+      1517: [{l:'Regex matching',c:'filter'}],
+      1148: [{l:'NOT IN / exclusion',c:'filter'}],
+      1327: [{l:'Date range',c:'filter'}],
+      1683: [{l:'Simple condition',c:'filter'}],
+      620:  [{l:'Simple condition',c:'filter'}],
+      // Aggregation
+      2356: [{l:'Simple count/sum',c:'aggregate'}],
+      1729: [{l:'Simple count/sum',c:'aggregate'}],
+      596:  [{l:'Filter groups (HAVING)',c:'aggregate'}],
+      619:  [{l:'Filter groups (HAVING)',c:'aggregate'}],
+      1193: [{l:'Conditional aggregation',c:'aggregate'}],
+      1211: [{l:'Conditional aggregation',c:'aggregate'}],
+      1633: [{l:'Percentage / ratio',c:'aggregate'}],
+      602:  [{l:'Bidirectional aggregation',c:'aggregate'},{l:'Union / combine',c:'join'}],
+      // Window
+      197:  [{l:'Compare to previous row',c:'window'},{l:'Self-join',c:'join'}],
+      180:  [{l:'Consecutive pattern',c:'window'},{l:'Self-join',c:'join'}],
+      1204: [{l:'Running total',c:'window'}],
+      1321: [{l:'Rolling avg',c:'window'}],
+      185:  [{l:'Top-N per group',c:'window'}],
+      1070: [{l:'First/last value',c:'window'}],
+      1164: [{l:'First/last value',c:'window'},{l:'Date-range join',c:'join'}],
+      1661: [{l:'Row-pair operations',c:'window'}],
+      626:  [{l:'Row-pair operations',c:'window'}],
+      // Subqueries
+      176:  [{l:'Scalar subquery',c:'subquery'}],
+      1174: [{l:'Correlated subquery',c:'subquery'}],
+      550:  [{l:'Derived table',c:'subquery'}],
+      1934: [{l:'Derived table',c:'subquery'}],
+      1251: [{l:'Date-range join',c:'subquery'}],
+      585:  [{l:'Existence check',c:'subquery'}],
+      1978: [{l:'Existence check',c:'subquery'},{l:'NOT IN / exclusion',c:'filter'}],
+      // Transform
+      1667: [{l:'String formatting',c:'transform'}],
+      1907: [{l:'Conditional classification',c:'transform'}],
+      1484: [{l:'String aggregation',c:'transform'}],
+      196:  [{l:'Delete duplicates',c:'transform'}],
+      1045: [{l:'Relational division',c:'transform'}],
+      610:  [{l:'Conditional classification',c:'transform'}],
+      1789: [{l:'Conditional classification',c:'transform'}],
+      570:  [{l:'Filter groups (HAVING)',c:'aggregate'}],
+      1141: [{l:'Date range',c:'filter'},{l:'Simple count/sum',c:'aggregate'}],
+      // Joins
+      1378: [{l:'Lookup / enrich',c:'join'}],
+      1068: [{l:'Lookup / enrich',c:'join'}],
+      577:  [{l:'Lookup / enrich',c:'join'}],
+      1075: [{l:'Lookup / enrich',c:'join'}],
+      1581: [{l:'Left join (keep all)',c:'join'}],
+      1280: [{l:'Cross join',c:'join'}],
+      1731: [{l:'Self-join',c:'join'}],
+      1341: [{l:'Union / combine',c:'join'}]
+    };
+
+    // Inject strategy badges into problem card titles
+    document.querySelectorAll('.problem-card-title').forEach(function(title) {
+      var match = title.textContent.match(/#(\d+)/);
+      if (!match) return;
+      var num = parseInt(match[1]);
+      var strategies = strategyMap[num];
+      if (!strategies) return;
+      strategies.forEach(function(s) {
+        var badge = document.createElement('span');
+        badge.className = 'strategy-badge ' + s.c;
+        badge.textContent = s.l;
+        title.appendChild(badge);
+      });
     });
   </script>
 
