@@ -1,0 +1,2106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comparing A/B Testing Methods: When to Use Each Approach | Bitter Scientist</title>
+
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/navbar.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/footer.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/theme.css">
+
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --navy: #1E2761;
+            --ice: #CADCFC;
+            --accent: #4A90D9;
+            --green: #2CA58D;
+            --red: #E15554;
+            --orange: #F18F01;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; color: #333; line-height: 1.6; }
+        .main-container { max-width: 1200px; margin: 0 auto; padding: 20px; background-color: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .page-header { text-align: center; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 3px solid var(--navy); }
+        .page-header h1 { color: var(--navy); font-weight: 700; font-size: 1.6rem; margin-bottom: 10px; }
+        .page-header p { color: #666; font-size: 1.1rem; margin-bottom: 0; }
+
+        .category-nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 0; padding: 12px 0; border-bottom: 2px solid #e0e0e0; }
+        .category-btn { padding: 8px 18px; cursor: pointer; background-color: #f0f0f0; border: 2px solid transparent; border-radius: 20px; color: #555; font-weight: 600; font-size: 0.9rem; transition: all 0.25s ease; white-space: nowrap; letter-spacing: 0.3px; }
+        .category-btn:hover { background-color: var(--ice); color: var(--navy); border-color: var(--accent); }
+        .category-btn.active { background-color: var(--navy); color: #fff; border-color: var(--navy); }
+
+        .model-nav { display: none; flex-wrap: wrap; justify-content: center; gap: 0; padding: 0; margin-bottom: 24px; background-color: #f8f9fa; border-bottom: 2px solid #e0e0e0; }
+        .model-nav.active { display: flex; justify-content: center; }
+        .nav-tab { padding: 10px 18px; cursor: pointer; background-color: transparent; border: none; border-bottom: 3px solid transparent; color: #555; font-weight: 500; font-size: 0.9rem; transition: all 0.25s ease; white-space: nowrap; }
+        .nav-tab:hover { background-color: #eef2f7; color: var(--accent); }
+        .nav-tab.active { border-bottom-color: var(--accent); color: var(--accent); font-weight: 700; background-color: #fff; }
+
+        @media (max-width: 1024px) { .main-container { padding: 15px; } .chart-container iframe { height: 450px; } }
+        @media (max-width: 767px) {
+            .category-nav { gap: 6px; }
+            .category-btn { font-size: 0.8rem; padding: 6px 14px; }
+            .model-nav { overflow-x: auto; -webkit-overflow-scrolling: touch; scroll-behavior: smooth; }
+            .nav-tab { font-size: 0.85rem; padding: 8px 12px; }
+            .main-container { padding: 10px; }
+            .page-header h1 { font-size: 1.5rem; }
+            .chart-container iframe { height: 400px; }
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .tab-header { display: flex; align-items: center; gap: 15px; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid var(--ice); }
+        .model-name { font-size: 1.5rem; font-weight: 700; color: var(--navy); }
+        .badge-family { display: inline-block; background-color: var(--accent); color: white; padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; }
+
+        .model-section { margin-bottom: 20px; border: 1px solid #e0e0e0; border-radius: 4px; overflow: hidden; }
+        .model-section summary { padding: 16px; background-color: #f8f9fa; cursor: pointer; font-weight: 700; font-size: 1.2rem; color: var(--navy); user-select: none; display: flex; align-items: center; justify-content: space-between; transition: background-color 0.2s ease; }
+        .model-section-body .model-section summary { font-size: 0.95rem; font-weight: 600; }
+        .model-section summary:hover { background-color: #e8ecf1; }
+        .model-section summary::after { content: '▶'; display: inline-block; transition: transform 0.3s ease; margin-left: 10px; font-size: 0.8rem; }
+        .model-section[open] summary::after { transform: rotate(90deg); }
+        .model-section-body { padding: 20px; background-color: white; }
+        .model-section-body h3 { font-size: 1.1rem; font-weight: 700; color: var(--navy); margin-top: 22px; margin-bottom: 10px; }
+        .model-section-body h3:first-child { margin-top: 0; }
+        .model-section-body h4 { font-size: 0.98rem; font-weight: 600; color: #333; margin-top: 18px; margin-bottom: 6px; }
+
+        .math-block { background-color: #f0f0f0; padding: 20px; border-radius: 4px; margin: 15px 0; border-left: 4px solid var(--accent); font-family: 'Courier New', monospace; overflow-x: auto; }
+        .math-block-label { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; color: #666; margin-bottom: 10px; letter-spacing: 0.5px; }
+
+        .chart-container { margin: 20px 0; border-radius: 4px; overflow: hidden; background-color: #f8f9fa; padding: 10px; }
+        .chart-container iframe { width: 100%; height: 520px; border: none; border-radius: 4px; display: block; }
+        .chart-container iframe.tall { height: 640px; }
+
+        .callout { padding: 15px; border-radius: 4px; margin: 15px 0; border-left: 4px solid; }
+        .callout-info { background-color: #ecf1f8; border-left-color: var(--accent); color: var(--navy); }
+        .callout-warning { background-color: #fff8e8; border-left-color: var(--orange); color: #8b6914; }
+        .callout-success { background-color: #f0fdf4; border-left-color: var(--green); color: #15803d; }
+        .callout-danger { background-color: #fef2f2; border-left-color: var(--red); color: #7f1d1d; }
+
+        .styled-table { width: 100%; border-collapse: collapse; margin: 20px 0; border-radius: 4px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .styled-table thead tr { background-color: var(--navy); color: white; font-weight: 600; }
+        .styled-table th { padding: 15px; text-align: left; font-size: 0.95rem; }
+        .styled-table td { padding: 12px 15px; border-bottom: 1px solid #e0e0e0; font-size: 0.92rem; }
+        .styled-table tbody tr:hover { background-color: #f5f5f5; }
+        .styled-table tbody tr:nth-child(even) { background-color: #fafafa; }
+
+        .use-card, .avoid-card { padding: 15px; border-radius: 4px; margin: 10px 0; border-left: 4px solid; }
+        .use-card { border-left-color: var(--green); background-color: #f0fdf4; }
+        .use-card::before { content: '✓ '; color: var(--green); font-weight: 700; font-size: 1.2rem; }
+        .avoid-card { border-left-color: var(--red); background-color: #fef2f2; }
+        .avoid-card::before { content: '✕ '; color: var(--red); font-weight: 700; font-size: 1.2rem; }
+
+        .section-controls { margin-bottom: 20px; display: flex; gap: 10px; }
+        .section-controls button { padding: 8px 16px; background-color: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: background-color 0.2s ease; }
+        .section-controls button:hover { background-color: #366bb3; }
+
+        h2 { color: var(--navy); font-weight: 700; margin-top: 30px; margin-bottom: 15px; }
+        p { margin-bottom: 15px; }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        strong { font-weight: 600; color: var(--navy); }
+        code { background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-family: 'Courier New', monospace; font-size: 0.9rem; }
+        ul, ol { margin-bottom: 15px; margin-left: 20px; }
+        li { margin-bottom: 8px; font-size: 0.95rem; }
+
+        /* Decision Tree */
+        .decision-tree { display: flex; flex-direction: column; gap: 16px; }
+        .tree-node { padding: 14px 16px; border-radius: 8px; background-color: #f8f9fa; border: 2px solid var(--accent); text-align: center; }
+        .tree-node.root-question { background: none; border: none; padding: 10px 0 0 0; }
+        .tree-node.root-question > .tree-node-title { font-size: 1.1rem; margin-bottom: 16px; }
+        .tree-node.question { background-color: #ecf1f8; border-color: var(--accent); cursor: pointer; }
+        .tree-node.question:hover { background-color: #dfe8f5; }
+        .tree-node.recommendation { background-color: #f0fdf4; border-color: var(--green); cursor: pointer; transition: all 0.2s ease; }
+        .tree-node.recommendation:hover { box-shadow: 0 4px 12px rgba(44, 165, 141, 0.2); transform: translateY(-2px); }
+        .tree-node-title { font-weight: 700; color: var(--navy); margin-bottom: 4px; font-size: 0.9rem; }
+        .tree-node-content { color: #666; font-size: 0.8rem; }
+        .tree-branches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
+        @media (max-width: 900px) { .tree-branches { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 520px) { .tree-branches { grid-template-columns: 1fr; } }
+        .tree-branches .tree-branches { grid-template-columns: 1fr; margin-top: 8px; margin-left: 0; gap: 8px; }
+        .tree-branches .tree-branches .tree-node { padding: 10px 12px; }
+        .tree-branches .tree-branches .tree-node-title { font-size: 0.85rem; margin-bottom: 2px; }
+        .tree-branches .tree-branches .tree-node-content { font-size: 0.78rem; }
+
+        /* Process Flow */
+        .process-flow { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; margin: 24px 0 16px; position: relative; }
+        @media (max-width: 1100px) { .process-flow { grid-template-columns: repeat(4, 1fr); } }
+        @media (max-width: 600px) { .process-flow { grid-template-columns: repeat(2, 1fr); } }
+        .flow-node { background-color: #ecf1f8; border: 2px solid var(--accent); border-radius: 8px; padding: 12px 10px; text-align: center; cursor: pointer; transition: all 0.2s ease; position: relative; }
+        .flow-node:hover { background-color: #dfe8f5; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(65, 105, 169, 0.2); }
+        .flow-node.active { background-color: var(--navy); border-color: var(--navy); color: white; }
+        .flow-node.active .flow-node-number { background-color: white; color: var(--navy); }
+        .flow-node.active .flow-node-title { color: white; }
+        .flow-node-number { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background-color: var(--accent); color: white; font-weight: 700; font-size: 0.85rem; margin-bottom: 6px; }
+        .flow-node-title { font-weight: 700; color: var(--navy); font-size: 0.82rem; line-height: 1.2; }
+        .flow-context { background-color: #fafafa; border: 1px solid #e0e0e0; border-left: 4px solid var(--accent); border-radius: 6px; padding: 20px 24px; margin-top: 16px; min-height: 260px; }
+        .flow-context h3 { color: var(--navy); margin-top: 0; margin-bottom: 12px; font-size: 1.15rem; }
+        .flow-context .flow-subtitle { color: #666; font-style: italic; margin-bottom: 16px; font-size: 0.9rem; }
+        .flow-context ul { margin-bottom: 14px; }
+        .flow-formula { background-color: #fff; border: 1px solid #e0e0e0; border-radius: 4px; padding: 12px 16px; margin: 12px 0; font-size: 0.95rem; overflow-x: auto; }
+        .flow-example { background-color: #f0fdf4; border-left: 3px solid var(--green); padding: 10px 14px; margin: 12px 0; border-radius: 4px; font-size: 0.9rem; }
+        .flow-example strong { color: var(--green); }
+        .flow-tip { background-color: #fff8e6; border-left: 3px solid var(--orange, #d97706); padding: 10px 14px; margin: 12px 0; border-radius: 4px; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+  <div id="page-container">
+    <div id="content-wrap">
+      <div w3-include-html="/folders/navbar_footer/navbar_pages.html"></div>
+      <div class="blog-container">
+    <div class="main-container">
+
+        <div class="page-header">
+            <h1>Comparing A/B Testing Methods: When to Use Each Approach</h1>
+            <p>A practical guide to frequentist, sequential, Bayesian, CUPED, uplift, and bandit methods, how they differ, and how to choose between them.</p>
+        </div>
+
+
+        <div id="tabNav">
+            <div class="category-nav" id="categoryNav">
+                <button class="category-btn active" onclick="switchCategory(event, 'cat-framework')">Framework</button>
+                <button class="category-btn" onclick="switchCategory(event, 'cat-exploratory')">Exploratory</button>
+                <button class="category-btn" onclick="switchCategory(event, 'cat-frequentist')">Frequentist</button>
+                <button class="category-btn" onclick="switchCategory(event, 'cat-seqbayes')">Sequential &amp; Bayesian</button>
+                <button class="category-btn" onclick="switchCategory(event, 'cat-advanced')">Advanced</button>
+                <button class="category-btn" onclick="switchCategory(event, 'cat-synthesis')">Synthesis</button>
+            </div>
+
+            <div class="model-nav active" id="cat-framework">
+                <button class="nav-tab active" onclick="switchTab(event, 'overview')">Overview</button>
+                <button class="nav-tab" onclick="switchTab(event, 'how-to-run')">How to Run a Test</button>
+                <button class="nav-tab" onclick="switchTab(event, 'decision-guide')">Decision Guide</button>
+            </div>
+            <div class="model-nav" id="cat-exploratory">
+                <button class="nav-tab" onclick="switchTab(event, 'nb01-eda')">EDA &amp; Randomization</button>
+            </div>
+            <div class="model-nav" id="cat-frequentist">
+                <button class="nav-tab" onclick="switchTab(event, 'nb02-ztest')">Z / T Tests</button>
+                <button class="nav-tab" onclick="switchTab(event, 'nb03-chi2')">Chi-Square</button>
+                <button class="nav-tab" onclick="switchTab(event, 'nb04-ci')">Bootstrap &amp; CIs</button>
+            </div>
+            <div class="model-nav" id="cat-seqbayes">
+                <button class="nav-tab" onclick="switchTab(event, 'nb05-sequential')">Sequential</button>
+                <button class="nav-tab" onclick="switchTab(event, 'nb06-bayesian')">Bayesian</button>
+            </div>
+            <div class="model-nav" id="cat-advanced">
+                <button class="nav-tab" onclick="switchTab(event, 'nb07-cuped')">CUPED</button>
+                <button class="nav-tab" onclick="switchTab(event, 'nb08-uplift')">Uplift Modeling</button>
+                <button class="nav-tab" onclick="switchTab(event, 'nb09-bandits')">Multi-Armed Bandits</button>
+            </div>
+            <div class="model-nav" id="cat-synthesis">
+                <button class="nav-tab" onclick="switchTab(event, 'nb10-comparison')">Method Comparison</button>
+                <button class="nav-tab" onclick="switchTab(event, 'key-takeaways')">Key Takeaways</button>
+            </div>
+        </div>
+
+        <!-- =========================== Overview =========================== -->
+        <div id="overview" class="tab-content active">
+            <div class="section-controls">
+                <button onclick="expandAllSections('overview')">Expand All</button>
+                <button onclick="collapseAllSections('overview')">Collapse All</button>
+            </div>
+
+            <details class="model-section" open>
+                <summary>Purpose of This Analysis</summary>
+                <div class="model-section-body">
+                    <h3>Goal</h3>
+                    <ul>
+                        <li>Apply ten different A/B testing methods to a single, publicly available email marketing experiment.</li>
+                        <li>Show how each method frames the same business question, what assumptions it makes, and when one approach beats another.</li>
+                        <li>Build a transferable framework for choosing a method based on the structure of the decision, not the defaults of a library.</li>
+                    </ul>
+                    <h3>What this is not</h3>
+                    <ul>
+                        <li>A race to declare one method the winner.</li>
+                        <li>A replacement for a good experimental design document.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section" open>
+                <summary>Key Terms</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li><strong>Arm (or variant, group):</strong> one of the versions being tested. An A/B test with two arms compares a control arm (no change) against a treatment arm (the new version). An A/B/C test has three arms, and so on.</li>
+                        <li><strong>Control:</strong> the arm that gets the existing experience, used as a baseline.</li>
+                        <li><strong>Treatment:</strong> an arm that gets the new experience being evaluated.</li>
+                        <li><strong>Randomization unit:</strong> the entity (user, session, device) that is randomly assigned to an arm.</li>
+                        <li><strong>Primary metric:</strong> the single measurement that decides whether the test won or lost.</li>
+                        <li><strong>Guardrail metric:</strong> a secondary measurement that must not regress, even if the primary metric improves.</li>
+                        <li><strong>Minimum Detectable Effect (MDE):</strong> the smallest lift the business would care about; drives sample size.</li>
+                        <li><strong>Lift:</strong> the difference between treatment and control on the primary metric.</li>
+                        <li><strong>Randomization check:</strong> verification that the arms look similar on pre test features, which is how we know the random assignment worked.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>The Dataset</summary>
+                <div class="model-section-body">
+                    <h3>Hillstrom MineThatData Email Challenge</h3>
+                    <ul>
+                        <li>64,000 customers who last purchased within the previous twelve months.</li>
+                        <li>Random assignment into one of three arms, roughly equal sized.</li>
+                    </ul>
+
+                    <h4>Arms</h4>
+                    <ul>
+                        <li><strong>Mens E Mail</strong>: promotional email featuring men's merchandise (~21,307 customers).</li>
+                        <li><strong>Womens E Mail</strong>: promotional email featuring women's merchandise (~21,387 customers).</li>
+                        <li><strong>No E Mail</strong>: holdout control (~21,306 customers).</li>
+                    </ul>
+
+                    <h4>Outcomes measured in the two weeks after send</h4>
+                    <ul>
+                        <li><code>visit</code>: 1 if the customer visited the website.</li>
+                        <li><code>conversion</code>: 1 if the customer made a purchase.</li>
+                        <li><code>spend</code>: dollar amount spent, 0 for non converters.</li>
+                    </ul>
+
+                    <h4>Pre period covariates</h4>
+                    <ul>
+                        <li><code>recency</code>: months since last purchase.</li>
+                        <li><code>history</code>: dollars spent in the prior year.</li>
+                        <li><code>mens</code>, <code>womens</code>: binary indicators of past category purchase.</li>
+                        <li><code>zip_code</code>: Urban, Suburban, or Rural.</li>
+                        <li><code>newbie</code>: 1 if new customer in the past twelve months.</li>
+                        <li><code>channel</code>: Phone, Web, or Multichannel.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Methods Compared</summary>
+                <div class="model-section-body">
+                    <table class="styled-table">
+                        <thead><tr><th>Family</th><th>Method</th><th>What it answers</th></tr></thead>
+                        <tbody>
+                            <tr><td>Exploratory</td><td>EDA &amp; randomization check</td><td>Are the arms balanced on pre period covariates?</td></tr>
+                            <tr><td>Frequentist</td><td>Z test and Welch t test</td><td>Is the mean difference statistically significant?</td></tr>
+                            <tr><td>Frequentist</td><td>Chi-square test</td><td>Is the categorical outcome independent of arm?</td></tr>
+                            <tr><td>Frequentist</td><td>Bootstrap and confidence intervals</td><td>What is the sampling distribution of the lift?</td></tr>
+                            <tr><td>Sequential</td><td>Sequential testing</td><td>Can I stop early without inflating type I error?</td></tr>
+                            <tr><td>Bayesian</td><td>Bayesian A/B</td><td>What is P(B &gt; A) and the expected loss?</td></tr>
+                            <tr><td>Advanced</td><td>CUPED</td><td>Can I cut variance using a pre period covariate?</td></tr>
+                            <tr><td>Advanced</td><td>Uplift modeling</td><td>Which customers benefit most from being treated?</td></tr>
+                            <tr><td>Advanced</td><td>Multi-armed bandits</td><td>Can traffic be allocated adaptively to minimize regret?</td></tr>
+                            <tr><td>Synthesis</td><td>Method comparison</td><td>Which method would I actually reach for, and when?</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>How to Read Each Tab</summary>
+                <div class="model-section-body">
+                    <p>Every method tab is organized into the same five collapsible sections.</p>
+                    <ol>
+                        <li><strong>Introduction &amp; Intuition</strong>: what problem the method solves, in plain terms.</li>
+                        <li><strong>The Math</strong>: the estimator, test statistic, or update rule.</li>
+                        <li><strong>Assumptions &amp; Requirements</strong>: what has to be true for the result to be valid.</li>
+                        <li><strong>Diagnostics &amp; Results</strong>: interactive Plotly output straight from the notebook.</li>
+                        <li><strong>Limitations</strong>: where the method breaks, and what to use instead.</li>
+                    </ol>
+                </div>
+            </details>
+        </div>
+
+        <!-- =========================== How to Run a Test =========================== -->
+        <div id="how-to-run" class="tab-content">
+            <div class="section-controls">
+                <button onclick="expandAllSections('how-to-run')">Expand All</button>
+                <button onclick="collapseAllSections('how-to-run')">Collapse All</button>
+            </div>
+
+            <details class="model-section" open>
+                <summary>Interactive Process Flow</summary>
+                <div class="model-section-body">
+                    <p>Click any step to see what to do, the formulas to use, and a worked example. The steps run left to right.</p>
+                    <div class="process-flow" id="processFlow">
+                        <div class="flow-node active" onclick="selectStep('step-1')" id="node-step-1">
+                            <div class="flow-node-number">1</div>
+                            <div class="flow-node-title">Define the Goal</div>
+                        </div>
+                        <div class="flow-node" onclick="selectStep('step-2')" id="node-step-2">
+                            <div class="flow-node-number">2</div>
+                            <div class="flow-node-title">Form the Hypothesis</div>
+                        </div>
+                        <div class="flow-node" onclick="selectStep('step-3')" id="node-step-3">
+                            <div class="flow-node-number">3</div>
+                            <div class="flow-node-title">Design the Experiment</div>
+                        </div>
+                        <div class="flow-node" onclick="selectStep('step-4')" id="node-step-4">
+                            <div class="flow-node-number">4</div>
+                            <div class="flow-node-title">Power &amp; Sample Size</div>
+                        </div>
+                        <div class="flow-node" onclick="selectStep('step-5')" id="node-step-5">
+                            <div class="flow-node-number">5</div>
+                            <div class="flow-node-title">Pick a Method</div>
+                        </div>
+                        <div class="flow-node" onclick="selectStep('step-6')" id="node-step-6">
+                            <div class="flow-node-number">6</div>
+                            <div class="flow-node-title">Run &amp; Monitor</div>
+                        </div>
+                        <div class="flow-node" onclick="selectStep('step-7')" id="node-step-7">
+                            <div class="flow-node-number">7</div>
+                            <div class="flow-node-title">Analyze Results</div>
+                        </div>
+                        <div class="flow-node" onclick="selectStep('step-8')" id="node-step-8">
+                            <div class="flow-node-number">8</div>
+                            <div class="flow-node-title">Decide &amp; Ship</div>
+                        </div>
+                    </div>
+
+                    <div class="flow-context" id="flowContext">
+                        <!-- content injected by JS -->
+                    </div>
+                </div>
+            </details>
+        </div>
+
+        <!-- =========================== Decision Guide =========================== -->
+        <div id="decision-guide" class="tab-content">
+            <div class="section-controls">
+                <button onclick="expandAllSections('decision-guide')">Expand All</button>
+                <button onclick="collapseAllSections('decision-guide')">Collapse All</button>
+            </div>
+
+            <details class="model-section" open>
+                <summary>Pick a Method (Interactive Decision Tree)</summary>
+                <div class="model-section-body">
+                    <p>Click a branch to drill down. Green nodes jump to that method's tab.</p>
+                    <div class="decision-tree" id="decisionTree">
+                        <div class="tree-node root-question">
+                            <div class="tree-node-title">What matters most?</div>
+                            <div class="tree-node-content">Pick the priority that best describes your situation. Click to expand, then click a green box to jump to that method.</div>
+                            <div class="tree-branches">
+
+                                <!-- Branch 1: Simplicity First -->
+                                <div class="tree-node question" onclick="toggleBranch(this, event)">
+                                    <div class="tree-node-title">Simplicity First</div>
+                                    <div class="tree-node-content">Run the test, read the number, make a call.</div>
+                                    <div class="tree-branches" style="display: none;">
+                                        <div class="tree-node question" onclick="toggleBranch(this, event)">
+                                            <div class="tree-node-title">Yes / No Outcome</div>
+                                            <div class="tree-node-content">Did they click, convert, sign up?</div>
+                                            <div class="tree-branches" style="display: none;">
+                                                <div class="tree-node recommendation" onclick="switchToTab('nb02-ztest', event)">
+                                                    <div class="tree-node-title">Z Test of Proportions</div>
+                                                    <div class="tree-node-content">Cleanest test when the sample is large.</div>
+                                                </div>
+                                                <div class="tree-node recommendation" onclick="switchToTab('nb03-chi2', event)">
+                                                    <div class="tree-node-title">Chi-square Test</div>
+                                                    <div class="tree-node-content">Best when comparing counts in a table.</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="tree-node question" onclick="toggleBranch(this, event)">
+                                            <div class="tree-node-title">Dollar or Count Outcome</div>
+                                            <div class="tree-node-content">Revenue, spend, minutes on page.</div>
+                                            <div class="tree-branches" style="display: none;">
+                                                <div class="tree-node recommendation" onclick="switchToTab('nb02-ztest', event)">
+                                                    <div class="tree-node-title">Welch t Test</div>
+                                                    <div class="tree-node-content">Compare averages when groups differ in spread.</div>
+                                                </div>
+                                                <div class="tree-node recommendation" onclick="switchToTab('nb04-ci', event)">
+                                                    <div class="tree-node-title">Bootstrap Confidence Interval</div>
+                                                    <div class="tree-node-content">Works even with messy, skewed data.</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Branch 2: Speed First -->
+                                <div class="tree-node question" onclick="toggleBranch(this, event)">
+                                    <div class="tree-node-title">Speed First</div>
+                                    <div class="tree-node-content">Stop as soon as the answer is clear.</div>
+                                    <div class="tree-branches" style="display: none;">
+                                        <div class="tree-node question" onclick="toggleBranch(this, event)">
+                                            <div class="tree-node-title">Rigorous Early Stopping</div>
+                                            <div class="tree-node-content">Want to peek without cheating.</div>
+                                            <div class="tree-branches" style="display: none;">
+                                                <div class="tree-node recommendation" onclick="switchToTab('nb05-sequential', event)">
+                                                    <div class="tree-node-title">Sequential Testing</div>
+                                                    <div class="tree-node-content">Preplanned checkpoints with adjusted thresholds.</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="tree-node question" onclick="toggleBranch(this, event)">
+                                            <div class="tree-node-title">Plain Language Answer</div>
+                                            <div class="tree-node-content">"Probability B beats A is 92 percent."</div>
+                                            <div class="tree-branches" style="display: none;">
+                                                <div class="tree-node recommendation" onclick="switchToTab('nb06-bayesian', event)">
+                                                    <div class="tree-node-title">Bayesian A/B Test</div>
+                                                    <div class="tree-node-content">Direct probabilities and expected loss, safe to peek.</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Branch 3: Precision First -->
+                                <div class="tree-node question" onclick="toggleBranch(this, event)">
+                                    <div class="tree-node-title">Precision First</div>
+                                    <div class="tree-node-content">Small effect, noisy data, need more signal.</div>
+                                    <div class="tree-branches" style="display: none;">
+                                        <div class="tree-node question" onclick="toggleBranch(this, event)">
+                                            <div class="tree-node-title">Have History on Each User</div>
+                                            <div class="tree-node-content">Past purchases, pre test activity.</div>
+                                            <div class="tree-branches" style="display: none;">
+                                                <div class="tree-node recommendation" onclick="switchToTab('nb07-cuped', event)">
+                                                    <div class="tree-node-title">CUPED</div>
+                                                    <div class="tree-node-content">Use history to cancel noise and tighten intervals.</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="tree-node question" onclick="toggleBranch(this, event)">
+                                            <div class="tree-node-title">No User History Available</div>
+                                            <div class="tree-node-content">Still want tight confidence intervals.</div>
+                                            <div class="tree-branches" style="display: none;">
+                                                <div class="tree-node recommendation" onclick="switchToTab('nb04-ci', event)">
+                                                    <div class="tree-node-title">Bootstrap Confidence Interval</div>
+                                                    <div class="tree-node-content">Reshuffles the data to measure uncertainty.</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Branch 4: Personalization First -->
+                                <div class="tree-node question" onclick="toggleBranch(this, event)">
+                                    <div class="tree-node-title">Personalization First</div>
+                                    <div class="tree-node-content">The average hides who it actually helps.</div>
+                                    <div class="tree-branches" style="display: none;">
+                                        <div class="tree-node question" onclick="toggleBranch(this, event)">
+                                            <div class="tree-node-title">Target the Right People</div>
+                                            <div class="tree-node-content">Who gets the biggest lift from the treatment.</div>
+                                            <div class="tree-branches" style="display: none;">
+                                                <div class="tree-node recommendation" onclick="switchToTab('nb08-uplift', event)">
+                                                    <div class="tree-node-title">Uplift Modeling</div>
+                                                    <div class="tree-node-content">Predicts lift per user so you can target the best audience.</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="tree-node question" onclick="toggleBranch(this, event)">
+                                            <div class="tree-node-title">Send Traffic to the Winner, Live</div>
+                                            <div class="tree-node-content">Learn and act at the same time.</div>
+                                            <div class="tree-branches" style="display: none;">
+                                                <div class="tree-node recommendation" onclick="switchToTab('nb09-bandits', event)">
+                                                    <div class="tree-node-title">Multi-Armed Bandit</div>
+                                                    <div class="tree-node-content">Shifts traffic to better variants as evidence grows.</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                            <div class="tree-node recommendation" onclick="switchToTab('nb10-comparison', event)" style="margin-top: 16px;">
+                                <div class="tree-node-title">Not sure? Compare All Methods Side by Side</div>
+                                <div class="tree-node-content">See how every method answers the same question on the same data.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Quick Reference Table</summary>
+                <div class="model-section-body">
+                    <table class="styled-table">
+                        <thead><tr><th>Your situation</th><th>Example</th><th>Use</th><th>Why (in plain language)</th><th>When it breaks down</th></tr></thead>
+                        <tbody>
+                            <tr>
+                                <td>You have a yes / no outcome and a large sample.</td>
+                                <td>Does the new checkout button get more clicks?</td>
+                                <td>Z test of proportions</td>
+                                <td>The simplest way to check if two conversion rates are really different.</td>
+                                <td>Sample is small, conversions are rare, or you peek repeatedly at results.</td>
+                            </tr>
+                            <tr>
+                                <td>You have a dollar or count outcome that is noisy.</td>
+                                <td>Does the new email drive more revenue per customer?</td>
+                                <td>Welch t test or bootstrap</td>
+                                <td>Handles uneven spread and extreme values without strict assumptions.</td>
+                                <td>Extreme outliers dominate, or you care about rare tail events like top spenders.</td>
+                            </tr>
+                            <tr>
+                                <td>You are comparing counts in a small table.</td>
+                                <td>Are complaints linked to which support team handled the case?</td>
+                                <td>Chi-square or Fisher exact</td>
+                                <td>Built for categories and works even when some cells are thin.</td>
+                                <td>Any cell expects fewer than 5 observations, which makes the math unreliable.</td>
+                            </tr>
+                            <tr>
+                                <td>You want to peek at results and stop the test early.</td>
+                                <td>Leadership wants weekly updates and permission to pull the plug early.</td>
+                                <td>Sequential testing (O'Brien Fleming or Pocock)</td>
+                                <td>Lets you check in during the test without falsely declaring a winner.</td>
+                                <td>Peek schedule was not fixed in advance, or boundaries get reinterpreted after the fact.</td>
+                            </tr>
+                            <tr>
+                                <td>You want a direct probability, not a p value.</td>
+                                <td>"What is the chance the new version really is better?"</td>
+                                <td>Bayesian A/B</td>
+                                <td>Gives an easy to explain probability and the dollar risk of being wrong.</td>
+                                <td>Sample is tiny and the starting belief (prior) swamps what the data says.</td>
+                            </tr>
+                            <tr>
+                                <td>Your outcome is noisy but you have user history.</td>
+                                <td>Past purchase data available before the test started.</td>
+                                <td>CUPED</td>
+                                <td>Uses history to cancel out noise so smaller effects become visible.</td>
+                                <td>History has no relationship to the outcome being tested, so there is no noise to remove.</td>
+                            </tr>
+                            <tr>
+                                <td>You suspect the effect helps some people more than others.</td>
+                                <td>The promotion boosts new customers but annoys loyal ones.</td>
+                                <td>Uplift modeling</td>
+                                <td>Predicts who benefits so you can target only the people who respond.</td>
+                                <td>Treatment effect is small and the outcome is noisy, so per person predictions are mostly noise.</td>
+                            </tr>
+                            <tr>
+                                <td>You want to optimize live traffic, not just learn.</td>
+                                <td>Homepage banner rotation on a high traffic site.</td>
+                                <td>Multi-armed bandit</td>
+                                <td>Automatically sends more traffic to the winning variant as evidence grows.</td>
+                                <td>Outcomes arrive late, or what works changes over time (seasonality, drift).</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+        </div>
+
+        <!-- =========================== nb01 EDA =========================== -->
+        <div id="nb01-eda" class="tab-content">
+            <div class="tab-header">
+                <div class="model-name">Exploratory Analysis &amp; Randomization Check</div>
+                <span class="badge-family">Exploratory</span>
+            </div>
+            <div class="section-controls">
+                <button onclick="expandAllSections('nb01-eda')">Expand All</button>
+                <button onclick="collapseAllSections('nb01-eda')">Collapse All</button>
+            </div>
+
+            <details class="model-section" open>
+                <summary>Introduction</summary>
+                <div class="model-section-body">
+                    <div class="plain-language-intro" style="background: #f4f7fb; border-left: 4px solid var(--accent); padding: 12px 16px; margin-bottom: 14px; border-radius: 4px;">
+                        <strong>In plain language:</strong> Exploratory analysis and the randomization check are the "pre-flight inspection" of an A/B test. Before trusting any result, you confirm the groups are actually comparable — similar recency, similar past spend, similar segments — because if the randomizer failed, every downstream p-value is meaningless. Use this step on every experiment, no exceptions. It's especially critical for new assignment systems, experiments that overlap with outages, or results that look suspiciously large. Skip it only when you've already run the exact same assignment pipeline many times and have separate monitoring that would catch a failure.
+                    </div>
+                    <h3>What is an A/B test</h3>
+                    <ul>
+                        <li>An <strong>A/B test</strong> is a controlled experiment that compares two or more versions of a product, message, or experience to see which one actually performs better.</li>
+                        <li>Its purpose is to isolate cause and effect: by randomly placing each user into one of the groups (called <strong>arms</strong>), any difference in the outcome can be attributed to the version they received, not to who they are.</li>
+                        <li>Before running the test, the first step is to <strong>explore the data</strong>: understand the outcome's shape, look for extreme values, and verify that the split between groups is truly balanced on pre test features like recency, past spend, or customer segment.</li>
+                        <li>Random assignment is what makes the comparison fair, and the exploratory check is what proves the random assignment actually worked.</li>
+                    </ul>
+
+                    <h3>Why exploratory analysis matters</h3>
+                    <ul>
+                        <li>The job of this tab is to verify the arms are balanced before any statistical test is run.</li>
+                        <li>If random placement worked, treatment and control should look alike on every pre period feature (recency, spend, segment).</li>
+                        <li>Any imbalance large enough to move the outcome can bias the final estimate, even if the test itself is run perfectly.</li>
+                    </ul>
+
+                    <h3>What a randomization check catches</h3>
+                    <ul>
+                        <li>Bugs in the assignment service (a flag flipped, a cache leaked).</li>
+                        <li>Sample ratio mismatch, where the observed split drifts from the planned split.</li>
+                        <li>Outage artifacts, where one arm lost traffic during an incident.</li>
+                        <li>Filtering bugs, where a downstream join drops users unevenly across arms.</li>
+                    </ul>
+
+                    <h3>Why it belongs before any hypothesis test</h3>
+                    <ul>
+                        <li>A failed balance check is a stop signal, not an adjustment knob.</li>
+                        <li>Eyeballing outcome distributions also tells you which downstream method fits the data shape.</li>
+                        <li>Skipping this step means every downstream p value, CI, and posterior rests on a cracked foundation.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>The Math</summary>
+                <div class="model-section-body">
+                    <h3>The metric: Standardized Mean Difference (SMD)</h3>
+                    <ul>
+                        <li>SMD is the standard covariate balance check in randomized experiments.</li>
+                        <li>It answers: "are treatment and control similar on pre period features?"</li>
+                    </ul>
+                    <div class="math-block">
+                        <div class="math-block-label">SMD formula</div>
+                        $$\text{SMD} = \frac{\bar X_T - \bar X_C}{\sqrt{(s_T^2 + s_C^2)/2}}$$
+                    </div>
+                    <ul>
+                        <li>Numerator: the raw mean difference between treatment and control on a single covariate.</li>
+                        <li>Denominator: the pooled standard deviation, which rescales the difference by how noisy the covariate is.</li>
+                        <li>Result: a unitless score that can be compared across covariates with very different scales.</li>
+                    </ul>
+
+                    <h3>Why SMD instead of a t test p value</h3>
+                    <ul>
+                        <li>P values shrink as sample size grows.</li>
+                        <li>At n = 60,000, a trivially small difference between arms can look "statistically significant" even though it is meaningless.</li>
+                        <li>SMD is scale free and sample size independent, so it reflects the practical magnitude of the imbalance, not just the presence of one.</li>
+                        <li>Use p values to test an effect on the outcome. Use SMD to check the randomization.</li>
+                    </ul>
+
+                    <details style="margin: 12px 0; background: #fafafa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 6px 14px;">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--navy); padding: 6px 0;">Example Calculation (click to expand)</summary>
+                        <p style="margin-top: 10px;">Suppose we check pre period spend across treatment (Mens) and control. Observed numbers:</p>
+                        <table class="styled-table" style="font-size: 0.9rem;">
+                            <thead><tr><th>Quantity</th><th>Treatment</th><th>Control</th></tr></thead>
+                            <tbody>
+                                <tr><td>Mean pre spend ($)</td><td>142.10</td><td>141.25</td></tr>
+                                <tr><td>Std dev ($)</td><td>98.40</td><td>97.80</td></tr>
+                                <tr><td>n</td><td>21,387</td><td>21,306</td></tr>
+                            </tbody>
+                        </table>
+                        <div class="math-block">
+                            <div class="math-block-label">Plug in</div>
+                            $$\text{SMD} = \frac{142.10 - 141.25}{\sqrt{(98.40^2 + 97.80^2)/2}} = \frac{0.85}{98.10} \approx 0.0087$$
+                        </div>
+                        <ul>
+                            <li>|SMD| = 0.0087 is well below 0.1, so pre spend is balanced.</li>
+                            <li>A naive t test on the same data gives p &approx; 0.37, also fine, but that p value would flip to "significant" if we doubled the sample while keeping the 85 cent difference. SMD does not.</li>
+                        </ul>
+                    </details>
+
+                    <h3>How to interpret the number</h3>
+                    <ul>
+                        <li>|SMD| &lt; 0.1 is the conventional threshold for acceptable balance.</li>
+                        <li>|SMD| between 0.1 and 0.2 is a yellow flag; document it and consider stratification.</li>
+                        <li>|SMD| &gt; 0.2 signals the need to adjust, stratify, or investigate the assignment mechanism before trusting downstream results.</li>
+                        <li>These thresholds come from causal inference and clinical trial literature (Cohen 1988, Austin 2009).</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Assumptions &amp; Requirements</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>Random assignment between arms.</li>
+                        <li>Full population observed at assignment time (no post assignment filtering).</li>
+                        <li>Pretreatment covariates measured before the email was sent.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Diagnostics &amp; Results</summary>
+                <div class="model-section-body">
+                    <h3>Arm assignment distribution</h3>
+                    <ul>
+                        <li><strong>Purpose:</strong> confirm the three arms received roughly the same share of traffic.</li>
+                        <li><strong>Key observation:</strong> each arm sits near 33 percent, with no arm visibly starved.</li>
+                        <li><strong>Takeaway:</strong> the split matches the planned design, so no sample ratio mismatch to worry about.</li>
+                    </ul>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb01/nb01_group_distribution_interactive.html"></iframe></div>
+
+                    <h3>Covariate balance across arms</h3>
+                    <ul>
+                        <li><strong>Purpose:</strong> check that pre period features (recency, history, segment) look similar across arms.</li>
+                        <li><strong>Key observation:</strong> every SMD bar sits inside the ±0.1 band, regardless of which feature or segment is checked.</li>
+                        <li><strong>Takeaway:</strong> randomization worked; downstream tests can be interpreted without bias adjustments.</li>
+                    </ul>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb01/nb01_covariate_balance_interactive.html"></iframe></div>
+
+                    <h3>Outcomes by arm</h3>
+                    <ul>
+                        <li><strong>Purpose:</strong> show the raw visit, conversion, and spend rates before any statistical adjustment.</li>
+                        <li><strong>Key observation:</strong> Mens and Womens arms lift visit and conversion noticeably above control; spend follows the same order but with heavy noise.</li>
+                        <li><strong>Takeaway:</strong> the data hints at a real email effect, but the lift needs a formal test to confirm.</li>
+                    </ul>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb01/nb01_outcomes_by_group_interactive.html"></iframe></div>
+
+                    <h3>Outcome distributions</h3>
+                    <ul>
+                        <li><strong>Purpose:</strong> see the shape of the outcome variables (how skewed, how zero heavy).</li>
+                        <li><strong>Key observation:</strong> spend is highly right skewed with a big spike at zero; conversion is a thin tail of positives.</li>
+                        <li><strong>Takeaway:</strong> skewed spend means t tests alone are risky; plan on bootstrap CIs or CUPED for variance reduction.</li>
+                    </ul>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb01/nb01_outcome_distributions_interactive.html"></iframe></div>
+
+                    <h3>Email / product match effect</h3>
+                    <ul>
+                        <li><strong>Purpose:</strong> see whether the match between email theme and customer buying history changes the response.</li>
+                        <li><strong>Key observation:</strong> customers who recently bought the matched category respond far more strongly than cross shoppers.</li>
+                        <li><strong>Takeaway:</strong> the average treatment effect will hide a real segment story; plan on stratified analysis or uplift modeling.</li>
+                    </ul>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb01/nb01_email_match_outcomes_interactive.html"></iframe></div>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Limitations</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>Balance on observed covariates does not imply balance on unobserved ones.</li>
+                        <li>This is a smoke test, not a proof of exchangeability.</li>
+                    </ul>
+                </div>
+            </details>
+        </div>
+
+        <!-- =========================== nb02 Z/T =========================== -->
+        <div id="nb02-ztest" class="tab-content">
+            <div class="tab-header">
+                <div class="model-name">Z Test &amp; Welch T Test</div>
+                <span class="badge-family">Frequentist</span>
+            </div>
+            <div class="section-controls">
+                <button onclick="expandAllSections('nb02-ztest')">Expand All</button>
+                <button onclick="collapseAllSections('nb02-ztest')">Collapse All</button>
+            </div>
+
+            <details class="model-section" open>
+                <summary>Introduction</summary>
+                <div class="model-section-body">
+                    <div class="plain-language-intro" style="background: #f4f7fb; border-left: 4px solid var(--accent); padding: 12px 16px; margin-bottom: 14px; border-radius: 4px;">
+                        <strong>In plain language:</strong> The z-test and Welch t-test are the default A/B comparison — they check whether the gap between two groups' averages is bigger than you'd expect from random chance alone. Use the z-test for a yes/no outcome like "converted or not", and the Welch t-test for a dollar or count outcome like revenue or sessions. Classic case: did the email drive more conversions than no email? They fall short when the data is very skewed (a few whales dominate the average), the sample is tiny, or you plan to peek at results repeatedly before the test ends — in those situations reach for bootstrap CIs, Bayesian tests, or sequential methods.
+                    </div>
+                    <h3>What each test does</h3>
+                    <ul>
+                        <li>The <strong>two proportion z test</strong> asks whether two conversion rates could plausibly share the same underlying rate.</li>
+                        <li>The <strong>Welch t test</strong> answers the same question for a continuous outcome like spend, without assuming equal variances.</li>
+                        <li>Both are the default starting point for any fixed sample experiment.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>The Math</summary>
+                <div class="model-section-body">
+                    <h3>Test statistics</h3>
+                    <div class="math-block">
+                        <div class="math-block-label">Z statistic, two proportions</div>
+                        $$Z = \frac{\hat p_T - \hat p_C}{\sqrt{\hat p(1-\hat p)\left(\tfrac{1}{n_T} + \tfrac{1}{n_C}\right)}}$$
+                    </div>
+                    <div class="math-block">
+                        <div class="math-block-label">Welch t statistic</div>
+                        $$t = \frac{\bar X_T - \bar X_C}{\sqrt{s_T^2/n_T + s_C^2/n_C}}$$
+                    </div>
+
+                    <h3>Effect sizes</h3>
+                    <div class="math-block">
+                        <div class="math-block-label">Cohen's h, for proportions</div>
+                        $$h = 2\arcsin\sqrt{\hat p_T} - 2\arcsin\sqrt{\hat p_C}$$
+                    </div>
+                    <div class="math-block">
+                        <div class="math-block-label">Cohen's d, for means</div>
+                        $$d = \frac{\bar X_T - \bar X_C}{s_{\text{pooled}}}$$
+                    </div>
+
+                    <details style="margin: 12px 0; background: #fafafa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 6px 14px;">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--navy); padding: 6px 0;">Example Calculation (click to expand)</summary>
+                        <p style="margin-top: 10px;">Compare Mens email vs. control on conversion rate:</p>
+                        <table class="styled-table" style="font-size: 0.9rem;">
+                            <thead><tr><th>Arm</th><th>Conversions</th><th>Total</th><th>Rate</th></tr></thead>
+                            <tbody>
+                                <tr><td>Mens (treatment)</td><td>268</td><td>21,307</td><td>0.01258</td></tr>
+                                <tr><td>No email (control)</td><td>122</td><td>21,306</td><td>0.00573</td></tr>
+                            </tbody>
+                        </table>
+                        <div class="math-block">
+                            <div class="math-block-label">Pooled rate</div>
+                            $$\hat p = \frac{268 + 122}{21{,}307 + 21{,}306} = 0.00915$$
+                        </div>
+                        <div class="math-block">
+                            <div class="math-block-label">Z statistic</div>
+                            $$Z = \frac{0.01258 - 0.00573}{\sqrt{0.00915(1-0.00915)\left(\tfrac{1}{21307}+\tfrac{1}{21306}\right)}} = \frac{0.00685}{0.000921} \approx 7.44$$
+                        </div>
+                        <ul>
+                            <li>|Z| = 7.44 is far beyond the 1.96 threshold for &alpha; = 0.05.</li>
+                            <li>The two sided p value is essentially zero (p &lt; 1e-13).</li>
+                            <li>The Mens email drives a statistically significant lift in conversion.</li>
+                        </ul>
+                    </details>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Assumptions &amp; Requirements</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>Independent observations under random assignment.</li>
+                        <li>Z test: large np so the normal approximation holds.</li>
+                        <li>Welch t test: finite variance; robust to non normality when n is large.</li>
+                        <li>No repeated peeking without a sequential correction.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Diagnostics &amp; Results</summary>
+                <div class="model-section-body">
+                    <h3>Primary and secondary results</h3>
+                    <p>Point estimates, confidence intervals, and decisions for every comparison.</p>
+                    <div class="chart-container"><iframe class="tall" src="projects/ab_testing/data/outputs/nb02/nb02_results_table_interactive.html"></iframe></div>
+
+                    <h3>Forest plot</h3>
+                    <p>Visual summary of every pairwise lift at 95% CI.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb02/nb02_forest_plot_interactive.html"></iframe></div>
+
+                    <h3>P values on a log scale</h3>
+                    <p>Bars are clipped at 1e-30; α thresholds shown as vertical reference lines.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb02/nb02_pvalue_bars_interactive.html"></iframe></div>
+
+                    <h3>Effect sizes</h3>
+                    <p>Cohen's h and d next to the point estimate of each lift.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb02/nb02_effect_sizes_interactive.html"></iframe></div>
+
+                    <h3>Power curve</h3>
+                    <p>How detectable lift changes with sample size at α = 0.05.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb02/nb02_power_curve_interactive.html"></iframe></div>
+
+                    <h3>Q Q plot for the t test</h3>
+                    <p>Residual quantile check; heavy tails are visible but power is ample at n = 21K per arm.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb02/nb02_qq_plot_interactive.html"></iframe></div>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Limitations</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>Fixed n tests do not allow early stopping without penalty.</li>
+                        <li>A p value is not the probability the treatment works; that requires a Bayesian framing.</li>
+                        <li>With many comparisons, always apply a multiplicity correction (Bonferroni or BH).</li>
+                    </ul>
+                </div>
+            </details>
+        </div>
+
+        <!-- =========================== nb03 Chi-square =========================== -->
+        <div id="nb03-chi2" class="tab-content">
+            <div class="tab-header">
+                <div class="model-name">Chi-Square Test of Independence</div>
+                <span class="badge-family">Frequentist</span>
+            </div>
+            <div class="section-controls">
+                <button onclick="expandAllSections('nb03-chi2')">Expand All</button>
+                <button onclick="collapseAllSections('nb03-chi2')">Collapse All</button>
+            </div>
+
+            <details class="model-section" open>
+                <summary>Introduction</summary>
+                <div class="model-section-body">
+                    <div class="plain-language-intro" style="background: #f4f7fb; border-left: 4px solid var(--accent); padding: 12px 16px; margin-bottom: 14px; border-radius: 4px;">
+                        <strong>In plain language:</strong> The chi-square test checks whether two categorical things are actually related, by comparing the counts you observed to the counts you'd expect if they had nothing to do with each other. Use it when both the input and the outcome are categories — for example, comparing conversion rates across three email variants at once, or verifying that segment mix is similar across arms. It's the right tool when a z-test would force you into many noisy pairwise comparisons. It breaks down when any expected cell count drops below about five, when outcomes are ordered (use an ordinal test), or when observations aren't independent (e.g., the same user appears multiple times).
+                    </div>
+                    <h3>What the test compares</h3>
+                    <ul>
+                        <li>Observed counts in a contingency table are compared to counts expected under independence.</li>
+                        <li>Large discrepancies suggest the row and column variables are related.</li>
+                        <li>It is the right tool whenever both the exposure and the outcome are categorical.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>The Math</summary>
+                <div class="model-section-body">
+                    <h3>Test statistic</h3>
+                    <div class="math-block">
+                        <div class="math-block-label">Chi-square statistic</div>
+                        $$\chi^2 = \sum_{i,j} \frac{(O_{ij} - E_{ij})^2}{E_{ij}}, \quad E_{ij} = \frac{R_i C_j}{N}$$
+                    </div>
+
+                    <h3>Effect size</h3>
+                    <div class="math-block">
+                        <div class="math-block-label">Cramér's V</div>
+                        $$V = \sqrt{\frac{\chi^2 / N}{\min(r-1,\ c-1)}}$$
+                    </div>
+                    <ul>
+                        <li>V ≈ 0.1 is a small effect, 0.3 is moderate, 0.5 and above is large.</li>
+                    </ul>
+
+                    <details style="margin: 12px 0; background: #fafafa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 6px 14px;">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--navy); padding: 6px 0;">Example Calculation (click to expand)</summary>
+                        <p style="margin-top: 10px;">2 x 3 contingency table for conversion by arm:</p>
+                        <table class="styled-table" style="font-size: 0.9rem;">
+                            <thead><tr><th>Outcome</th><th>Mens</th><th>Womens</th><th>Control</th><th>Row total</th></tr></thead>
+                            <tbody>
+                                <tr><td>Converted</td><td>268</td><td>192</td><td>122</td><td>582</td></tr>
+                                <tr><td>Did not convert</td><td>21,039</td><td>21,195</td><td>21,184</td><td>63,418</td></tr>
+                                <tr><td>Column total</td><td>21,307</td><td>21,387</td><td>21,306</td><td>64,000</td></tr>
+                            </tbody>
+                        </table>
+                        <div class="math-block">
+                            <div class="math-block-label">Expected count, converted × Mens</div>
+                            $$E_{11} = \frac{582 \times 21{,}307}{64{,}000} = 193.76$$
+                        </div>
+                        <div class="math-block">
+                            <div class="math-block-label">Chi-square, summing all six cells</div>
+                            $$\chi^2 = \frac{(268-193.76)^2}{193.76} + \cdots \approx 69.4$$
+                        </div>
+                        <ul>
+                            <li>Degrees of freedom = (r-1)(c-1) = 1 × 2 = 2.</li>
+                            <li>p value &lt; 0.001, so arm assignment is clearly related to conversion.</li>
+                            <li>Cramér's V = sqrt(69.4 / 64,000 / 1) ≈ 0.033, a small effect in magnitude.</li>
+                        </ul>
+                    </details>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Assumptions &amp; Requirements</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>Observations are independent.</li>
+                        <li>Every expected cell count is 5 or greater.</li>
+                        <li>Variables are genuinely categorical, not collapsed continuous variables.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Diagnostics &amp; Results</summary>
+                <div class="model-section-body">
+                    <h3>Contingency tables</h3>
+                    <p>Raw counts and row proportions per arm for each outcome.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb03/nb03_contingency_visit_interactive.html"></iframe></div>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb03/nb03_contingency_conversion_interactive.html"></iframe></div>
+
+                    <h3>Chi-square test results</h3>
+                    <p>Statistic, degrees of freedom, p value, and decision per outcome.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb03/nb03_chi2_test_visit_interactive.html"></iframe></div>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb03/nb03_chi2_test_conversion_interactive.html"></iframe></div>
+
+                    <h3>Expected frequencies and validity check</h3>
+                    <p>Confirms every expected count clears the 5 per cell rule.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb03/nb03_expected_freq_visit_interactive.html"></iframe></div>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb03/nb03_expected_freq_conversion_interactive.html"></iframe></div>
+
+                    <h3>Standardized residuals</h3>
+                    <p>Cells shaded pink drive the significant result; |residual| &gt; 2 is the attention cutoff.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb03/nb03_std_residuals_interactive.html"></iframe></div>
+
+                    <h3>Pairwise post hoc tests</h3>
+                    <p>Three pairwise tests with Bonferroni corrected α = 0.0167.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb03/nb03_pairwise_chi2_interactive.html"></iframe></div>
+
+                    <h3>Cramér's V effect size</h3>
+                    <p>Effect size for each outcome with interpretation band.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb03/nb03_cramers_v_interactive.html"></iframe></div>
+
+                    <h3>Overall summary</h3>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb03/nb03_chi2_summary_interactive.html"></iframe></div>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Limitations</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>The test tells you <em>that</em> variables are related, not <em>how much</em>; always report Cramér's V alongside.</li>
+                        <li>Residuals, not the overall p value, identify which cells are driving the rejection.</li>
+                        <li>Never apply chi-square to collapsed continuous data; use a t test instead.</li>
+                    </ul>
+                </div>
+            </details>
+        </div>
+
+        <!-- =========================== nb04 CI =========================== -->
+        <div id="nb04-ci" class="tab-content">
+            <div class="tab-header">
+                <div class="model-name">Confidence Intervals &amp; Bootstrap</div>
+                <span class="badge-family">Frequentist</span>
+            </div>
+            <div class="section-controls">
+                <button onclick="expandAllSections('nb04-ci')">Expand All</button>
+                <button onclick="collapseAllSections('nb04-ci')">Collapse All</button>
+            </div>
+
+            <details class="model-section" open>
+                <summary>Introduction</summary>
+                <div class="model-section-body">
+                    <div class="plain-language-intro" style="background: #f4f7fb; border-left: 4px solid var(--accent); padding: 12px 16px; margin-bottom: 14px; border-radius: 4px;">
+                        <strong>In plain language:</strong> A confidence interval tells you the plausible range of the true effect — not just whether it's zero — which is usually what a business decision actually needs. The bootstrap builds that range by resampling your data thousands of times, making it robust when your outcome is skewed (revenue, time-on-site) or your sample is small. Use it whenever a stakeholder asks "how big is the effect, really?" instead of just "is there one?". It's a poor fit when your sample is so small the resamples can't capture the tails, when observations are correlated (bootstrap assumes they're independent), or when you need a fast, low-compute answer for a simple proportion comparison.
+                    </div>
+                    <h3>Why CIs matter</h3>
+                    <ul>
+                        <li>A p value tells you whether an effect is distinguishable from zero.</li>
+                        <li>A confidence interval tells you the plausible range of the effect itself.</li>
+                        <li>That range is what a stakeholder actually wants for the business decision.</li>
+                    </ul>
+                    <h3>Why bootstrap</h3>
+                    <ul>
+                        <li>Analytic CIs (Wald) assume a normal shape; they can be wrong with skewed outcomes or small n.</li>
+                        <li>Bootstrap reconstructs the sampling distribution directly by resampling with replacement.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>The Math</summary>
+                <div class="model-section-body">
+                    <h3>Analytic intervals</h3>
+                    <div class="math-block">
+                        <div class="math-block-label">Wald CI for a proportion</div>
+                        $$\hat p \pm z_{1-\alpha/2}\sqrt{\frac{\hat p(1-\hat p)}{n}}$$
+                    </div>
+                    <div class="math-block">
+                        <div class="math-block-label">Wilson score CI</div>
+                        $$\frac{\hat p + \tfrac{z^2}{2n} \pm z\sqrt{\tfrac{\hat p(1-\hat p)}{n} + \tfrac{z^2}{4n^2}}}{1 + z^2/n}$$
+                    </div>
+                    <h3>Resampling interval</h3>
+                    <div class="math-block">
+                        <div class="math-block-label">Bootstrap percentile CI</div>
+                        $$\bigl[\hat\theta^*_{(\alpha/2)},\ \hat\theta^*_{(1-\alpha/2)}\bigr]$$
+                    </div>
+
+                    <details style="margin: 12px 0; background: #fafafa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 6px 14px;">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--navy); padding: 6px 0;">Example Calculation (click to expand)</summary>
+                        <p style="margin-top: 10px;">Wald 95% CI for Mens conversion rate (268 of 21,307):</p>
+                        <div class="math-block">
+                            <div class="math-block-label">Point estimate</div>
+                            $$\hat p = 268 / 21{,}307 = 0.01258$$
+                        </div>
+                        <div class="math-block">
+                            <div class="math-block-label">Standard error</div>
+                            $$\text{SE} = \sqrt{\frac{0.01258 (1 - 0.01258)}{21{,}307}} = 0.000764$$
+                        </div>
+                        <div class="math-block">
+                            <div class="math-block-label">95% Wald CI</div>
+                            $$0.01258 \pm 1.96 \times 0.000764 = [0.01108,\ 0.01408]$$
+                        </div>
+                        <p>Bootstrap procedure on the same data:</p>
+                        <ul>
+                            <li>Resample 21,307 customers with replacement 10,000 times.</li>
+                            <li>Compute the conversion rate on each resample.</li>
+                            <li>Take the 2.5th and 97.5th percentiles of those 10,000 rates.</li>
+                            <li>Result: [0.01112, 0.01411], essentially identical to the Wald CI because n is large.</li>
+                        </ul>
+                        <p>Wilson interval handles rare events better and is slightly tighter on the left side: [0.01115, 0.01418].</p>
+                    </details>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Assumptions &amp; Requirements</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>Wald CI: np and n(1−p) both at least 10.</li>
+                        <li>Wilson CI: robust down to small np; preferred default for proportions.</li>
+                        <li>Bootstrap: independent, identically distributed observations; 10,000 or more resamples for stable tail quantiles.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Diagnostics &amp; Results</summary>
+                <div class="model-section-body">
+                    <h3>Conversion statistics by segment</h3>
+                    <p>Point estimates, counts, and standard errors per arm.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb04/nb04_conversion_stats_by_segment_interactive.html"></iframe></div>
+
+                    <h3>Wald versus Wilson intervals</h3>
+                    <p>Wilson is tighter at the boundary and never crosses 0 or 1.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb04/nb04_wald_wilson_ci_interactive.html"></iframe></div>
+
+                    <h3>Analytical versus bootstrap</h3>
+                    <p>At n = 21K per arm the two agree closely; divergence appears only in the tails.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb04/nb04_analytical_vs_bootstrap_interactive.html"></iframe></div>
+
+                    <h3>Bootstrap sampling distribution</h3>
+                    <p>10,000 bootstrap replicates of the conversion lift.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb04/nb04_bootstrap_distribution_interactive.html"></iframe></div>
+
+                    <h3>Bootstrap summary</h3>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb04/nb04_bootstrap_summary_interactive.html"></iframe></div>
+
+                    <h3>All intervals side by side</h3>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb04/nb04_ci_comparison_interactive.html"></iframe></div>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Limitations</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>Bootstrap struggles with extreme quantiles of heavy tailed distributions.</li>
+                        <li>Wald breaks near p = 0 or p = 1; default to Wilson or Clopper-Pearson.</li>
+                        <li>Bootstrap CIs for ratios and differences of ratios need the BCa correction to de bias.</li>
+                    </ul>
+                </div>
+            </details>
+        </div>
+
+        <!-- =========================== nb05 Sequential =========================== -->
+        <div id="nb05-sequential" class="tab-content">
+            <div class="tab-header">
+                <div class="model-name">Sequential Testing</div>
+                <span class="badge-family">Sequential</span>
+            </div>
+            <div class="section-controls">
+                <button onclick="expandAllSections('nb05-sequential')">Expand All</button>
+                <button onclick="collapseAllSections('nb05-sequential')">Collapse All</button>
+            </div>
+
+            <details class="model-section" open>
+                <summary>Introduction</summary>
+                <div class="model-section-body">
+                    <div class="plain-language-intro" style="background: #f4f7fb; border-left: 4px solid var(--accent); padding: 12px 16px; margin-bottom: 14px; border-radius: 4px;">
+                        <strong>In plain language:</strong> Sequential testing lets you check results while the test is still running without inflating the false-positive rate. You pre-plan the number of peeks and use a stricter significance threshold at each one. Use it when stopping early has real value — killing a bad launch sooner, shipping a clear winner faster, or freeing up traffic for the next test. Classic case: monitoring a new checkout flow weekly so you can pull the plug if it starts hurting revenue. Skip it when you can't commit to a peek schedule in advance, when outcomes arrive with long delays that make interim looks meaningless, or when the experiment is short enough that one final analysis is sufficient.
+                    </div>
+                    <h3>Why peeking breaks the test</h3>
+                    <ul>
+                        <li>Each interim look gives the data a new chance to cross the significance threshold.</li>
+                        <li>Five unplanned peeks at α = 0.05 roughly triples the overall type I error.</li>
+                        <li>Sequential designs spend α across looks so the overall rate stays at 0.05.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>The Math</summary>
+                <div class="model-section-body">
+                    <h3>Boundaries</h3>
+                    <div class="math-block">
+                        <div class="math-block-label">O'Brien-Fleming boundary at look k of K</div>
+                        $$c_k = c_K\sqrt{K/k}$$
+                    </div>
+                    <div class="math-block">
+                        <div class="math-block-label">Pocock boundary, constant across looks</div>
+                        $$c_k = c_P \text{ solved to preserve overall } \alpha$$
+                    </div>
+
+                    <h3>Alpha spending</h3>
+                    <div class="math-block">
+                        <div class="math-block-label">Lan DeMets function, O'Brien-Fleming family</div>
+                        $$\alpha^*(t) = 2\bigl[1 - \Phi\bigl(z_{1-\alpha/2}/\sqrt{t}\bigr)\bigr]$$
+                    </div>
+
+                    <details style="margin: 12px 0; background: #fafafa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 6px 14px;">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--navy); padding: 6px 0;">Example Calculation (click to expand)</summary>
+                        <p style="margin-top: 10px;">Plan: 4 equally spaced interim looks, overall &alpha; = 0.05.</p>
+                        <table class="styled-table" style="font-size: 0.9rem;">
+                            <thead><tr><th>Look k</th><th>Fraction t = k/K</th><th>O'Brien-Fleming z boundary</th><th>Pocock z boundary</th></tr></thead>
+                            <tbody>
+                                <tr><td>1</td><td>0.25</td><td>4.33</td><td>2.36</td></tr>
+                                <tr><td>2</td><td>0.50</td><td>2.96</td><td>2.36</td></tr>
+                                <tr><td>3</td><td>0.75</td><td>2.36</td><td>2.36</td></tr>
+                                <tr><td>4</td><td>1.00</td><td>2.04</td><td>2.36</td></tr>
+                            </tbody>
+                        </table>
+                        <p>Example observed z statistic at look 2: Z = 2.80.</p>
+                        <ul>
+                            <li>Under O'Brien-Fleming: 2.80 &lt; 2.96, so <strong>do not</strong> stop, keep enrolling.</li>
+                            <li>Under Pocock: 2.80 &gt; 2.36, so <strong>stop</strong> and declare efficacy.</li>
+                            <li>Same data, different decision: the cost of stopping early is built into the boundary choice.</li>
+                        </ul>
+                    </details>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Assumptions &amp; Requirements</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>Number of interim looks is planned up front.</li>
+                        <li>Data at each look is independent of prior looks given the test statistic.</li>
+                        <li>A clear rule exists for stopping for efficacy, futility, or safety.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Diagnostics &amp; Results</summary>
+                <div class="model-section-body">
+                    <h3>O'Brien-Fleming boundaries</h3>
+                    <p>Strict early, relaxed at the planned end; protects against premature stops.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb05/nb05_obf_boundaries_interactive.html"></iframe></div>
+
+                    <h3>Pocock boundaries</h3>
+                    <p>Constant across looks; spends α evenly.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb05/nb05_pocock_boundaries_interactive.html"></iframe></div>
+
+                    <h3>Alpha spending functions</h3>
+                    <p>Shows how O'Brien-Fleming, Pocock, and linear compare across looks.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb05/nb05_spending_functions_interactive.html"></iframe></div>
+
+                    <h3>Sequential trajectory on Hillstrom</h3>
+                    <p>Z statistic at each look compared against the boundary.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb05/nb05_sequential_trajectory_interactive.html"></iframe></div>
+
+                    <h3>Decisions at every look</h3>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb05/nb05_sequential_summary_interactive.html"></iframe></div>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Limitations</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>Pocock spends α aggressively and can stop on noise.</li>
+                        <li>O'Brien-Fleming rarely stops early but protects against false positives.</li>
+                        <li>Post hoc sequential corrections are not valid; the design must precede the data.</li>
+                    </ul>
+                </div>
+            </details>
+        </div>
+
+        <!-- =========================== nb06 Bayesian =========================== -->
+        <div id="nb06-bayesian" class="tab-content">
+            <div class="tab-header">
+                <div class="model-name">Bayesian A/B Testing</div>
+                <span class="badge-family">Bayesian</span>
+            </div>
+            <div class="section-controls">
+                <button onclick="expandAllSections('nb06-bayesian')">Expand All</button>
+                <button onclick="collapseAllSections('nb06-bayesian')">Collapse All</button>
+            </div>
+
+            <details class="model-section" open>
+                <summary>Introduction</summary>
+                <div class="model-section-body">
+                    <div class="plain-language-intro" style="background: #f4f7fb; border-left: 4px solid var(--accent); padding: 12px 16px; margin-bottom: 14px; border-radius: 4px;">
+                        <strong>In plain language:</strong> A Bayesian A/B test gives you the direct probability that B beats A, plus the expected dollar cost of picking the wrong arm — both easy to translate into a business decision. Use it when stakeholders want an intuitive answer like "there's a 92% chance B wins" rather than a p-value, or when you have real historical data to seed a sensible prior. It's particularly useful for small samples where frequentist tests feel underpowered. It's a poor fit when you can't defend your prior (a strong prior can dominate a small sample), when peer reviewers or regulators expect classical hypothesis testing, or when Monte Carlo compute is too expensive for the setting.
+                    </div>
+                    <h3>Different question, different answer</h3>
+                    <ul>
+                        <li>A frequentist test asks "how unlikely is this data if the null is true?".</li>
+                        <li>A Bayesian test answers the question stakeholders actually ask: "what is the probability that B beats A?".</li>
+                        <li>It also produces an expected loss, which is the natural input to a business decision.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>The Math</summary>
+                <div class="model-section-body">
+                    <h3>Conjugate update</h3>
+                    <div class="math-block">
+                        <div class="math-block-label">Beta-Binomial posterior</div>
+                        $$p \mid \text{data} \sim \text{Beta}(\alpha_0 + k,\ \beta_0 + n - k)$$
+                    </div>
+
+                    <h3>Decision quantities</h3>
+                    <div class="math-block">
+                        <div class="math-block-label">Probability of superiority</div>
+                        $$P(p_B &gt; p_A) = \tfrac{1}{M}\sum_{m=1}^M \mathbb{1}\{p_B^{(m)} &gt; p_A^{(m)}\}$$
+                    </div>
+                    <div class="math-block">
+                        <div class="math-block-label">Expected loss of choosing A</div>
+                        $$\mathbb{E}[L(A)] = \mathbb{E}\bigl[\max(0,\ p_B - p_A)\bigr]$$
+                    </div>
+
+                    <details style="margin: 12px 0; background: #fafafa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 6px 14px;">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--navy); padding: 6px 0;">Example Calculation (click to expand)</summary>
+                        <p style="margin-top: 10px;">Start with a weakly informative prior Beta(1, 1) for each arm, then update with observed conversions.</p>
+                        <table class="styled-table" style="font-size: 0.9rem;">
+                            <thead><tr><th>Arm</th><th>Conversions (k)</th><th>Non-conversions (n - k)</th><th>Posterior</th></tr></thead>
+                            <tbody>
+                                <tr><td>Control (A)</td><td>122</td><td>21,184</td><td>Beta(123, 21,185)</td></tr>
+                                <tr><td>Mens (B)</td><td>268</td><td>21,039</td><td>Beta(269, 21,040)</td></tr>
+                            </tbody>
+                        </table>
+                        <div class="math-block">
+                            <div class="math-block-label">Posterior means</div>
+                            $$\hat p_A = \frac{123}{21{,}308} \approx 0.00577,\quad \hat p_B = \frac{269}{21{,}309} \approx 0.01262$$
+                        </div>
+                        <p>Draw M = 100,000 Monte Carlo samples from each posterior. Count the fraction of draws where $p_B^{(m)} > p_A^{(m)}$:</p>
+                        <div class="math-block">
+                            <div class="math-block-label">Decision output</div>
+                            $$P(p_B > p_A) \approx 1.000,\quad \mathbb{E}[L(A)] \approx 0.00685$$
+                        </div>
+                        <ul>
+                            <li>The posterior says B beats A with virtual certainty.</li>
+                            <li>Expected loss of shipping A is about 0.685 percentage points of conversion, a direct business cost.</li>
+                            <li>No p value, no null hypothesis — the output is the probability a stakeholder actually wants.</li>
+                        </ul>
+                    </details>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Assumptions &amp; Requirements</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>Prior must be defensible; Beta(1,1) is a weakly informative default.</li>
+                        <li>Outcomes are Bernoulli per customer, independent across customers.</li>
+                        <li>Monte Carlo draws must be large enough to stabilize tail estimates.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Diagnostics &amp; Results</summary>
+                <div class="model-section-body">
+                    <h3>Prior to posterior update</h3>
+                    <p>How the Beta prior shifts as evidence accumulates.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb06/nb06_prior_posterior_interactive.html"></iframe></div>
+
+                    <h3>Posteriors side by side</h3>
+                    <p>Final posteriors across the three arms.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb06/nb06_posteriors_interactive.html"></iframe></div>
+
+                    <h3>Posterior difference</h3>
+                    <p>Distribution of p_B minus p_A directly.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb06/nb06_posterior_difference_interactive.html"></iframe></div>
+
+                    <h3>Probability of superiority</h3>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb06/nb06_prob_superiority_interactive.html"></iframe></div>
+
+                    <h3>Superiority plus expected loss</h3>
+                    <p>Decision ready summary combining P(B &gt; A) with expected loss.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb06/nb06_superiority_expected_loss_interactive.html"></iframe></div>
+
+                    <h3>Frequentist versus Bayesian CI</h3>
+                    <p>Wald, Wilson, and Bayesian credible intervals side by side.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb06/nb06_freq_vs_bayes_ci_interactive.html"></iframe></div>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Limitations</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>A strongly informative prior dominates a small sample.</li>
+                        <li>Bayesian results communicate easily but still depend on the model choice.</li>
+                        <li>Repeated Bayesian peeking is better behaved than frequentist peeking, but not free of bias.</li>
+                    </ul>
+                </div>
+            </details>
+        </div>
+
+        <!-- =========================== nb07 CUPED =========================== -->
+        <div id="nb07-cuped" class="tab-content">
+            <div class="tab-header">
+                <div class="model-name">CUPED Variance Reduction</div>
+                <span class="badge-family">Advanced</span>
+            </div>
+            <div class="section-controls">
+                <button onclick="expandAllSections('nb07-cuped')">Expand All</button>
+                <button onclick="collapseAllSections('nb07-cuped')">Collapse All</button>
+            </div>
+
+            <details class="model-section" open>
+                <summary>Introduction</summary>
+                <div class="model-section-body">
+                    <div class="plain-language-intro" style="background: #f4f7fb; border-left: 4px solid var(--accent); padding: 12px 16px; margin-bottom: 14px; border-radius: 4px;">
+                        <strong>In plain language:</strong> CUPED is a variance-reduction trick. It uses a pre-experiment variable (like a customer's past spend) that's correlated with the outcome to strip out the predictable part of person-to-person noise. The result is tighter confidence intervals and a smaller sample size needed for the same power, without changing what you're measuring. Use it when you have a good pre-period covariate and need to run tests faster or with less traffic — common at Microsoft, Netflix, and Booking for mature experimentation programs. Not worth the effort when you have no pre-period data, when the covariate is only weakly correlated with the outcome (small variance gain), or when you already have so much traffic that standard tests converge quickly anyway.
+                    </div>
+                    <h3>The variance problem</h3>
+                    <ul>
+                        <li>Most of the noise in the treatment effect estimator comes from customer level variation, not the treatment.</li>
+                        <li>If a covariate measured before the experiment is correlated with the outcome, it explains part of that noise.</li>
+                        <li>CUPED subtracts out that explained variance and shrinks the standard error.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>The Math</summary>
+                <div class="model-section-body">
+                    <h3>Adjustment</h3>
+                    <div class="math-block">
+                        <div class="math-block-label">Optimal θ</div>
+                        $$\theta = \frac{\text{Cov}(Y, X)}{\text{Var}(X)}$$
+                    </div>
+                    <div class="math-block">
+                        <div class="math-block-label">CUPED adjusted outcome</div>
+                        $$Y^{\text{cuped}} = Y - \theta(X - \bar X)$$
+                    </div>
+
+                    <h3>Variance reduction</h3>
+                    <div class="math-block">
+                        <div class="math-block-label">Variance ratio</div>
+                        $$\frac{\text{Var}(Y^{\text{cuped}})}{\text{Var}(Y)} = 1 - \rho_{XY}^2$$
+                    </div>
+
+                    <details style="margin: 12px 0; background: #fafafa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 6px 14px;">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--navy); padding: 6px 0;">Example Calculation (click to expand)</summary>
+                        <p style="margin-top: 10px;">Use pre-period spend (X) as the covariate for post-period spend (Y). On the Hillstrom data these two are moderately correlated.</p>
+                        <table class="styled-table" style="font-size: 0.9rem;">
+                            <thead><tr><th>Quantity</th><th>Value</th></tr></thead>
+                            <tbody>
+                                <tr><td>Cov(Y, X)</td><td>62.41</td></tr>
+                                <tr><td>Var(X)</td><td>201.38</td></tr>
+                                <tr><td>Var(Y)</td><td>462.97</td></tr>
+                                <tr><td>Correlation ρ<sub>XY</sub></td><td>0.204</td></tr>
+                            </tbody>
+                        </table>
+                        <div class="math-block">
+                            <div class="math-block-label">Solve for θ</div>
+                            $$\theta = \frac{62.41}{201.38} \approx 0.310$$
+                        </div>
+                        <div class="math-block">
+                            <div class="math-block-label">Variance ratio</div>
+                            $$\frac{\text{Var}(Y^{\text{cuped}})}{\text{Var}(Y)} = 1 - 0.204^2 \approx 0.958$$
+                        </div>
+                        <ul>
+                            <li>A ρ of 0.204 buys about 4.2% variance reduction, shrinking the standard error by roughly 2.1%.</li>
+                            <li>Equivalently: the sample size needed for the same power drops by about 4%.</li>
+                            <li>Modest here — CUPED shines when a pre-period metric tracks the outcome tightly (ρ ≈ 0.5 or higher).</li>
+                        </ul>
+                    </details>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Assumptions &amp; Requirements</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>X is measured before treatment assignment; using a post treatment covariate biases the estimator.</li>
+                        <li>X is correlated with Y; variance reduction equals ρ² between them.</li>
+                        <li>θ is estimated on pretreatment data or via cross fitting.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Diagnostics &amp; Results</summary>
+                <div class="model-section-body">
+                    <h3>Pretreatment versus post treatment spend</h3>
+                    <p>Customer level scatter; the correlation drives all of the variance reduction.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb07/nb07_pre_post_scatter_interactive.html"></iframe></div>
+
+                    <h3>Variance reduction</h3>
+                    <p>Variance of the outcome before and after CUPED adjustment.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb07/nb07_variance_reduction_interactive.html"></iframe></div>
+
+                    <h3>Raw versus CUPED estimator</h3>
+                    <p>Point estimate and SE before and after adjustment; t statistic grows even though the lift is unchanged.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb07/nb07_cuped_comparison_interactive.html"></iframe></div>
+
+                    <h3>Power comparison</h3>
+                    <p>Sample size needed to hit 80% power, raw versus CUPED.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb07/nb07_power_comparison_interactive.html"></iframe></div>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Limitations</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>Variance reduction is proportional to ρ²; a weak covariate delivers nothing.</li>
+                        <li>θ estimated on in sample data leaks treatment information; cross fit when sample is small.</li>
+                        <li>CUPED reduces noise, it does not correct for confounding.</li>
+                    </ul>
+                </div>
+            </details>
+        </div>
+
+        <!-- =========================== nb08 Uplift =========================== -->
+        <div id="nb08-uplift" class="tab-content">
+            <div class="tab-header">
+                <div class="model-name">Uplift Modeling</div>
+                <span class="badge-family">Advanced</span>
+            </div>
+            <div class="section-controls">
+                <button onclick="expandAllSections('nb08-uplift')">Expand All</button>
+                <button onclick="collapseAllSections('nb08-uplift')">Collapse All</button>
+            </div>
+
+            <details class="model-section" open>
+                <summary>Introduction</summary>
+                <div class="model-section-body">
+                    <div class="plain-language-intro" style="background: #f4f7fb; border-left: 4px solid var(--accent); padding: 12px 16px; margin-bottom: 14px; border-radius: 4px;">
+                        <strong>In plain language:</strong> Uplift modeling estimates the treatment effect for each individual customer rather than an overall average, so you can target only the "persuadables" — people who'd convert because of the email but not without it. Use it when you have customer features, enough sample to split training and evaluation, and a marketing action with real per-customer cost. Classic case: deciding who gets a discount code, so you don't hand money to customers who'd have bought anyway. It's a poor fit when the average treatment effect is tiny (per-customer estimates drown in noise), when your features don't capture what drives response, or when you only have a few hundred customers per arm.
+                    </div>
+                    <h3>Beyond the average effect</h3>
+                    <ul>
+                        <li>The ATE is an average over customers who may respond very differently.</li>
+                        <li>Some customers convert regardless (sure things); some never convert (lost causes); some convert only because of the email (persuadables).</li>
+                        <li>Uplift modeling estimates a per customer treatment effect τ(x) so the marketer can target the persuadables.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>The Math</summary>
+                <div class="model-section-body">
+                    <h3>Meta learners</h3>
+                    <div class="math-block">
+                        <div class="math-block-label">T Learner</div>
+                        $$\hat\tau(x) = \hat\mu_T(x) - \hat\mu_C(x)$$
+                    </div>
+                    <div class="math-block">
+                        <div class="math-block-label">S Learner</div>
+                        $$\hat\tau(x) = \hat\mu(x, T=1) - \hat\mu(x, T=0)$$
+                    </div>
+                    <div class="math-block">
+                        <div class="math-block-label">Transformed outcome (IPW style)</div>
+                        $$Y^* = \frac{T-e(x)}{e(x)\bigl(1-e(x)\bigr)} Y$$
+                    </div>
+
+                    <h3>Evaluation</h3>
+                    <div class="math-block">
+                        <div class="math-block-label">Qini and AUUC</div>
+                        $$\text{AUUC} = \int_0^1 \bigl[Q(f) - f\,Q(1)\bigr]\,df$$
+                    </div>
+
+                    <details style="margin: 12px 0; background: #fafafa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 6px 14px;">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--navy); padding: 6px 0;">Example Calculation (click to expand)</summary>
+                        <p style="margin-top: 10px;">A T-learner fits one model per arm and differences the predictions. Consider a single customer with pre-period spend 45 and a "mens buyer" flag.</p>
+                        <table class="styled-table" style="font-size: 0.9rem;">
+                            <thead><tr><th>Model</th><th>Predicted P(convert)</th></tr></thead>
+                            <tbody>
+                                <tr><td>μ̂<sub>T</sub>(x) — fit on Mens arm</td><td>0.0184</td></tr>
+                                <tr><td>μ̂<sub>C</sub>(x) — fit on Control</td><td>0.0061</td></tr>
+                            </tbody>
+                        </table>
+                        <div class="math-block">
+                            <div class="math-block-label">Individual uplift</div>
+                            $$\hat\tau(x) = 0.0184 - 0.0061 = 0.0123$$
+                        </div>
+                        <p>Score every customer this way, sort by τ̂(x) descending, and compute the Qini curve. The top decile's cumulative incremental conversions, versus a random targeting baseline, give the area under the Qini (AUUC).</p>
+                        <div class="math-block">
+                            <div class="math-block-label">Illustrative AUUC</div>
+                            $$\text{AUUC} \approx 0.0042$$
+                        </div>
+                        <ul>
+                            <li>This customer is a persuadable: +1.23 percentage points of incremental conversion from the email.</li>
+                            <li>The ATE across all customers is only 0.68 pp — targeting the top scorers concentrates lift.</li>
+                            <li>AUUC &gt; 0 means the model beats random targeting; compare to a benchmark of 0 for no signal.</li>
+                        </ul>
+                    </details>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Assumptions &amp; Requirements</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>Random assignment so that τ(x) is identified.</li>
+                        <li>Overlap: every feature combination has both treated and control observations.</li>
+                        <li>Enough treatment signal relative to outcome noise; otherwise τ̂(x) is dominated by noise.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Diagnostics &amp; Results</summary>
+                <div class="model-section-body">
+                    <h3>Feature importance</h3>
+                    <p>Features driving the T Learner treatment model.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb08/nb08_feature_importance_interactive.html"></iframe></div>
+
+                    <h3>Qini curve</h3>
+                    <p>Incremental conversions as a function of the targeted fraction, versus random baseline.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb08/nb08_qini_curve_interactive.html"></iframe></div>
+
+                    <h3>Uplift stratified by buyer type</h3>
+                    <p>Observed lift versus predicted lift across mens only, womens only, and both buyer segments.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb08/nb08_uplift_stratified_interactive.html"></iframe></div>
+
+                    <h3>Stratified uplift table</h3>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb08/nb08_uplift_by_buyer_type_interactive.html"></iframe></div>
+
+                    <h3>Summary metrics</h3>
+                    <p>Average predicted uplift, percent with positive τ, AUUC, optimal targeting percentage, and expected incremental conversions.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb08/nb08_uplift_summary_interactive.html"></iframe></div>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Limitations</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>τ(x) is a difference of two noisy estimators, so variance compounds.</li>
+                        <li>Do not evaluate uplift with per customer residuals; use Qini or AUUC on held out data.</li>
+                        <li>If the ATE itself is small, heterogeneity estimates will be dominated by noise.</li>
+                    </ul>
+                </div>
+            </details>
+        </div>
+
+        <!-- =========================== nb09 Bandits =========================== -->
+        <div id="nb09-bandits" class="tab-content">
+            <div class="tab-header">
+                <div class="model-name">Multi-Armed Bandits</div>
+                <span class="badge-family">Advanced</span>
+            </div>
+            <div class="section-controls">
+                <button onclick="expandAllSections('nb09-bandits')">Expand All</button>
+                <button onclick="collapseAllSections('nb09-bandits')">Collapse All</button>
+            </div>
+
+            <details class="model-section" open>
+                <summary>Introduction</summary>
+                <div class="model-section-body">
+                    <div class="plain-language-intro" style="background: #f4f7fb; border-left: 4px solid var(--accent); padding: 12px 16px; margin-bottom: 14px; border-radius: 4px;">
+                        <strong>In plain language:</strong> A multi-armed bandit replaces the fixed 50/50 split of a classic A/B test with a policy that continuously shifts traffic toward whichever arm is currently winning. Use it when every customer served a losing variant has a real cost — lost revenue, bad user experience — and you care more about minimizing that cost than producing clean post-hoc statistics. Classic cases: news headline optimization, homepage promo selection, ad creative rotation. Avoid bandits when you need rigorous p-values for regulators or stakeholders, when conversions take days or weeks to materialize (breaks the fast-feedback assumption), or when arm performance drifts significantly over time.
+                    </div>
+                    <h3>Experimentation cost</h3>
+                    <ul>
+                        <li>A fixed A/B split wastes every customer shown the losing arm for the full duration.</li>
+                        <li>A bandit reallocates traffic toward the arm that is currently winning.</li>
+                        <li>The tradeoff: less statistical rigor for smaller regret (fewer lost conversions during the test).</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>The Math</summary>
+                <div class="model-section-body">
+                    <h3>Policies</h3>
+                    <div class="math-block">
+                        <div class="math-block-label">ε-greedy</div>
+                        $$a_t = \begin{cases}\text{random arm} &amp; \text{w.p. }\varepsilon\\ \arg\max_i \hat\mu_i &amp; \text{w.p. }1-\varepsilon\end{cases}$$
+                    </div>
+                    <div class="math-block">
+                        <div class="math-block-label">Thompson Sampling</div>
+                        $$\theta_i \sim \text{Beta}(\alpha_i, \beta_i),\ \ a_t = \arg\max_i \theta_i$$
+                    </div>
+                    <div class="math-block">
+                        <div class="math-block-label">UCB1</div>
+                        $$a_t = \arg\max_i \hat\mu_i + \sqrt{\frac{2\ln t}{n_i}}$$
+                    </div>
+
+                    <h3>Performance measure</h3>
+                    <div class="math-block">
+                        <div class="math-block-label">Cumulative regret</div>
+                        $$R_T = \sum_{t=1}^T \bigl(\mu^* - \mu_{a_t}\bigr)$$
+                    </div>
+
+                    <details style="margin: 12px 0; background: #fafafa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 6px 14px;">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--navy); padding: 6px 0;">Example Calculation (click to expand)</summary>
+                        <p style="margin-top: 10px;">Three arms (Control, Mens, Womens) with current Beta posteriors after 5,000 customers each:</p>
+                        <table class="styled-table" style="font-size: 0.9rem;">
+                            <thead><tr><th>Arm</th><th>α (successes + 1)</th><th>β (failures + 1)</th><th>Posterior mean</th></tr></thead>
+                            <tbody>
+                                <tr><td>Control</td><td>31</td><td>4,971</td><td>0.0062</td></tr>
+                                <tr><td>Mens</td><td>63</td><td>4,939</td><td>0.0126</td></tr>
+                                <tr><td>Womens</td><td>47</td><td>4,955</td><td>0.0094</td></tr>
+                            </tbody>
+                        </table>
+                        <p>At the next step, Thompson Sampling draws one θ per arm and plays the argmax:</p>
+                        <div class="math-block">
+                            <div class="math-block-label">Thompson draw</div>
+                            $$\theta_C = 0.0059,\ \ \theta_M = 0.0141,\ \ \theta_W = 0.0088 \ \Rightarrow\ a_t = \text{Mens}$$
+                        </div>
+                        <p>If the true best mean is μ* = 0.0126 (Mens) and the policy had played Control with μ = 0.0062 for 200 of the first 5,000 steps, regret from those plays is:</p>
+                        <div class="math-block">
+                            <div class="math-block-label">Regret contribution</div>
+                            $$R = 200 \times (0.0126 - 0.0062) = 1.28\ \text{expected lost conversions}$$
+                        </div>
+                        <ul>
+                            <li>Thompson Sampling naturally shifts traffic toward Mens as its posterior tightens on the highest mean.</li>
+                            <li>A fixed 50/50 A/B split would have accumulated ~32 lost conversions over the same horizon — orders of magnitude more regret.</li>
+                            <li>Tradeoff: the bandit's adaptive data violates the i.i.d. assumption behind standard CIs, so post-hoc inference needs care.</li>
+                        </ul>
+                    </details>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Assumptions &amp; Requirements</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>Rewards are stationary across the horizon.</li>
+                        <li>Feedback arrives quickly enough for the policy to adapt.</li>
+                        <li>Random tie breaking for arms with equal posterior mass.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Diagnostics &amp; Results</summary>
+                <div class="model-section-body">
+                    <h3>Cumulative regret by policy</h3>
+                    <p>Thompson Sampling tracks the optimal arm fastest in the Hillstrom simulation.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb09/nb09_cumulative_regret_interactive.html"></iframe></div>
+
+                    <h3>Arm allocation</h3>
+                    <p>Fraction of traffic each policy sent to each arm across the horizon.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb09/nb09_arm_allocation_interactive.html"></iframe></div>
+
+                    <h3>Bandit results summary</h3>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb09/nb09_bandit_results_interactive.html"></iframe></div>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Limitations</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>Standard inference (p values, CIs) does not apply directly to adaptively allocated data.</li>
+                        <li>Delayed conversions violate the stationarity assumption and slow convergence.</li>
+                        <li>ε-greedy can lock onto a suboptimal arm if ε decays too fast.</li>
+                    </ul>
+                </div>
+            </details>
+        </div>
+
+        <!-- =========================== nb10 Comparison =========================== -->
+        <div id="nb10-comparison" class="tab-content">
+            <div class="tab-header">
+                <div class="model-name">Method Comparison &amp; Diagnostics</div>
+                <span class="badge-family">Synthesis</span>
+            </div>
+            <div class="section-controls">
+                <button onclick="expandAllSections('nb10-comparison')">Expand All</button>
+                <button onclick="collapseAllSections('nb10-comparison')">Collapse All</button>
+            </div>
+
+            <details class="model-section" open>
+                <summary>Introduction</summary>
+                <div class="model-section-body">
+                    <div class="plain-language-intro" style="background: #f4f7fb; border-left: 4px solid var(--accent); padding: 12px 16px; margin-bottom: 14px; border-radius: 4px;">
+                        <strong>In plain language:</strong> Running every method on the same dataset and comparing them side-by-side is a stress test for your conclusion. If a z-test, a Bayesian model, and a bootstrap CI all land in the same neighborhood, you can trust the result more; if they disagree, that's a signal to dig into assumptions. Use this pattern whenever the stakes are high enough to warrant cross-validation — flagship launches, pricing changes, anything with large downstream impact. It's less useful when you've pre-committed to one method (regulatory setting, formal experimentation platform with a single supported test) or when running all methods requires so much custom setup that the overhead outweighs the confidence gain.
+                    </div>
+                    <h3>Why a synthesis</h3>
+                    <ul>
+                        <li>Every method has been run on the same Hillstrom data.</li>
+                        <li>Side by side, their point estimates, CIs, and decisions rarely disagree, but their standard errors and decision speed do.</li>
+                        <li>This tab makes that tradeoff visible.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Diagnostics &amp; Results</summary>
+                <div class="model-section-body">
+                    <h3>Cross method forest</h3>
+                    <p>Every method's estimate of the conversion lift with its CI, aligned on a common axis.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb10/nb10_cross_method_forest_interactive.html"></iframe></div>
+
+                    <h3>Method agreement</h3>
+                    <p>Where methods agree on the sign and significance of the lift.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb10/nb10_method_agreement_interactive.html"></iframe></div>
+
+                    <h3>Conversion outcome comparison</h3>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb10/nb10_method_comparison_conversion_interactive.html"></iframe></div>
+
+                    <h3>Spend outcome comparison</h3>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb10/nb10_method_comparison_spend_interactive.html"></iframe></div>
+
+                    <h3>Post hoc power and sample size</h3>
+                    <p>Power achieved at the observed lift, plus the sample size needed for 80% power.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb10/nb10_power_sample_size_interactive.html"></iframe></div>
+
+                    <h3>Sensitivity analysis</h3>
+                    <p>How the decision changes under perturbations of the effect size and sample composition.</p>
+                    <div class="chart-container"><iframe src="projects/ab_testing/data/outputs/nb10/nb10_sensitivity_interactive.html"></iframe></div>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Limitations</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>All methods were run on the same experiment; the ordering can shift on different data generating processes.</li>
+                        <li>Rankings based on a single run are not inference; replicate before committing.</li>
+                        <li>Some comparisons (bandits versus fixed n tests) are not like for like because the underlying questions differ.</li>
+                    </ul>
+                </div>
+            </details>
+        </div>
+
+        <!-- =========================== Key Takeaways =========================== -->
+        <div id="key-takeaways" class="tab-content">
+            <div class="section-controls">
+                <button onclick="expandAllSections('key-takeaways')">Expand All</button>
+                <button onclick="collapseAllSections('key-takeaways')">Collapse All</button>
+            </div>
+
+            <details class="model-section" open>
+                <summary>One Line Summaries</summary>
+                <div class="model-section-body">
+                    <div class="use-card"><strong>Z / t tests.</strong> Right default when the design is fixed and the sample is large.</div>
+                    <div class="use-card"><strong>Chi-square.</strong> Right tool for cross tabs; always report Cramér's V alongside.</div>
+                    <div class="use-card"><strong>Bootstrap.</strong> Distribution free CIs for skewed or bounded outcomes.</div>
+                    <div class="use-card"><strong>Sequential.</strong> Buys early stopping at the cost of up front design work.</div>
+                    <div class="use-card"><strong>Bayesian.</strong> Answers the stakeholder question directly; be honest about priors.</div>
+                    <div class="use-card"><strong>CUPED.</strong> The cheapest single variance reduction lever when pre period data exists.</div>
+                    <div class="use-card"><strong>Uplift.</strong> A targeting tool, not a hypothesis test; evaluate with Qini.</div>
+                    <div class="use-card"><strong>Bandits.</strong> Operational decisions, not scientific ones; minimize regret, not p values.</div>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>What I Would Reach For First</summary>
+                <div class="model-section-body">
+                    <h3>Default stack</h3>
+                    <ul>
+                        <li>Z test or Welch t test for the headline result.</li>
+                        <li>Wilson CI for the effect size.</li>
+                        <li>CUPED when a good pre period covariate exists.</li>
+                        <li>Bayesian summary for executive communication.</li>
+                    </ul>
+                    <h3>Only if warranted</h3>
+                    <ul>
+                        <li>Sequential design for long running experiments.</li>
+                        <li>Bandits for production allocation rather than science.</li>
+                        <li>Uplift modeling for targeting, once the average effect is confirmed.</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="model-section">
+                <summary>Common Pitfalls</summary>
+                <div class="model-section-body">
+                    <div class="avoid-card">Peeking without a sequential correction.</div>
+                    <div class="avoid-card">Interpreting a p value as the probability the treatment works.</div>
+                    <div class="avoid-card">Applying chi-square to collapsed continuous data.</div>
+                    <div class="avoid-card">Choosing a covariate for CUPED based on in sample correlation with Y.</div>
+                    <div class="avoid-card">Evaluating uplift with per customer residuals instead of Qini.</div>
+                    <div class="avoid-card">Running a bandit when conversions land days after impression.</div>
+                </div>
+            </details>
+        </div>
+
+    </div><!-- /.main-container -->
+
+    <script>
+        const tabToCategory = {
+            'overview': 'cat-framework',
+            'how-to-run': 'cat-framework',
+            'decision-guide': 'cat-framework',
+            'nb01-eda': 'cat-exploratory',
+            'nb02-ztest': 'cat-frequentist',
+            'nb03-chi2': 'cat-frequentist',
+            'nb04-ci': 'cat-frequentist',
+            'nb05-sequential': 'cat-seqbayes',
+            'nb06-bayesian': 'cat-seqbayes',
+            'nb07-cuped': 'cat-advanced',
+            'nb08-uplift': 'cat-advanced',
+            'nb09-bandits': 'cat-advanced',
+            'nb10-comparison': 'cat-synthesis',
+            'key-takeaways': 'cat-synthesis'
+        };
+
+        function switchCategory(event, categoryId) {
+            document.querySelectorAll('.category-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            document.querySelectorAll('.model-nav').forEach(nav => nav.classList.remove('active'));
+            document.getElementById(categoryId).classList.add('active');
+            const modelRow = document.getElementById(categoryId);
+            const firstTab = modelRow.querySelector('.nav-tab');
+            if (firstTab) {
+                const onclick = firstTab.getAttribute('onclick');
+                const match = onclick.match(/'([^']+)'/);
+                if (match) {
+                    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+                    document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+                    firstTab.classList.add('active');
+                    document.getElementById(match[1]).classList.add('active');
+                }
+            }
+            window.scrollTo(0, 0);
+        }
+
+        function switchTab(event, tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            if (event.target.classList.contains('nav-tab')) {
+                event.target.classList.add('active');
+            }
+            window.scrollTo(0, 0);
+        }
+
+        function switchToTab(tabId, event) {
+            if (event) event.stopPropagation();
+            const categoryId = tabToCategory[tabId];
+            if (categoryId) {
+                document.querySelectorAll('.category-btn').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.model-nav').forEach(nav => nav.classList.remove('active'));
+                document.querySelectorAll('.category-btn').forEach(btn => {
+                    const oc = btn.getAttribute('onclick');
+                    if (oc && oc.includes("'" + categoryId + "'")) btn.classList.add('active');
+                });
+                document.getElementById(categoryId).classList.add('active');
+            }
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+            const target = document.getElementById(tabId);
+            if (target) target.classList.add('active');
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                const oc = btn.getAttribute('onclick');
+                if (oc && oc.includes("'" + tabId + "'")) btn.classList.add('active');
+            });
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        }
+
+        function toggleBranch(element, event) {
+            if (event) event.stopPropagation();
+            const branches = element.querySelector('.tree-branches');
+            if (branches) {
+                if (branches.style.display === 'none' || !branches.style.display) {
+                    branches.style.display = 'grid';
+                    element.style.borderColor = 'var(--green)';
+                } else {
+                    branches.style.display = 'none';
+                    element.style.borderColor = 'var(--accent)';
+                }
+            }
+        }
+
+        function expandAllSections(tabId) {
+            document.getElementById(tabId).querySelectorAll('details').forEach(d => d.open = true);
+        }
+
+        function collapseAllSections(tabId) {
+            document.getElementById(tabId).querySelectorAll('details').forEach(d => d.open = false);
+        }
+
+        const flowSteps = {
+            'step-1': {
+                title: 'Step 1 — Define the Goal',
+                subtitle: 'Turn the business question into a single measurable metric.',
+                body: `
+                    <h4>Do this</h4>
+                    <ul>
+                        <li>Write the business question in one sentence.</li>
+                        <li>Pick <strong>one primary metric</strong> that directly answers it.</li>
+                        <li>List 1 to 3 <strong>guardrail metrics</strong> you refuse to hurt (latency, churn, revenue).</li>
+                        <li>Decide the <strong>direction</strong> of success (higher is better, lower is better).</li>
+                    </ul>
+                    <div class="flow-example"><strong>Example.</strong> Does the new checkout button increase completed purchases? Primary: checkout completion rate. Guardrails: page load time, refund rate.</div>
+                    <div class="flow-tip">Avoid vanity metrics. "Clicks" is easy to lift and rarely tied to revenue.</div>
+                `
+            },
+            'step-2': {
+                title: 'Step 2 — Form the Hypothesis',
+                subtitle: 'State what you expect, how big, and why.',
+                body: `
+                    <h4>Do this</h4>
+                    <ul>
+                        <li>Write the <strong>null</strong> (no effect) and <strong>alternative</strong> (effect exists) hypotheses.</li>
+                        <li>Pick a <strong>minimum detectable effect (MDE)</strong>, the smallest lift that would matter to the business.</li>
+                        <li>Decide one sided vs two sided based on whether a negative result matters.</li>
+                    </ul>
+                    <div class="flow-formula">
+                        H<sub>0</sub>: p<sub>treatment</sub> = p<sub>control</sub><br>
+                        H<sub>1</sub>: p<sub>treatment</sub> &ne; p<sub>control</sub>
+                    </div>
+                    <div class="flow-example"><strong>Example.</strong> Baseline conversion 2.0 percent. MDE: a lift of 0.3 points (to 2.3 percent) would justify a launch.</div>
+                    <div class="flow-tip">A smaller MDE means you need a bigger sample. Do not set it smaller than the business actually cares about.</div>
+                `
+            },
+            'step-3': {
+                title: 'Step 3 — Design the Experiment',
+                subtitle: 'Decide who gets what, and at what unit.',
+                body: `
+                    <h4>Do this</h4>
+                    <ul>
+                        <li>Pick the <strong>randomization unit</strong> (user, session, device, email address).</li>
+                        <li>Pick the <strong>split</strong> (usually 50 / 50 for two arms; unequal splits cost statistical power).</li>
+                        <li>Decide the <strong>exposure window</strong> (enroll users from day X to day Y).</li>
+                        <li>Plan <strong>stratification</strong> if needed (balance by geo, device, segment).</li>
+                        <li>Document the <strong>eligibility criteria</strong> up front to avoid drift.</li>
+                    </ul>
+                    <div class="flow-example"><strong>Example.</strong> Randomize at the user level, 50 / 50 split, enroll for two weeks, stratify by new vs returning customer.</div>
+                    <div class="flow-tip">Pick the unit at which the treatment is delivered. Randomizing at the session level when emails are sent to a user leaks treatment across arms.</div>
+                `
+            },
+            'step-4': {
+                title: 'Step 4 — Power &amp; Sample Size',
+                subtitle: 'Calculate how much data you need before you flip the switch.',
+                body: `
+                    <h4>Do this</h4>
+                    <ul>
+                        <li>Fix <strong>&alpha;</strong> (false positive rate, usually 0.05) and <strong>power</strong> (usually 0.80).</li>
+                        <li>Plug in the <strong>baseline rate</strong> and the <strong>MDE</strong> from Step 2.</li>
+                        <li>Compute the <strong>required sample per arm</strong> using the formula below.</li>
+                        <li>Translate sample size into a <strong>calendar duration</strong> based on your traffic.</li>
+                    </ul>
+                    <div class="flow-formula">
+                        n per arm &asymp; <sup>(z<sub>&alpha;/2</sub> + z<sub>&beta;</sub>)<sup>2</sup> &middot; [p<sub>1</sub>(1 &minus; p<sub>1</sub>) + p<sub>2</sub>(1 &minus; p<sub>2</sub>)]</sup>&frasl;<sub>(p<sub>1</sub> &minus; p<sub>2</sub>)<sup>2</sup></sub>
+                    </div>
+                    <div class="flow-example"><strong>Example.</strong> Baseline 2.0 percent, MDE 0.3 points, &alpha; 0.05, power 0.80 &rarr; roughly 34,000 users per arm. At 5,000 users per day, that is ~7 days.</div>
+                    <div class="flow-tip">If the calendar is too long, widen the MDE, add CUPED for variance reduction, or use a sequential design.</div>
+                `
+            },
+            'step-5': {
+                title: 'Step 5 — Pick a Method',
+                subtitle: 'Match the method to the shape of your data and the decision.',
+                body: `
+                    <h4>Do this</h4>
+                    <ul>
+                        <li>Use the <a href="#" onclick="switchToTab('decision-guide', event); return false;"><strong>Decision Guide</strong></a> to select a method.</li>
+                        <li>Pick <strong>one primary method</strong> and record it in the test plan before data collection.</li>
+                        <li>Optionally pick a <strong>secondary method</strong> for robustness (bootstrap alongside a t test, Bayesian alongside frequentist).</li>
+                    </ul>
+                    <div class="flow-example"><strong>Example.</strong> Primary: Welch t test on revenue per user. Secondary: bootstrap CI for the same metric.</div>
+                    <div class="flow-tip">Never change the method after seeing the data. That is p hacking and it inflates false positive rates.</div>
+                `
+            },
+            'step-6': {
+                title: 'Step 6 — Run &amp; Monitor',
+                subtitle: 'Start the test and keep an eye on the plumbing, not the result.',
+                body: `
+                    <h4>Do this</h4>
+                    <ul>
+                        <li>Check the <strong>randomization</strong> (arms should be balanced on pre test covariates).</li>
+                        <li>Check the <strong>sample ratio mismatch (SRM)</strong>, the gap between planned and observed split.</li>
+                        <li>Monitor <strong>guardrail metrics</strong> daily. Stop the test if they regress seriously.</li>
+                        <li>Do <strong>not</strong> peek at the primary metric unless you are running a sequential design.</li>
+                    </ul>
+                    <div class="flow-formula">SRM test: chi-square on observed vs expected counts per arm. p &lt; 0.001 is a red flag.</div>
+                    <div class="flow-example"><strong>Example.</strong> Planned 50 / 50, observed 48 / 52 across 60,000 users &rarr; chi-square p = 0.0001 &rarr; investigate logging before trusting results.</div>
+                    <div class="flow-tip">SRM almost always means a bug in assignment, not a random fluke. Fix the instrumentation before trusting anything.</div>
+                `
+            },
+            'step-7': {
+                title: 'Step 7 — Analyze Results',
+                subtitle: 'Apply the preregistered method and report uncertainty honestly.',
+                body: `
+                    <h4>Do this</h4>
+                    <ul>
+                        <li>Apply the <strong>method chosen in Step 5</strong>.</li>
+                        <li>Report the <strong>point estimate</strong>, <strong>confidence interval</strong>, and the <strong>p value</strong> or posterior probability.</li>
+                        <li>Run the planned <strong>subgroup or guardrail checks</strong>.</li>
+                        <li>Check whether the <strong>effect size is business meaningful</strong>, not just statistically significant.</li>
+                    </ul>
+                    <div class="flow-example"><strong>Example.</strong> Lift 0.28 points, 95 percent CI [0.05, 0.51], p = 0.018. The lower bound clears the minimum that matters.</div>
+                    <div class="flow-tip">A significant p value with a CI that includes tiny effects is not a launch signal. Always look at the interval.</div>
+                `
+            },
+            'step-8': {
+                title: 'Step 8 — Decide &amp; Ship',
+                subtitle: 'Translate the statistical result into a business action.',
+                body: `
+                    <h4>Do this</h4>
+                    <ul>
+                        <li>Write the <strong>decision</strong>: ship, iterate, or kill.</li>
+                        <li>Tie it to <strong>the MDE</strong>, not the p value: did the lift clear what matters to the business?</li>
+                        <li>Record <strong>what you learned</strong> even if the result was null (a flat result is still information).</li>
+                        <li>Plan the <strong>rollout</strong>: staged ramp, monitor live guardrails, set a rollback trigger.</li>
+                    </ul>
+                    <div class="flow-example"><strong>Example.</strong> Ship to 100 percent over a two week ramp. Rollback if latency regresses by more than 3 percent at any step.</div>
+                    <div class="flow-tip">Write a short post mortem. Future you will want to know what the last test actually measured, not just the verdict.</div>
+                `
+            }
+        };
+
+        function selectStep(stepId) {
+            document.querySelectorAll('.flow-node').forEach(n => n.classList.remove('active'));
+            const node = document.getElementById('node-' + stepId);
+            if (node) node.classList.add('active');
+            const step = flowSteps[stepId];
+            if (!step) return;
+            const container = document.getElementById('flowContext');
+            container.innerHTML = '<h3>' + step.title + '</h3>'
+                                + '<div class="flow-subtitle">' + step.subtitle + '</div>'
+                                + step.body;
+            if (window.MathJax && MathJax.typesetPromise) { MathJax.typesetPromise([container]); }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('overview').classList.add('active');
+            selectStep('step-1');
+        });
+    </script>
+      </div><!-- /.blog-container -->
+    </div><!-- /#content-wrap -->
+    <div w3-include-html="/folders/navbar_footer/footer.html"></div>
+  </div><!-- /#page-container -->
+  <script type="text/javascript" src="../../static/js/include.js"></script>
+</body>
+</html>
