@@ -655,6 +655,7 @@
     .strategy-badge.subquery { background-color: #d84315; }
     .strategy-badge.transform { background-color: #4e342e; }
     .strategy-badge.join { background-color: #1565c0; }
+    .strategy-badge.asof { background-color: #ad1457; }
 
     .leetcode-link {
       display: inline-block;
@@ -807,6 +808,26 @@
               </div>
             </div>
 
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
+              <div style="flex: 1; min-width: 200px;">
+                <div class="fc-node fc-good" style="font-size: 1.4rem; background-color: #fce4ec; border-color: #ad1457;">
+                  <strong>POINT IN TIME / AS OF</strong><br>
+                  "As of [date]..."<br>"Value on [date]..."<br>"Snapshot from history of changes..."<br>
+                  <span style="color: #ad1457;">&rarr; Latest record per entity &le; cutoff</span><br>
+                  <span style="font-size: 1.15rem; color: #555;">Two equivalent shapes:</span><br>
+                  <code style="font-size: 1.15rem;">ROW_NUMBER() OVER (PARTITION BY id ORDER BY date DESC) = 1</code><br>
+                  <span style="font-size: 1.15rem; color: #555;">or</span><br>
+                  <code style="font-size: 1.15rem;">GROUP BY id, MAX(date) + self-join</code>
+                </div>
+              </div>
+              <div style="flex: 2; min-width: 200px;">
+                <div class="fc-node" style="font-size: 1.3rem; background-color: #fff8e1; border: 2px dashed #f57f17; padding: 12px;">
+                  <strong style="color: #e65100;">Combo problems are normal.</strong> Many problems chain 2-3 patterns. Don't stop at the first match — walk every box and ask "does any part of this problem need this?" Then assemble in order: <em>filter &rarr; group/window &rarr; default value</em>.<br><br>
+                  <strong>Example:</strong> #1164 = filter date &le; cutoff (FILTER) + latest per product (POINT IN TIME) + default 10 for products with no qualifying change (LEFT JOIN + COALESCE).
+                </div>
+              </div>
+            </div>
+
             <!-- FILTERING SUB-DECISIONS -->
             <div style="background-color: #fdf0ed; border: 2px solid #b33000; border-radius: 6px; padding: 20px; margin: 20px 0;">
               <h4 style="margin-top: 0; color: #b33000;">Filtering Sub-Decisions</h4>
@@ -868,10 +889,15 @@
                   <td style="padding: 8px;"><code>ROUND(100.0 * COUNT(CASE...) / COUNT(*), 2)</code></td>
                   <td style="padding: 8px; color: #666;">Problems: #1633</td>
                 </tr>
-                <tr>
+                <tr style="border-bottom: 1px solid #ddd;">
                   <td style="padding: 8px; font-weight: 600;">Bidirectional aggregation</td>
                   <td style="padding: 8px;"><code>UNION ALL</code> to stack sender+receiver, then <code>GROUP BY</code></td>
                   <td style="padding: 8px; color: #666;">Problems: #602</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; font-weight: 600;">Default value for entities not in result</td>
+                  <td style="padding: 8px;"><code>LEFT JOIN (SELECT DISTINCT id) + COALESCE(value, default)</code></td>
+                  <td style="padding: 8px; color: #666;">Trigger: "initially all X have value Y" / "include entities with no record". Problems: #1164</td>
                 </tr>
               </table>
             </div>
@@ -901,14 +927,57 @@
                   <td style="padding: 8px; color: #666;">Problems: #185</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #ddd;">
-                  <td style="padding: 8px; font-weight: 600;">First/last value per group</td>
-                  <td style="padding: 8px;"><code>FIRST_VALUE() OVER (PARTITION BY ...)</code></td>
-                  <td style="padding: 8px; color: #666;">Problems: #1070, #1164</td>
+                  <td style="padding: 8px; font-weight: 600;">Latest record per entity</td>
+                  <td style="padding: 8px;"><code>ROW_NUMBER() OVER (PARTITION BY id ORDER BY date DESC) = 1</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #1070</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Scalar lookup within partition</td>
+                  <td style="padding: 8px;"><code>FIRST_VALUE() / LAST_VALUE() OVER (PARTITION BY ...)</code></td>
+                  <td style="padding: 8px; color: #666;">Use when you only need the value, not the full row</td>
                 </tr>
                 <tr>
                   <td style="padding: 8px; font-weight: 600;">Row-pair operations</td>
                   <td style="padding: 8px;">Self-join or <code>LEAD()</code> to pair adjacent rows</td>
                   <td style="padding: 8px; color: #666;">Problems: #1661, #626</td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- POINT IN TIME SUB-DECISIONS -->
+            <div style="background-color: #fce4ec; border: 2px solid #ad1457; border-radius: 6px; padding: 20px; margin: 20px 0;">
+              <h4 style="margin-top: 0; color: #ad1457;">Point in Time / Latest per Entity Sub-Decisions</h4>
+              <p style="font-size: 1.3rem; color: #555; margin: 0 0 12px 0;">Use when the table is an <strong>event log</strong> (rows = changes / events) and the question asks for the <strong>state on a specific date</strong> or the <strong>most recent record per entity</strong>.</p>
+              <div style="background-color: #fff; border-left: 4px solid #ad1457; padding: 10px 14px; margin: 0 0 14px 0; font-size: 1.3rem;">
+                <strong style="color: #ad1457;">Window function vs GROUP BY: which is more efficient?</strong><br>
+                Both produce the same result. Pick based on shape:
+                <ul style="margin: 8px 0 0 18px; padding: 0;">
+                  <li><strong>ROW_NUMBER() window</strong> &mdash; one logical pass; the optimizer often applies a "Top-N per partition" plan. Cleanest when you need <em>multiple columns</em> from the latest row, since they're already attached.</li>
+                  <li><strong>GROUP BY MAX(date) + self-join</strong> &mdash; the GROUP BY shrinks the table to one row per entity first, then a small join recovers the value column. Often slightly faster on very wide tables or when an index on <code>(id, date DESC)</code> exists, because only the qualifying rows are touched in phase 2.</li>
+                  <li><strong>Tie-breaker risk:</strong> if two rows share the same MAX(date) for an entity, the GROUP BY + self-join returns <em>both</em>. ROW_NUMBER returns exactly one (and you control which via the ORDER BY). For interview answers, mention this even if the data has a primary key that prevents ties.</li>
+                  <li><strong>PostgreSQL bonus:</strong> <code>SELECT DISTINCT ON (id) ... ORDER BY id, date DESC</code> is the most concise form and is typically the fastest on Postgres.</li>
+                </ul>
+              </div>
+              <table style="width: 100%; border-collapse: collapse; font-size: 1.4rem;">
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Latest record per entity, every entity qualifies</td>
+                  <td style="padding: 8px;"><code>ROW_NUMBER() OVER (PARTITION BY id ORDER BY date DESC) = 1</code> after <code>WHERE date &le; cutoff</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #1070</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Latest record per entity, with default for missing entities</td>
+                  <td style="padding: 8px;">Above + <code>LEFT JOIN (SELECT DISTINCT id) + COALESCE(value, default)</code></td>
+                  <td style="padding: 8px; color: #666;">Problems: #1164</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <td style="padding: 8px; font-weight: 600;">Latest per entity via aggregation</td>
+                  <td style="padding: 8px;"><code>GROUP BY id, MAX(date)</code> + self-join back to recover other columns</td>
+                  <td style="padding: 8px; color: #666;">Equivalent shape to ROW_NUMBER, sometimes clearer</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; font-weight: 600;">Most recent of two related rows</td>
+                  <td style="padding: 8px;"><code>LAG()</code> / <code>LEAD()</code> or self-join on adjacent rows</td>
+                  <td style="padding: 8px; color: #666;">See Window Function panel above</td>
                 </tr>
               </table>
             </div>
@@ -5398,6 +5467,7 @@ ORDER BY e.employee_id;</code></div>
       'COMPARE ROWS': {tab: 'tab-window', label: 'Window Functions'},
       'RUNNING TOTAL': {tab: 'tab-window', label: 'Window Functions'},
       'TRANSFORM / REFORMAT': {tab: 'tab-transforms', label: 'Transforms'},
+      'POINT IN TIME / AS OF': {tab: 'tab-window', label: 'Window Functions'},
       'LOOKUP / ENRICH': {tab: 'tab-joins', label: 'Joins'},
       'LEFT JOIN (keep all)': {tab: 'tab-joins', label: 'Joins'},
       'CROSS JOIN': {tab: 'tab-joins', label: 'Joins'},
@@ -5462,8 +5532,8 @@ ORDER BY e.employee_id;</code></div>
       1204: [{l:'Running total',c:'window'}],
       1321: [{l:'Rolling avg',c:'window'}],
       185:  [{l:'Top-N per group',c:'window'}],
-      1070: [{l:'First/last value',c:'window'}],
-      1164: [{l:'First/last value',c:'window'},{l:'Date-range join',c:'join'}],
+      1070: [{l:'Latest per entity',c:'asof'},{l:'Window function',c:'window'}],
+      1164: [{l:'Latest per entity',c:'asof'},{l:'Default value (LEFT JOIN + COALESCE)',c:'aggregate'},{l:'Window function',c:'window'}],
       1661: [{l:'Row-pair operations',c:'window'}],
       626:  [{l:'Row-pair operations',c:'window'}],
       // Subqueries

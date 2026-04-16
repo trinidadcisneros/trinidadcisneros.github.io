@@ -740,7 +740,8 @@
 
         <!-- Tab Navigation -->
         <div class="tab-navigation sticky" id="tab-nav">
-          <button class="tab-nav-item active" data-tab="tab-decision-tree">Decision Tree</button>
+          <button class="tab-nav-item active" data-tab="tab-diagnostic">Diagnostic Process</button>
+          <button class="tab-nav-item" data-tab="tab-decision-tree">Decision Tree</button>
           <button class="tab-nav-item" data-tab="tab-filtering">Filtering</button>
           <button class="tab-nav-item" data-tab="tab-groupby">Aggregation</button>
           <button class="tab-nav-item" data-tab="tab-merge">Merge &amp; Join</button>
@@ -3044,6 +3045,11 @@ result = cust.groupby([&#x27;store_brand&#x27;, &#x27;segment&#x27;]).agg(
                 </div>
               </div>
 
+              <div style="background-color: #f0f4ff; border-left: 4px solid #1565c0; padding: 15px; margin: 15px 0; border-radius: 4px;">
+                <p style="margin: 0 0 8px 0; font-weight: 600; color: #1565c0;">Decision Tree Path</p>
+                <p style="margin: 0; line-height: 1.8; font-size: 1.4rem;">START &rarr; TWO TABLES &rarr; <strong>ANTI-JOIN / RECOMMENDATION</strong> because you need to expand through a relationship (each user inherits the pages their friends follow) and then subtract an exclusion set (pages the user already follows). Do it in two merges: first merge <code>users_friends</code> with <code>users_pages</code> on <code>friend_id = user_id</code> to get candidate recommendations, then left merge that result against <code>users_pages</code> on <code>['user_id', 'page_id']</code> with <code>indicator=True</code> and keep only <code>_merge == 'left_only'</code> rows.</p>
+              </div>
+
               <div class="solution-container">
                 <details>
                   <summary>
@@ -5140,8 +5146,236 @@ result = max_streaks[max_streaks[&#x27;rnk&#x27;] &lt;= 3].sort_values(&#x27;str
             </div>
           </div>
         </div>
+        <!-- TAB: DIAGNOSTIC PROCESS -->
+        <div id="tab-diagnostic" class="tab-pane active">
+
+          <div class="section-heading">Six-Step Diagnostic Process</div>
+          <p style="margin-bottom: 20px; line-height: 1.8;">Run this loop top to bottom whenever you hit a new problem. It turns vague prompts into a named shape, routes you to the right branch of the Decision Tree, and gives you a failure mode to check against. Over time steps 1 to 4 collapse into seconds for patterns you recognize; slow down when a shape is unfamiliar. Each step below is collapsed by default &mdash; click to expand.</p>
+
+          <!-- Step 1 -->
+          <div class="problem-card collapsed">
+            <div class="problem-card-header" onclick="this.parentElement.classList.toggle('collapsed')">
+              <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <span style="display: inline-block; background-color: #1565c0; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Step 1</span>
+                Map the Inputs and the Output
+              </h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>Write down what you have, what you need, and what connects them. The output shape is load bearing.</p>
+            </div>
+            <div class="problem-card-content">
+              <p style="margin: 0 0 10px 0; font-weight: 600;">What to write down (30 seconds, before touching pandas):</p>
+              <ul style="line-height: 1.8; margin: 0 0 15px 20px;">
+                <li><strong>Inputs</strong> &mdash; what tables you have, their columns, their grain (one row per what)</li>
+                <li><strong>Output</strong> &mdash; what the final result should look like, including its grain</li>
+                <li><strong>Connector</strong> &mdash; the transformation that bridges inputs to output</li>
+              </ul>
+              <p style="margin: 0 0 10px 0; font-weight: 600;">Why this step matters:</p>
+              <ul style="line-height: 1.8; margin: 0 0 15px 20px;">
+                <li>"One row per user with their top page" and "one row per user and page pair" land in different branches</li>
+                <li>The output grain determines which pattern applies, not the input</li>
+                <li>Skipping this step is the most common cause of picking the wrong pattern</li>
+              </ul>
+              <p style="margin: 0 0 10px 0; font-weight: 600;">Quick check:</p>
+              <ul style="line-height: 1.8; margin: 0 0 0 20px;">
+                <li>Can you describe the output in one sentence, with the grain explicit?</li>
+                <li>If not, reread the prompt before moving on</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="problem-card collapsed">
+            <div class="problem-card-header" onclick="this.parentElement.classList.toggle('collapsed')">
+              <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <span style="display: inline-block; background-color: #1565c0; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Step 2</span>
+                Classify the Inputs
+              </h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>One table or many? Pick which half of the decision tree you're in.</p>
+            </div>
+            <div class="problem-card-content">
+              <p style="margin: 0 0 10px 0; font-weight: 600;">Route by input count:</p>
+              <ul style="line-height: 1.8; margin: 0 0 15px 20px;">
+                <li><strong>One table</strong> &rarr; Single-Table decision tree</li>
+                <li><strong>Multiple tables</strong> &rarr; Multi-Table decision tree</li>
+              </ul>
+              <p style="margin: 0 0 10px 0; font-weight: 600;">Edge cases:</p>
+              <ul style="line-height: 1.8; margin: 0 0 15px 20px;">
+                <li>One physical table but you need to compare rows to other rows in the same table &rarr; still Multi-Table under SELF-JOIN or CHAINED SELF-JOIN</li>
+                <li>Aggregation that's then joined back to its source table &rarr; AGGREGATE THEN JOIN (multi-table)</li>
+                <li>Lookup table that's conceptually reference data &rarr; still counts as multi-table</li>
+              </ul>
+              <p style="margin: 0 0 10px 0; font-weight: 600;">Payoff:</p>
+              <ul style="line-height: 1.8; margin: 0 0 0 20px;">
+                <li>Halves the search space before you've done any real thinking</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="problem-card collapsed">
+            <div class="problem-card-header" onclick="this.parentElement.classList.toggle('collapsed')">
+              <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <span style="display: inline-block; background-color: #1565c0; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Step 3</span>
+                Name the Shape
+              </h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>Find the verbs hiding in the prompt. Translate natural language into a named branch.</p>
+            </div>
+            <div class="problem-card-content">
+              <p style="margin: 0 0 10px 0; font-weight: 600;">Single-Table signal words:</p>
+              <ul style="line-height: 1.8; margin: 0 0 15px 20px;">
+                <li>"for each", "average by", "total per", "count of X per Y" &rarr; <strong>AGGREGATE</strong></li>
+                <li>"top N", "highest", "nth", "most", "least" &rarr; <strong>RANK / TOP-N</strong></li>
+                <li>"only where", "with X greater than", "having", "excluding" &rarr; <strong>FILTER</strong></li>
+                <li>"days between", "rolling window", "trailing N days", "since" &rarr; <strong>TIME-BASED</strong></li>
+                <li>"from wide to long", "pivot", "melt", "unstack" &rarr; <strong>RESHAPE / STACK</strong></li>
+                <li>"put into buckets", "classify as", "tier" &rarr; <strong>CLASSIFY / BIN</strong></li>
+              </ul>
+              <p style="margin: 0 0 10px 0; font-weight: 600;">Multi-Table signal words:</p>
+              <ul style="line-height: 1.8; margin: 0 0 15px 20px;">
+                <li>"attach details from", "enrich with", "look up X's Y" &rarr; <strong>LOOKUP / ENRICH</strong></li>
+                <li>"compare to other rows in same table", "manager of", "parent of" &rarr; <strong>SELF-JOIN</strong></li>
+                <li>"multi-hop", "route through", "chain of relationships" &rarr; <strong>CHAINED SELF-JOIN</strong></li>
+                <li>"is this ID in", "does this exist in", "orders that shipped" &rarr; <strong>SET MEMBERSHIP</strong></li>
+                <li>"pages a friend follows but user doesn't", "items not yet owned", "gaps in coverage" &rarr; <strong>ANTI-JOIN / RECOMMENDATION</strong></li>
+                <li>"match on multiple conditions", "both X and Y equal" &rarr; <strong>CROSS-JOIN / MATCH</strong></li>
+                <li>"total of X per customer, joined back to customers" &rarr; <strong>AGGREGATE THEN JOIN</strong></li>
+              </ul>
+              <p style="margin: 0 0 10px 0; font-weight: 600;">Rule of thumb:</p>
+              <ul style="line-height: 1.8; margin: 0 0 0 20px;">
+                <li>Say the shape out loud in one sentence: "this is a &lt;branch&gt; because &lt;verb&gt;"</li>
+                <li>If you can't name it, you don't understand the problem yet &mdash; go back to Step 1</li>
+                <li>Composite patterns exist (e.g., aggregate then rank). Name both moves.</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Step 4 -->
+          <div class="problem-card collapsed">
+            <div class="problem-card-header" onclick="this.parentElement.classList.toggle('collapsed')">
+              <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <span style="display: inline-block; background-color: #1565c0; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Step 4</span>
+                Walk the Decision Tree by Elimination
+              </h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>Rule out branches first, explicitly. Elimination is faster than guessing.</p>
+            </div>
+            <div class="problem-card-content">
+              <p style="margin: 0 0 10px 0; font-weight: 600;">How to do it:</p>
+              <ul style="line-height: 1.8; margin: 0 0 15px 20px;">
+                <li>Start at the top of the chosen tree (Single or Multi)</li>
+                <li>For each candidate branch, say in one sentence why it's wrong</li>
+                <li>The last branch standing is your answer</li>
+              </ul>
+              <p style="margin: 0 0 10px 0; font-weight: 600;">Example (Recommendation System):</p>
+              <ul style="line-height: 1.8; margin: 0 0 15px 20px;">
+                <li>Not LOOKUP &mdash; I'm not just enriching rows with details</li>
+                <li>Not SELF-JOIN &mdash; the relationship crosses two tables, not one</li>
+                <li>Not SET MEMBERSHIP &mdash; I need a new pair list, not a filtered subset</li>
+                <li>Lands on ANTI-JOIN / RECOMMENDATION</li>
+              </ul>
+              <p style="margin: 0 0 10px 0; font-weight: 600;">Why elimination beats guessing:</p>
+              <ul style="line-height: 1.8; margin: 0 0 15px 20px;">
+                <li>Forces you to articulate each "no", which catches misreads of the prompt</li>
+                <li>Surfaces composite patterns (two branches remain &rarr; probably two steps)</li>
+                <li>Builds intuition faster than pattern matching from memory</li>
+              </ul>
+              <p style="margin: 0 0 10px 0; font-weight: 600;">If you land between two branches:</p>
+              <ul style="line-height: 1.8; margin: 0 0 0 20px;">
+                <li>The problem likely needs both &mdash; plan the sequence (e.g., aggregate first, then rank)</li>
+                <li>Check if the output grain (from Step 1) matches the last branch in the sequence</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Step 5 -->
+          <div class="problem-card collapsed">
+            <div class="problem-card-header" onclick="this.parentElement.classList.toggle('collapsed')">
+              <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <span style="display: inline-block; background-color: #1565c0; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Step 5</span>
+                Grab the Recipe, Adapt from a Linked Problem
+              </h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>Each branch has a code snippet and problem numbers. Copy; don't rederive.</p>
+            </div>
+            <div class="problem-card-content">
+              <p style="margin: 0 0 10px 0; font-weight: 600;">On the branch card:</p>
+              <ul style="line-height: 1.8; margin: 0 0 15px 20px;">
+                <li>Code snippet &mdash; the canonical pandas move for that branch</li>
+                <li>List of linked problem numbers &mdash; click to jump to the full solution</li>
+              </ul>
+              <p style="margin: 0 0 10px 0; font-weight: 600;">How to adapt a linked problem:</p>
+              <ul style="line-height: 1.8; margin: 0 0 15px 20px;">
+                <li>Open the most similar linked problem</li>
+                <li>Copy the solution skeleton</li>
+                <li>Swap join keys and column names</li>
+                <li>Adjust filter conditions</li>
+                <li>Update output columns to match your Step 1 output spec</li>
+                <li>Handle edge cases (nulls, duplicates, empty groups)</li>
+              </ul>
+              <p style="margin: 0 0 10px 0; font-weight: 600;">Mindset:</p>
+              <ul style="line-height: 1.8; margin: 0 0 0 20px;">
+                <li>Someone already paid the cost of deriving the pattern. Don't repay it.</li>
+                <li>Your job is to recognize the shape, not reinvent the move</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Step 6 -->
+          <div class="problem-card collapsed">
+            <div class="problem-card-header" onclick="this.parentElement.classList.toggle('collapsed')">
+              <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <span style="display: inline-block; background-color: #1565c0; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Step 6</span>
+                Sanity Check Against the Branch's Failure Mode
+              </h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>Every branch has a characteristic way to go wrong. Know yours.</p>
+            </div>
+            <div class="problem-card-content">
+              <p style="margin: 0 0 10px 0; font-weight: 600;">Failure modes by branch:</p>
+              <ul style="line-height: 1.8; margin: 0 0 15px 20px;">
+                <li><strong>Merges</strong> &mdash; check <code>.shape</code> after each merge; watch for many to many row explosion</li>
+                <li><strong>Aggregations</strong> &mdash; check grain; did each group end up with exactly one row?</li>
+                <li><strong>Ranking</strong> &mdash; check tie behavior (<code>dense</code>, <code>min</code>, <code>first</code>, <code>average</code>)</li>
+                <li><strong>Filters</strong> &mdash; check edge counts for off by one errors and unintended null exclusion</li>
+                <li><strong>Anti joins</strong> &mdash; confirm <code>_merge == 'left_only'</code> is what you want; dedupe candidates before the exclusion merge</li>
+                <li><strong>Datetime</strong> &mdash; verify timezone handling and whether your date range is inclusive or exclusive at both ends</li>
+                <li><strong>Reshape</strong> &mdash; check that pivot didn't silently drop rows from duplicate index/column pairs</li>
+                <li><strong>Classify / bin</strong> &mdash; check boundary values; is the lower or upper edge included?</li>
+              </ul>
+              <p style="margin: 0 0 10px 0; font-weight: 600;">Always do:</p>
+              <ul style="line-height: 1.8; margin: 0 0 15px 20px;">
+                <li>Run on the toy example from the prompt</li>
+                <li>Manually verify two or three rows of the output</li>
+                <li>Confirm the final <code>.shape</code> and grain match what you wrote down in Step 1</li>
+              </ul>
+              <p style="margin: 0 0 10px 0; font-weight: 600;">Red flags that mean go back to Step 4:</p>
+              <ul style="line-height: 1.8; margin: 0 0 0 20px;">
+                <li>Row count ballooned unexpectedly after a merge</li>
+                <li>Output has the wrong grain (rows per user instead of rows per user-page pair, or vice versa)</li>
+                <li>A group you expected to appear isn't there (filter too aggressive? null handling?)</li>
+                <li>Computers are good at producing confidently wrong answers &mdash; never trust a first pass</li>
+              </ul>
+            </div>
+          </div>
+
+        </div>
+
         <!-- TAB: DECISION TREE -->
-        <div id="tab-decision-tree" class="tab-pane active">
+        <div id="tab-decision-tree" class="tab-pane">
 
           <div class="section-heading">Python/Pandas Problem Decision Tree</div>
           <p style="margin-bottom: 20px; line-height: 1.8;">Use this decision tree to identify the right pandas approach for any data problem. Start at the top and follow the branches based on your problem's characteristics.</p>
@@ -6562,7 +6796,7 @@ df['channel_share'] = df['revenue'] / df.groupby('order_id')['channel'].transfor
                   "Is this ID in the other table?"<br>
                   <span style="color: #1565c0;">&rarr; .isin() or merge with indicator</span><br>
                   <code style="font-size: 1.2rem;">merge(how='left', indicator=True)</code><br>
-                  <span style="font-size: 1.2rem; color: #666;">Problems: #17, #51, #67, #87</span>
+                  <span style="font-size: 1.2rem; color: #666;">Problems: #17, #51, #67</span>
                 </div>
               </div>
               <div style="flex: 1; min-width: 200px;">
@@ -6581,6 +6815,19 @@ df['channel_share'] = df['revenue'] / df.groupby('order_id')['channel'].transfor
                   <span style="color: #1565c0;">&rarr; groupby first, then merge</span><br>
                   <code style="font-size: 1.2rem;">agg_df = df2.groupby().sum(); df1.merge(agg_df)</code><br>
                   <span style="font-size: 1.2rem; color: #666;">Problems: #24, #69, #94, #99</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
+              <div style="flex: 1; min-width: 200px;">
+                <div class="fc-node fc-warn" style="font-size: 1.4rem;">
+                  <strong>ANTI-JOIN / RECOMMENDATION</strong><br>
+                  "Give me the candidates from a relationship, minus the rows that already exist in an exclusion table"<br>
+                  <span style="color: #1565c0;">&rarr; Merge through the relationship, then left merge against the exclusion table with indicator and keep left_only rows</span><br>
+                  <code style="font-size: 1.2rem;">candidates = a.merge(b, left_on='friend_id', right_on='user_id')<br>candidates.merge(exclude, on=['user_id','page_id'], how='left', indicator=True).query('_merge == "left_only"')</code><br>
+                  <span style="font-size: 1.2rem; color: #666;">When to use: recommending items a user doesn't have yet, finding gaps in coverage, "X's that are related to Y but not already paired with Z"</span><br>
+                  <span style="font-size: 1.2rem; color: #666;">Problems: #87</span>
                 </div>
               </div>
             </div>
@@ -6689,7 +6936,8 @@ df['channel_share'] = df['revenue'] / df.groupby('order_id')['channel'].transfor
       '3+ TABLES': {tab: 'tab-merge', label: 'Merge & Join'},
       'SET MEMBERSHIP': {tab: 'tab-merge', label: 'Merge & Join'},
       'CROSS-JOIN / MATCH': {tab: 'tab-merge', label: 'Merge & Join'},
-      'AGGREGATE THEN JOIN': {tab: 'tab-merge', label: 'Merge & Join'}
+      'AGGREGATE THEN JOIN': {tab: 'tab-merge', label: 'Merge & Join'},
+      'ANTI-JOIN / RECOMMENDATION': {tab: 'tab-merge', label: 'Merge & Join'}
     };
 
     // Inject tab links into decision tree cards
