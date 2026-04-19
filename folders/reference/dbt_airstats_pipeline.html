@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Building an End-to-End dbt Pipeline on Snowflake: AirStats | Bitter Scientist</title>
+
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/navbar.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/footer.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/theme.css">
+
+    <style>
+        :root {
+            --navy: #1E2761;
+            --ice: #CADCFC;
+            --accent: #4A90D9;
+            --green: #2CA58D;
+            --red: #E15554;
+            --orange: #F18F01;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; color: #333; line-height: 1.6; }
+        .main-container { max-width: 1200px; margin: 0 auto; padding: 20px; background-color: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .page-header { text-align: center; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 3px solid var(--navy); }
+        .page-header h1 { color: var(--navy); font-weight: 700; font-size: 1.6rem; margin-bottom: 10px; }
+        .page-header p { color: #666; font-size: 1.1rem; margin-bottom: 0; }
+
+        .category-nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 0; padding: 12px 0; border-bottom: 2px solid #e0e0e0; }
+        .category-btn { padding: 8px 18px; cursor: pointer; background-color: #f0f0f0; border: 2px solid transparent; border-radius: 20px; color: #555; font-weight: 600; font-size: 0.9rem; transition: all 0.25s ease; white-space: nowrap; letter-spacing: 0.3px; }
+        .category-btn:hover { background-color: var(--ice); color: var(--navy); border-color: var(--accent); }
+        .category-btn.active { background-color: var(--navy); color: #fff; border-color: var(--navy); }
+
+        .model-nav { display: none; flex-wrap: wrap; justify-content: center; gap: 0; padding: 0; margin-bottom: 24px; background-color: #f8f9fa; border-bottom: 2px solid #e0e0e0; }
+        .model-nav.active { display: flex; justify-content: center; }
+        .nav-tab { padding: 10px 18px; cursor: pointer; background-color: transparent; border: none; border-bottom: 3px solid transparent; color: #555; font-weight: 500; font-size: 0.9rem; transition: all 0.25s ease; white-space: nowrap; }
+        .nav-tab:hover { background-color: #eef2f7; color: var(--accent); }
+        .nav-tab.active { border-bottom-color: var(--accent); color: var(--accent); font-weight: 700; background-color: #fff; }
+
+        @media (max-width: 1024px) { .main-container { padding: 15px; } }
+        @media (max-width: 767px) {
+            .category-nav { gap: 6px; }
+            .category-btn { font-size: 0.8rem; padding: 6px 14px; }
+            .model-nav { overflow-x: auto; -webkit-overflow-scrolling: touch; scroll-behavior: smooth; }
+            .nav-tab { font-size: 0.85rem; padding: 8px 12px; }
+            .main-container { padding: 10px; }
+            .page-header h1 { font-size: 1.5rem; }
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .tab-header { display: flex; align-items: center; gap: 15px; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid var(--ice); }
+        .model-name { font-size: 1.5rem; font-weight: 700; color: var(--navy); }
+        .badge-family { display: inline-block; background-color: var(--accent); color: white; padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; }
+
+        .model-section { margin-bottom: 20px; border: 1px solid #e0e0e0; border-radius: 4px; overflow: hidden; }
+        .model-section summary { padding: 16px; background-color: #f8f9fa; cursor: pointer; font-weight: 700; font-size: 1.2rem; color: var(--navy); user-select: none; display: flex; align-items: center; justify-content: space-between; transition: background-color 0.2s ease; }
+        .model-section-body .model-section summary { font-size: 0.95rem; font-weight: 600; }
+        .model-section summary:hover { background-color: #e8ecf1; }
+        .model-section summary::after { content: '▶'; display: inline-block; transition: transform 0.3s ease; margin-left: 10px; font-size: 0.8rem; }
+        .model-section[open] summary::after { transform: rotate(90deg); }
+        .model-section-body { padding: 20px; background-color: white; }
+        .model-section-body h3 { font-size: 1.1rem; font-weight: 700; color: var(--navy); margin-top: 22px; margin-bottom: 10px; }
+        .model-section-body h3:first-child { margin-top: 0; }
+        .model-section-body h4 { font-size: 0.98rem; font-weight: 600; color: #333; margin-top: 18px; margin-bottom: 6px; }
+
+        .callout { padding: 15px; border-radius: 4px; margin: 15px 0; border-left: 4px solid; }
+        .callout-info { background-color: #ecf1f8; border-left-color: var(--accent); color: var(--navy); }
+        .callout-warning { background-color: #fff8e8; border-left-color: var(--orange); color: #8b6914; }
+        .callout-success { background-color: #f0fdf4; border-left-color: var(--green); color: #15803d; }
+        .callout-danger { background-color: #fef2f2; border-left-color: var(--red); color: #7f1d1d; }
+
+        .styled-table { width: 100%; border-collapse: collapse; margin: 20px 0; border-radius: 4px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .styled-table thead tr { background-color: var(--navy); color: white; font-weight: 600; }
+        .styled-table th { padding: 15px; text-align: left; font-size: 0.95rem; }
+        .styled-table td { padding: 12px 15px; border-bottom: 1px solid #e0e0e0; font-size: 0.92rem; }
+        .styled-table tbody tr:hover { background-color: #f5f5f5; }
+        .styled-table tbody tr:nth-child(even) { background-color: #fafafa; }
+
+        .section-controls { margin-bottom: 20px; display: flex; gap: 10px; }
+        .section-controls button { padding: 8px 16px; background-color: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: background-color 0.2s ease; }
+        .section-controls button:hover { background-color: #366bb3; }
+
+        h2 { color: var(--navy); font-weight: 700; margin-top: 30px; margin-bottom: 15px; }
+        p { margin-bottom: 15px; }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        strong { font-weight: 600; color: var(--navy); }
+        code { background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-family: 'Courier New', monospace; font-size: 0.9rem; }
+        ul, ol { margin-bottom: 15px; margin-left: 20px; }
+        li { margin-bottom: 8px; font-size: 0.95rem; }
+
+        pre.code-block { background-color: #1e1e1e; color: #d4d4d4; padding: 16px 18px; border-radius: 6px; overflow-x: auto; font-family: 'Monaco', 'Courier New', monospace; font-size: 0.85rem; line-height: 1.5; margin: 15px 0; }
+        pre.code-block .k { color: #569cd6; }
+        pre.code-block .s { color: #ce9178; }
+        pre.code-block .c { color: #6a9955; font-style: italic; }
+        pre.code-block .n { color: #9cdcfe; }
+
+        .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 25px 0; }
+        @media (max-width: 768px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
+        .stat-card { background-color: #f0f4ff; border: 2px solid var(--accent); border-radius: 8px; padding: 20px 15px; text-align: center; }
+        .stat-number { font-size: 1.8rem; font-weight: 700; color: var(--navy); display: block; }
+        .stat-label { font-size: 0.85rem; color: #555; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .screenshot-wrapper { margin: 20px 0; padding: 12px; background-color: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 6px; text-align: center; }
+        .screenshot-wrapper img { max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+        .screenshot-caption { font-size: 0.85rem; color: #666; margin-top: 10px; font-style: italic; }
+
+        .kv-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 0.9rem; }
+        .kv-table td { padding: 8px 12px; border-bottom: 1px solid #eee; }
+        .kv-table td:first-child { font-weight: 600; color: var(--navy); width: 40%; }
+    </style>
+</head>
+<body>
+  <div id="page-container">
+    <div id="content-wrap">
+      <div w3-include-html="/folders/navbar_footer/navbar_pages.html"></div>
+      <div class="blog-container">
+        <div class="main-container">
+
+            <div class="page-header">
+                <h1>Building an End-to-End dbt Pipeline on Snowflake: AirStats</h1>
+                <p>An educational walkthrough of a multi-layer analytics engineering project covering sources, incremental loading, slowly changing dimensions, data quality testing, and generated documentation.</p>
+            </div>
+
+            <!-- STAT HIGHLIGHTS -->
+            <div class="stat-grid">
+                <div class="stat-card"><span class="stat-number">72K</span><span class="stat-label">Airports modeled</span></div>
+                <div class="stat-card"><span class="stat-number">44K</span><span class="stat-label">Runways tracked</span></div>
+                <div class="stat-card"><span class="stat-number">21</span><span class="stat-label">Tests running</span></div>
+                <div class="stat-card"><span class="stat-number">1,367</span><span class="stat-label">Orphan comments caught</span></div>
+            </div>
+
+            <!-- CATEGORY NAV + MODEL NAV -->
+            <div id="tabNav">
+                <div class="category-nav" id="categoryNav">
+                    <button class="category-btn active" onclick="switchCategory(event, 'cat-framework')">Framework</button>
+                    <button class="category-btn" onclick="switchCategory(event, 'cat-build')">Build</button>
+                    <button class="category-btn" onclick="switchCategory(event, 'cat-quality')">Quality</button>
+                    <button class="category-btn" onclick="switchCategory(event, 'cat-history')">History</button>
+                    <button class="category-btn" onclick="switchCategory(event, 'cat-docs')">Documentation</button>
+                    <button class="category-btn" onclick="switchCategory(event, 'cat-synthesis')">Synthesis</button>
+                </div>
+
+                <div class="model-nav active" id="cat-framework">
+                    <button class="nav-tab active" onclick="switchTab(event, 'overview')">Overview</button>
+                    <button class="nav-tab" onclick="switchTab(event, 'dataset')">Dataset</button>
+                    <button class="nav-tab" onclick="switchTab(event, 'stack')">Stack &amp; Architecture</button>
+                </div>
+                <div class="model-nav" id="cat-build">
+                    <button class="nav-tab" onclick="switchTab(event, 'sources')">Sources &amp; Staging</button>
+                    <button class="nav-tab" onclick="switchTab(event, 'silver')">Silver Layer</button>
+                    <button class="nav-tab" onclick="switchTab(event, 'walkthroughs')">Model Walkthroughs</button>
+                </div>
+                <div class="model-nav" id="cat-quality">
+                    <button class="nav-tab" onclick="switchTab(event, 'quality-generic')">Generic Tests</button>
+                    <button class="nav-tab" onclick="switchTab(event, 'quality-singular')">Singular Tests</button>
+                    <button class="nav-tab" onclick="switchTab(event, 'quality-expectations')">dbt_expectations</button>
+                    <button class="nav-tab" onclick="switchTab(event, 'quality-relationships')">Relationships &amp; Store Failures</button>
+                </div>
+                <div class="model-nav" id="cat-history">
+                    <button class="nav-tab" onclick="switchTab(event, 'snapshots')">Snapshots (SCD Type 2)</button>
+                    <button class="nav-tab" onclick="switchTab(event, 'incremental')">Incremental Loading</button>
+                    <button class="nav-tab" onclick="switchTab(event, 'heliport')">LA Heliport Case Study</button>
+                </div>
+                <div class="model-nav" id="cat-docs">
+                    <button class="nav-tab" onclick="switchTab(event, 'doc-blocks')">Doc Blocks</button>
+                    <button class="nav-tab" onclick="switchTab(event, 'doc-overview')">Overview Page</button>
+                    <button class="nav-tab" onclick="switchTab(event, 'doc-lineage')">Lineage Graph</button>
+                </div>
+                <div class="model-nav" id="cat-synthesis">
+                    <button class="nav-tab" onclick="switchTab(event, 'lessons')">Lessons Learned</button>
+                    <button class="nav-tab" onclick="switchTab(event, 'whats-next')">What's Next</button>
+                </div>
+            </div>
+
+            <!-- =========================== FRAMEWORK / OVERVIEW =========================== -->
+            <div id="overview" class="tab-content active">
+                <div class="section-controls">
+                    <button onclick="expandAllSections('overview')">Expand All</button>
+                    <button onclick="collapseAllSections('overview')">Collapse All</button>
+                </div>
+
+                <details class="model-section" open>
+                    <summary>The Story</summary>
+                    <div class="model-section-body">
+                        <p>I spent several months building fluency with dbt through a deep, hands-on Airbnb pipeline and then put it to the test on a fresh, unfamiliar dataset: global aviation data from <a href="https://ourairports.com/data/" target="_blank">OurAirports.com</a>. The goal was not just to copy a recipe but to rebuild the analytics engineer's muscle memory on a second domain — designing sources, modeling bronze and silver layers, incrementally ingesting change, tracking slowly changing dimensions, and enforcing data quality as tests.</p>
+                        <p>This post walks through how that pipeline is structured and why each decision was made, with collapsible code samples at each step and the final generated documentation at the end.</p>
+                    </div>
+                </details>
+
+                <details class="model-section" open>
+                    <summary>What This Pipeline Demonstrates</summary>
+                    <div class="model-section-body">
+                        <ul>
+                            <li><strong>Source modeling:</strong> two logical source groupings (<code>airstats</code>, <code>comments</code>) pointing at the same Snowflake schema to show that sources are a naming choice, not a physical container.</li>
+                            <li><strong>Medallion architecture:</strong> ephemeral bronze staging views that only rename columns, and silver tables that apply cleaning rules and business logic.</li>
+                            <li><strong>Incremental loading:</strong> new user comments append to <code>silver_airport_comments</code> using the <code>is_incremental()</code> + <code>MAX(comment_id)</code> pattern instead of a full rebuild.</li>
+                            <li><strong>Slowly changing dimensions:</strong> two snapshots using the <code>check</code> strategy on all columns, validated end-to-end by closing the Los Angeles County Sheriff's Department Heliport in the raw data and watching the history table capture both versions.</li>
+                            <li><strong>Data quality testing:</strong> 21 tests total, including generic tests, three singular tests written as SQL files, five dbt_expectations tests, and two relationships tests set to <code>warn</code> because referential integrity is imperfect in the source.</li>
+                            <li><strong>Automated documentation:</strong> markdown doc blocks referenced by <code>{{ doc() }}</code>, a project-level <code>__overview__</code> homepage, and an embedded lineage image rendered in <code>dbt docs serve</code>.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Headline Numbers</summary>
+                    <div class="model-section-body">
+                        <table class="kv-table">
+                            <tr><td>Airports modeled</td><td>~72,800 rows in <code>silver_airports</code></td></tr>
+                            <tr><td>Runways modeled</td><td>~44,800 rows in <code>silver_runways</code></td></tr>
+                            <tr><td>User comments modeled</td><td>~15,600 rows in <code>silver_airport_comments</code></td></tr>
+                            <tr><td>Total dbt models</td><td>6 (3 bronze ephemeral + 3 silver)</td></tr>
+                            <tr><td>Snapshots</td><td>2 (<code>scd_silver_airports</code>, <code>scd_silver_runways</code>)</td></tr>
+                            <tr><td>Data tests</td><td>21 (20 pass, 1 warn)</td></tr>
+                            <tr><td>Orphan comments caught by relationships test</td><td>1,367 comments pointing to airport_idents that don't exist</td></tr>
+                        </table>
+                    </div>
+                </details>
+            </div>
+
+            <!-- =========================== FRAMEWORK / DATASET =========================== -->
+            <div id="dataset" class="tab-content">
+                <div class="section-controls">
+                    <button onclick="expandAllSections('dataset')">Expand All</button>
+                    <button onclick="collapseAllSections('dataset')">Collapse All</button>
+                </div>
+
+                <details class="model-section" open>
+                    <summary>Source Data: OurAirports.com</summary>
+                    <div class="model-section-body">
+                        <p>OurAirports.com is a crowdsourced, public domain dataset of the world's airports, runways, navigational aids, and user commentary. The raw data lands in Snowflake in three tables under <code>AIRSTATS.RAW</code>, each keyed primarily on <code>ident</code> / <code>airport_ident</code> so they can be joined back together.</p>
+
+                        <table class="styled-table">
+                            <thead><tr><th>Table</th><th>Description</th><th>Grain</th><th>Key Columns</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>AIRPORTS</code></td><td>Global airport dimension with type, name, coordinates, country</td><td>~72K rows, one per airport</td><td><code>id</code>, <code>ident</code>, <code>type</code>, <code>iso_country</code></td></tr>
+                                <tr><td><code>RUNWAYS</code></td><td>Runway inventory linked to airports</td><td>~44K rows, many per airport</td><td><code>id</code>, <code>airport_ref</code>, <code>airport_ident</code>, <code>closed</code></td></tr>
+                                <tr><td><code>AIRPORT_COMMENTS</code></td><td>User-submitted commentary about airports</td><td>~15K rows, many per airport</td><td><code>id</code>, <code>airport_ident</code>, <code>date</code></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Why This Dataset Is a Good Teacher</summary>
+                    <div class="model-section-body">
+                        <ul>
+                            <li><strong>Different grains force honest modeling:</strong> one airport can own many runways and receive many comments, so the unique tests have to go on the right column of the right table.</li>
+                            <li><strong>Referential integrity is imperfect:</strong> some user comments reference airport_idents that don't exist in the airports table, which forces you to decide between a hard fail and a warning.</li>
+                            <li><strong>Comments have a natural timestamp:</strong> they are append-only over time, which makes them a perfect fit for incremental loading instead of a full rebuild.</li>
+                            <li><strong>Airports change over time:</strong> closed airports, renamed facilities, and type reclassifications are real. That makes them a natural fit for a slowly changing dimension snapshot.</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+
+            <!-- =========================== FRAMEWORK / STACK =========================== -->
+            <div id="stack" class="tab-content">
+                <div class="section-controls">
+                    <button onclick="expandAllSections('stack')">Expand All</button>
+                    <button onclick="collapseAllSections('stack')">Collapse All</button>
+                </div>
+
+                <details class="model-section" open>
+                    <summary>The Toolchain</summary>
+                    <div class="model-section-body">
+                        <table class="kv-table">
+                            <tr><td>Data warehouse</td><td>Snowflake (database <code>AIRSTATS</code>, schema <code>DEV</code>)</td></tr>
+                            <tr><td>Transformation tool</td><td>dbt-core 1.11 with <code>dbt-snowflake</code> adapter</td></tr>
+                            <tr><td>Test packages</td><td><code>dbt-utils</code> 1.3, <code>dbt_expectations</code> 0.10, <code>dbt_date</code> 0.17</td></tr>
+                            <tr><td>Python runtime</td><td>Python 3.9 in a local virtualenv managed by <code>uv</code></td></tr>
+                            <tr><td>Editor</td><td>VS Code with integrated terminal</td></tr>
+                            <tr><td>Version control</td><td>git, pushed to a public GitHub repository</td></tr>
+                        </table>
+                    </div>
+                </details>
+
+                <details class="model-section" open>
+                    <summary>Medallion Architecture at a Glance</summary>
+                    <div class="model-section-body">
+                        <p>The pipeline follows a three-layer medallion pattern, with clear rules about what each layer is and isn't responsible for.</p>
+                        <table class="styled-table">
+                            <thead><tr><th>Layer</th><th>Purpose</th><th>Materialization</th><th>Example</th></tr></thead>
+                            <tbody>
+                                <tr><td><strong>Raw</strong></td><td>Untouched source data in Snowflake, owned by the ingestion process</td><td>Table</td><td><code>RAW.AIRPORTS</code></td></tr>
+                                <tr><td><strong>Bronze (staging)</strong></td><td>Column renaming, CTE pattern, no business logic</td><td>Ephemeral</td><td><code>src_airports</code></td></tr>
+                                <tr><td><strong>Silver</strong></td><td>Cleaning, null handling, business rules, ready for downstream use</td><td>Table (or incremental)</td><td><code>silver_airports</code></td></tr>
+                            </tbody>
+                        </table>
+                        <div class="callout callout-info">
+                            <strong>Why bronze is ephemeral:</strong> bronze adds no business value beyond renames, so persisting it would waste storage and compute. Making it ephemeral means dbt inlines the CTE directly into downstream silver models at compile time.
+                        </div>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>The Lineage</summary>
+                    <div class="model-section-body">
+                        <div class="screenshot-wrapper">
+                            <img src="../../static/images/airstats_lineage.png" alt="AirStats project lineage graph from dbt docs">
+                            <div class="screenshot-caption">Lineage graph generated by <code>dbt docs</code>: raw sources on the left, bronze staging in the middle, silver tables branching into snapshots and singular tests on the right.</div>
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <!-- =========================== BUILD / SOURCES =========================== -->
+            <div id="sources" class="tab-content">
+                <div class="section-controls">
+                    <button onclick="expandAllSections('sources')">Expand All</button>
+                    <button onclick="collapseAllSections('sources')">Collapse All</button>
+                </div>
+
+                <details class="model-section" open>
+                    <summary>Defining Sources as Logical Groups</summary>
+                    <div class="model-section-body">
+                        <p>A common misconception is that a dbt source must correspond one-to-one with a database schema. It doesn't. A source is a logical grouping that you invent — anyone referencing the table writes <code>source('group_name', 'table_name')</code>, and the group name is yours to design.</p>
+                        <p>Here the raw airports and runways belong to one conceptual group, and user comments belong to a different group even though they all physically live in the same Snowflake <code>RAW</code> schema. Splitting them like this keeps the lineage cleaner and lets each group have its own freshness or ownership rules later.</p>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Code: <code>models/sources.yml</code></summary>
+                    <div class="model-section-body">
+<pre class="code-block">version: 2
+
+sources:
+  - name: airstats
+    description: "Static reference data about airports and their runways"
+    schema: raw
+    tables:
+      - name: airports
+        description: "Airports data from OurAirports.com"
+        columns:
+          - name: id
+          - name: ident
+          - name: type
+          - name: name
+          - name: iso_country
+      - name: runways
+        description: "Runways data from OurAirports.com"
+        columns:
+          - name: id
+          - name: airport_ref
+          - name: airport_ident
+          - name: closed
+
+  - name: comments
+    schema: raw
+    description: "User-submitted airport commentary, append-only"
+    tables:
+      - name: airport_comments
+        description: "Comments about airports"
+        columns:
+          - name: id
+          - name: airport_ref
+          - name: body
+          - name: airport_ident
+          - name: date</pre>
+                        <div class="callout callout-info">
+                            <strong>Design note:</strong> the airports table and comments table both physically live in the same <code>raw</code> schema, but they sit under different source names because they have different conceptual owners and refresh cadences.
+                        </div>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Bronze Staging Views (ephemeral)</summary>
+                    <div class="model-section-body">
+                        <p>Each bronze model does exactly one thing: reference a source via a CTE and rename columns to the project's conventions. Nothing else. Making these ephemeral means they never materialize in the warehouse — they compile inline into whichever silver model consumes them.</p>
+
+<pre class="code-block">-- models/bronze/src_airports.sql
+{{ config(materialized='ephemeral') }}
+
+WITH raw_airports AS (
+    SELECT *
+    FROM {{ source('airstats', 'airports') }}
+)
+SELECT
+    ident         AS airport_ident,
+    type          AS airport_type,
+    name          AS airport_name,
+    latitude_deg  AS airport_lat,
+    longitude_deg AS airport_long,
+    continent,
+    iso_country,
+    iso_region
+FROM raw_airports</pre>
+
+                        <div class="callout callout-success">
+                            <strong>Convention:</strong> always wrap <code>source()</code> and <code>ref()</code> calls in a CTE, even if the CTE feels redundant. It forces a consistent shape for every staging model and makes later refactors painless.
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <!-- =========================== BUILD / SILVER =========================== -->
+            <div id="silver" class="tab-content">
+                <div class="section-controls">
+                    <button onclick="expandAllSections('silver')">Expand All</button>
+                    <button onclick="collapseAllSections('silver')">Collapse All</button>
+                </div>
+
+                <details class="model-section" open>
+                    <summary>Silver Layer Rules</summary>
+                    <div class="model-section-body">
+                        <ul>
+                            <li>Silver is where <strong>business rules</strong> live (null handling, empty string replacement, filtering).</li>
+                            <li>Silver defaults to <strong>table materialization</strong> via <code>dbt_project.yml</code>, not inline config in each file.</li>
+                            <li>One silver model overrides the default to <strong>incremental</strong> in its own <code>.sql</code> config block: <code>silver_airport_comments</code>.</li>
+                            <li>Columns in silver are referenced by their <strong>already-renamed bronze names</strong>, not the raw source names.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Project-level materialization config</summary>
+                    <div class="model-section-body">
+<pre class="code-block"># dbt_project.yml (excerpt)
+models:
+  airstats:
+    silver:
+      +materialized: table
+
+data_tests:
+  +store_failures: true
+  +schema: test_failures
+
+flags:
+  require_generic_test_arguments_property: true</pre>
+                        <div class="callout callout-info">
+                            <strong>Why this matters:</strong> one line in <code>dbt_project.yml</code> sets the default for an entire folder. Any silver model can still override with its own <code>config()</code> block — which is exactly what <code>silver_airport_comments</code> does.
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <!-- =========================== BUILD / WALKTHROUGHS =========================== -->
+            <div id="walkthroughs" class="tab-content">
+                <div class="section-controls">
+                    <button onclick="expandAllSections('walkthroughs')">Expand All</button>
+                    <button onclick="collapseAllSections('walkthroughs')">Collapse All</button>
+                </div>
+
+                <details class="model-section" open>
+                    <summary><code>silver_airports</code> — the central dimension</summary>
+                    <div class="model-section-body">
+                        <p>The simplest of the three. Just a pass-through from bronze with no transformations, because the bronze model already did the renames and there's no business logic required for airports.</p>
+<pre class="code-block">-- models/silver/silver_airports.sql
+WITH src_airports AS (
+    SELECT *
+    FROM {{ ref('src_airports') }}
+)
+
+SELECT *
+FROM src_airports</pre>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary><code>silver_runways</code> — null/empty handling</summary>
+                    <div class="model-section-body">
+                        <p>The surface of the runway is important for airline operations but the raw data occasionally has nulls or empty strings. A <code>CASE</code> expression normalizes both cases to a sentinel value <code>__UNKNOWN__</code>.</p>
+<pre class="code-block">-- models/silver/silver_runways.sql
+WITH src_runways AS (
+    SELECT
+        runway_id,
+        airport_ident,
+        runway_length_ft,
+        runway_width_ft,
+        CASE
+            WHEN runway_surface IS NULL OR runway_surface = ''
+            THEN '__UNKNOWN__'
+            ELSE runway_surface
+        END AS runway_surface,
+        runway_lighted,
+        runway_closed
+    FROM {{ ref('src_runways') }}
+)
+SELECT *
+FROM src_runways</pre>
+                        <div class="callout callout-warning">
+                            <strong>Gotcha learned the hard way:</strong> I initially referenced the raw column names like <code>surface</code> instead of the renamed <code>runway_surface</code>, and the model compiled cleanly but failed at run time because the CTE was pulling from the already-renamed bronze model. Always trace renames through the layers.
+                        </div>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary><code>silver_airport_comments</code> — the incremental</summary>
+                    <div class="model-section-body">
+                        <p>The most interesting of the three. It filters out null/empty comment bodies, fills null nicknames with <code>__UNKNOWN__</code>, adds a <code>loaded_at</code> audit timestamp, and only processes new rows on subsequent runs using the <code>is_incremental()</code> macro.</p>
+<pre class="code-block">-- models/silver/silver_airport_comments.sql
+{{ config(materialized='incremental') }}
+
+WITH src_airport_comments AS (
+    SELECT
+        comment_id,
+        airport_ident,
+        comment_timestamp,
+        CASE
+            WHEN member_nickname IS NULL
+            THEN '__UNKNOWN__'
+            ELSE member_nickname
+        END AS member_nickname,
+        comment_subject,
+        comment_body
+    FROM {{ ref('src_airport_comments') }}
+    WHERE comment_body IS NOT NULL
+      AND comment_body != ''
+    {% if is_incremental() %}
+      AND comment_id > (SELECT MAX(comment_id) FROM {{ this }})
+    {% endif %}
+)
+
+SELECT *,
+       current_timestamp() AS loaded_at
+FROM src_airport_comments</pre>
+                        <div class="callout callout-success">
+                            <strong>The branching logic:</strong> on the first run, <code>is_incremental()</code> returns false and the entire source is loaded. On every run after that, it returns true and the query only pulls comments with a <code>comment_id</code> larger than the max already in the target table.
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <!-- =========================== QUALITY / GENERIC =========================== -->
+            <div id="quality-generic" class="tab-content">
+                <div class="section-controls">
+                    <button onclick="expandAllSections('quality-generic')">Expand All</button>
+                    <button onclick="collapseAllSections('quality-generic')">Collapse All</button>
+                </div>
+
+                <details class="model-section" open>
+                    <summary>Built-in Generic Tests</summary>
+                    <div class="model-section-body">
+                        <p>dbt ships with four generic tests that do the majority of the heavy lifting: <code>unique</code>, <code>not_null</code>, <code>accepted_values</code>, and <code>relationships</code>. Picking which columns to put them on is where the modeling thinking happens.</p>
+                        <table class="styled-table">
+                            <thead><tr><th>Model</th><th>Column</th><th>Test</th><th>Why</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>silver_airports</code></td><td><code>airport_ident</code></td><td>unique, not_null</td><td>It's the business key used to join everywhere</td></tr>
+                                <tr><td><code>silver_airports</code></td><td><code>airport_name</code></td><td>not_null</td><td>An airport without a name is unusable downstream</td></tr>
+                                <tr><td><code>silver_airports</code></td><td><code>airport_type</code></td><td>accepted_values</td><td>Only 7 valid values exist; anything else is data corruption</td></tr>
+                                <tr><td><code>silver_runways</code></td><td><code>runway_id</code></td><td>unique, not_null</td><td>Primary key of the runways grain</td></tr>
+                                <tr><td><code>silver_runways</code></td><td><code>airport_ident</code></td><td>not_null</td><td>A runway without a parent airport is orphaned</td></tr>
+                                <tr><td><code>silver_airport_comments</code></td><td><code>comment_id</code></td><td>unique, not_null</td><td>Primary key of the comments grain</td></tr>
+                                <tr><td><code>silver_airport_comments</code></td><td><code>airport_ident</code></td><td>not_null</td><td>A comment without an airport context is meaningless</td></tr>
+                            </tbody>
+                        </table>
+                        <div class="callout callout-warning">
+                            <strong>Common mistake to avoid:</strong> it's tempting to mark <code>airport_ident</code> as <code>unique</code> on all three tables. It shouldn't be — many runways and many comments can share the same airport. <code>unique</code> belongs only on <code>silver_airports.airport_ident</code>.
+                        </div>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Code: the <code>accepted_values</code> test</summary>
+                    <div class="model-section-body">
+<pre class="code-block">- name: airport_type
+  data_tests:
+    - accepted_values:
+        arguments:
+          values:
+            - closed
+            - small_airport
+            - heliport
+            - large_airport
+            - medium_airport
+            - seaplane_base
+            - balloonport</pre>
+                        <div class="callout callout-info">
+                            <strong>Syntax note:</strong> dbt 1.8+ requires test parameters to nest under <code>arguments:</code> when the project flag <code>require_generic_test_arguments_property</code> is set. This is the modern convention and catches a lot of silent bugs.
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <!-- =========================== QUALITY / SINGULAR =========================== -->
+            <div id="quality-singular" class="tab-content">
+                <div class="section-controls">
+                    <button onclick="expandAllSections('quality-singular')">Expand All</button>
+                    <button onclick="collapseAllSections('quality-singular')">Collapse All</button>
+                </div>
+
+                <details class="model-section" open>
+                    <summary>When to Write a Singular Test</summary>
+                    <div class="model-section-body">
+                        <p>Singular tests are SQL files in the <code>tests/</code> folder that return rows only when a rule is broken. Zero rows returned means the test passes. They're the right tool when your rule is too bespoke to express as a parameterized generic test.</p>
+                        <ul>
+                            <li>Checks that involve <strong>multiple columns working together</strong>, like "latitude and longitude must both be valid."</li>
+                            <li>Checks that compare values against <strong>external references</strong>, like "loaded_at must be after comment_timestamp."</li>
+                            <li>Checks that encode <strong>business logic</strong>, like "a comment must not be dated in the future."</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Test 1: valid airport coordinates</summary>
+                    <div class="model-section-body">
+<pre class="code-block">-- tests/assert_valid_airport_coordinates.sql
+-- rationale: coordinates outside these ranges are physically
+-- impossible, so any row returned signals data corruption.
+
+SELECT *
+FROM {{ ref('silver_airports') }}
+WHERE airport_lat NOT BETWEEN -90 AND 90
+   OR airport_long NOT BETWEEN -180 AND 180</pre>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Test 2: comment timestamps must not be in the future</summary>
+                    <div class="model-section-body">
+<pre class="code-block">-- tests/assert_comment_timestamp_not_future.sql
+-- rationale: a comment can't be posted in the future,
+-- so any row returned flags a timestamp error or bad data entry.
+
+SELECT *
+FROM {{ ref('silver_airport_comments') }}
+WHERE comment_timestamp > current_timestamp()</pre>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Test 3: loaded_at must happen after comment_timestamp</summary>
+                    <div class="model-section-body">
+<pre class="code-block">-- tests/assert_comment_loaded_after_timestamp.sql
+-- rationale: a comment can't be loaded into the warehouse
+-- before it was actually posted, so any row returned points
+-- to a pipeline timing bug or bad data.
+
+SELECT *
+FROM {{ ref('silver_airport_comments') }}
+WHERE loaded_at < comment_timestamp</pre>
+                        <div class="callout callout-info">
+                            <strong>Why this matters:</strong> this test cross-checks the audit timestamp (<code>loaded_at</code>, set by the pipeline) against the business timestamp (<code>comment_timestamp</code>, set by the user). If they ever get inverted, something upstream is broken in a way that no single-column test could catch.
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <!-- =========================== QUALITY / EXPECTATIONS =========================== -->
+            <div id="quality-expectations" class="tab-content">
+                <div class="section-controls">
+                    <button onclick="expandAllSections('quality-expectations')">Expand All</button>
+                    <button onclick="collapseAllSections('quality-expectations')">Collapse All</button>
+                </div>
+
+                <details class="model-section" open>
+                    <summary>Why dbt_expectations</summary>
+                    <div class="model-section-body">
+                        <p>The <a href="https://github.com/calogica/dbt-expectations" target="_blank">dbt_expectations</a> package ports the Great Expectations library into dbt. It adds around 60 additional test types that would otherwise require singular tests. I used five different ones here deliberately — variety demonstrates more understanding than running the same test against many columns.</p>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>The five tests in use</summary>
+                    <div class="model-section-body">
+                        <table class="styled-table">
+                            <thead><tr><th>Model</th><th>Column</th><th>Test</th><th>What it checks</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>silver_airports</code></td><td><code>airport_ident</code></td><td><code>expect_column_value_lengths_to_be_between</code></td><td>ICAO/local codes are 2–10 characters</td></tr>
+                                <tr><td><code>silver_airports</code></td><td><code>iso_country</code></td><td><code>expect_column_values_to_match_regex</code></td><td>Two uppercase letters (ISO 3166-1)</td></tr>
+                                <tr><td><code>silver_runways</code></td><td><code>runway_length_ft</code></td><td><code>expect_column_values_to_be_between</code></td><td>Runway length is non-negative</td></tr>
+                                <tr><td><code>silver_runways</code></td><td><code>runway_lighted</code></td><td><code>expect_column_max_to_be_between</code></td><td>Binary flag never exceeds 1</td></tr>
+                                <tr><td><code>silver_airport_comments</code></td><td><code>comment_body</code></td><td><code>expect_column_value_lengths_to_be_between</code></td><td>Body has at least one character (belt-and-suspenders with silver's WHERE clause)</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Code: regex on iso_country</summary>
+                    <div class="model-section-body">
+<pre class="code-block">- name: iso_country
+  data_tests:
+    - dbt_expectations.expect_column_values_to_match_regex:
+        arguments:
+          regex: '^[A-Z]{2}$'</pre>
+                        <p>ISO 3166-1 alpha-2 country codes are always exactly two uppercase letters (US, FR, JP). The regex catches lowercase entries, three-letter codes, and any other encoding mistakes at the boundary.</p>
+                    </div>
+                </details>
+            </div>
+
+            <!-- =========================== QUALITY / RELATIONSHIPS =========================== -->
+            <div id="quality-relationships" class="tab-content">
+                <div class="section-controls">
+                    <button onclick="expandAllSections('quality-relationships')">Expand All</button>
+                    <button onclick="collapseAllSections('quality-relationships')">Collapse All</button>
+                </div>
+
+                <details class="model-section" open>
+                    <summary>Referential Integrity with severity: warn</summary>
+                    <div class="model-section-body">
+                        <p>The <code>relationships</code> test checks that every value in a child column exists in a parent column — classic foreign key logic. Runways and comments both reference <code>silver_airports.airport_ident</code>.</p>
+                        <p>But real-world data isn't always clean: 1,367 comments in the raw data reference airports that don't exist in the airports table. Failing the whole test run on that isn't the right answer because it's a known data quality gap. Instead, I set the severity to <code>warn</code>, which logs the count without breaking CI.</p>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Code</summary>
+                    <div class="model-section-body">
+<pre class="code-block">- name: airport_ident
+  data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('silver_airports')
+          field: airport_ident
+        config:
+          severity: warn</pre>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Store Failures — investigate at your leisure</summary>
+                    <div class="model-section-body">
+                        <p>Failing test rows evaporate from the logs once the run finishes. Setting <code>store_failures: true</code> persists them into a dedicated schema in Snowflake so you can query them any time.</p>
+<pre class="code-block"># dbt_project.yml
+data_tests:
+  +store_failures: true
+  +schema: test_failures</pre>
+                        <div class="callout callout-info">
+                            The 1,367 orphan comments now sit in <code>AIRSTATS.DEV_test_failures.relationships_silver_airport_c_...</code> where they can be profiled, filed as a data quality ticket, or used to drive an upstream fix.
+                        </div>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Test run output</summary>
+                    <div class="model-section-body">
+<pre class="code-block">Finished running 21 data tests in 0 hours 0 minutes and 5.89 seconds.
+
+Completed with 1 warning:
+  Warning in test relationships_silver_airport_comments_airport_ident__...
+  Got 1367 results, configured to warn if != 0
+
+Done. PASS=20 WARN=1 ERROR=0 SKIP=0</pre>
+                    </div>
+                </details>
+            </div>
+
+            <!-- =========================== HISTORY / SNAPSHOTS =========================== -->
+            <div id="snapshots" class="tab-content">
+                <div class="section-controls">
+                    <button onclick="expandAllSections('snapshots')">Expand All</button>
+                    <button onclick="collapseAllSections('snapshots')">Collapse All</button>
+                </div>
+
+                <details class="model-section" open>
+                    <summary>Why Snapshots</summary>
+                    <div class="model-section-body">
+                        <p>A snapshot is dbt's implementation of a Slowly Changing Dimension Type 2 (SCD Type 2) table. It watches a target table and, every time you run <code>dbt snapshot</code>, compares the current state to the last recorded version. If anything changed, it closes out the old row with a <code>dbt_valid_to</code> timestamp and inserts a new row marked valid from now.</p>
+                        <p>The result is a complete history table you can query to answer "what did this airport look like on March 1st?" instead of only "what does it look like today?"</p>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>The check strategy, explained</summary>
+                    <div class="model-section-body">
+                        <p>There are two strategies available: <code>timestamp</code> and <code>check</code>.</p>
+                        <ul>
+                            <li><strong>Timestamp</strong>: preferred when the source has a reliable <code>updated_at</code> column. dbt trusts that column and only looks for rows where it changed.</li>
+                            <li><strong>Check</strong>: compares the actual column values between runs. Required when the source has no reliable change timestamp, at the cost of being slower and more compute-heavy.</li>
+                        </ul>
+                        <p>The AirStats airports and runways tables have no update timestamp, so <code>check</code> is the only option.</p>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Code: <code>snapshots/scd_silver_airports.yml</code></summary>
+                    <div class="model-section-body">
+<pre class="code-block">snapshots:
+  - name: scd_silver_airports
+    relation: ref('silver_airports')
+    config:
+      unique_key: airport_ident
+      strategy: check
+      check_cols: all
+      hard_deletes: invalidate</pre>
+                        <div class="callout callout-info">
+                            <strong><code>hard_deletes: invalidate</code></strong> tells dbt that if a row disappears from the source table, mark its current snapshot row as invalidated with a <code>dbt_valid_to</code> timestamp — as opposed to ignoring the deletion.
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <!-- =========================== HISTORY / INCREMENTAL =========================== -->
+            <div id="incremental" class="tab-content">
+                <div class="section-controls">
+                    <button onclick="expandAllSections('incremental')">Expand All</button>
+                    <button onclick="collapseAllSections('incremental')">Collapse All</button>
+                </div>
+
+                <details class="model-section" open>
+                    <summary>The Problem: Comments Are Append-Only</summary>
+                    <div class="model-section-body">
+                        <p>User comments only grow — you add new comments over time but you don't edit or delete old ones. Running a full table rebuild on every pipeline run would scan ~15,000 rows just to re-insert the same 14,999 we already had. That scales badly and wastes Snowflake credits.</p>
+                        <p>Instead, the incremental pattern lets dbt only pull rows with a <code>comment_id</code> larger than what's already in the target table. On every run after the first, the filter <code>WHERE comment_id &gt; (SELECT MAX(comment_id) FROM {{ this }})</code> keeps the scan tiny.</p>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>The two-phase <code>is_incremental()</code> trick</summary>
+                    <div class="model-section-body">
+                        <p>The macro <code>is_incremental()</code> returns <code>false</code> on the first run (when the target table doesn't exist yet) and <code>true</code> on every subsequent run. Wrapping the filter in <code>{% if is_incremental() %}</code> means the first run loads everything, and later runs only load the delta.</p>
+<pre class="code-block">{% if is_incremental() %}
+  AND comment_id > (SELECT MAX(comment_id) FROM {{ this }})
+{% endif %}</pre>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Why <code>MAX(comment_id)</code> instead of <code>unique_key</code></summary>
+                    <div class="model-section-body">
+                        <p>dbt supports two incremental strategies:</p>
+                        <ul>
+                            <li><strong>unique_key</strong>: upserts by primary key on every run, which is correct for mutable data but overkill when rows never change.</li>
+                            <li><strong>MAX filter</strong>: only ever inserts new rows, which is lighter and correct when data is append-only.</li>
+                        </ul>
+                        <p>Since comments are append-only, the <code>MAX</code> filter is the more efficient and more honest encoding of the business rule.</p>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Proof it works</summary>
+                    <div class="model-section-body">
+                        <p>I inserted a single new row into <code>RAW.AIRPORT_COMMENTS</code> with a fabricated <code>comment_id</code> larger than the current max, then ran <code>dbt run --select silver_airport_comments</code>. The run picked up exactly one row and added it with a fresh <code>loaded_at</code> timestamp.</p>
+<pre class="code-block">COMMENT_ID | AIRPORT_IDENT | COMMENT_TIMESTAMP       | MEMBER_NICKNAME | LOADED_AT
+-----------+---------------+-------------------------+-----------------+------------------------
+602622     | KLAX          | 2026-04-19 11:47:25.290 | trinidad        | 2026-04-19 11:47:59.728</pre>
+                    </div>
+                </details>
+            </div>
+
+            <!-- =========================== HISTORY / HELIPORT =========================== -->
+            <div id="heliport" class="tab-content">
+                <div class="section-controls">
+                    <button onclick="expandAllSections('heliport')">Expand All</button>
+                    <button onclick="collapseAllSections('heliport')">Collapse All</button>
+                </div>
+
+                <details class="model-section" open>
+                    <summary>Case Study: Closing an Airport in Real Time</summary>
+                    <div class="model-section-body">
+                        <p>To validate the snapshot end-to-end, I picked a real airport — the Los Angeles County Sheriff's Department Heliport (<code>airport_ident = '01CN'</code>, originally classified as <code>heliport</code>) — and simulated its closure in the raw data. The goal was to see both the original and the closed version in the history table after running the pipeline through.</p>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Step 1 — Baseline snapshot</summary>
+                    <div class="model-section-body">
+                        <p>Run <code>dbt snapshot</code> once before making any changes. This captures the airport as it exists today.</p>
+<pre class="code-block">$ dbt snapshot
+19:06:47  1 of 1 START snapshot DEV.scd_silver_airports
+19:06:49  1 of 1 OK snapshotted DEV.scd_silver_airports [SUCCESS 1 in 2.73s]</pre>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Step 2 — Simulate the closure in Snowflake</summary>
+                    <div class="model-section-body">
+<pre class="code-block">-- Snowflake SQL worksheet
+UPDATE AIRSTATS.RAW.AIRPORTS
+SET type = 'closed'
+WHERE ident = '01CN';</pre>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Step 3 — Propagate and re-snapshot</summary>
+                    <div class="model-section-body">
+<pre class="code-block">$ dbt run --select silver_airports &amp;&amp; dbt snapshot
+# silver_airports rebuilt with the updated type
+# snapshot captures the change: 01CN now has 2 history rows</pre>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Step 4 — Verify with an analysis</summary>
+                    <div class="model-section-body">
+                        <p>A dbt <em>analysis</em> is a SQL file that lives in the <code>analyses/</code> folder. Unlike a model, it doesn't materialize — it just compiles. Perfect for ad-hoc validation.</p>
+<pre class="code-block">-- analyses/la_heliport_closed.sql
+WITH scd_silver_airports AS (
+    SELECT *
+    FROM {{ ref('scd_silver_airports') }}
+    WHERE airport_ident = '01CN'
+)
+SELECT *
+FROM scd_silver_airports</pre>
+                    </div>
+                </details>
+
+                <details class="model-section" open>
+                    <summary>The result: two versioned rows</summary>
+                    <div class="model-section-body">
+                        <table class="styled-table">
+                            <thead><tr><th>airport_ident</th><th>airport_type</th><th>dbt_valid_from</th><th>dbt_valid_to</th></tr></thead>
+                            <tbody>
+                                <tr><td>01CN</td><td>heliport</td><td>2026-04-19 19:06:48</td><td>2026-04-19 19:18:28</td></tr>
+                                <tr><td>01CN</td><td>closed</td><td>2026-04-19 19:18:28</td><td>(null)</td></tr>
+                            </tbody>
+                        </table>
+                        <div class="callout callout-success">
+                            <strong>Success:</strong> the history table shows the heliport was in <code>heliport</code> status until 19:18:28, at which point it transitioned to <code>closed</code>. The null <code>dbt_valid_to</code> on the second row marks it as the current version.
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <!-- =========================== DOCS / BLOCKS =========================== -->
+            <div id="doc-blocks" class="tab-content">
+                <div class="section-controls">
+                    <button onclick="expandAllSections('doc-blocks')">Expand All</button>
+                    <button onclick="collapseAllSections('doc-blocks')">Collapse All</button>
+                </div>
+
+                <details class="model-section" open>
+                    <summary>Documentation as Reusable Blocks</summary>
+                    <div class="model-section-body">
+                        <p>dbt's <code>docs</code> blocks live in markdown files inside the <code>models/</code> tree and are referenced from <code>schema.yml</code> descriptions using the <code>{{ doc('name') }}</code> Jinja macro. This keeps the long-form documentation separate from the schema definitions while still making it discoverable in the generated docs site.</p>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Code: <code>models/docs.md</code></summary>
+                    <div class="model-section-body">
+<pre class="code-block">{% docs __overview__ %}
+
+# AirStats Pipeline
+
+Purpose: build a data pipeline analyzing global aviation data
+from OurAirports.com, covering ~72,000 airports, ~44,000 runways,
+and user-submitted airport comments.
+
+## How the silver tables connect
+
+The silver layer is organized as a hub and spoke around
+`silver_airports`, with `airport_ident` acting as the shared
+business key across all three tables.
+
+- `silver_airports` is the central dimension, one row per airport.
+- `silver_runways` has one row per runway and joins back to
+  `silver_airports` via `airport_ident` (many runways per airport).
+- `silver_airport_comments` has one row per user comment and
+  also joins back via `airport_ident`, loaded incrementally.
+
+![Project Lineage](assets/lineage.png)
+
+{% enddocs %}
+
+{% docs airport_ident %}
+
+The airport identifier code, typically the 4-letter ICAO code
+(e.g. `KLAX`) for internationally recognized airports, or a
+local/FAA code for smaller fields (e.g. `01CN`).
+
+{% enddocs %}</pre>
+                        <div class="callout callout-warning">
+                            <strong>Gotcha:</strong> the <code>{{ doc() }}</code> macro only works inside YAML <code>description:</code> fields, NOT inside another docs block. Trying to nest <code>{{ doc('x') }}</code> inside a <code>__overview__</code> block throws a compilation error.
+                        </div>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Referencing from <code>silver.yml</code></summary>
+                    <div class="model-section-body">
+<pre class="code-block">models:
+  - name: silver_airports
+    description: "{{ doc('silver_layer') }}"
+    columns:
+      - name: airport_ident
+        description: "{{ doc('airport_ident') }}"
+        data_tests:
+          - unique
+          - not_null</pre>
+                        <p>Note the quotes around the Jinja expression — required, because YAML parses <code>{{ ... }}</code> as a flow mapping without them and fails.</p>
+                    </div>
+                </details>
+            </div>
+
+            <!-- =========================== DOCS / OVERVIEW PAGE =========================== -->
+            <div id="doc-overview" class="tab-content">
+                <div class="section-controls">
+                    <button onclick="expandAllSections('doc-overview')">Expand All</button>
+                    <button onclick="collapseAllSections('doc-overview')">Collapse All</button>
+                </div>
+
+                <details class="model-section" open>
+                    <summary>The Project Homepage</summary>
+                    <div class="model-section-body">
+                        <p>dbt reserves the docs block name <code>__overview__</code> as the homepage of the generated documentation site. Whatever markdown you put in that block renders as the landing page when someone visits <code>dbt docs serve</code>.</p>
+                        <p>Embedding the lineage image required adding <code>asset-paths: ["assets"]</code> to <code>dbt_project.yml</code> and dropping <code>lineage.png</code> into a top-level <code>assets/</code> folder.</p>
+                    </div>
+                </details>
+
+                <details class="model-section" open>
+                    <summary>What the homepage renders</summary>
+                    <div class="model-section-body">
+                        <div class="screenshot-wrapper">
+                            <img src="../../static/images/airstats_lineage.png" alt="dbt docs overview page showing the AirStats pipeline purpose and lineage diagram">
+                            <div class="screenshot-caption">The embedded lineage graph shows sources (green) feeding into bronze (teal) feeding into silver and the downstream snapshots and singular tests.</div>
+                        </div>
+                        <p>The overview page is also where long-form documentation — like the hub-and-spoke explanation of how the silver tables connect — lives for anyone exploring the project for the first time.</p>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Running <code>dbt docs</code> locally</summary>
+                    <div class="model-section-body">
+<pre class="code-block">$ dbt docs generate
+$ dbt docs serve
+Serving docs at 0.0.0.0:8080
+# opens http://127.0.0.1:8080 in the default browser</pre>
+                        <div class="callout callout-info">
+                            <code>dbt docs generate</code> builds a static manifest plus catalog JSON, and <code>dbt docs serve</code> serves the static site locally. In CI, you'd push the <code>target/</code> folder to a static host (S3, Netlify, GitHub Pages) so the rest of the team can browse it without needing a local install.
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <!-- =========================== DOCS / LINEAGE =========================== -->
+            <div id="doc-lineage" class="tab-content">
+                <div class="section-controls">
+                    <button onclick="expandAllSections('doc-lineage')">Expand All</button>
+                    <button onclick="collapseAllSections('doc-lineage')">Collapse All</button>
+                </div>
+
+                <details class="model-section" open>
+                    <summary>The Lineage Graph</summary>
+                    <div class="model-section-body">
+                        <p>dbt automatically generates a lineage graph from the <code>ref()</code> and <code>source()</code> calls in your SQL. Every model, snapshot, source, and test becomes a node, and the edges show data flow.</p>
+                        <div class="screenshot-wrapper">
+                            <img src="../../static/images/airstats_lineage.png" alt="dbt lineage graph showing sources, bronze staging, silver models, snapshots, and singular tests">
+                            <div class="screenshot-caption">Left to right: sources (green), bronze staging (teal), silver tables, snapshots (SCD type 2), and singular tests fanning out.</div>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Reading the graph</summary>
+                    <div class="model-section-body">
+                        <ul>
+                            <li><strong>Green nodes</strong> are raw Snowflake sources (<code>airstats.airports</code>, <code>airstats.runways</code>, <code>comments.airport_comments</code>).</li>
+                            <li><strong>Teal nodes</strong> are dbt models — bronze staging and silver.</li>
+                            <li><strong>Right-hand terminal nodes</strong> are the singular tests and snapshot tables that depend on the silver layer.</li>
+                            <li><strong>The hub shape:</strong> <code>silver_airports</code> fans out to three downstream nodes, matching the medallion design pattern from earlier.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Why it's useful in real work</summary>
+                    <div class="model-section-body">
+                        <ul>
+                            <li><strong>Impact analysis:</strong> before modifying <code>silver_airports</code>, the lineage tells you what else will have to be re-tested or re-built.</li>
+                            <li><strong>Onboarding:</strong> a new team member can get oriented in minutes by looking at the lineage instead of reading every SQL file.</li>
+                            <li><strong>Stakeholder trust:</strong> showing non-engineers a clean lineage from raw to silver builds confidence that the data they're consuming is traceable.</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+
+            <!-- =========================== SYNTHESIS / LESSONS =========================== -->
+            <div id="lessons" class="tab-content">
+                <div class="section-controls">
+                    <button onclick="expandAllSections('lessons')">Expand All</button>
+                    <button onclick="collapseAllSections('lessons')">Collapse All</button>
+                </div>
+
+                <details class="model-section" open>
+                    <summary>Lessons Learned Along the Way</summary>
+                    <div class="model-section-body">
+                        <p>Most of what tripped me up wasn't the big concepts — those are well documented. It was the small friction points where two systems (YAML, Jinja, SQL, git, Snowflake) meet.</p>
+                    </div>
+                </details>
+
+                <details class="model-section" open>
+                    <summary>Lesson 1 — Column renames stack across layers</summary>
+                    <div class="model-section-body">
+                        <p>When a bronze model renames <code>surface</code> to <code>runway_surface</code>, the silver model downstream must reference <code>runway_surface</code>, not <code>surface</code>. The compile step won't catch this because the SQL is syntactically valid; it only blows up at query execution time in Snowflake.</p>
+                        <div class="callout callout-warning">
+                            <strong>Rule of thumb:</strong> always read the immediate upstream model to see what columns it actually outputs before writing the downstream one.
+                        </div>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Lesson 2 — YAML + Jinja needs careful quoting</summary>
+                    <div class="model-section-body">
+                        <p>Writing <code>description: {{ doc('silver_layer') }}</code> fails because YAML tries to parse the <code>{{ ... }}</code> as a flow mapping. The fix is to wrap it in quotes: <code>description: "{{ doc('silver_layer') }}"</code>. Similarly, <code>{{ doc() }}</code> does not work inside another docs block — only inside YAML description fields.</p>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Lesson 3 — Sources are logical, not physical</summary>
+                    <div class="model-section-body">
+                        <p>A dbt <code>source</code> is a naming choice, not a database object. Two sources can point to the same schema — and often should, when you want to group tables by ownership, refresh cadence, or domain rather than by where they physically live.</p>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Lesson 4 — Severity is a design decision</summary>
+                    <div class="model-section-body">
+                        <p>Setting a failing test to <code>severity: warn</code> isn't giving up on data quality — it's an intentional choice to surface known issues without breaking CI. The 1,367 orphan comments are a real data gap, but failing every build on them would desensitize the team to test failures that actually matter.</p>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Lesson 5 — <code>.gitignore</code> before you commit</summary>
+                    <div class="model-section-body">
+                        <p>Early on, the entire <code>airstats/</code> folder was gitignored by a template default. Updating <code>.gitignore</code> to exclude only <code>airstats/profiles.yml</code>, <code>airstats/target/</code>, <code>airstats/dbt_packages/</code>, and <code>airstats/logs/</code> keeps the work committable while protecting credentials and build artifacts. Audit your <code>.gitignore</code> <em>before</em> you push, not after.</p>
+                    </div>
+                </details>
+            </div>
+
+            <!-- =========================== SYNTHESIS / WHATS NEXT =========================== -->
+            <div id="whats-next" class="tab-content">
+                <div class="section-controls">
+                    <button onclick="expandAllSections('whats-next')">Expand All</button>
+                    <button onclick="collapseAllSections('whats-next')">Collapse All</button>
+                </div>
+
+                <details class="model-section" open>
+                    <summary>Where This Pipeline Could Go</summary>
+                    <div class="model-section-body">
+                        <p>The current pipeline is a solid foundation but intentionally stops at silver. Here's what a production build would layer on top.</p>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>A gold / mart layer</summary>
+                    <div class="model-section-body">
+                        <p>Silver is clean but still normalized. A gold layer would denormalize for analyst consumption — for example, a <code>fct_airport_activity</code> that joins airports to their runway counts and comment volumes, with pre-aggregated metrics like "average runway length by airport type" ready for a BI tool.</p>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Orchestration</summary>
+                    <div class="model-section-body">
+                        <p>Right now the pipeline runs on demand from the terminal. A real deployment would schedule it via Airflow, Dagster, or dbt Cloud — triggering on a cadence (hourly? daily?) driven by the comments table's natural arrival pattern and alerting on test failures.</p>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>CI / CD</summary>
+                    <div class="model-section-body">
+                        <p>Every pull request should trigger <code>dbt build --select state:modified+</code> in a staging environment, run all downstream tests, and block the merge if anything fails. That's the dbt-native equivalent of unit tests in application code.</p>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Freshness and monitoring</summary>
+                    <div class="model-section-body">
+                        <p>A <code>freshness:</code> block on each source declares how recent the data should be. dbt checks it automatically and fails if, say, the comments source hasn't received a new row in 24 hours — which often means something upstream is broken before any test would catch it.</p>
+                    </div>
+                </details>
+
+                <details class="model-section">
+                    <summary>Exposures and consumers</summary>
+                    <div class="model-section-body">
+                        <p>Defining <code>exposures</code> in YAML tells dbt which dashboards, ML models, or external systems consume each silver table. That metadata surfaces in the lineage graph and makes impact analysis truly end-to-end: "If I change <code>silver_airports</code>, here are the five dashboards and one ML model that will be affected."</p>
+                    </div>
+                </details>
+            </div>
+
+        </div><!-- /.main-container -->
+      </div><!-- /.blog-container -->
+    </div><!-- /#content-wrap -->
+    <div w3-include-html="/folders/navbar_footer/footer.html"></div>
+  </div><!-- /#page-container -->
+  <script type="text/javascript" src="../../static/js/include.js"></script>
+
+  <script>
+    const tabToCategory = {
+        'overview': 'cat-framework',
+        'dataset': 'cat-framework',
+        'stack': 'cat-framework',
+        'sources': 'cat-build',
+        'silver': 'cat-build',
+        'walkthroughs': 'cat-build',
+        'quality-generic': 'cat-quality',
+        'quality-singular': 'cat-quality',
+        'quality-expectations': 'cat-quality',
+        'quality-relationships': 'cat-quality',
+        'snapshots': 'cat-history',
+        'incremental': 'cat-history',
+        'heliport': 'cat-history',
+        'doc-blocks': 'cat-docs',
+        'doc-overview': 'cat-docs',
+        'doc-lineage': 'cat-docs',
+        'lessons': 'cat-synthesis',
+        'whats-next': 'cat-synthesis'
+    };
+
+    function switchCategory(event, categoryId) {
+        document.querySelectorAll('.category-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+        document.querySelectorAll('.model-nav').forEach(nav => nav.classList.remove('active'));
+        document.getElementById(categoryId).classList.add('active');
+        const modelRow = document.getElementById(categoryId);
+        const firstTab = modelRow.querySelector('.nav-tab');
+        if (firstTab) {
+            const onclick = firstTab.getAttribute('onclick');
+            const match = onclick.match(/'([^']+)'/);
+            if (match) {
+                document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+                document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+                firstTab.classList.add('active');
+                document.getElementById(match[1]).classList.add('active');
+            }
+        }
+        window.scrollTo(0, 0);
+    }
+
+    function switchTab(event, tabId) {
+        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        if (event.target.classList.contains('nav-tab')) {
+            event.target.classList.add('active');
+        }
+        window.scrollTo(0, 0);
+    }
+
+    function expandAllSections(tabId) {
+        document.querySelectorAll('#' + tabId + ' .model-section').forEach(s => s.setAttribute('open', ''));
+    }
+
+    function collapseAllSections(tabId) {
+        document.querySelectorAll('#' + tabId + ' .model-section').forEach(s => s.removeAttribute('open'));
+    }
+  </script>
+</body>
+</html>
