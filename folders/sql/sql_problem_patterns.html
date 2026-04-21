@@ -999,13 +999,12 @@
 -- ============================================
 
 -- How many tables?  [x] One table  [ ] Multiple tables
--- Self-join needed? No
--- Subquery needed? No (conditional aggregation handles the split)
 -- Decision tree side: [x] Single-Table  [ ] Multi-Table</span>
 
-<span style="color: #808080;">--     CONTEXT: The "approved only" counts might tempt you to think
---     you need a second table or a subquery, but CASE WHEN inside
---     SUM handles conditional aggregation in a single pass.</span>
+<span style="color: #808080;">--     CONTEXT: At this step you are just counting tables and picking
+--     which side of the decision tree to enter. The "approved only"
+--     counts might tempt you to think you need a second table, but
+--     everything lives in one Transactions table.</span>
 
 
 <span style="color: #ce9178;">-- ============================================
@@ -1172,108 +1171,177 @@
               <p>A ready-to-paste SQL comment block covering all six steps. Drop it at the top of your solution file and fill in each section as you go.</p>
             </div>
             <div class="problem-card-content">
-              <pre id="diagnostic-template" style="background-color: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 6px; font-size: 1.3rem; line-height: 1.7; overflow-x: auto; white-space: pre; font-family: 'Courier New', Consolas, monospace; position: relative;"><code><span style="color: #ce9178;">-- ============================================
--- PROBLEM
--- ============================================
+              <pre id="diagnostic-template" style="background-color: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 6px; font-size: 1.3rem; line-height: 1.7; overflow-x: auto; white-space: pre; font-family: 'Courier New', Consolas, monospace; position: relative;"><code><span style="color: #ce9178;">/*
+============================================
+PROBLEM
+============================================
 
--- Problem name:
--- Source:
--- Difficulty:
+Problem name:
+Source:
+Difficulty:
 
--- Prompt (write it in your own words):
+Prompt (write it in your own words):
 
-
--- ============================================
--- STEP 1: Map the Inputs and the Output
--- ============================================
-
--- Input table(s):
--- Output columns:
--- Output grain (what = one row):
--- Row count direction: fewer / same / single value
+    CONTEXT: Rewrite the prompt in plain language. This forces
+    you to actually read it. If you can't restate it simply,
+    you don't understand it yet.
 
 
--- ============================================
--- STEP 2: Classify the Inputs
--- ============================================
+============================================
+STEP 1: Map the Inputs and the Output
+============================================
 
--- How many tables?  [ ] One table  [ ] Multiple tables
--- Self-join needed? yes / no
--- Subquery needed? yes / no
--- Decision tree side: [ ] Single-Table  [ ] Multi-Table
+Input table(s):
+Output columns:
+Output grain (what = one row):
+Row count direction: fewer / same / single value
 
-
--- ============================================
--- STEP 3: Name the Shape
--- ============================================
-
--- Signal words from the prompt:
-
--- Named shape (say it in one sentence):
---     "This is a __________ because __________"
-
--- Recipe category:
-
--- If composite (two moves), name both:
---     Move 1:
---     Move 2:
+    CONTEXT: "Grain" means what makes each row unique. Look at
+    the output and ask "what combination of columns gives me one
+    row?" Row count direction narrows the decision tree fast:
+      fewer rows  -> filter or aggregate
+      same rows   -> transform or compare
+      single value -> scalar extract
 
 
--- ============================================
--- STEP 4: Walk the Decision Tree by Elimination
--- ============================================
+============================================
+STEP 2: Classify the Inputs
+============================================
 
--- Branches I can rule out (say why for each):
---     Not __________ because __________
---     Not __________ because __________
---     Not __________ because __________
+How many tables?  [ ] One table  [ ] Multiple tables
+Decision tree side: [ ] Single-Table  [ ] Multi-Table
 
--- Remaining branch(es):
-
--- If two branches remain, plan the sequence:
---     First:
---     Then:
+    CONTEXT: Just count tables and pick which side of the
+    decision tree to enter. Watch for disguised multi-table
+    problems: UNION ALL, scalar subquery denominators, and
+    self-joins all involve a virtual second table.
 
 
--- ============================================
--- STEP 5: Grab the Recipe, Adapt from a Linked Problem
--- ============================================
+============================================
+STEP 3: Name the Shape
+============================================
 
--- Recipe template (from the recipe card):
+Signal words from the prompt:
 
--- Most similar linked problem #:
+Named shape (say it in one sentence):
+    "This is a __________ because __________"
 
--- Adaptations needed:
---     Join keys:
---     Column names:
---     Filter conditions:
---     Output columns:
---     Edge cases (nulls, duplicates, empty groups):
+Recipe category:
+
+    CONTEXT: Use the Signal Words Reference table to match
+    phrases from the prompt to a recipe category. The 12 IDs:
+
+    SINGLE-TABLE:
+      row-filter           Keep/exclude rows by WHERE condition
+      group-aggregate      One summary row per group
+      scalar-extract       Reduce table to single value
+      row-transform        Add/rewrite columns, keep row count
+      row-compare          Compare each row to neighbor (LAG/LEAD)
+      time-window          Rolling/cumulative aggregate
+      normalize-bidirectional  Flatten symmetric pairs
+      delete-duplicates    Remove duplicate rows in place
+
+    MULTI-TABLE:
+      enrich-join          Look up columns from reference table
+      enrich-aggregate     Join tables then aggregate
+      rank-partition       Top-N per group via window ranking
+      multi-query-union    UNION independent queries
+
+If composite (two moves), name both:
+    Move 1:
+    Move 2:
+
+    CONTEXT: A problem is composite when your "Named shape"
+    sentence has two verbs ("join tables THEN aggregate per
+    group") or two branches survive Step 4 elimination.
+
+    COMPOSITE EXAMPLES:
+      "Department with highest avg salary"
+        Move 1: group-aggregate (avg salary per dept)
+        Move 2: scalar-extract (pick the top 1)
+
+      "For each product, first year's total sales" (#1070)
+        Move 1: enrich-aggregate (join Sales + Product)
+        Move 2: rank-partition (RANK to get first year)
+
+    NOT COMPOSITE (just one move):
+      "Total revenue per region" = group-aggregate
+      "Find rows where rating < 3" = row-filter
+      "Rolling 7-day average" = time-window
 
 
--- ============================================
--- STEP 6: Sanity Check
--- ============================================
+============================================
+STEP 4: Walk the Decision Tree by Elimination
+============================================
 
--- Failure mode for this branch:
+Branches I can rule out (say why for each):
+    Not __________ because __________
+    Not __________ because __________
+    Not __________ because __________
 
--- Checks to run:
---     [ ] Row count matches Step 1 expectation
---     [ ] NULL handling covered (JOIN keys, WHERE, aggregates)
---     [ ] Integer division cast to NUMERIC
---     [ ] GROUP BY includes all non-aggregated SELECT columns
---     [ ] ORDER BY is deterministic (tiebreaker if using LIMIT)
---     [ ] Edge cases: empty table, single row, all NULLs, ties
+Remaining branch(es):
 
--- Red flags (if any, go back to Step 4):
---     [ ] Row count wrong
---     [ ] Output grain wrong
---     [ ] Missing expected groups
+If two branches remain, plan the sequence:
+    First:
+    Then:
+
+    CONTEXT: Go through every branch on your decision tree
+    side and say WHY each one is wrong. The last one standing
+    is your answer. This feels slow but it catches mistakes.
+
+    FAILURE MODES BY RECIPE:
+      row-filter:              Off-by-one, unintended NULL exclusion
+      group-aggregate:         Wrong grain, missing GROUP BY column
+      scalar-extract:          NULL when no rows qualify
+      row-transform:           CASE WHEN missing ELSE clause
+      row-compare:             Wrong ORDER BY in LAG/LEAD
+      time-window:             Wrong frame spec (ROWS vs RANGE)
+      normalize-bidirectional: Double-counting after UNION ALL
+      delete-duplicates:       Deleting wrong row (keep MIN id)
+      enrich-join:             Wrong join type, NULL join keys
+      enrich-aggregate:        Row explosion from many-to-many
+      rank-partition:          RANK vs DENSE_RANK vs ROW_NUMBER
+      multi-query-union:       Column count/type mismatch in UNION
 
 
--- ============================================
--- SOLUTION
--- ============================================</span>
+============================================
+STEP 5: Grab the Recipe, Adapt from a Linked Problem
+============================================
+
+Recipe template (from the recipe card):
+
+Most similar linked problem #:
+
+Adaptations needed:
+    Join keys:
+    Column names:
+    Filter conditions:
+    Output columns:
+    Edge cases (nulls, duplicates, empty groups):
+
+
+============================================
+STEP 6: Sanity Check
+============================================
+
+Failure mode for this branch:
+
+Checks to run:
+    [ ] Row count matches Step 1 expectation
+    [ ] NULL handling covered (JOIN keys, WHERE, aggregates)
+    [ ] Integer division cast to NUMERIC
+    [ ] GROUP BY includes all non-aggregated SELECT columns
+    [ ] ORDER BY is deterministic (tiebreaker if using LIMIT)
+    [ ] Edge cases: empty table, single row, all NULLs, ties
+
+Red flags (if any, go back to Step 4):
+    [ ] Row count wrong
+    [ ] Output grain wrong
+    [ ] Missing expected groups
+*/
+
+
+-- SOLUTION</span>
 </code></pre>
               <button onclick="copyTemplate()" style="margin-top: 12px; padding: 8px 20px; background-color: #1565c0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1.3rem; font-weight: 600;">Copy to Clipboard</button>
               <span id="copy-confirm" style="margin-left: 12px; color: #2e7d32; font-weight: 600; font-size: 1.3rem; display: none;">Copied!</span>
@@ -1329,7 +1397,7 @@
           <!-- ============================================================ -->
           <!-- SINGLE-TABLE DECISION TREE -->
           <!-- ============================================================ -->
-          <div id="single-table-tree">
+          <div id="single-table-tree" style="display: none;">
             <div class="section-heading" style="margin-top: 40px;">Single-Table: What shape is the output?</div>
 
             <!-- LEVEL 2: output shape -->
@@ -1368,7 +1436,7 @@
             </div>
 
             <!-- FEWER ROWS branch -->
-            <div id="st-fewer-rows">
+            <div id="st-fewer-rows" style="display: none;">
               <div class="fc-node fc-start" style="margin-top: 15px;">FEWER ROWS: What kind of reduction?</div>
               <div class="fc-arrow">&darr;</div>
               <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
@@ -1404,7 +1472,7 @@
             </div>
 
             <!-- SAME ROWS branch -->
-            <div id="st-same-rows">
+            <div id="st-same-rows" style="display: none;">
               <div class="fc-node fc-start" style="margin-top: 15px;">SAME ROWS: What does the new column compute?</div>
               <div class="fc-arrow">&darr;</div>
               <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
@@ -1431,7 +1499,7 @@
             </div>
 
             <!-- TIME/SEQUENCE branch -->
-            <div id="st-time-data">
+            <div id="st-time-data" style="display: none;">
               <div class="fc-node fc-start" style="margin-top: 15px;">TIME/SEQUENCE: What time pattern?</div>
               <div class="fc-arrow">&darr;</div>
               <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
@@ -1449,7 +1517,7 @@
             </div>
 
             <!-- SPECIAL branch -->
-            <div id="st-special">
+            <div id="st-special" style="display: none;">
               <div class="fc-node fc-start" style="margin-top: 15px;">SPECIAL: What structural change?</div>
               <div class="fc-arrow">&darr;</div>
               <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
@@ -1480,7 +1548,7 @@
           <!-- ============================================================ -->
           <!-- MULTI-TABLE DECISION TREE -->
           <!-- ============================================================ -->
-          <div id="multi-table-tree">
+          <div id="multi-table-tree" style="display: none;">
             <div class="section-heading" style="margin-top: 40px;">Multi-Table: What do you need from the join?</div>
 
             <div class="fc-node fc-start">After joining, what does the output look like?</div>
