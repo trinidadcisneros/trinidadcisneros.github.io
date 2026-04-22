@@ -766,15 +766,15 @@
               <span class="problem-toggle">&#9660;</span>
             </div>
             <div class="problem-card-excerpt">
-              <p>Determine if this is a single-table or multi-table problem. Check for self-joins.</p>
+              <p>Pick one of three source types: Single table, Join 2+ tables, or Union queries.</p>
             </div>
             <div class="problem-card-content">
               <p><strong>Decision checklist:</strong></p>
               <ul style="margin-left: 20px; line-height: 2.0;">
                 <li><strong>How many tables?</strong> Count the FROM/JOIN tables you will need.</li>
-                <li><strong>Self-join needed?</strong> Does the problem compare rows within the same table (manager/employee, consecutive records)?</li>
-                <li><strong>Subquery needed?</strong> Does any filter depend on an aggregate of the same table (e.g., "salary > department average")?</li>
-                <li><strong>Could this be multi-table in disguise?</strong> UNION ALL problems, scalar subqueries for denominators, and relational division ("bought all products") all involve virtual second tables.</li>
+                <li><strong>Joining or stacking?</strong> If 2+ tables, do they share a key (JOIN) or do you need to stack independent results (UNION)?</li>
+                <li><strong>Self-join or scalar subquery?</strong> Self-joins and subqueries against the same table involve a virtual second copy &mdash; treat as Join 2+. Common self-join shapes: employee/manager (managerId &rarr; id), category/parent (parent_id &rarr; id), user/referrer (referee_id &rarr; id). The recipe for these is <strong>enrich-join</strong>, not row-compare (row-compare is reserved for sequential LAG/LEAD comparisons, not foreign-key lookups).</li>
+                <li><strong>Post-join is single-table:</strong> After a JOIN the result is one set of rows, so any single-table shape recipe (filter, aggregate, scalar, rank, transform, compare, window) applies to the joined result.</li>
               </ul>
             </div>
           </div>
@@ -812,12 +812,12 @@
               <p>Open the Decision Tree tab and follow the branches. Eliminate categories that do not match.</p>
             </div>
             <div class="problem-card-content">
-              <p>Start at the top of the decision tree and answer each question:</p>
+              <p>Open the Decision Tree tab and answer two questions:</p>
               <ol style="margin-left: 20px; line-height: 2.0;">
-                <li>One table or two+ tables?</li>
-                <li>What does the output look like? (fewer rows / same rows / time-based / special)</li>
-                <li>Click the matching leaf node to jump to the recipe.</li>
+                <li><strong>How does my data arrive?</strong> Single table, Join 2+ tables, or Union queries &mdash; tap the matching source card.</li>
+                <li><strong>What does the output look like?</strong> Filter, Aggregate, Scalar, Rank, Transform, Compare, Window, Pair, or Dedup &mdash; tap the matching shape leaf inside that source.</li>
               </ol>
+              <p>Two taps land you on the recipe. Inside the Join 2+ panel, the same nine shape leaves appear under "any single-table shape applied to the joined result," so post-join problems route through the same recipes.</p>
               <p>If your Step 3 answer and Step 4 answer disagree, re-read the problem. One of your assumptions is wrong.</p>
             </div>
           </div>
@@ -888,7 +888,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr style="background: #e3f2fd;"><td colspan="4" style="padding: 8px 12px; font-weight: 700; color: #1565c0;">Fewer Rows</td></tr>
+                  <tr style="background: #e3f2fd;"><td colspan="4" style="padding: 8px 12px; font-weight: 700; color: #1565c0;">Output: fewer rows than input</td></tr>
 
                   <tr style="border-bottom: 1px solid #e0e0e0;">
                     <td style="padding: 10px 12px; font-weight: 600;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('row-filter')">Filter Rows</span></td>
@@ -915,7 +915,7 @@
                     <td style="padding: 10px 12px;">You need all rows per group with a summary value (that is Aggregate Per Group), or the ranking requires data from multiple tables (that is Multi Table > Rank Within Groups)</td>
                   </tr>
 
-                  <tr style="background: #e3f2fd;"><td colspan="4" style="padding: 8px 12px; font-weight: 700; color: #1565c0;">Same Rows + New Column</td></tr>
+                  <tr style="background: #e3f2fd;"><td colspan="4" style="padding: 8px 12px; font-weight: 700; color: #1565c0;">Output: same row count, new or rewritten column</td></tr>
 
                   <tr style="border-bottom: 1px solid #e0e0e0;">
                     <td style="padding: 10px 12px; font-weight: 600;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('row-transform')">Add or Rewrite Columns</span></td>
@@ -930,7 +930,7 @@
                     <td style="padding: 10px 12px;">The comparison is against a rolling window or running total, not just the immediate neighbor</td>
                   </tr>
 
-                  <tr style="background: #e3f2fd;"><td colspan="4" style="padding: 8px 12px; font-weight: 700; color: #1565c0;">Time or Sequence</td></tr>
+                  <tr style="background: #e3f2fd;"><td colspan="4" style="padding: 8px 12px; font-weight: 700; color: #1565c0;">Output: time-based aggregate over ordered rows</td></tr>
 
                   <tr style="border-bottom: 1px solid #e0e0e0;">
                     <td style="padding: 10px 12px; font-weight: 600;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('time-window')">Rolling or Cumulative Window</span></td>
@@ -939,7 +939,7 @@
                     <td style="padding: 10px 12px;">You only need to compare to the immediate previous row (that is Compare Row to Neighbor)</td>
                   </tr>
 
-                  <tr style="background: #e3f2fd;"><td colspan="4" style="padding: 8px 12px; font-weight: 700; color: #1565c0;">Row Cleanup</td></tr>
+                  <tr style="background: #e3f2fd;"><td colspan="4" style="padding: 8px 12px; font-weight: 700; color: #1565c0;">Special: pair flattening or physical deletion</td></tr>
 
                   <tr style="border-bottom: 1px solid #e0e0e0;">
                     <td style="padding: 10px 12px; font-weight: 600;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('normalize-bidirectional')">Normalize Bidirectional</span></td>
@@ -973,6 +973,10 @@
             </div>
             <div class="problem-card-content">
 
+              <div style="background-color: #e8f4fd; border-left: 4px solid #1565c0; padding: 12px 15px; margin-bottom: 18px; border-radius: 4px;">
+                <p style="margin: 0; font-size: 1.3rem; line-height: 1.6; color: #0c447c;"><strong>Post-join reminder:</strong> after a JOIN the result is effectively one table. If your shape is not enrich-join or enrich-aggregate, use any single-table shape recipe (Filter, Scalar, Rank, Transform, Compare, Window, Pair, Dedup) on the joined output. The Decision Tree's Join 2+ panel lists those cross-references explicitly.</p>
+              </div>
+
               <table style="width: 100%; border-collapse: collapse; font-size: 1.3rem; line-height: 1.6;">
                 <thead>
                   <tr style="background: #6a1b9a; color: white; text-align: left;">
@@ -985,8 +989,8 @@
                 <tbody>
                   <tr style="border-bottom: 1px solid #e0e0e0;">
                     <td style="padding: 10px 12px; font-weight: 600;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('enrich-join')">Look Up Columns</span></td>
-                    <td style="padding: 10px 12px;">You need to attach descriptive columns from a reference table (names, labels) to fact rows</td>
-                    <td style="padding: 10px 12px;">After joining, the row count stays roughly the same and no aggregation is needed</td>
+                    <td style="padding: 10px 12px;">You need to attach descriptive columns from a reference table (names, labels) to fact rows. <strong>Includes self-joins</strong> where one table plays two roles (employee/manager, parent/child, referrer/referee)</td>
+                    <td style="padding: 10px 12px;">After joining (or self-joining), the row count stays roughly the same and no aggregation is needed</td>
                     <td style="padding: 10px 12px;">After joining, you still need to GROUP BY and SUM/COUNT (that is Join Then Aggregate)</td>
                   </tr>
                   <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
@@ -1036,7 +1040,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr style="background: #e3f2fd;"><td colspan="3" style="padding: 8px 12px; font-weight: 700; color: #1565c0;">Single-Table Recipes</td></tr>
+                  <tr style="background: #e3f2fd;"><td colspan="3" style="padding: 8px 12px; font-weight: 700; color: #1565c0;">Core Shape Recipes (single table or post-join)</td></tr>
 
                   <tr style="border-bottom: 1px solid #e0e0e0;">
                     <td style="padding: 10px 12px; color: #e65100;">find where, exclude, valid, not null, matching, whose, not boring</td>
@@ -1054,50 +1058,53 @@
                     <td style="padding: 10px 12px;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('scalar-extract')">Extract Single Value</span></td>
                   </tr>
                   <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px; color: #e65100;">top N per department, highest in each, first per group, most recent per</td>
+                    <td style="padding: 10px 12px;">Ranked &rarr; top-N per partition</td>
+                    <td style="padding: 10px 12px;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('rank-partition')">Rank Partition</span></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
                     <td style="padding: 10px 12px; color: #e65100;">fix, convert, classify, label each, if...then, concatenate, swap</td>
                     <td style="padding: 10px 12px;">Same rows &rarr; new/rewritten column</td>
                     <td style="padding: 10px 12px;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('row-transform')">Row Transform</span></td>
                   </tr>
-                  <tr style="border-bottom: 1px solid #e0e0e0;">
-                    <td style="padding: 10px 12px; color: #e65100;">rising, consecutive, previous day, day over day, increasing</td>
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px; color: #e65100;">rising, consecutive, previous day, day over day, increasing, streak, gap</td>
                     <td style="padding: 10px 12px;">Same rows &rarr; neighbor comparison</td>
                     <td style="padding: 10px 12px;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('row-compare')">Row Compare</span></td>
                   </tr>
-                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
                     <td style="padding: 10px 12px; color: #e65100;">rolling, running total, cumulative, last N days, moving average, most recent before</td>
                     <td style="padding: 10px 12px;">Time &rarr; windowed aggregate</td>
                     <td style="padding: 10px 12px;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('time-window')">Time Window</span></td>
                   </tr>
-                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
                     <td style="padding: 10px 12px; color: #e65100;">friends, connections, either side, requester/accepter, both directions</td>
                     <td style="padding: 10px 12px;">Bidirectional &rarr; flatten then count</td>
                     <td style="padding: 10px 12px;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('normalize-bidirectional')">Normalize Bidirectional</span></td>
                   </tr>
-                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
                     <td style="padding: 10px 12px; color: #e65100;">delete, remove duplicates, keep only, deduplicate</td>
                     <td style="padding: 10px 12px;">In-place deletion</td>
                     <td style="padding: 10px 12px;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('delete-duplicates')">Delete Duplicates</span></td>
                   </tr>
 
-                  <tr style="background: #e3f2fd;"><td colspan="3" style="padding: 8px 12px; font-weight: 700; color: #1565c0;">Multi-Table Recipes</td></tr>
+                  <tr style="background: #e3f2fd;"><td colspan="3" style="padding: 8px 12px; font-weight: 700; color: #1565c0;">Join-Specific Recipes (when the join itself is the core move)</td></tr>
 
-                  <tr style="border-bottom: 1px solid #e0e0e0;">
-                    <td style="padding: 10px 12px; color: #e65100;">replace ID with, look up, show name, regardless of, include from</td>
-                    <td style="padding: 10px 12px;">Enrichment &rarr; fact + dimension lookup</td>
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px; color: #e65100;">replace ID with, look up, show name, regardless of, include from, manager/employee, parent/child, referrer/referee</td>
+                    <td style="padding: 10px 12px;">Enrichment or self-join &rarr; fact + dimension lookup</td>
                     <td style="padding: 10px 12px;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('enrich-join')">Enrich Join</span></td>
                   </tr>
-                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
                     <td style="padding: 10px 12px; color: #e65100;">for each... from another table, rate, percentage, weighted, all products</td>
                     <td style="padding: 10px 12px;">Enrichment &rarr; join then aggregate</td>
                     <td style="padding: 10px 12px;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('enrich-aggregate')">Enrich Aggregate</span></td>
                   </tr>
-                  <tr style="border-bottom: 1px solid #e0e0e0;">
-                    <td style="padding: 10px 12px; color: #e65100;">top N per department, highest in each, first per group</td>
-                    <td style="padding: 10px 12px;">Ranked &rarr; top-N per partition</td>
-                    <td style="padding: 10px 12px;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('rank-partition')">Rank Partition</span></td>
-                  </tr>
+
+                  <tr style="background: #e3f2fd;"><td colspan="3" style="padding: 8px 12px; font-weight: 700; color: #1565c0;">Union-Specific Recipe</td></tr>
+
                   <tr style="background: #fafafa;">
-                    <td style="padding: 10px 12px; color: #e65100;">report X and also Y, fixed buckets, combine, categorize into</td>
+                    <td style="padding: 10px 12px; color: #e65100;">report X and also Y, fixed buckets, combine, categorize into, pivot, unpivot</td>
                     <td style="padding: 10px 12px;">Independent queries stacked</td>
                     <td style="padding: 10px 12px;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('multi-query-union')">Multi-Query Union</span></td>
                   </tr>
@@ -1158,13 +1165,14 @@
 -- STEP 2: Classify the Inputs
 -- ============================================
 
--- How many tables?  [x] One table  [ ] Multiple tables
--- Decision tree side: [x] Single-Table  [ ] Multi-Table</span>
+-- How does data arrive?  [x] Single table  [ ] Join 2+ tables  [ ] Union queries</span>
 
-<span style="color: #808080;">--     CONTEXT: At this step you are just counting tables and picking
---     which side of the decision tree to enter. The "approved only"
+<span style="color: #808080;">--     CONTEXT: Pick one of three source types. The "approved only"
 --     counts might tempt you to think you need a second table, but
---     everything lives in one Transactions table.</span>
+--     everything lives in one Transactions table. Remember: after a
+--     join, the result is effectively one table, so the same shape
+--     recipes (filter, aggregate, scalar, rank, transform, compare,
+--     window, pair, dedup) still apply.</span>
 
 
 <span style="color: #ce9178;">-- ============================================
@@ -1189,21 +1197,23 @@
 --
 --     The 12 recipe category IDs are:
 --
---     SINGLE-TABLE:
---       row-filter           Keep/exclude rows by WHERE condition
---       group-aggregate      One summary row per group
---       scalar-extract       Reduce table to single value
---       row-transform        Add/rewrite columns, keep row count
---       row-compare          Compare each row to neighbor (LAG/LEAD)
---       time-window          Rolling/cumulative aggregate
+--     CORE SHAPE RECIPES (reachable from Single table or from a join result):
+--       row-filter               Keep/exclude rows by WHERE condition
+--       group-aggregate          One summary row per group
+--       scalar-extract           Reduce table to single value
+--       rank-partition           Top-N per group via window ranking
+--       row-transform            Add/rewrite columns, keep row count
+--       row-compare              Compare each row to neighbor (LAG/LEAD)
+--       time-window              Rolling/cumulative aggregate
 --       normalize-bidirectional  Flatten symmetric pairs
---       delete-duplicates    Remove duplicate rows in place
+--       delete-duplicates        Remove duplicate rows in place
 --
---     MULTI-TABLE:
---       enrich-join          Look up columns from reference table
---       enrich-aggregate     Join tables then aggregate
---       rank-partition       Top-N per group via window ranking
---       multi-query-union    UNION independent queries</span>
+--     JOIN-SPECIFIC RECIPES (when the join itself is the core move):
+--       enrich-join              Look up columns from reference table
+--       enrich-aggregate         Join tables then aggregate
+--
+--     UNION-SPECIFIC RECIPE:
+--       multi-query-union        UNION independent queries (pivot, bucket chart)</span>
 
 <span style="color: #ce9178;">-- If composite (two moves), name both:
 --     Move 1: not composite (single recipe)
@@ -1382,13 +1392,14 @@ Row count direction: fewer / same / single value
 STEP 2: Classify the Inputs
 ============================================
 
-How many tables?  [ ] One table  [ ] Multiple tables
-Decision tree side: [ ] Single-Table  [ ] Multi-Table
+How does data arrive?  [ ] Single table  [ ] Join 2+ tables  [ ] Union queries
 
-    CONTEXT: Just count tables and pick which side of the
-    decision tree to enter. Watch for disguised multi-table
-    problems: UNION ALL, scalar subquery denominators, and
-    self-joins all involve a virtual second table.
+    CONTEXT: Pick one of three source types. Watch for disguised
+    multi-table problems: scalar subquery denominators and self-joins
+    involve a virtual second table. Remember: after a join, the result
+    is effectively one table, so any single-table shape recipe (filter,
+    aggregate, scalar, rank, transform, compare, window, pair, dedup)
+    still applies to the joined result.
 
 
 ============================================
@@ -1405,22 +1416,23 @@ Recipe category:
     CONTEXT: Use the Signal Words Reference table to match
     phrases from the prompt to a recipe category. The 12 IDs:
 
-    SINGLE-TABLE:
-      row-filter           Keep/exclude rows by WHERE condition
-      group-aggregate      One summary row per group
-      scalar-extract       Reduce table to single value
-      rank-partition       Top-N per group via window ranking
-      row-transform        Add/rewrite columns, keep row count
-      row-compare          Compare each row to neighbor (LAG/LEAD)
-      time-window          Rolling/cumulative aggregate
+    CORE SHAPE RECIPES (reachable from Single table or applied to a joined result):
+      row-filter               Keep/exclude rows by WHERE condition
+      group-aggregate          One summary row per group
+      scalar-extract           Reduce table to single value
+      rank-partition           Top-N per group via window ranking
+      row-transform            Add/rewrite columns, keep row count
+      row-compare              Compare each row to neighbor (LAG/LEAD)
+      time-window              Rolling/cumulative aggregate
       normalize-bidirectional  Flatten symmetric pairs
-      delete-duplicates    Remove duplicate rows in place
+      delete-duplicates        Remove duplicate rows in place
 
-    MULTI-TABLE:
-      enrich-join          Look up columns from reference table
-      enrich-aggregate     Join tables then aggregate
-      rank-partition       Top-N per group via window ranking (after join)
-      multi-query-union    UNION independent queries
+    JOIN-SPECIFIC RECIPES (when the join itself is the core move):
+      enrich-join              Look up columns from reference table
+      enrich-aggregate         Join tables then aggregate
+
+    UNION-SPECIFIC RECIPE:
+      multi-query-union        UNION independent queries (pivot, bucket chart)
 
 If composite (two moves), name both:
     Move 1:
@@ -1466,13 +1478,12 @@ If two branches remain, plan the composite sequence:
 
     COPY-PASTE ELIMINATION SENTENCES:
 
-    SINGLE-TABLE SHAPES (eliminate the shape first):
-      Not FEWER ROWS because the output keeps every input row
-      Not SAME ROWS + NEW COLUMN because the output has fewer rows than the input
-      Not TIME or SEQUENCE because there are no dates, ordering, or rolling/cumulative calculations
-      Not ROW CLEANUP because the problem asks me to query, not physically fix the table
+    SOURCE (pick one and rule out the other two):
+      Not Single table because I need to match rows across two tables by key
+      Not Join 2+ tables because all the data I need lives in one table
+      Not Union queries because the tables share a key and need to be joined, not stacked
 
-    SINGLE-TABLE RECIPES (eliminate within the surviving shape):
+    SHAPE (for any source, rule out shapes I do not need):
       Not Filter Rows because I am not just keeping or excluding rows, I need to group or transform them
       Not Aggregate Per Group because the output is not one summary row per group
       Not Extract Single Value because the output has multiple rows, not a single number or row
@@ -1483,11 +1494,12 @@ If two branches remain, plan the composite sequence:
       Not Normalize Bidirectional because the two columns have distinct roles, they are not interchangeable like (Alice, Bob) and (Bob, Alice)
       Not Remove Duplicate Rows because this is a SELECT query, not a DELETE that physically modifies the table
 
-    MULTI-TABLE RECIPES:
-      Not Look Up Columns because I am not just enriching rows from one table with columns from another table
-      Not Join Then Aggregate because I do not need to join tables and then produce one summary row per group
-      Not Rank Within Groups because I do not need to join tables and then select only the top or bottom N rows within each group
-      Not Combine Independent Queries because the tables share a key and need to be joined, not stacked with UNION
+    JOIN-SPECIFIC (only if source is Join 2+):
+      Not Look Up Columns (enrich-join) because I am not just attaching reference columns, I need to aggregate or rank
+      Not Join Then Aggregate (enrich-aggregate) because the output is not one summary row per group after joining
+
+    UNION-SPECIFIC (only if source is Union):
+      Not Combine Independent Queries (multi-query-union) because the tables share a key and need to be joined, not stacked
 
 
 ============================================
@@ -1764,7 +1776,7 @@ Red flags (if any, go back to Step 4):
             <div class="dt-src-header">
               <div>
                 <div class="dt-src-title">Join 2+ tables</div>
-                <div class="dt-src-sub">match rows by key across tables</div>
+                <div class="dt-src-sub">match rows by key across tables, or one table joined to itself (self-join)</div>
               </div>
               <span class="dt-src-count">91 multi-table problems</span>
             </div>
@@ -1775,7 +1787,7 @@ Red flags (if any, go back to Step 4):
               <div class="dt-shape" role="button" tabindex="0" onclick="event.stopPropagation(); jumpToRecipe('enrich-join')">
                 <div class="dt-shape-text">
                   <div class="dt-shape-title">Filter / Enrich</div>
-                  <div class="dt-shape-sub">look up columns &mdash; &ldquo;replace ID with,&rdquo; &ldquo;show along with&rdquo;</div>
+                  <div class="dt-shape-sub">look up columns or self-join &mdash; &ldquo;replace ID with,&rdquo; &ldquo;manager/employee,&rdquo; &ldquo;parent/child&rdquo;</div>
                 </div>
                 <span class="dt-shape-count">14 problems</span>
               </div>
@@ -1884,18 +1896,26 @@ Red flags (if any, go back to Step 4):
 
           <script>
             function pickDtSource(which) {
-              ['single', 'join', 'union'].forEach(function(id) {
+              var ids = ['single', 'join', 'union'];
+              if (!which) {
+                ids.forEach(function(id) {
+                  var el = document.getElementById('dt-' + id);
+                  if (el) el.classList.remove('dt-src-open');
+                });
+                return;
+              }
+              var target = document.getElementById('dt-' + which);
+              if (!target) return;
+              var wasOpen = target.classList.contains('dt-src-open');
+              ids.forEach(function(id) {
                 var el = document.getElementById('dt-' + id);
                 if (el) el.classList.remove('dt-src-open');
               });
-              if (which) {
-                var target = document.getElementById('dt-' + which);
-                if (target) {
-                  target.classList.add('dt-src-open');
-                  setTimeout(function() {
-                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }, 50);
-                }
+              if (!wasOpen) {
+                target.classList.add('dt-src-open');
+                setTimeout(function() {
+                  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 50);
               }
             }
           </script>
@@ -1906,7 +1926,7 @@ Red flags (if any, go back to Step 4):
         <!-- TAB: SINGLE-TABLE RECIPES -->
         <div id="tab-single" class="tab-pane">
           <div class="section-heading">Single-Table Recipes</div>
-          <p style="margin-bottom: 20px; line-height: 1.8;">9 recipe categories covering 121 problems. Click any recipe to see its signal words, technique, and all problems with full ranked solutions. Rank Within Groups appears in both single table and multi table recipes since you can rank from one table or after a join.</p>
+          <p style="margin-bottom: 20px; line-height: 1.8;">9 recipe categories covering 121 problems. These are the core shape recipes &mdash; they apply when your input is a single table and they also apply to the result of a JOIN. The Decision Tree's Join 2+ panel cross-links to every recipe here, so post-join problems land on the same page. Rank Within Groups physically lives under Multi-Table Recipes since most ranking problems involve joins.</p>
 
           <div class="problem-card collapsed" style="margin-bottom: 25px;">
             <div class="problem-card-header">
@@ -7760,12 +7780,16 @@ HAVING CEIL(COALESCE(SUM(TIMESTAMPDIFF(MINUTE, l.in_time, l.out_time)), 0) / 60.
               <span class="problem-toggle">&#9660;</span>
             </div>
             <div class="problem-card-excerpt">
-              <p>A single table with an ordering column &rarr; rows satisfying a comparison to the prior or next row.</p>
+              <p>A single table with an ordering column &rarr; rows satisfying a comparison to the prior or next row in that order.</p>
             </div>
             <div class="problem-card-content">
               <div style="margin-bottom: 15px;">
-                <p><strong>Signal words:</strong> "compared to previous," "rising," "consecutive," "increasing," "day over day"</p>
-                <p><strong>Technique:</strong> <code>LAG(), LEAD(), self-join on id+1, date arithmetic</code></p>
+                <p><strong>Signal words:</strong> "compared to previous," "rising," "consecutive," "increasing," "day over day," "streak," "gap"</p>
+                <p><strong>Technique:</strong> <code>LAG(), LEAD(), self-join on id+1 / date+1, date arithmetic</code></p>
+              </div>
+
+              <div style="background-color: #fff3e0; border-left: 5px solid #f57f17; padding: 12px 15px; margin-bottom: 20px; border-radius: 4px;">
+                <p style="margin: 0; font-size: 1.3rem; line-height: 1.7; color: #bf360c;"><strong>Not the same as a self-join lookup.</strong> If the row needs to find another row by foreign key (employee &rarr; manager via managerId, child &rarr; parent via parent_id), that is <code>enrich-join</code>, not row-compare. Row-compare is reserved for <em>sequential</em> neighbor comparisons where ORDER BY defines who counts as "previous" or "next."</p>
               </div>
 
           <div class="problem-card collapsed">
@@ -9706,7 +9730,7 @@ GROUP BY person1, person2;</code></div>
         <!-- TAB: MULTI-TABLE RECIPES -->
         <div id="tab-multi" class="tab-pane">
           <div class="section-heading">Multi-Table Recipes</div>
-          <p style="margin-bottom: 20px; line-height: 1.8;">4 recipe categories covering 103 problems. Click any recipe to see its signal words, technique, and all problems with full ranked solutions.</p>
+          <p style="margin-bottom: 20px; line-height: 1.8;">4 recipe categories covering 103 problems. Two are join-specific (enrich-join, enrich-aggregate, 59 problems), one is union-specific (multi-query-union, 12 problems), and one (rank-partition, 32 problems) is reachable from both Single Table and Join 2+ in the Decision Tree. After a join, the result is effectively one table &mdash; so the nine Single-Table shape recipes also apply to joined data.</p>
 
           <div class="problem-card collapsed" style="margin-bottom: 25px;">
             <div class="problem-card-header">
@@ -9808,12 +9832,16 @@ GROUP BY person1, person2;</code></div>
               <span class="problem-toggle">&#9660;</span>
             </div>
             <div class="problem-card-excerpt">
-              <p>A fact table + a dimension table &rarr; fact rows enriched with looked-up columns.</p>
+              <p>A fact table + a dimension table (or one table playing two roles via self-join) &rarr; fact rows enriched with looked-up columns.</p>
             </div>
             <div class="problem-card-content">
               <div style="margin-bottom: 15px;">
-                <p><strong>Signal words:</strong> "find the name for," "replace ID with," "look up," "show along with," "regardless of"</p>
-                <p><strong>Technique:</strong> <code>LEFT JOIN, INNER JOIN, CROSS JOIN (for all combinations)</code></p>
+                <p><strong>Signal words:</strong> "find the name for," "replace ID with," "look up," "show along with," "regardless of," manager/employee, parent/child, referrer/referee</p>
+                <p><strong>Technique:</strong> <code>LEFT JOIN, INNER JOIN, CROSS JOIN (for all combinations), self-join (alias the same table twice)</code></p>
+              </div>
+
+              <div style="background-color: #e8f5e9; border-left: 5px solid #2e7d32; padding: 12px 15px; margin-bottom: 20px; border-radius: 4px;">
+                <p style="margin: 0; font-size: 1.3rem; line-height: 1.7; color: #1b5e20;"><strong>Self-joins live here too.</strong> Even when the prompt mentions only one physical table (Employees with managerId, Categories with parent_id, Users with referee_id), if the row needs to look up another row in the same table, it is a join. Alias the table twice (e.g., <code>Employee e JOIN Employee m ON e.managerId = m.id</code>) and treat each alias as a separate "virtual" table. The join lives in this recipe, not in row-compare (which is reserved for sequential LAG/LEAD neighbors).</p>
               </div>
 
           <div class="problem-card collapsed">
