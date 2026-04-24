@@ -1203,7 +1203,7 @@
 --       scalar-extract           Reduce table to single value
 --       rank-partition           Top-N per group via window ranking
 --       row-transform            Add/rewrite columns, keep row count
---       row-compare              Compare each row to neighbor (LAG/LEAD)
+--       row-compare              Compare each row to neighbor (LAG/LEAD) or detect runs/streaks (gaps-and-islands)
 --       time-window              Rolling/cumulative aggregate
 --       normalize-bidirectional  Flatten symmetric pairs
 --       delete-duplicates        Remove duplicate rows in place
@@ -1422,7 +1422,7 @@ Recipe category:
       scalar-extract           Reduce table to single value
       rank-partition           Top-N per group via window ranking
       row-transform            Add/rewrite columns, keep row count
-      row-compare              Compare each row to neighbor (LAG/LEAD)
+      row-compare              Compare each row to neighbor (LAG/LEAD) or detect runs/streaks (gaps-and-islands)
       time-window              Rolling/cumulative aggregate
       normalize-bidirectional  Flatten symmetric pairs
       delete-duplicates        Remove duplicate rows in place
@@ -1433,6 +1433,13 @@ Recipe category:
 
     UNION-SPECIFIC RECIPE:
       multi-query-union        UNION independent queries (pivot, bucket chart)
+
+    GAPS-AND-ISLANDS NOTE (within row-compare):
+      Use when the prompt mentions "consecutive," "streak," "3 in a row," or "gap."
+      The trick: subtract ROW_NUMBER from a monotonic id/date so consecutive rows
+      share an "island id," then GROUP BY that island id and HAVING COUNT(*) >= N.
+      Examples: 3+ consecutive high-attendance days (#601), gaps in id sequences
+      (#1285), longest streak (#2173).
 
 If composite (two moves), name both:
     Move 1:
@@ -1455,6 +1462,7 @@ If composite (two moves), name both:
       "Total revenue per region" = group-aggregate
       "Find rows where rating < 3" = row-filter
       "Rolling 7-day average" = time-window
+      "3+ consecutive days above threshold" = row-compare (gaps-and-islands)
 
 
 ============================================
@@ -7499,7 +7507,7 @@ FROM Orders;</code></div>
           <!-- RECIPE: row-transform -->
           <div class="problem-card" id="row-transform">
             <div class="problem-card-header">
-              <h3 class="problem-card-title" style="margin: 0;">Add or Rewrite Columns, Keep Row Count <span class="count-badge">18 problems</span></h3>
+              <h3 class="problem-card-title" style="margin: 0;">Add or Rewrite Columns, Keep Row Count <span class="count-badge">19 problems</span></h3>
               <span class="problem-toggle">&#9660;</span>
             </div>
             <div class="problem-card-excerpt">
@@ -8760,6 +8768,83 @@ GROUP BY e.employee_id, e.needed_hours
 HAVING CEIL(COALESCE(SUM(TIMESTAMPDIFF(MINUTE, l.in_time, l.out_time)), 0) / 60.0) < e.needed_hours;</code></div>
                     <p style="margin: 12px 0;"><strong>Why this is best:</strong> Aggregate actual hours, round up, then compare to the requirement in HAVING.</p>
                     <p style="margin: 12px 0;"><strong>Performance:</strong> One join + one aggregate.</p>
+                  </div>
+                </details>
+              </div>
+            </div>
+          </div>
+
+          <div class="problem-card collapsed">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <span style="display: inline-block; background-color: #e65100; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Medium</span>
+                #608 Tree Node
+              </h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>Label each node as Root, Inner, or Leaf based on whether it has a parent and whether it appears as anyone&rsquo;s parent.</p>
+            </div>
+            <div class="problem-card-content">
+
+              <p><strong>Tables:</strong> <code>Tree</code> (id, p_id)</p>
+
+              <div class="guide-link">
+                <div class="guide-link-icon">&rarr;</div>
+                <div class="guide-link-content">
+                  <p class="guide-link-title">Decision Tree Path</p>
+                  <p class="guide-link-text">
+                    <a href="sql_master_decision_tree.html#single-table-path">Master Tree: Single-Table Queries</a>
+                    &rarr; <a href="sql_single_table_query_strategies.html#pattern-i-conditional-logic">Pattern I: Conditional Logic (CASE)</a>
+                  </p>
+                </div>
+              </div>
+
+              <div class="business-example">
+                <p class="business-example-title">Real-World Example</p>
+                <p class="business-example-content">An ops team categorizes accounts in a referral graph: top-level accounts (no referrer), pass-through accounts (have a referrer AND referred others), and end accounts (have a referrer but referred no one). Same shape as Root / Inner / Leaf and same SQL pattern: a CASE WHEN that asks &ldquo;does this id appear in some other row&rsquo;s reference column?&rdquo;</p>
+              </div>
+
+              <div class="solution-container">
+                <details>
+                  <summary>
+                    <span class="summary-arrow">&#9654;</span>
+                    <span class="rank-badge rank-1">1</span>
+                    <strong>Ordered CASE with IN-Subquery</strong>
+                  </summary>
+                  <div class="solution-content">
+                    <div class="code-block"><code>SELECT
+  id,
+  CASE
+    WHEN p_id IS NULL                  THEN 'Root'
+    WHEN id IN (SELECT p_id FROM Tree) THEN 'Inner'
+    ELSE                                    'Leaf'
+  END AS type
+FROM Tree;</code></div>
+                    <p style="margin: 12px 0;"><strong>Why this is best:</strong> CASE evaluates top to bottom, so each WHEN can assume the previous ones already failed. Once Root is ruled out, &ldquo;has a parent&rdquo; is implicit, so the Inner check only needs to verify &ldquo;has children&rdquo; (i.e., this id appears as some row&rsquo;s p_id). Anything that fails both is by definition a Leaf.</p>
+                    <p style="margin: 12px 0;"><strong>Performance:</strong> One scan of Tree plus one subquery. The subquery executes once and is cached for the IN check. O(n) overall.</p>
+                  </div>
+                </details>
+
+                <details>
+                  <summary>
+                    <span class="summary-arrow">&#9654;</span>
+                    <span class="rank-badge rank-2">2</span>
+                    <strong>LEFT JOIN to Self for Children Check</strong>
+                  </summary>
+                  <div class="solution-content">
+                    <div class="code-block"><code>SELECT
+  t.id,
+  CASE
+    WHEN t.p_id IS NULL THEN 'Root'
+    WHEN c.id IS NULL   THEN 'Leaf'
+    ELSE                     'Inner'
+  END AS type
+FROM Tree t
+LEFT JOIN (SELECT DISTINCT p_id FROM Tree) c
+  ON c.p_id = t.id;</code></div>
+                    <p style="margin: 12px 0;"><strong>Why this works:</strong> The LEFT JOIN brings in a NULL when this id is not anyone&rsquo;s parent (= leaf), and a non-NULL when it is (= inner). Equivalent semantics to Rank 1, just expressed as a join instead of an IN subquery.</p>
+                    <p style="margin: 12px 0;"><strong>Performance:</strong> Comparable to Rank 1. The IN subquery in Rank 1 is usually optimized into a similar plan.</p>
                   </div>
                 </details>
               </div>
