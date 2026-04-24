@@ -1006,10 +1006,10 @@
                     <td style="padding: 10px 12px;">You need all rows per group, not just the top N (that is Join Then Aggregate or Look Up Columns)</td>
                   </tr>
                   <tr style="background: #fafafa;">
-                    <td style="padding: 10px 12px; font-weight: 600;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('multi-query-union')">Combine Independent Queries</span></td>
-                    <td style="padding: 10px 12px;">The output stacks rows from separate, unrelated queries that share the same column structure</td>
-                    <td style="padding: 10px 12px;">The result has sections that could each be written as standalone queries with no JOIN between them</td>
-                    <td style="padding: 10px 12px;">The rows need to be merged on a shared key (that is a JOIN, not a UNION)</td>
+                    <td style="padding: 10px 12px; font-weight: 600;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('reshape')">Reshape (Pivot / Unpivot / Combine)</span></td>
+                    <td style="padding: 10px 12px;">The output reshapes rows to columns, columns to rows, or stacks independent queries that share the same column structure</td>
+                    <td style="padding: 10px 12px;">The result pivots long to wide, unpivots wide to long, or has sections that could each be written as standalone queries with no JOIN between them</td>
+                    <td style="padding: 10px 12px;">The rows need to be merged on a shared key (that is a JOIN, not a reshape)</td>
                   </tr>
                 </tbody>
               </table>
@@ -1101,12 +1101,12 @@
                     <td style="padding: 10px 12px;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('enrich-aggregate')">Enrich Aggregate</span></td>
                   </tr>
 
-                  <tr style="background: #e3f2fd;"><td colspan="4" style="padding: 8px 12px; font-weight: 700; color: #1565c0;">Union-Specific Recipe</td></tr>
+                  <tr style="background: #e3f2fd;"><td colspan="4" style="padding: 8px 12px; font-weight: 700; color: #1565c0;">Reshape Recipe (pivot, unpivot, combine)</td></tr>
 
                   <tr style="background: #fafafa;">
-                    <td style="padding: 10px 12px; color: #e65100;">report X and also Y, fixed buckets, combine, categorize into, pivot, unpivot</td>
-                    <td style="padding: 10px 12px;">Independent queries stacked</td>
-                    <td style="padding: 10px 12px;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('multi-query-union')">Multi-Query Union</span></td>
+                    <td style="padding: 10px 12px; color: #e65100;">report X and also Y, fixed buckets, combine, categorize into, pivot, unpivot, long to wide, wide to long</td>
+                    <td style="padding: 10px 12px;">Rows reshaped to columns, columns to rows, or queries stacked</td>
+                    <td style="padding: 10px 12px;"><span style="cursor: pointer; color: #1565c0; text-decoration: underline;" onclick="jumpToRecipe('reshape')">Reshape</span></td>
                   </tr>
                 </tbody>
               </table>
@@ -1212,8 +1212,8 @@
 --       enrich-join              Look up columns from reference table
 --       enrich-aggregate         Join tables then aggregate
 --
---     UNION-SPECIFIC RECIPE:
---       multi-query-union        UNION independent queries (pivot, bucket chart)</span>
+--     RESHAPE RECIPE:
+--       reshape        Reshape rows to columns or columns to rows — pivot, unpivot, UNION of independent queries</span>
 
 <span style="color: #ce9178;">-- If composite (two moves), name both:
 --     Move 1: not composite (single recipe)
@@ -1275,7 +1275,7 @@
 --       enrich-join:            Wrong join type, NULL join keys
 --       enrich-aggregate:       Row explosion from many-to-many
 --       rank-partition:         RANK vs DENSE_RANK vs ROW_NUMBER
---       multi-query-union:      Column count/type mismatch in UNION</span>
+--       reshape:       Column count/type mismatch in UNION, missing pivot columns, forgetting GROUP BY on slot key</span>
 
 
 <span style="color: #ce9178;">-- ============================================
@@ -1431,8 +1431,8 @@ Recipe category:
       enrich-join              Look up columns from reference table
       enrich-aggregate         Join tables then aggregate
 
-    UNION-SPECIFIC RECIPE:
-      multi-query-union        UNION independent queries (pivot, bucket chart)
+    RESHAPE RECIPE:
+      reshape        Reshape rows to columns or columns to rows — pivot, unpivot, UNION of independent queries
 
     GAPS-AND-ISLANDS NOTE (within row-compare):
       Use when the prompt mentions "consecutive," "streak," "3 in a row," or "gap."
@@ -1441,13 +1441,18 @@ Recipe category:
       Examples: 3+ consecutive high-attendance days (#601), gaps in id sequences
       (#1285), longest streak (#2173).
 
-If composite (two moves), name both:
+If composite (2+ moves, including intermediate prep steps), name in order:
     Move 1:
     Move 2:
+    Move 3:
+    Move 4:
 
     CONTEXT: A problem is composite when your "Named shape"
-    sentence has two verbs ("join tables THEN aggregate per
-    group") or two branches survive Step 4 elimination.
+    sentence has two or more verbs ("join tables THEN aggregate
+    THEN rank") or two branches survive Step 4 elimination.
+    Intermediate prep steps (assigning row numbers, building a
+    calendar, normalizing keys) count as their own move — log
+    each one so you can verify it before the next step runs.
 
     COMPOSITE EXAMPLES:
       "Department with highest avg salary"
@@ -1457,6 +1462,10 @@ If composite (two moves), name both:
       "For each product, first year's total sales" (#1070)
         Move 1: enrich-aggregate (join Sales + Product)
         Move 2: rank-partition (RANK to get first year)
+
+      "Pivot students into America / Asia / Europe" (#618)
+        Move 1: rank-partition (ROW_NUMBER within continent for slot)
+        Move 2: reshape (MAX CASE WHEN per continent, GROUP BY slot)
 
     NOT COMPOSITE (just one move):
       "Total revenue per region" = group-aggregate
@@ -1506,8 +1515,8 @@ If two branches remain, plan the composite sequence:
       Not Look Up Columns (enrich-join) because I am not just attaching reference columns, I need to aggregate or rank
       Not Join Then Aggregate (enrich-aggregate) because the output is not one summary row per group after joining
 
-    UNION-SPECIFIC (only if source is Union):
-      Not Combine Independent Queries (multi-query-union) because the tables share a key and need to be joined, not stacked
+    RESHAPE (only if source is Union or the output pivots / unpivots):
+      Not Reshape (reshape) because the tables share a key and need to be joined, not reshaped or stacked
 
 
 ============================================
@@ -1541,6 +1550,116 @@ Checks to run:
     [ ] Edge cases: empty table, single row, all NULLs, ties
 
 Red flags (if any, go back to Step 4):
+    [ ] Row count wrong
+    [ ] Output grain wrong
+    [ ] Missing expected groups
+*/
+
+
+-- SOLUTION</span>
+</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- CONCISE COPY-PASTE TEMPLATE -->
+          <div class="problem-card collapsed" style="margin-top: 30px;">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <span style="display: inline-block; background-color: #e65100; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Template</span>
+                Concise Copy-Paste Diagnostic Starter (for your IDE or sandbox)
+              </h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>A shorter four-section starter for when you want the checklist without the inline CONTEXT notes. Supports 2+ composite moves so you can log intermediate steps before each shape recipe.</p>
+            </div>
+            <div class="problem-card-content">
+              <div style="position: relative;">
+                <button onclick="copyTemplateConcise()" style="position: absolute; top: 10px; right: 10px; background: #333; border: 1px solid #555; border-radius: 4px; padding: 6px 10px; cursor: pointer; color: #d4d4d4; font-size: 1.2rem; display: flex; align-items: center; gap: 5px; z-index: 1;" title="Copy to clipboard">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <span id="copy-label-concise">Copy</span>
+                </button>
+                <pre id="diagnostic-template-concise" style="background-color: #1e1e1e; color: #d4d4d4; padding: 20px; padding-top: 45px; border-radius: 6px; font-size: 1.3rem; line-height: 1.7; overflow-x: auto; white-space: pre; font-family: 'Courier New', Consolas, monospace;"><code><span style="color: #ce9178;">/*
+============================================
+PROBLEM
+
+Prompt (write it in your own words):
+
+
+============================================
+STEP 1: Map the Inputs and the Output
+
+Input table(s) and columns:
+Table:
+    column:
+
+Table:
+    column:
+
+Output columns:
+
+Output grain (what = one row):
+
+Final row count direction narrows the decision tree fast:
+      fewer rows  -> filter or aggregate
+      same rows   -> transform or compare
+      single value -> scalar extract
+
+
+============================================
+STEP 2: Classify the Inputs
+
+How does data arrive?  [ ] Single table  [ ] Join 2+ tables  [ ] Union queries
+
+
+============================================
+STEP 3: Name the Shape
+
+Named shape (say it in one sentence):
+    "This is a __________ because __________"
+
+Recipe category:
+
+    CORE SHAPE RECIPES (reachable from Single table or applied to a joined result):
+      row-filter               Keep/exclude rows by WHERE condition
+      group-aggregate          One summary row per group
+      scalar-extract           Reduce table to single value
+      rank-partition           Top-N per group via window ranking
+      row-transform            Add/rewrite columns, keep row count
+      row-compare              Compare each row to neighbor
+      time-window              Rolling/cumulative aggregate
+      normalize-bidirectional  Flatten symmetric pairs
+      delete-duplicates        Remove duplicate rows in place
+
+    JOIN-SPECIFIC RECIPES (when the join itself is the core move):
+      enrich-join              Look up columns from reference table
+      enrich-aggregate         Join tables then aggregate
+
+    RESHAPE RECIPE:
+      reshape                  Pivot, unpivot, or UNION independent queries
+
+If composite (2+ moves, including intermediate prep steps), name in order:
+    Move 1:
+    Move 2:
+    Move 3:
+    Move 4:
+
+
+============================================
+STEP 4: Sanity Check
+
+Failure mode for this branch:
+
+Checks to run:
+    [ ] Row count matches Step 1 expectation
+    [ ] NULL handling covered (JOIN keys, WHERE, aggregates)
+    [ ] Integer division cast to NUMERIC
+    [ ] GROUP BY includes all non-aggregated SELECT columns
+    [ ] ORDER BY is deterministic (tiebreaker if using LIMIT)
+    [ ] Edge cases: empty table, single row, all NULLs, ties
+
+Red flags (if any, go back to Step 3):
     [ ] Row count wrong
     [ ] Output grain wrong
     [ ] Missing expected groups
@@ -2465,44 +2584,44 @@ Red flags (if any, go back to Step 4):
               <div class="dt-step-label">Step 2: What does the output look like?</div>
               <div class="dt-shape-list">
               <div class="dt-shape">
-                <div class="dt-shape-header" role="button" tabindex="0" onclick="event.stopPropagation(); toggleShapeTechs('multi-query-union', 1);">
+                <div class="dt-shape-header" role="button" tabindex="0" onclick="event.stopPropagation(); toggleShapeTechs('reshape', 1);">
                   <div class="dt-shape-text">
-                    <div class="dt-shape-title">Combine</div>
-                    <div class="dt-shape-sub">stack independent queries &mdash; <strong>pivot</strong>, <strong>unpivot</strong>, bucket chart, calendar skeleton, fixed-bucket histogram</div>
+                    <div class="dt-shape-title">Reshape</div>
+                    <div class="dt-shape-sub">reshape rows to columns or columns to rows &mdash; <strong>pivot</strong>, <strong>unpivot</strong>, bucket chart, calendar skeleton, fixed-bucket histogram, UNION of independent queries</div>
                   </div>
                   <div class="dt-shape-meta">
                     <span class="dt-shape-count">12 problems</span>
                     <span class="dt-shape-chev">&#9662;</span>
                   </div>
                 </div>
-                <div class="dt-shape-body" id="techs-multi-query-union-1">
+                <div class="dt-shape-body" id="techs-reshape-1">
                   <div class="dt-techs-grid">
-                    <div class="dt-tech-card" role="button" tabindex="0" onclick="event.stopPropagation(); jumpToRecipe('multi-query-union');">
+                    <div class="dt-tech-card" role="button" tabindex="0" onclick="event.stopPropagation(); jumpToRecipe('reshape');">
                       <div class="dt-tech-card-name">UNION</div>
                       <div class="dt-tech-card-hint">stack rows, drop duplicates</div>
                     </div>
-                    <div class="dt-tech-card" role="button" tabindex="0" onclick="event.stopPropagation(); jumpToRecipe('multi-query-union');">
+                    <div class="dt-tech-card" role="button" tabindex="0" onclick="event.stopPropagation(); jumpToRecipe('reshape');">
                       <div class="dt-tech-card-name">UNION ALL</div>
                       <div class="dt-tech-card-hint">stack rows, keep duplicates</div>
                     </div>
-                    <div class="dt-tech-card" role="button" tabindex="0" onclick="event.stopPropagation(); jumpToRecipe('multi-query-union');">
+                    <div class="dt-tech-card" role="button" tabindex="0" onclick="event.stopPropagation(); jumpToRecipe('reshape');">
                       <div class="dt-tech-card-name">Conditional MAX (pivot)</div>
                       <div class="dt-tech-card-hint">reshape long to wide</div>
                     </div>
-                    <div class="dt-tech-card" role="button" tabindex="0" onclick="event.stopPropagation(); jumpToRecipe('multi-query-union');">
+                    <div class="dt-tech-card" role="button" tabindex="0" onclick="event.stopPropagation(); jumpToRecipe('reshape');">
                       <div class="dt-tech-card-name">CASE WHEN</div>
                       <div class="dt-tech-card-hint">if/else per row</div>
                     </div>
-                    <div class="dt-tech-card" role="button" tabindex="0" onclick="event.stopPropagation(); jumpToRecipe('multi-query-union');">
+                    <div class="dt-tech-card" role="button" tabindex="0" onclick="event.stopPropagation(); jumpToRecipe('reshape');">
                       <div class="dt-tech-card-name">Calendar / skeleton CTE</div>
                       <div class="dt-tech-card-hint">guarantee every key appears</div>
                     </div>
-                    <div class="dt-tech-card" role="button" tabindex="0" onclick="event.stopPropagation(); jumpToRecipe('multi-query-union');">
+                    <div class="dt-tech-card" role="button" tabindex="0" onclick="event.stopPropagation(); jumpToRecipe('reshape');">
                       <div class="dt-tech-card-name">CROSS JOIN for combos</div>
                       <div class="dt-tech-card-hint">enumerate combinations</div>
                     </div>
                   </div>
-                  <button class="dt-techs-cta" type="button" onclick="event.stopPropagation(); jumpToRecipe('multi-query-union');">Open the Multi-Query Union recipe &rarr;</button>
+                  <button class="dt-techs-cta" type="button" onclick="event.stopPropagation(); jumpToRecipe('reshape');">Open the Reshape recipe &rarr;</button>
                 </div>
               </div>
               </div>
@@ -11070,7 +11189,7 @@ FROM Emp;</code></pre></td>
         <!-- TAB: MULTI-TABLE RECIPES -->
         <div id="tab-multi" class="tab-pane">
           <div class="section-heading">Multi-Table Recipes</div>
-          <p style="margin-bottom: 20px; line-height: 1.8;">4 recipe categories covering 103 problems. Two are join-specific (enrich-join, enrich-aggregate, 59 problems), one is union-specific (multi-query-union, 12 problems), and one (rank-partition, 32 problems) is reachable from both Single Table and Join 2+ in the Decision Tree. After a join, the result is effectively one table &mdash; so the nine Single-Table shape recipes also apply to joined data.</p>
+          <p style="margin-bottom: 20px; line-height: 1.8;">4 recipe categories covering 103 problems. Two are join-specific (enrich-join, enrich-aggregate, 59 problems), one is reshape (pivot / unpivot / combine, 12 problems), and one (rank-partition, 32 problems) is reachable from both Single Table and Join 2+ in the Decision Tree. After a join, the result is effectively one table &mdash; so the nine Single-Table shape recipes also apply to joined data.</p>
 
           <div class="problem-card collapsed" style="margin-bottom: 25px;">
             <div class="problem-card-header">
@@ -16939,30 +17058,30 @@ ORDER BY country;</code></div>
             </div>
           </div>
 
-          <!-- RECIPE: multi-query-union -->
-          <div class="problem-card" id="multi-query-union">
+          <!-- RECIPE: reshape -->
+          <div class="problem-card" id="reshape">
             <div class="problem-card-header">
-              <h3 class="problem-card-title" style="margin: 0;">Combine Independent Queries Into One Result <span class="count-badge">12 problems</span></h3>
+              <h3 class="problem-card-title" style="margin: 0;">Reshape (Pivot, Unpivot, Combine) <span class="count-badge">12 problems</span></h3>
               <span class="problem-toggle">&#9660;</span>
             </div>
             <div class="problem-card-excerpt">
-              <p>Two or more tables queried independently &rarr; a single result stacking rows via UNION / UNION ALL.</p>
+              <p>Reshape the data: pivot long rows into wide columns, unpivot wide columns back into rows, or stack independent queries via UNION / UNION ALL.</p>
             </div>
             <div class="problem-card-content">
               <div style="margin-bottom: 15px;">
-                <p><strong>Signal words:</strong> "report X and also Y," "find... and separately find...," "categorize into fixed buckets"</p>
-                <p><strong>Technique:</strong> <code>UNION / UNION ALL of independent SELECT statements</code></p>
+                <p><strong>Signal words:</strong> "pivot into columns," "one column per category," "unpivot," "long to wide," "wide to long," "report X and also Y," "categorize into fixed buckets"</p>
+                <p><strong>Technique:</strong> <code>MAX/SUM(CASE WHEN ...)</code> for pivot, <code>UNION ALL of SELECT per column</code> for unpivot, <code>UNION / UNION ALL of independent SELECTs</code> for combine</p>
               </div>
               <div class="problem-card collapsed" style="margin: 0 0 20px 0;">
                 <div class="problem-card-header">
                   <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
                     <span style="display: inline-block; background-color: #6a1b9a; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Reference</span>
-                    Techniques used in Multi-Query Union
+                    Techniques used in Reshape
                   </h3>
                   <span class="problem-toggle">&#9660;</span>
                 </div>
                 <div class="problem-card-excerpt">
-                  <p>2 SQL techniques relevant to this recipe, with what they do, when to reach for them, and a generic code example.</p>
+                  <p>8 SQL techniques relevant to this recipe, with what they do, when to reach for them, and a generic code example.</p>
                 </div>
                 <div class="problem-card-content">
                   <table style="width: 100%; border-collapse: collapse; font-size: 1.3rem; line-height: 1.6;">
@@ -16991,6 +17110,68 @@ SELECT id, 'refund'        FROM Refunds;</code></pre></td>
        CASE WHEN age &gt;= 18 THEN 'Adult'
             ELSE 'Minor' END AS group
 FROM Users;</code></pre></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px; font-weight: 600;"><code>Conditional MAX (pivot)</code></td>
+                    <td style="padding: 10px 12px;">Reshapes long rows into wide columns by returning a value only when the row matches a category</td>
+                    <td style="padding: 10px 12px;">You need one column per category (e.g., one per continent, one per month)</td>
+                    <td style="padding: 10px 12px;"><pre style="margin: 0; padding: 8px 10px; background: #1e1e1e; color: #d4d4d4; border-radius: 4px; font-size: 1.15rem; line-height: 1.5; font-family: 'Courier New', Consolas, monospace; white-space: pre-wrap; overflow-wrap: break-word;"><code>SELECT
+  MAX(CASE WHEN continent = 'America' THEN name END) AS America,
+  MAX(CASE WHEN continent = 'Asia'    THEN name END) AS Asia,
+  MAX(CASE WHEN continent = 'Europe'  THEN name END) AS Europe
+FROM Student
+GROUP BY rn;</code></pre></td>
+                  </tr>
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px; font-weight: 600;"><code>Conditional SUM (pivot)</code></td>
+                    <td style="padding: 10px 12px;">Same pivot idea but aggregates numeric values into each column</td>
+                    <td style="padding: 10px 12px;">You need totals or counts broken out by category (e.g., revenue per month, units per weekday)</td>
+                    <td style="padding: 10px 12px;"><pre style="margin: 0; padding: 8px 10px; background: #1e1e1e; color: #d4d4d4; border-radius: 4px; font-size: 1.15rem; line-height: 1.5; font-family: 'Courier New', Consolas, monospace; white-space: pre-wrap; overflow-wrap: break-word;"><code>SELECT product_id,
+  SUM(CASE WHEN day = 'Mon' THEN qty ELSE 0 END) AS Mon,
+  SUM(CASE WHEN day = 'Tue' THEN qty ELSE 0 END) AS Tue
+FROM Sales
+GROUP BY product_id;</code></pre></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px; font-weight: 600;"><code>ROW_NUMBER() within partition</code></td>
+                    <td style="padding: 10px 12px;">Assigns a sequential number within each group, giving every row a slot position</td>
+                    <td style="padding: 10px 12px;">You need to align rows across categories before pivoting so equal slot numbers collapse into one output row</td>
+                    <td style="padding: 10px 12px;"><pre style="margin: 0; padding: 8px 10px; background: #1e1e1e; color: #d4d4d4; border-radius: 4px; font-size: 1.15rem; line-height: 1.5; font-family: 'Courier New', Consolas, monospace; white-space: pre-wrap; overflow-wrap: break-word;"><code>SELECT name, continent,
+  ROW_NUMBER() OVER (
+    PARTITION BY continent ORDER BY name
+  ) AS rn
+FROM Student;</code></pre></td>
+                  </tr>
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px; font-weight: 600;"><code>Calendar / skeleton CTE</code></td>
+                    <td style="padding: 10px 12px;">Generates a full list of dates, months, or buckets so no category goes missing from the output</td>
+                    <td style="padding: 10px 12px;">You need every bucket represented even when some have no data (all 12 months, all 7 weekdays)</td>
+                    <td style="padding: 10px 12px;"><pre style="margin: 0; padding: 8px 10px; background: #1e1e1e; color: #d4d4d4; border-radius: 4px; font-size: 1.15rem; line-height: 1.5; font-family: 'Courier New', Consolas, monospace; white-space: pre-wrap; overflow-wrap: break-word;"><code>WITH months AS (
+  SELECT generate_series(1, 12) AS m
+)
+SELECT m, COUNT(s.id) AS cnt
+FROM months
+LEFT JOIN Sales s
+  ON EXTRACT(MONTH FROM s.d) = m
+GROUP BY m;</code></pre></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px; font-weight: 600;"><code>CROSS JOIN for combos</code></td>
+                    <td style="padding: 10px 12px;">Produces every combination of rows from two tables</td>
+                    <td style="padding: 10px 12px;">You need to enumerate every pairing (every student with every subject, every product with every weekday)</td>
+                    <td style="padding: 10px 12px;"><pre style="margin: 0; padding: 8px 10px; background: #1e1e1e; color: #d4d4d4; border-radius: 4px; font-size: 1.15rem; line-height: 1.5; font-family: 'Courier New', Consolas, monospace; white-space: pre-wrap; overflow-wrap: break-word;"><code>SELECT s.name, c.subject
+FROM Students s
+CROSS JOIN Classes c;</code></pre></td>
+                  </tr>
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px; font-weight: 600;"><code>Unpivot via UNION ALL</code></td>
+                    <td style="padding: 10px 12px;">Flips wide columns into long rows by selecting each column in a separate query and stacking them</td>
+                    <td style="padding: 10px 12px;">The input has several columns that should be rows (store1, store2, store3 prices becoming one price column)</td>
+                    <td style="padding: 10px 12px;"><pre style="margin: 0; padding: 8px 10px; background: #1e1e1e; color: #d4d4d4; border-radius: 4px; font-size: 1.15rem; line-height: 1.5; font-family: 'Courier New', Consolas, monospace; white-space: pre-wrap; overflow-wrap: break-word;"><code>SELECT product_id, 'store1' AS store, store1 AS price FROM Prices
+UNION ALL
+SELECT product_id, 'store2', store2 FROM Prices
+UNION ALL
+SELECT product_id, 'store3', store3 FROM Prices;</code></pre></td>
                   </tr>
                     </tbody>
                   </table>
@@ -17287,6 +17468,63 @@ GROUP BY rn
 ORDER BY rn;</code></div>
                     <p style="margin: 12px 0;"><strong>Why this is best:</strong> Assign row numbers within continent, then pivot rows with equal numbers into one reporting row.</p>
                     <p style="margin: 12px 0;"><strong>Performance:</strong> One window + one aggregate.</p>
+                  </div>
+                </details>
+              </div>
+            </div>
+          </div>
+
+          <div class="problem-card collapsed">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <span style="display: inline-block; background-color: #6a1b9a; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Example</span>
+                Reverse of #618: Unpivot Students Report Back to (name, continent)
+              </h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>Take the wide result from #618 (America, Asia, Europe columns) and unpivot it back into the original long format (name, continent).</p>
+            </div>
+            <div class="problem-card-content">
+
+              <p><strong>Input (wide):</strong> <code>StudentReport</code> (America, Asia, Europe) &mdash; the output from #618</p>
+              <p><strong>Output (long):</strong> one row per (name, continent), nulls dropped</p>
+
+              <div class="business-example">
+                <p class="business-example-title">Why Reverse a Pivot?</p>
+                <p class="business-example-content">Wide reports are easy to read but hard to aggregate. Analysts often unpivot back to long format before charting, joining to a dimension table, or running a GROUP BY.</p>
+              </div>
+
+              <p><strong>Input table (example):</strong></p>
+              <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; font-size: 1.25rem;"><code>| America | Asia | Europe |
+| ------- | ---- | ------ |
+| Jack    | Xi   | Pascal |
+| Jane    | null | null   |</code></pre>
+
+              <p><strong>Target output:</strong></p>
+              <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; font-size: 1.25rem;"><code>| name   | continent |
+| ------ | --------- |
+| Jack   | America   |
+| Jane   | America   |
+| Xi     | Asia      |
+| Pascal | Europe    |</code></pre>
+
+              <div class="solution-container">
+                <details>
+                  <summary>
+                    <span class="summary-arrow">&#9654;</span>
+                    <span class="rank-badge rank-1">1</span>
+                    <strong>UNION ALL with Label Literals (drop nulls)</strong>
+                  </summary>
+                  <div class="solution-content">
+                    <div class="code-block"><code>SELECT America AS name, 'America' AS continent FROM StudentReport WHERE America IS NOT NULL
+UNION ALL
+SELECT Asia,    'Asia'               FROM StudentReport WHERE Asia    IS NOT NULL
+UNION ALL
+SELECT Europe,  'Europe'             FROM StudentReport WHERE Europe  IS NOT NULL;</code></div>
+                    <p style="margin: 12px 0;"><strong>Why this is best:</strong> Each SELECT pulls one column into the long format with a literal continent label; the NULL filter drops empty slots left over from the pivot.</p>
+                    <p style="margin: 12px 0;"><strong>Performance:</strong> Three scans, one per column. Exact inverse of the Row Number + Conditional MAX pivot used in #618.</p>
+                    <p style="margin: 12px 0;"><strong>Mirror of the pivot:</strong> Where #618 used <code>MAX(CASE WHEN continent = 'America' THEN name END)</code> to collapse rows into columns, the unpivot uses <code>SELECT ... 'America' AS continent</code> per column to expand columns back into rows.</p>
                   </div>
                 </details>
               </div>
@@ -17932,6 +18170,16 @@ GROUP BY p.platform, n.experiment_name;</code></div>
       var text = pre.textContent || pre.innerText;
       navigator.clipboard.writeText(text).then(function() {
         var label = document.getElementById('copy-label');
+        label.textContent = 'Copied!';
+        setTimeout(function() { label.textContent = 'Copy'; }, 2000);
+      });
+    }
+
+    function copyTemplateConcise() {
+      var pre = document.getElementById('diagnostic-template-concise');
+      var text = pre.textContent || pre.innerText;
+      navigator.clipboard.writeText(text).then(function() {
+        var label = document.getElementById('copy-label-concise');
         label.textContent = 'Copied!';
         setTimeout(function() { label.textContent = 'Copy'; }, 2000);
       });
