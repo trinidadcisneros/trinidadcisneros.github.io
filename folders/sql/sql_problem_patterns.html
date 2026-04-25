@@ -1687,6 +1687,114 @@ Red flags (if any, go back to Step 3):
               <li><strong>LIMIT / OFFSET</strong> &mdash; Final row restriction</li>
             </ol>
           </div>
+
+          <!-- COMMON PITFALLS: ON vs WHERE -->
+          <div class="problem-card collapsed" id="pitfall-on-vs-where" style="margin-top: 30px;">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <span style="display: inline-block; background-color: #c62828; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Pitfall</span>
+                LEFT JOIN: ON vs WHERE for right-side filters
+              </h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>A condition on the right table behaves very differently in <code>ON</code> vs <code>WHERE</code>. Wrong placement silently drops rows you wanted to keep.</p>
+            </div>
+            <div class="problem-card-content">
+
+              <p><strong>Setup &mdash; two source tables:</strong></p>
+
+              <p style="margin: 8px 0 4px;"><code>Books</code>:</p>
+              <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; font-size: 1.25rem;"><code>| book_id | name             |
+| ------- | ---------------- |
+| 1       | The Hobbit       |
+| 5       | The Hunger Games |</code></pre>
+
+              <p style="margin: 12px 0 4px;"><code>Orders</code>:</p>
+              <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; font-size: 1.25rem;"><code>| order_id | book_id | dispatch_date |
+| -------- | ------- | ------------- |
+| 3        | 1       | 2019-06-11    |
+| 6        | 5       | 2009-02-02    |</code></pre>
+
+              <p style="margin: 16px 0 4px;"><strong>Goal:</strong> keep every book, but only count orders from 2018-06-23 onward.</p>
+
+              <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ddd;">
+
+              <p><strong>Version A &mdash; date filter in <code>ON</code> (correct):</strong></p>
+              <pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 4px; font-size: 1.2rem;"><code>FROM Books b
+LEFT JOIN Orders o
+  ON o.book_id = b.book_id
+ AND o.dispatch_date &gt;= '2018-06-23'</code></pre>
+
+              <p style="margin: 8px 0 4px;">Result:</p>
+              <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; font-size: 1.25rem;"><code>| book_id | name             | dispatch_date |
+| ------- | ---------------- | ------------- |
+| 1       | The Hobbit       | 2019-06-11    |
+| 5       | The Hunger Games | null          |</code></pre>
+              <p style="margin: 8px 0; color: #2e7d32;"><strong>Hunger Games stays.</strong> Old order didn't qualify to attach, so the order side is null.</p>
+
+              <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ddd;">
+
+              <p><strong>Version B &mdash; date filter in <code>WHERE</code> (wrong):</strong></p>
+              <pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 4px; font-size: 1.2rem;"><code>FROM Books b
+LEFT JOIN Orders o
+  ON o.book_id = b.book_id
+WHERE o.dispatch_date &gt;= '2018-06-23'</code></pre>
+
+              <p style="margin: 8px 0 4px;">Result:</p>
+              <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; font-size: 1.25rem;"><code>| book_id | name             | dispatch_date |
+| ------- | ---------------- | ------------- |
+| 1       | The Hobbit       | 2019-06-11    |</code></pre>
+              <p style="margin: 8px 0; color: #c62828;"><strong>Hunger Games is gone.</strong> The LEFT JOIN gave it a row with the old order; the WHERE then filtered that row out.</p>
+
+              <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ddd;">
+
+              <p><strong>Rule of thumb:</strong></p>
+              <ul style="margin: 10px 0 10px 20px; line-height: 1.8;">
+                <li>Filter on the <strong>left</strong> table &rarr; put it in <code>WHERE</code> (left rows are kept anyway).</li>
+                <li>Filter on the <strong>right</strong> table &rarr; put it in <code>ON</code> if you want unmatched left rows to survive with nulls.</li>
+                <li>Filter on the <strong>right</strong> table in <code>WHERE</code> &rarr; LEFT JOIN behaves like INNER JOIN.</li>
+              </ul>
+
+              <p style="margin-top: 18px;"><strong>What the <code>ON</code> clause can hold:</strong></p>
+              <table style="width: 100%; border-collapse: collapse; font-size: 1.3rem; line-height: 1.6;">
+                <thead>
+                  <tr style="background: #1565c0; color: white; text-align: left;">
+                    <th style="padding: 10px 12px; font-weight: 600; width: 35%;">Pattern</th>
+                    <th style="padding: 10px 12px; font-weight: 600; width: 65%;">Example</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Equality between sides</td>
+                    <td style="padding: 10px 12px;"><code>a.id = b.id</code></td>
+                  </tr>
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Single-table filter</td>
+                    <td style="padding: 10px 12px;"><code>b.status = 'open'</code></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Range / inequality</td>
+                    <td style="padding: 10px 12px;"><code>a.date BETWEEN b.start AND b.end</code></td>
+                  </tr>
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Null check</td>
+                    <td style="padding: 10px 12px;"><code>b.deleted_at IS NULL</code></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">OR</td>
+                    <td style="padding: 10px 12px;"><code>a.id = b.id OR a.alt_id = b.id</code></td>
+                  </tr>
+                  <tr style="background: #fafafa;">
+                    <td style="padding: 10px 12px;">Function call</td>
+                    <td style="padding: 10px 12px;"><code>LOWER(a.name) = LOWER(b.name)</code></td>
+                  </tr>
+                </tbody>
+              </table>
+
+            </div>
+          </div>
+
         </div>
 
 
@@ -11321,7 +11429,95 @@ WHERE salary &gt; (SELECT AVG(salary) FROM Emp);</code></pre></td>
               <li>Check for <strong>duplicates in keys</strong> &mdash; many-to-many creates row explosion</li>
               <li>Handle <strong>NULL join keys</strong> &mdash; NULLs never match in a standard JOIN</li>
               <li>After joining: <strong>verify row count</strong> to ensure no unexpected multiplication</li>
+              <li><strong>Right-side filters</strong> on a LEFT JOIN belong in <code>ON</code>, not <code>WHERE</code> &mdash; otherwise the LEFT JOIN behaves like INNER. <a href="#pitfall-on-vs-where">See the ON vs WHERE walkthrough</a>.</li>
             </ol>
+          </div>
+
+          <!-- ON CLAUSE CHEAT SHEET -->
+          <div class="problem-card collapsed" style="margin-bottom: 25px;">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <span style="display: inline-block; background-color: #6a1b9a; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Reference</span>
+                ON Clause Cheat Sheet (what you can put in ON, and ON vs WHERE)
+              </h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>Quick lookup for what the JOIN <code>ON</code> clause accepts, plus a side-by-side example of the LEFT JOIN gotcha that drops rows you wanted to keep.</p>
+            </div>
+            <div class="problem-card-content">
+
+              <p style="margin-top: 0;"><strong>What the <code>ON</code> clause can hold &mdash; any boolean expression:</strong></p>
+              <table style="width: 100%; border-collapse: collapse; font-size: 1.3rem; line-height: 1.6;">
+                <thead>
+                  <tr style="background: #1565c0; color: white; text-align: left;">
+                    <th style="padding: 10px 12px; font-weight: 600; width: 35%;">Pattern</th>
+                    <th style="padding: 10px 12px; font-weight: 600; width: 65%;">Example</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Equality between sides</td>
+                    <td style="padding: 10px 12px;"><code>a.id = b.id</code></td>
+                  </tr>
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Single-table filter</td>
+                    <td style="padding: 10px 12px;"><code>b.status = 'open'</code></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Range / inequality</td>
+                    <td style="padding: 10px 12px;"><code>a.date BETWEEN b.start AND b.end</code></td>
+                  </tr>
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Null check</td>
+                    <td style="padding: 10px 12px;"><code>b.deleted_at IS NULL</code></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">OR</td>
+                    <td style="padding: 10px 12px;"><code>a.id = b.id OR a.alt_id = b.id</code></td>
+                  </tr>
+                  <tr style="background: #fafafa;">
+                    <td style="padding: 10px 12px;">Function call</td>
+                    <td style="padding: 10px 12px;"><code>LOWER(a.name) = LOWER(b.name)</code></td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ddd;">
+
+              <p><strong>The LEFT JOIN gotcha &mdash; ON vs WHERE:</strong></p>
+              <p style="line-height: 1.7;">A right-side filter in <code>ON</code> only blocks the match. A right-side filter in <code>WHERE</code> blocks survival. Result: <code>WHERE</code> drops the unmatched left rows you wanted to keep.</p>
+
+              <table style="width: 100%; border-collapse: collapse; font-size: 1.3rem; line-height: 1.6; margin-top: 10px;">
+                <thead>
+                  <tr style="background: #1565c0; color: white; text-align: left;">
+                    <th style="padding: 10px 12px; font-weight: 600; width: 25%;">Filter location</th>
+                    <th style="padding: 10px 12px; font-weight: 600; width: 35%;">What it does</th>
+                    <th style="padding: 10px 12px; font-weight: 600; width: 40%;">Example outcome</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px; font-weight: 600;">ON (right-side filter)</td>
+                    <td style="padding: 10px 12px;">Filters which right rows are eligible to attach during the join</td>
+                    <td style="padding: 10px 12px;">Unmatched left rows survive with nulls on the right</td>
+                  </tr>
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px; font-weight: 600;">WHERE (right-side filter)</td>
+                    <td style="padding: 10px 12px;">Filters the assembled result after the join finishes</td>
+                    <td style="padding: 10px 12px;">Unmatched left rows are thrown out (LEFT JOIN behaves like INNER)</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 10px 12px; font-weight: 600;">WHERE (left-side filter)</td>
+                    <td style="padding: 10px 12px;">Filters the left table before / during the join</td>
+                    <td style="padding: 10px 12px;">Either ON or WHERE is fine; placement does not change the result</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <p style="margin-top: 18px;"><a href="#pitfall-on-vs-where">Open the full walkthrough with sample tables &rarr;</a></p>
+
+            </div>
           </div>
 
           <!-- RECIPE: enrich-join -->
@@ -11337,6 +11533,12 @@ WHERE salary &gt; (SELECT AVG(salary) FROM Emp);</code></pre></td>
               <div style="margin-bottom: 15px;">
                 <p><strong>Signal words:</strong> "find the name for," "replace ID with," "look up," "show along with," "regardless of," manager/employee, parent/child, referrer/referee</p>
                 <p><strong>Technique:</strong> <code>LEFT JOIN, INNER JOIN, CROSS JOIN (for all combinations), self-join (alias the same table twice)</code></p>
+              </div>
+
+              <div style="background-color: #fff3e0; border-left: 5px solid #c62828; padding: 12px 16px; margin: 12px 0 20px; border-radius: 4px;">
+                <p style="margin: 0 0 6px; font-weight: 600; color: #c62828;">Pitfall: ON vs WHERE on a LEFT JOIN</p>
+                <p style="margin: 6px 0; line-height: 1.7;">A right-side filter in <code>WHERE</code> drops unmatched left rows and silently turns your LEFT JOIN into an INNER JOIN. Put right-side filters in <code>ON</code> to keep every left row.</p>
+                <p style="margin: 6px 0;"><a href="#pitfall-on-vs-where">Open the full ON vs WHERE walkthrough &rarr;</a></p>
               </div>
               <div class="problem-card collapsed" style="margin: 0 0 20px 0;">
                 <div class="problem-card-header">
@@ -12244,6 +12446,12 @@ WHERE c.years_of_exp >= 2 AND t.total >= 15;</code></div>
               <div style="margin-bottom: 15px;">
                 <p><strong>Signal words:</strong> "for each... find average/total from another table," "rate," "percentage," "weighted," "all products"</p>
                 <p><strong>Technique:</strong> <code>JOIN + GROUP BY, weighted AVG, HAVING COUNT = (SELECT COUNT), date-range joins</code></p>
+              </div>
+
+              <div style="background-color: #fff3e0; border-left: 5px solid #c62828; padding: 12px 16px; margin: 12px 0 20px; border-radius: 4px;">
+                <p style="margin: 0 0 6px; font-weight: 600; color: #c62828;">Pitfall: date filters on a LEFT JOIN</p>
+                <p style="margin: 6px 0; line-height: 1.7;">When you want every left row to survive (e.g., "all books, even ones with zero sales last year"), put date filters on the right table in <code>ON</code>, not <code>WHERE</code>. A <code>WHERE</code> on a right-side date drops unmatched rows and undercounts groups with no recent activity.</p>
+                <p style="margin: 6px 0;"><a href="#pitfall-on-vs-where">Open the full ON vs WHERE walkthrough &rarr;</a></p>
               </div>
               <div class="problem-card collapsed" style="margin: 0 0 20px 0;">
                 <div class="problem-card-header">
@@ -18197,13 +18405,28 @@ GROUP BY p.platform, n.experiment_name;</code></div>
     });
 
     // ============================================================
-    // SMOOTH SCROLL FOR ANCHOR LINKS
+    // SMOOTH SCROLL FOR ANCHOR LINKS (switches tabs if needed)
     // ============================================================
     document.addEventListener('click', function(e) {
       if (e.target.tagName === 'A' && e.target.getAttribute('href') && e.target.getAttribute('href').startsWith('#') && !e.target.classList.contains('problem-link')) {
         e.preventDefault();
-        var target = document.querySelector(e.target.getAttribute('href'));
-        if (target) target.scrollIntoView({ behavior: 'smooth' });
+        var hash = e.target.getAttribute('href');
+        var target = document.querySelector(hash);
+        if (!target) return;
+        // If the target lives inside a tab pane that's not active, activate that tab first
+        var pane = target.closest('.tab-pane');
+        if (pane && !pane.classList.contains('active')) {
+          var tabBtn = document.querySelector('.tab-nav-item[data-tab="' + pane.id + '"]');
+          if (tabBtn) tabBtn.click();
+        }
+        // Wait a tick so the tab switch and any expand happens before scrolling
+        setTimeout(function() {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // If the target is a collapsed problem-card, expand it
+          if (target.classList.contains('problem-card') && target.classList.contains('collapsed')) {
+            target.classList.remove('collapsed');
+          }
+        }, 50);
       }
     });
   </script>
