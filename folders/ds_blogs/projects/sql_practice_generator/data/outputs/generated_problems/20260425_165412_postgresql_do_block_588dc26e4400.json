@@ -1,0 +1,203 @@
+{
+  "title": "Sequential Price Updates with Tiered Discounts",
+  "prompt": "You have a products table with id, category, base_price, and final_price columns. Write a DO block that performs the following operations in sequence: (1) Set final_price = base_price for all rows. (2) Apply a 10% discount (multiply final_price by 0.90) to all Electronics products. (3) Apply an additional 5% discount (multiply final_price by 0.95) to all products where final_price > 100 after the previous step. (4) Round all final_price values to 2 decimal places. After the DO block, write a SELECT statement that returns all columns from products ordered by id ascending.",
+  "schema_ddl": "CREATE TABLE products (id INT PRIMARY KEY, category VARCHAR(50), base_price DECIMAL(10,2), final_price DECIMAL(10,2));",
+  "example_input_data": "INSERT INTO products (id, category, base_price, final_price) VALUES (1, 'Electronics', 150.00, 0.00), (2, 'Clothing', 80.00, 0.00), (3, 'Electronics', 95.00, 0.00), (4, 'Furniture', 120.00, 0.00), (5, 'Electronics', 110.00, 0.00), (6, 'Clothing', 200.00, 0.00);",
+  "example_output_columns": [
+    "id",
+    "category",
+    "base_price",
+    "final_price"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Electronics",
+      "150.00",
+      "128.25"
+    ],
+    [
+      2,
+      "Clothing",
+      "80.00",
+      "80.00"
+    ],
+    [
+      3,
+      "Electronics",
+      "95.00",
+      "85.50"
+    ],
+    [
+      4,
+      "Furniture",
+      "120.00",
+      "114.00"
+    ],
+    [
+      5,
+      "Electronics",
+      "110.00",
+      "99.00"
+    ],
+    [
+      6,
+      "Clothing",
+      "200.00",
+      "190.00"
+    ]
+  ],
+  "test_data": "INSERT INTO products (id, category, base_price, final_price) VALUES (1, 'Electronics', 50.00, 0.00), (2, 'Electronics', 99.00, 0.00), (3, 'Electronics', 111.12, 0.00), (4, 'Electronics', 200.00, 0.00), (5, 'Electronics', 100.00, 0.00), (6, 'Clothing', 50.00, 0.00), (7, 'Clothing', 99.00, 0.00), (8, 'Clothing', 100.00, 0.00), (9, 'Clothing', 101.00, 0.00), (10, 'Clothing', 150.00, 0.00), (11, 'Furniture', 50.00, 0.00), (12, 'Furniture', 99.00, 0.00), (13, 'Furniture', 100.00, 0.00), (14, 'Furniture', 101.00, 0.00), (15, 'Furniture', 250.00, 0.00), (16, 'Electronics', 105.56, 0.00), (17, 'Books', 25.00, 0.00), (18, 'Books', 120.00, 0.00), (19, 'Electronics', 111.11, 0.00), (20, 'Clothing', 105.00, 0.00);",
+  "test_expected_columns": [
+    "id",
+    "category",
+    "base_price",
+    "final_price"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "Electronics",
+      "50.00",
+      "45.00"
+    ],
+    [
+      2,
+      "Electronics",
+      "99.00",
+      "89.10"
+    ],
+    [
+      3,
+      "Electronics",
+      "111.12",
+      "95.01"
+    ],
+    [
+      4,
+      "Electronics",
+      "200.00",
+      "171.00"
+    ],
+    [
+      5,
+      "Electronics",
+      "100.00",
+      "90.00"
+    ],
+    [
+      6,
+      "Clothing",
+      "50.00",
+      "50.00"
+    ],
+    [
+      7,
+      "Clothing",
+      "99.00",
+      "99.00"
+    ],
+    [
+      8,
+      "Clothing",
+      "100.00",
+      "100.00"
+    ],
+    [
+      9,
+      "Clothing",
+      "101.00",
+      "95.95"
+    ],
+    [
+      10,
+      "Clothing",
+      "150.00",
+      "142.50"
+    ],
+    [
+      11,
+      "Furniture",
+      "50.00",
+      "50.00"
+    ],
+    [
+      12,
+      "Furniture",
+      "99.00",
+      "99.00"
+    ],
+    [
+      13,
+      "Furniture",
+      "100.00",
+      "100.00"
+    ],
+    [
+      14,
+      "Furniture",
+      "101.00",
+      "95.95"
+    ],
+    [
+      15,
+      "Furniture",
+      "250.00",
+      "237.50"
+    ],
+    [
+      16,
+      "Electronics",
+      "105.56",
+      "95.00"
+    ],
+    [
+      17,
+      "Books",
+      "25.00",
+      "25.00"
+    ],
+    [
+      18,
+      "Books",
+      "120.00",
+      "114.00"
+    ],
+    [
+      19,
+      "Electronics",
+      "111.11",
+      "100.00"
+    ],
+    [
+      20,
+      "Clothing",
+      "105.00",
+      "99.75"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "initialize-column",
+      "conditional-update-1",
+      "conditional-update-2",
+      "scalar-transform"
+    ]
+  },
+  "hints": [
+    "You need to perform multiple UPDATE statements in sequence within a DO block.",
+    "Each UPDATE builds on the result of the previous one. Make sure to apply discounts to final_price, not base_price.",
+    "Use UPDATE products SET final_price = base_price first, then UPDATE products SET final_price = final_price * 0.90 WHERE category = 'Electronics', then UPDATE products SET final_price = final_price * 0.95 WHERE final_price > 100, and finally UPDATE products SET final_price = ROUND(final_price, 2)."
+  ],
+  "answer_key": "DO $$\nBEGIN\n  UPDATE products SET final_price = base_price;\n  UPDATE products SET final_price = final_price * 0.90 WHERE category = 'Electronics';\n  UPDATE products SET final_price = final_price * 0.95 WHERE final_price > 100;\n  UPDATE products SET final_price = ROUND(final_price, 2);\nEND $$;\n\nSELECT * FROM products ORDER BY id;",
+  "_meta": {
+    "question_type": "do_block",
+    "dialect": "postgresql",
+    "generated_at": "2026-04-25T16:54:12.485414",
+    "problem_id": "588dc26e4400",
+    "validation_attempts": 1
+  }
+}

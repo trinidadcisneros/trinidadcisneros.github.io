@@ -1,0 +1,203 @@
+{
+  "title": "Sequential Pricing Rules with DO Block",
+  "prompt": "You have a products table with columns product_id, category, base_price, and final_price (initially NULL). Write a DO block that applies pricing rules sequentially: (1) Set final_price to base_price for all rows. (2) Apply a 10% discount (multiply by 0.90) to Electronics category products. (3) Apply an additional $5 discount (subtract 5) to any product where final_price is now greater than 100. (4) Round all final_price values to 2 decimal places. After the DO block, write a SELECT statement that returns all columns ordered by product_id ascending. The output should show the final state of the products table after all transformations.",
+  "schema_ddl": "CREATE TABLE products (product_id INT PRIMARY KEY, category VARCHAR(50), base_price DECIMAL(10,2), final_price DECIMAL(10,2));",
+  "example_input_data": "INSERT INTO products (product_id, category, base_price, final_price) VALUES (1, 'Electronics', 150.00, NULL), (2, 'Clothing', 80.00, NULL), (3, 'Electronics', 120.00, NULL), (4, 'Home', 200.00, NULL), (5, 'Electronics', 95.00, NULL), (6, 'Clothing', 110.00, NULL);",
+  "example_output_columns": [
+    "product_id",
+    "category",
+    "base_price",
+    "final_price"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Electronics",
+      "150.00",
+      "130.00"
+    ],
+    [
+      2,
+      "Clothing",
+      "80.00",
+      "80.00"
+    ],
+    [
+      3,
+      "Electronics",
+      "120.00",
+      "103.00"
+    ],
+    [
+      4,
+      "Home",
+      "200.00",
+      "195.00"
+    ],
+    [
+      5,
+      "Electronics",
+      "95.00",
+      "85.50"
+    ],
+    [
+      6,
+      "Clothing",
+      "110.00",
+      "105.00"
+    ]
+  ],
+  "test_data": "INSERT INTO products (product_id, category, base_price, final_price) VALUES (101, 'Electronics', 250.00, NULL), (102, 'Electronics', 111.12, NULL), (103, 'Clothing', 150.00, NULL), (104, 'Home', 95.00, NULL), (105, 'Electronics', 99.99, NULL), (106, 'Books', 200.00, NULL), (107, 'Electronics', 50.00, NULL), (108, 'Clothing', 105.00, NULL), (109, 'Electronics', 222.22, NULL), (110, 'Home', 115.00, NULL), (111, 'Electronics', 180.00, NULL), (112, 'Clothing', 75.00, NULL), (113, 'Electronics', 133.34, NULL), (114, 'Books', 90.00, NULL), (115, 'Electronics', 300.00, NULL), (116, 'Home', 100.00, NULL), (117, 'Electronics', 110.00, NULL), (118, 'Clothing', 200.00, NULL), (119, 'Electronics', 88.88, NULL), (120, 'Books', 120.00, NULL);",
+  "test_expected_columns": [
+    "product_id",
+    "category",
+    "base_price",
+    "final_price"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      "Electronics",
+      "250.00",
+      "220.00"
+    ],
+    [
+      102,
+      "Electronics",
+      "111.12",
+      "95.01"
+    ],
+    [
+      103,
+      "Clothing",
+      "150.00",
+      "145.00"
+    ],
+    [
+      104,
+      "Home",
+      "95.00",
+      "95.00"
+    ],
+    [
+      105,
+      "Electronics",
+      "99.99",
+      "89.99"
+    ],
+    [
+      106,
+      "Books",
+      "200.00",
+      "195.00"
+    ],
+    [
+      107,
+      "Electronics",
+      "50.00",
+      "45.00"
+    ],
+    [
+      108,
+      "Clothing",
+      "105.00",
+      "100.00"
+    ],
+    [
+      109,
+      "Electronics",
+      "222.22",
+      "195.00"
+    ],
+    [
+      110,
+      "Home",
+      "115.00",
+      "110.00"
+    ],
+    [
+      111,
+      "Electronics",
+      "180.00",
+      "157.00"
+    ],
+    [
+      112,
+      "Clothing",
+      "75.00",
+      "75.00"
+    ],
+    [
+      113,
+      "Electronics",
+      "133.34",
+      "115.01"
+    ],
+    [
+      114,
+      "Books",
+      "90.00",
+      "90.00"
+    ],
+    [
+      115,
+      "Electronics",
+      "300.00",
+      "265.00"
+    ],
+    [
+      116,
+      "Home",
+      "100.00",
+      "100.00"
+    ],
+    [
+      117,
+      "Electronics",
+      "110.00",
+      "99.00"
+    ],
+    [
+      118,
+      "Clothing",
+      "200.00",
+      "195.00"
+    ],
+    [
+      119,
+      "Electronics",
+      "88.88",
+      "79.99"
+    ],
+    [
+      120,
+      "Books",
+      "120.00",
+      "115.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "initialize-column",
+      "conditional-row-transform",
+      "conditional-row-transform",
+      "scalar-transform"
+    ]
+  },
+  "hints": [
+    "You need to write a DO block that performs multiple UPDATE statements in sequence, where each UPDATE builds on the results of the previous one.",
+    "Start by copying base_price to final_price, then apply the category discount, then check if the current final_price value exceeds the threshold for the additional discount.",
+    "Use UPDATE products SET final_price = base_price; then UPDATE products SET final_price = final_price * 0.90 WHERE category = 'Electronics'; then UPDATE products SET final_price = final_price - 5 WHERE final_price > 100; then UPDATE products SET final_price = ROUND(final_price, 2);"
+  ],
+  "answer_key": "DO $$\nBEGIN\n  UPDATE products SET final_price = base_price;\n  UPDATE products SET final_price = final_price * 0.90 WHERE category = 'Electronics';\n  UPDATE products SET final_price = final_price - 5 WHERE final_price > 100;\n  UPDATE products SET final_price = ROUND(final_price, 2);\nEND $$;\n\nSELECT * FROM products ORDER BY product_id;",
+  "_meta": {
+    "question_type": "do_block",
+    "dialect": "postgresql",
+    "generated_at": "2026-04-25T16:38:29.782195",
+    "problem_id": "255052d128ec",
+    "validation_attempts": 1
+  }
+}

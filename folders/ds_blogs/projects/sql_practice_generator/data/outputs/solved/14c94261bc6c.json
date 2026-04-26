@@ -1,0 +1,144 @@
+{
+  "problem": {
+    "title": "Trace Transaction Approval Chain with Path",
+    "prompt": "A fintech platform records every transaction approval request and any subsequent review that was triggered. Each review can spawn a new review by a different team or analyst, forming an approval chain. Write a recursive CTE query that returns all transactions and their complete approval paths from the initial request through to the final decision. For each transaction, return the transaction_id, the full path of reviewer_ids visited (as a comma-separated string in traversal order), the depth of the approval chain, and the final status. Start from rows where parent_review_id IS NULL (initial submissions). A transaction may have multiple independent chains if it was submitted multiple times; include all chains. Order results by transaction_id ascending, then depth descending.",
+    "schema_ddl": "CREATE TABLE transaction_reviews (review_id INTEGER PRIMARY KEY, transaction_id INTEGER NOT NULL, parent_review_id INTEGER, reviewer_id INTEGER NOT NULL, review_status VARCHAR(20) NOT NULL, reviewed_at TIMESTAMP NOT NULL); CREATE INDEX idx_parent ON transaction_reviews(parent_review_id);",
+    "example_input_data": "INSERT INTO transaction_reviews (review_id, transaction_id, parent_review_id, reviewer_id, review_status, reviewed_at) VALUES (1, 100, NULL, 501, 'pending', '2024-01-10 09:00:00'), (2, 100, 1, 502, 'escalated', '2024-01-10 09:15:00'), (3, 100, 2, 503, 'approved', '2024-01-10 09:45:00'), (4, 200, NULL, 504, 'flagged', '2024-01-10 10:00:00'), (5, 200, 4, 505, 'rejected', '2024-01-10 10:30:00'), (6, 300, NULL, 506, 'approved', '2024-01-10 11:00:00'), (7, 400, NULL, 507, 'pending', '2024-01-10 12:00:00'), (8, 400, 7, 508, 'escalated', '2024-01-10 12:20:00');",
+    "example_output_columns": [
+      "transaction_id",
+      "approval_path",
+      "chain_depth",
+      "final_status"
+    ],
+    "example_output_rows": [
+      [
+        100,
+        "501,502,503",
+        3,
+        "approved"
+      ],
+      [
+        200,
+        "504,505",
+        2,
+        "rejected"
+      ],
+      [
+        300,
+        "506",
+        1,
+        "approved"
+      ],
+      [
+        400,
+        "507,508",
+        2,
+        "escalated"
+      ]
+    ],
+    "test_data": "INSERT INTO transaction_reviews (review_id, transaction_id, parent_review_id, reviewer_id, review_status, reviewed_at) VALUES (10, 1001, NULL, 601, 'pending', '2024-02-01 08:00:00'), (11, 1001, 10, 602, 'escalated', '2024-02-01 08:20:00'), (12, 1001, 11, 603, 'escalated', '2024-02-01 08:40:00'), (13, 1001, 12, 604, 'flagged', '2024-02-01 09:00:00'), (14, 1001, 13, 605, 'approved', '2024-02-01 09:30:00'), (15, 1002, NULL, 606, 'approved', '2024-02-01 10:00:00'), (16, 1003, NULL, 607, 'rejected', '2024-02-01 11:00:00'), (17, 1004, NULL, 608, 'escalated', '2024-02-01 12:00:00'), (18, 1004, 17, 609, 'escalated', '2024-02-01 12:15:00'), (19, 1004, 18, 610, 'rejected', '2024-02-01 12:45:00'), (20, 1005, NULL, 611, 'flagged', '2024-02-01 13:00:00'), (21, 1006, NULL, 612, 'pending', '2024-02-01 14:00:00'), (22, 1006, 21, 613, 'approved', '2024-02-01 14:30:00'), (23, 1007, NULL, 614, 'escalated', '2024-02-01 15:00:00'), (24, 1007, 23, 615, 'escalated', '2024-02-01 15:20:00'), (25, 1007, 24, 616, 'escalated', '2024-02-01 15:40:00'), (26, 1007, 25, 617, 'escalated', '2024-02-01 16:00:00'), (27, 1007, 26, 618, 'flagged', '2024-02-01 16:20:00'), (28, 1007, 27, 619, 'approved', '2024-02-01 16:50:00'), (29, 1008, NULL, 620, 'approved', '2024-02-01 17:00:00'), (30, 1009, NULL, 621, 'pending', '2024-02-01 18:00:00'), (31, 1010, NULL, 622, 'rejected', '2024-02-01 19:00:00'), (32, 1001, NULL, 623, 'pending', '2024-02-02 08:00:00'), (33, 1001, 32, 624, 'approved', '2024-02-02 08:25:00');",
+    "test_expected_columns": [
+      "transaction_id",
+      "approval_path",
+      "chain_depth",
+      "final_status"
+    ],
+    "test_expected_rows": [
+      [
+        1001,
+        "601,602,603,604,605",
+        5,
+        "approved"
+      ],
+      [
+        1001,
+        "623,624",
+        2,
+        "approved"
+      ],
+      [
+        1002,
+        "606",
+        1,
+        "approved"
+      ],
+      [
+        1003,
+        "607",
+        1,
+        "rejected"
+      ],
+      [
+        1004,
+        "608,609,610",
+        3,
+        "rejected"
+      ],
+      [
+        1005,
+        "611",
+        1,
+        "flagged"
+      ],
+      [
+        1006,
+        "612,613",
+        2,
+        "approved"
+      ],
+      [
+        1007,
+        "614,615,616,617,618,619",
+        6,
+        "approved"
+      ],
+      [
+        1008,
+        "620",
+        1,
+        "approved"
+      ],
+      [
+        1009,
+        "621",
+        1,
+        "pending"
+      ],
+      [
+        1010,
+        "622",
+        1,
+        "rejected"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "function-wrapped",
+      "composite_moves": [
+        "recursive-cte-anchor-roots",
+        "recursive-cte-join-children",
+        "concat-path-string",
+        "track-depth",
+        "select-leaf-final-status",
+        "order-by-transaction-depth"
+      ]
+    },
+    "hints": [
+      "Consider which rows represent the start of an approval chain and use them as your anchor case.",
+      "In the recursive step, join the CTE to itself via parent_review_id to traverse child reviews, concatenating reviewer_ids and incrementing depth.",
+      "To get the final status for each chain, you'll need to identify the leaf nodes (reviews with no children) after the recursion completes."
+    ],
+    "answer_key": "WITH RECURSIVE approval_chain AS (SELECT review_id, transaction_id, reviewer_id, review_status, CAST(reviewer_id AS TEXT) AS approval_path, 1 AS chain_depth FROM transaction_reviews WHERE parent_review_id IS NULL UNION ALL SELECT c.review_id, c.transaction_id, c.reviewer_id, c.review_status, p.approval_path || ',' || c.reviewer_id, p.chain_depth + 1 FROM transaction_reviews c INNER JOIN approval_chain p ON c.parent_review_id = p.review_id), leaf_nodes AS (SELECT ac.transaction_id, ac.approval_path, ac.chain_depth, ac.review_status AS final_status FROM approval_chain ac WHERE NOT EXISTS (SELECT 1 FROM transaction_reviews tr WHERE tr.parent_review_id = ac.review_id)) SELECT transaction_id, approval_path, chain_depth, final_status FROM leaf_nodes ORDER BY transaction_id ASC, chain_depth DESC;",
+    "_meta": {
+      "question_type": "recursive_cte",
+      "dialect": "postgresql",
+      "generated_at": "2026-04-25T17:43:16.101582",
+      "problem_id": "14c94261bc6c",
+      "validation_attempts": 1,
+      "scenario": "a fintech app tracking transaction approvals and fraud flags"
+    }
+  },
+  "user_solution": "WITH RECURSIVE chain AS (\n    -- Anchor: starting reviews (parent_review_id IS NULL)\n    SELECT\n        review_id,\n        transaction_id,\n        reviewer_id::text AS approval_path,\n        1 AS chain_depth,\n        review_status AS final_status\n    FROM transaction_reviews\n    WHERE parent_review_id IS NULL\n\n    UNION ALL\n\n    -- Recursive step: extend the chain with each child review\n    SELECT\n        t.review_id,\n        t.transaction_id,\n        c.approval_path || ',' || t.reviewer_id,\n        c.chain_depth + 1,\n        t.review_status\n    FROM transaction_reviews t\n    JOIN chain c ON t.parent_review_id = c.review_id\n)\n-- Keep only leaf rows (no further children)\nSELECT\n    c.transaction_id,\n    c.approval_path,\n    c.chain_depth,\n    c.final_status\nFROM chain c\nWHERE NOT EXISTS (\n    SELECT 1\n    FROM transaction_reviews t\n    WHERE t.parent_review_id = c.review_id\n)\nORDER BY c.transaction_id ASC, c.chain_depth DESC;",
+  "solved_at": "2026-04-25T18:12:10.805510"
+}

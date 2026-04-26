@@ -418,6 +418,45 @@
       word-wrap: break-word;
     }
 
+    /* Inline code: clean, professional look (overrides global red-on-pink) */
+    p code,
+    li code,
+    td code,
+    th code,
+    span code,
+    h1 code,
+    h2 code,
+    h3 code,
+    h4 code,
+    h5 code,
+    h6 code,
+    strong code,
+    em code,
+    a code {
+      color: #24292f;
+      background-color: #f0f1f3;
+      border: 1px solid #dcdfe4;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', Consolas, Monaco, monospace;
+      font-size: 0.92em;
+      font-weight: 500;
+      white-space: normal;
+      word-break: break-word;
+    }
+
+    /* Inline code in dark code-block / pre contexts stays light on dark */
+    pre code,
+    .code-block code,
+    .code-block code * {
+      color: inherit;
+      background-color: transparent;
+      border: 0;
+      padding: 0;
+      font-weight: inherit;
+      white-space: inherit;
+    }
+
     /* Syntax highlighting colors */
     .keyword {
       color: #ff7b72;
@@ -657,7 +696,7 @@
     .strategy-badge.join { background-color: #1565c0; }
     .strategy-badge.asof { background-color: #ad1457; }
 
-    .leetcode-link {
+    .problem-source-link {
       display: inline-block;
       margin: 10px 0 4px 0;
       padding: 4px 12px;
@@ -669,7 +708,7 @@
       text-decoration: none;
     }
 
-    .leetcode-link:hover {
+    .problem-source-link:hover {
       background-color: #e68f00;
       text-decoration: none;
       color: white !important;
@@ -718,7 +757,7 @@
       <!-- Blog Header -->
       <div class="blog-header">
         <h1>SQL Problem Patterns: A Practice Guide</h1>
-        <p class="subtitle">224 problems classified into 12 recipe categories by input and output shape, with a diagnostic process, decision tree, step-by-step templates, full solutions, and technique reference.</p>
+        <p class="subtitle">224 problems classified into 12 SELECT recipe categories by input and output shape, plus a Procedures tab for procedural shapes (DO blocks, sequential UPDATE, RETURNS TABLE), with a diagnostic process, decision tree, step-by-step templates, full solutions, and technique reference.</p>
         <p class="meta">Last updated: April 2026</p>
       </div>
 
@@ -728,6 +767,7 @@
         <button class="tab-nav-item" data-tab="tab-decision-tree">Decision Tree</button>
         <button class="tab-nav-item" data-tab="tab-single">Single-Table Recipes</button>
         <button class="tab-nav-item" data-tab="tab-multi">Multi-Table Recipes</button>
+        <button class="tab-nav-item" data-tab="tab-procedural">Procedures</button>
       </div>
 
       <!-- Tab Content -->
@@ -1133,7 +1173,6 @@
 -- ============================================
 
 -- Problem name: #1193 Monthly Transactions I
--- Source: LeetCode
 -- Difficulty: Medium
 
 -- Prompt (write it in your own words):
@@ -1434,6 +1473,10 @@ Recipe category:
     RESHAPE RECIPE:
       reshape        Reshape rows to columns or columns to rows — pivot, unpivot, UNION of independent queries
 
+    PROCEDURAL RECIPES (not pure SELECT):
+      function-wrapped     Inner SELECT inside CREATE OR REPLACE FUNCTION ... RETURNS TABLE
+      do-block-sequential  DO $$ ... END $$; with FOR loop + UPDATE + trailing SELECT
+
     GAPS-AND-ISLANDS NOTE (within row-compare):
       Use when the prompt mentions "consecutive," "streak," "3 in a row," or "gap."
       The trick: subtract ROW_NUMBER from a monotonic id/date so consecutive rows
@@ -1639,6 +1682,10 @@ Recipe category:
     RESHAPE RECIPE:
       reshape                  Pivot, unpivot, or UNION independent queries
 
+    PROCEDURAL RECIPES (not pure SELECT):
+      function-wrapped         Inner SELECT inside CREATE OR REPLACE FUNCTION ... RETURNS TABLE
+      do-block-sequential      DO $$ ... END $$; with FOR loop + UPDATE + trailing SELECT
+
 If composite (2+ moves, including intermediate prep steps), name in order:
     Move 1:
     Move 2:
@@ -1692,7 +1739,7 @@ Red flags (if any, go back to Step 3):
           <div class="problem-card collapsed" id="pitfall-on-vs-where" style="margin-top: 30px;">
             <div class="problem-card-header">
               <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
-                <span style="display: inline-block; background-color: #c62828; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Pitfall</span>
+                <span style="display: inline-block; background-color: #455a64; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Pitfall</span>
                 LEFT JOIN: ON vs WHERE for right-side filters
               </h3>
               <span class="problem-toggle">&#9660;</span>
@@ -1731,7 +1778,7 @@ LEFT JOIN Orders o
 | ------- | ---------------- | ------------- |
 | 1       | The Hobbit       | 2019-06-11    |
 | 5       | The Hunger Games | null          |</code></pre>
-              <p style="margin: 8px 0; color: #2e7d32;"><strong>Hunger Games stays.</strong> Old order didn't qualify to attach, so the order side is null.</p>
+              <p style="margin: 8px 0;"><strong>Result:</strong> Hunger Games stays. The old order didn't qualify to attach, so the order side is null.</p>
 
               <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ddd;">
 
@@ -1745,7 +1792,7 @@ WHERE o.dispatch_date &gt;= '2018-06-23'</code></pre>
               <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; font-size: 1.25rem;"><code>| book_id | name             | dispatch_date |
 | ------- | ---------------- | ------------- |
 | 1       | The Hobbit       | 2019-06-11    |</code></pre>
-              <p style="margin: 8px 0; color: #c62828;"><strong>Hunger Games is gone.</strong> The LEFT JOIN gave it a row with the old order; the WHERE then filtered that row out.</p>
+              <p style="margin: 8px 0;"><strong>Result:</strong> Hunger Games is gone. The LEFT JOIN gave it a row with the old order; the WHERE then filtered that row out.</p>
 
               <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ddd;">
 
@@ -3694,7 +3741,7 @@ WHERE conditions LIKE 'DIAB1%' OR POSITION(' DIAB1' IN conditions) > 0;</code></
               <span class="problem-toggle">&#9660;</span>
             </div>
             <div class="problem-card-excerpt">
-              <p>Find users with valid emails where the email is at domain @leetcode.com and the prefix starts with a letter and contains only alphanumeric, underscore, period, or dash characters.</p>
+              <p>Find users with valid emails where the email is at domain @example.com and the prefix starts with a letter and contains only alphanumeric, underscore, period, or dash characters.</p>
             </div>
             <div class="problem-card-content">
 
@@ -3728,8 +3775,8 @@ WHERE conditions LIKE 'DIAB1%' OR POSITION(' DIAB1' IN conditions) > 0;</code></
                     <div class="code-block"><code>-- Most precise: PostgreSQL regex validation
 SELECT user_id, name, mail
 FROM Users
-WHERE mail ~ '^[A-Za-z][A-Za-z0-9._-]*@leetcode\\.com$';</code></div>
-                    <p style="margin: 12px 0;"><strong>Why this is best:</strong> Regex precisely validates the format: must start with letter, contain allowed chars only, end with @leetcode.com. Single condition, clear intent.</p>
+WHERE mail ~ '^[A-Za-z][A-Za-z0-9._-]*@example\\.com$';</code></div>
+                    <p style="margin: 12px 0;"><strong>Why this is best:</strong> Regex precisely validates the format: must start with letter, contain allowed chars only, end with @example.com. Single condition, clear intent.</p>
                     <p style="margin: 12px 0;"><strong>Performance:</strong> O(n) scan. Regex matching is efficient in PostgreSQL. More precise than LIKE, avoiding false positives.</p>
                   </div>
                 </details>
@@ -3744,7 +3791,7 @@ WHERE mail ~ '^[A-Za-z][A-Za-z0-9._-]*@leetcode\\.com$';</code></div>
                     <div class="code-block"><code>-- Alternative (less precise): LIKE pattern
 SELECT user_id, name, mail
 FROM Users
-WHERE mail LIKE '[A-Za-z]%@leetcode.com';</code></div>
+WHERE mail LIKE '[A-Za-z]%@example.com';</code></div>
                     <p style="margin: 12px 0;"><strong>Why this works:</strong> LIKE pattern checks domain and that the prefix starts with a letter. However, LIKE allows invalid characters (!, #, etc.) between the letter and @.</p>
                     <p style="margin: 12px 0;"><strong>Performance:</strong> Slightly faster than regex but much less accurate. Only use if the data is pre-validated.</p>
                   </div>
@@ -3760,7 +3807,7 @@ WHERE mail LIKE '[A-Za-z]%@leetcode.com';</code></div>
                     <div class="code-block"><code>-- Advanced: using string functions for validation
 SELECT user_id, name, mail
 FROM Users
-WHERE mail LIKE '%@leetcode.com'
+WHERE mail LIKE '%@example.com'
   AND SUBSTRING(mail, 1, 1) ~ '[A-Za-z]'
   AND mail !~ '[^A-Za-z0-9._\-@]';</code></div>
                     <p style="margin: 12px 0;"><strong>Why this works:</strong> Breaks validation into steps: domain check, first-char check, and no-invalid-chars check. Verbose but readable for teams unfamiliar with complex regex.</p>
@@ -4096,7 +4143,7 @@ WITH RECURSIVE Subordinates AS (
 SELECT employee_id
 FROM Subordinates;</code></div>
                     <p style="margin: 12px 0;"><strong>Why this is best:</strong> Recursive CTE is the canonical pattern for hierarchy traversal. It starts with direct reports and repeatedly adds their reports until no new rows appear.</p>
-                    <p style="margin: 12px 0;"><strong>Performance:</strong> O(n) where n is subtree size. Unbounded trees should also have a depth guard in production, but LeetCode guarantees depth 3.</p>
+                    <p style="margin: 12px 0;"><strong>Performance:</strong> O(n) where n is subtree size. Unbounded trees should also have a depth guard in production, but the prompt guarantees depth 3.</p>
                   </div>
                 </details>
 
@@ -4113,7 +4160,7 @@ FROM Employees e1
 JOIN Employees e2 ON e1.manager_id = e2.employee_id
 JOIN Employees e3 ON e2.manager_id = e3.employee_id
 WHERE e3.manager_id = 1 AND e1.employee_id <> 1;</code></div>
-                    <p style="margin: 12px 0;"><strong>Why this works:</strong> LeetCode constrains the tree to 3 levels, so three self-joins capture every subordinate. Simpler than recursion.</p>
+                    <p style="margin: 12px 0;"><strong>Why this works:</strong> The prompt constrains the tree to 3 levels, so three self-joins capture every subordinate. Simpler than recursion.</p>
                     <p style="margin: 12px 0;"><strong>Performance:</strong> Joins are fast with an index on manager_id. Fragile if depth ever grows beyond 3.</p>
                   </div>
                 </details>
@@ -5172,8 +5219,6 @@ FROM Customers;</code></pre></td>
             <div class="problem-card-content">
 
               <p><strong>Tables:</strong> <code>Activity</code> (user_id, session_id, activity_date, activity_type)</p>
-
-              <p><a class="leetcode-link" href="https://leetcode.com/problems/user-activity-for-the-past-30-days-i/" target="_blank" rel="noopener">View on LeetCode &rarr;</a></p>
 
               <div class="guide-link">
                 <div class="guide-link-icon">→</div>
@@ -11535,8 +11580,8 @@ WHERE salary &gt; (SELECT AVG(salary) FROM Emp);</code></pre></td>
                 <p><strong>Technique:</strong> <code>LEFT JOIN, INNER JOIN, CROSS JOIN (for all combinations), self-join (alias the same table twice)</code></p>
               </div>
 
-              <div style="background-color: #fff3e0; border-left: 5px solid #c62828; padding: 12px 16px; margin: 12px 0 20px; border-radius: 4px;">
-                <p style="margin: 0 0 6px; font-weight: 600; color: #c62828;">Pitfall: ON vs WHERE on a LEFT JOIN</p>
+              <div style="background-color: #f7f8fa; border-left: 4px solid #455a64; padding: 12px 16px; margin: 12px 0 20px; border-radius: 3px;">
+                <p style="margin: 0 0 6px; font-weight: 600; color: #455a64;">Pitfall: ON vs WHERE on a LEFT JOIN</p>
                 <p style="margin: 6px 0; line-height: 1.7;">A right-side filter in <code>WHERE</code> drops unmatched left rows and silently turns your LEFT JOIN into an INNER JOIN. Put right-side filters in <code>ON</code> to keep every left row.</p>
                 <p style="margin: 6px 0;"><a href="#pitfall-on-vs-where">Open the full ON vs WHERE walkthrough &rarr;</a></p>
               </div>
@@ -12448,8 +12493,8 @@ WHERE c.years_of_exp >= 2 AND t.total >= 15;</code></div>
                 <p><strong>Technique:</strong> <code>JOIN + GROUP BY, weighted AVG, HAVING COUNT = (SELECT COUNT), date-range joins</code></p>
               </div>
 
-              <div style="background-color: #fff3e0; border-left: 5px solid #c62828; padding: 12px 16px; margin: 12px 0 20px; border-radius: 4px;">
-                <p style="margin: 0 0 6px; font-weight: 600; color: #c62828;">Pitfall: date filters on a LEFT JOIN</p>
+              <div style="background-color: #f7f8fa; border-left: 4px solid #455a64; padding: 12px 16px; margin: 12px 0 20px; border-radius: 3px;">
+                <p style="margin: 0 0 6px; font-weight: 600; color: #455a64;">Pitfall: date filters on a LEFT JOIN</p>
                 <p style="margin: 6px 0; line-height: 1.7;">When you want every left row to survive (e.g., "all books, even ones with zero sales last year"), put date filters on the right table in <code>ON</code>, not <code>WHERE</code>. A <code>WHERE</code> on a right-side date drops unmatched rows and undercounts groups with no recent activity.</p>
                 <p style="margin: 6px 0;"><a href="#pitfall-on-vs-where">Open the full ON vs WHERE walkthrough &rarr;</a></p>
               </div>
@@ -18270,6 +18315,1116 @@ GROUP BY p.platform, n.experiment_name;</code></div>
               </div>
             </div>
           </div>
+
+            </div>
+          </div>
+
+        </div>
+
+
+        <!-- TAB: FUNCTIONS & LOOPS -->
+        <div id="tab-procedural" class="tab-pane">
+          <div class="section-heading">Procedures</div>
+          <p style="margin-bottom: 20px; line-height: 1.8;">Non-SELECT problem shapes that some practice platforms include but most analytical SQL drills skip. Two families live here: <strong>Function-Wrapped Queries</strong> (the IDE scaffolds a <code>CREATE OR REPLACE FUNCTION ... RETURNS TABLE</code> block and you fill in the inner SELECT) and <strong>DO Blocks with Sequential State</strong> (you mutate a table row by row inside <code>DO $$ ... END $$;</code> using procedural PL/pgSQL, then run a trailing SELECT so the test scaffold sees output).</p>
+
+          <!-- PROCEDURAL PROBLEM TYPE INDEX -->
+          <div class="problem-card collapsed" style="margin-bottom: 25px;">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <span style="display: inline-block; background-color: #6a1b9a; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Index</span>
+                Procedural Problem Types Generated by the Practice Notebook
+              </h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>The seven question types the practice notebook can generate, what each one looks like, and how to spot them in a prompt.</p>
+            </div>
+            <div class="problem-card-content">
+              <style>
+                .qtype-card {
+                  border: 1px solid #d0d7de;
+                  border-radius: 6px;
+                  padding: 14px 16px;
+                  margin-bottom: 14px;
+                  background: #fafbfc;
+                }
+                .qtype-card-head {
+                  display: flex;
+                  flex-wrap: wrap;
+                  align-items: baseline;
+                  gap: 12px;
+                  margin-bottom: 10px;
+                }
+                .qtype-card-name { font-weight: 700; font-size: 1.45rem; color: #24292f; }
+                .qtype-card-dialect {
+                  font-size: 1.1rem;
+                  color: #57606a;
+                  background: #eaeef2;
+                  border-radius: 12px;
+                  padding: 2px 10px;
+                }
+                .qtype-card-grid {
+                  display: grid;
+                  grid-template-columns: 1fr 1fr;
+                  gap: 14px;
+                  font-size: 1.3rem;
+                  line-height: 1.65;
+                }
+                .qtype-card-grid h5 {
+                  margin: 0 0 4px;
+                  font-size: 1.1rem;
+                  text-transform: uppercase;
+                  letter-spacing: 0.05em;
+                  color: #57606a;
+                  font-weight: 600;
+                }
+                .qtype-card-grid p { margin: 0; }
+                .qtype-card-grid pre {
+                  margin: 6px 0 0;
+                  padding: 8px 10px;
+                  background: #1e1e1e;
+                  color: #d4d4d4;
+                  border-radius: 4px;
+                  font-size: 1.15rem;
+                  line-height: 1.5;
+                  font-family: 'Courier New', Consolas, Monaco, monospace;
+                  white-space: pre;
+                  overflow-x: auto;
+                }
+                @media (max-width: 700px) {
+                  .qtype-card-grid { grid-template-columns: 1fr; }
+                }
+              </style>
+
+              <div class="qtype-card">
+                <div class="qtype-card-head">
+                  <span class="qtype-card-name">Select Analytical</span>
+                  <span class="qtype-card-dialect">PostgreSQL or MySQL</span>
+                </div>
+                <div class="qtype-card-grid">
+                  <div><h5>When you'll see it</h5><p>Standard analytical question (filter, aggregate, join, window) &mdash; baseline shape.</p></div>
+                  <div><h5>What you write</h5><p>A SELECT or CTE that returns the requested rows.</p>
+                    <pre><code>SELECT col, AGG(...)
+FROM t
+WHERE cond
+GROUP BY col;</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="qtype-card">
+                <div class="qtype-card-head">
+                  <span class="qtype-card-name">DO Block (sequential UPDATE)</span>
+                  <span class="qtype-card-dialect">PostgreSQL only</span>
+                </div>
+                <div class="qtype-card-grid">
+                  <div><h5>When you'll see it</h5><p>Prompt says "apply these requests in order" or "after the requests have been performed, return the table." Often involves per-row state checks.</p></div>
+                  <div><h5>What you write</h5><p>A <code>DO $$ ... $$;</code> block with a FOR loop and conditional UPDATEs, plus a trailing <code>SELECT</code>.</p>
+                    <pre><code>DO $$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN SELECT * FROM requests
+           ORDER BY request_id LOOP
+    -- conditional UPDATE
+  END LOOP;
+END $$;
+SELECT * FROM target ORDER BY id;</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="qtype-card">
+                <div class="qtype-card-head">
+                  <span class="qtype-card-name">RETURNS TABLE Function</span>
+                  <span class="qtype-card-dialect">PostgreSQL only</span>
+                </div>
+                <div class="qtype-card-grid">
+                  <div><h5>When you'll see it</h5><p>Prompt names a function like <code>getNthHighestSalary(N)</code> and the IDE pre-fills a <code>CREATE OR REPLACE FUNCTION ... RETURNS TABLE</code> scaffold.</p></div>
+                  <div><h5>What you write</h5><p>Fill in the inner SELECT or CTE inside <code>RETURN QUERY ( ... );</code>. Alias the table to avoid column shadowing.</p>
+                    <pre><code>RETURNS TABLE (Salary INT) AS $$
+BEGIN
+  RETURN QUERY (
+    SELECT e.salary FROM Employee e ...
+  );
+END;
+$$ LANGUAGE plpgsql;</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="qtype-card">
+                <div class="qtype-card-head">
+                  <span class="qtype-card-name">RETURNS Scalar Function</span>
+                  <span class="qtype-card-dialect">PostgreSQL only</span>
+                </div>
+                <div class="qtype-card-grid">
+                  <div><h5>When you'll see it</h5><p>Prompt asks for a single value (count, max, ratio) returned from a named function.</p></div>
+                  <div><h5>What you write</h5><p>Use plain <code>RETURN</code>, not <code>RETURN QUERY</code>.</p>
+                    <pre><code>RETURNS INT AS $$
+BEGIN
+  RETURN ( SELECT COUNT(*) FROM ... );
+END;
+$$ LANGUAGE plpgsql;</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="qtype-card">
+                <div class="qtype-card-head">
+                  <span class="qtype-card-name">Recursive CTE</span>
+                  <span class="qtype-card-dialect">PostgreSQL or MySQL 8+</span>
+                </div>
+                <div class="qtype-card-grid">
+                  <div><h5>When you'll see it</h5><p>Hierarchy traversal (employees / managers, parent / child), path enumeration, or running calculations over a chain.</p></div>
+                  <div><h5>What you write</h5><p>A self-referencing CTE: anchor query <code>UNION ALL</code>'d with a recursive step.</p>
+                    <pre><code>WITH RECURSIVE cte AS (
+  -- anchor
+  SELECT ... FROM t WHERE ...
+  UNION ALL
+  -- recursive step
+  SELECT ... FROM t JOIN cte ON ...
+)
+SELECT * FROM cte;</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="qtype-card">
+                <div class="qtype-card-head">
+                  <span class="qtype-card-name">DML (UPDATE / DELETE / INSERT)</span>
+                  <span class="qtype-card-dialect">PostgreSQL or MySQL</span>
+                </div>
+                <div class="qtype-card-grid">
+                  <div><h5>When you'll see it</h5><p>Prompt mutates a table directly with conditions; final SELECT confirms the result.</p></div>
+                  <div><h5>What you write</h5><p>One or more UPDATE, DELETE, or INSERT statements followed by <code>SELECT * FROM target ORDER BY ...;</code>.</p>
+                    <pre><code>UPDATE target SET col = expr WHERE cond;
+SELECT * FROM target ORDER BY id;</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <div class="qtype-card">
+                <div class="qtype-card-head">
+                  <span class="qtype-card-name">Window Function Edge Cases</span>
+                  <span class="qtype-card-dialect">PostgreSQL or MySQL 8+</span>
+                </div>
+                <div class="qtype-card-grid">
+                  <div><h5>When you'll see it</h5><p>A normal-looking window problem where the choice between ROWS / RANGE or RANK / DENSE_RANK / ROW_NUMBER materially changes the answer.</p></div>
+                  <div><h5>What you write</h5><p>A SELECT with a carefully chosen window frame.</p>
+                    <pre><code>... OVER (
+  PARTITION BY group_col
+  ORDER BY ts
+  ROWS BETWEEN 6 PRECEDING
+       AND CURRENT ROW
+)</code></pre>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- METHOD REFERENCE: split by category, each collapsable -->
+          <style>
+            .ref-method { padding: 14px 0; border-bottom: 1px solid #e0e0e0; }
+            .ref-method:last-child { border-bottom: 0; }
+            .ref-method-name { font-weight: 600; font-size: 1.45rem; margin: 0 0 8px; color: #24292f; }
+            .ref-method-name code { background: #f0f1f3; border: 1px solid #dcdfe4; padding: 1px 6px; border-radius: 3px; font-size: 0.92em; }
+            .ref-method-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 14px;
+              margin: 8px 0 12px;
+              font-size: 1.3rem;
+              line-height: 1.6;
+            }
+            .ref-method-grid h5 {
+              margin: 0 0 4px;
+              font-size: 1.15rem;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+              color: #57606a;
+              font-weight: 600;
+            }
+            .ref-method-code {
+              background: #1e1e1e;
+              color: #d4d4d4;
+              padding: 12px 14px;
+              border-radius: 4px;
+              font-size: 1.2rem;
+              line-height: 1.6;
+              font-family: 'Courier New', Consolas, monospace;
+              white-space: pre;
+              overflow-x: auto;
+              margin: 0;
+            }
+            @media (max-width: 700px) {
+              .ref-method-grid { grid-template-columns: 1fr; }
+            }
+          </style>
+
+          <!-- Procedural Blocks -->
+          <div class="problem-card collapsed" style="margin-bottom: 16px;">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <span style="display: inline-block; background-color: #6a1b9a; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Reference</span>
+                Procedural Blocks &mdash; methods reference
+              </h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>The five building blocks of a DO block: <code>DO $$</code> wrapper, <code>DECLARE</code>, <code>FOR ... LOOP</code>, <code>SELECT INTO</code>, and <code>IF / ELSIF</code>.</p>
+            </div>
+            <div class="problem-card-content">
+
+              <div class="ref-method">
+                <p class="ref-method-name"><code>DO $$ ... $$;</code></p>
+                <div class="ref-method-grid">
+                  <div><h5>What it does</h5>Runs an anonymous PL/pgSQL block: declare variables, run loops, call UPDATE in sequence as one unit.</div>
+                  <div><h5>When to reach for it</h5>The prompt asks for sequential state mutation that can't be expressed as one SELECT (apply rules in order, iterate over requests, sequential UPDATE chains).</div>
+                </div>
+                <pre class="ref-method-code"><code>DO $$
+BEGIN
+  UPDATE t SET col = expr1;
+  UPDATE t SET col = expr2 WHERE cond;
+END $$;
+
+SELECT * FROM t;</code></pre>
+              </div>
+
+              <div class="ref-method">
+                <p class="ref-method-name"><code>DECLARE ... RECORD;</code></p>
+                <div class="ref-method-grid">
+                  <div><h5>What it does</h5>Declares a variable to hold one row at a time inside a procedural block.</div>
+                  <div><h5>When to reach for it</h5>You need to iterate through rows and reference whole-row attributes, e.g., <code>r.seat_no</code>, <code>r.request_id</code>.</div>
+                </div>
+                <pre class="ref-method-code"><code>DECLARE
+  r RECORD;
+  current_status INT;
+BEGIN
+  -- body
+END;</code></pre>
+              </div>
+
+              <div class="ref-method">
+                <p class="ref-method-name"><code>FOR r IN SELECT ... LOOP</code></p>
+                <div class="ref-method-grid">
+                  <div><h5>What it does</h5>Iterates a result set row by row, binding each row to a record variable.</div>
+                  <div><h5>When to reach for it</h5>The prompt requires processing rows in a specific order (e.g., requests by id) where each iteration's decision depends on prior iterations.</div>
+                </div>
+                <pre class="ref-method-code"><code>FOR r IN
+  SELECT * FROM requests
+  ORDER BY request_id
+LOOP
+  -- handle r
+END LOOP;</code></pre>
+              </div>
+
+              <div class="ref-method">
+                <p class="ref-method-name"><code>SELECT col INTO var</code></p>
+                <div class="ref-method-grid">
+                  <div><h5>What it does</h5>Reads a single value from a SELECT into a variable inside a procedural block.</div>
+                  <div><h5>When to reach for it</h5>You need to capture current state mid-loop before deciding whether to mutate (e.g., is the seat free right now?).</div>
+                </div>
+                <pre class="ref-method-code"><code>SELECT status INTO current_status
+FROM seats
+WHERE seat_no = r.seat_no;</code></pre>
+              </div>
+
+              <div class="ref-method">
+                <p class="ref-method-name"><code>IF / ELSIF / END IF</code></p>
+                <div class="ref-method-grid">
+                  <div><h5>What it does</h5>Procedural conditional branching inside a DO block or function.</div>
+                  <div><h5>When to reach for it</h5>Different rules apply depending on a request type or current row state; the conditions are too complex for a single CASE.</div>
+                </div>
+                <pre class="ref-method-code"><code>IF cond1 THEN
+  -- branch 1
+ELSIF cond2 THEN
+  -- branch 2
+ELSE
+  -- fallback
+END IF;</code></pre>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Functions -->
+          <div class="problem-card collapsed" style="margin-bottom: 16px;">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <span style="display: inline-block; background-color: #6a1b9a; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Reference</span>
+                Functions &mdash; methods reference
+              </h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>RETURNS TABLE, scalar RETURNS, and the NULL-safe wrapper for empty result sets.</p>
+            </div>
+            <div class="problem-card-content">
+
+              <div class="ref-method">
+                <p class="ref-method-name"><code>RETURNS TABLE ( ... )</code></p>
+                <div class="ref-method-grid">
+                  <div><h5>What it does</h5>Defines a function that returns a result set with named columns.</div>
+                  <div><h5>When to reach for it</h5>The IDE scaffolds <code>CREATE OR REPLACE FUNCTION ... RETURNS TABLE (...)</code> and you fill in <code>RETURN QUERY ( ... );</code>. Use for "find the Nth ..." style prompts.</div>
+                </div>
+                <pre class="ref-method-code"><code>CREATE OR REPLACE FUNCTION getNthHighestSalary(N INT)
+RETURNS TABLE (Salary INT) AS $$
+BEGIN
+  RETURN QUERY (
+    SELECT e.salary
+    FROM Employee e
+    -- ...
+  );
+END;
+$$ LANGUAGE plpgsql;</code></pre>
+              </div>
+
+              <div class="ref-method">
+                <p class="ref-method-name"><code>RETURNS &lt;type&gt;</code> + <code>RETURN ( ... );</code></p>
+                <div class="ref-method-grid">
+                  <div><h5>What it does</h5>Defines a function that returns one scalar value of a fixed type.</div>
+                  <div><h5>When to reach for it</h5>The function returns a single number (count, ratio) rather than a row set; use plain <code>RETURN</code>, not <code>RETURN QUERY</code>.</div>
+                </div>
+                <pre class="ref-method-code"><code>CREATE OR REPLACE FUNCTION getUserIDs(...)
+RETURNS INT AS $$
+BEGIN
+  RETURN ( SELECT COUNT(*) FROM ... );
+END;
+$$ LANGUAGE plpgsql;</code></pre>
+              </div>
+
+              <div class="ref-method">
+                <p class="ref-method-name">NULL-safe wrapper <code>SELECT (SELECT ... )</code></p>
+                <div class="ref-method-grid">
+                  <div><h5>What it does</h5>Wraps an inner query so an empty result set returns one row of NULLs instead of zero rows.</div>
+                  <div><h5>When to reach for it</h5>A function spec says "return null when no rows match" (e.g., Nth highest salary when fewer than N distinct values exist).</div>
+                </div>
+                <pre class="ref-method-code"><code>SELECT (SELECT n.salary FROM nth_salary AS n)</code></pre>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Recursive queries -->
+          <div class="problem-card collapsed" style="margin-bottom: 16px;">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <span style="display: inline-block; background-color: #6a1b9a; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Reference</span>
+                Recursive Queries &mdash; methods reference
+              </h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>Self-referencing CTEs for hierarchies, paths, and chains.</p>
+            </div>
+            <div class="problem-card-content">
+
+              <div class="ref-method">
+                <p class="ref-method-name"><code>WITH RECURSIVE</code></p>
+                <div class="ref-method-grid">
+                  <div><h5>What it does</h5>Defines a self-referencing CTE: an anchor query <code>UNION ALL</code>'d with a recursive step that builds on prior results.</div>
+                  <div><h5>When to reach for it</h5>Prompt involves traversing a hierarchy (manager / employee, parent / child), enumerating paths, or running a chain of calculations to a fixed point.</div>
+                </div>
+                <pre class="ref-method-code"><code>WITH RECURSIVE chain AS (
+  -- anchor: starting row(s)
+  SELECT id FROM t WHERE id = 1
+  UNION ALL
+  -- recursive step: build on prior results
+  SELECT c.id
+  FROM t c
+  JOIN chain p ON c.parent = p.id
+)
+SELECT * FROM chain;</code></pre>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- DML -->
+          <div class="problem-card collapsed" style="margin-bottom: 16px;">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <span style="display: inline-block; background-color: #6a1b9a; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Reference</span>
+                DML &mdash; methods reference
+              </h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>UPDATE, DELETE, and INSERT mutation patterns with a confirming SELECT.</p>
+            </div>
+            <div class="problem-card-content">
+
+              <div class="ref-method">
+                <p class="ref-method-name"><code>UPDATE ... WHERE</code></p>
+                <div class="ref-method-grid">
+                  <div><h5>What it does</h5>Modifies rows in place that match a condition.</div>
+                  <div><h5>When to reach for it</h5>Prompt says "modify" or "update" the existing table; final SELECT confirms the new state.</div>
+                </div>
+                <pre class="ref-method-code"><code>UPDATE Salary
+SET sex = CASE
+  WHEN sex = 'm' THEN 'f'
+  ELSE 'm'
+END;
+
+SELECT * FROM Salary;</code></pre>
+              </div>
+
+              <div class="ref-method">
+                <p class="ref-method-name"><code>DELETE ... WHERE</code></p>
+                <div class="ref-method-grid">
+                  <div><h5>What it does</h5>Removes rows from a table that match a condition.</div>
+                  <div><h5>When to reach for it</h5>Prompt says "delete duplicates," "remove rows where ...," or "keep only the smallest id per group."</div>
+                </div>
+                <pre class="ref-method-code"><code>DELETE FROM Person
+WHERE id NOT IN (
+  SELECT MIN(id)
+  FROM Person
+  GROUP BY email
+);</code></pre>
+              </div>
+
+              <div class="ref-method">
+                <p class="ref-method-name"><code>INSERT ... SELECT</code></p>
+                <div class="ref-method-grid">
+                  <div><h5>What it does</h5>Adds rows to a table from a query.</div>
+                  <div><h5>When to reach for it</h5>Prompt says "insert all rows where..." or you need to seed a target table from a source via DML.</div>
+                </div>
+                <pre class="ref-method-code"><code>INSERT INTO Target (a, b)
+SELECT a, b
+FROM Source
+WHERE cond;</code></pre>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Window Function Edges -->
+          <div class="problem-card collapsed" style="margin-bottom: 30px;">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <span style="display: inline-block; background-color: #6a1b9a; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Reference</span>
+                Window Function Edges &mdash; methods reference
+              </h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>The two window-function distinctions that flip answers: ROWS vs RANGE, and RANK vs DENSE_RANK vs ROW_NUMBER.</p>
+            </div>
+            <div class="problem-card-content">
+
+              <div class="ref-method">
+                <p class="ref-method-name"><code>ROWS BETWEEN</code> vs <code>RANGE BETWEEN</code></p>
+                <div class="ref-method-grid">
+                  <div><h5>What it does</h5>ROWS counts physical rows; RANGE counts by ORDER BY value. They diverge when ORDER BY values repeat or have gaps.</div>
+                  <div><h5>When to reach for it</h5>Time-series with missing dates: use RANGE for "last 7 days" so missing days still count. Use ROWS for "last 7 records" regardless of date.</div>
+                </div>
+                <pre class="ref-method-code"><code>SUM(amt) OVER (
+  ORDER BY d
+  RANGE BETWEEN
+    INTERVAL '6 days' PRECEDING
+    AND CURRENT ROW
+)</code></pre>
+              </div>
+
+              <div class="ref-method">
+                <p class="ref-method-name"><code>RANK</code> vs <code>DENSE_RANK</code> vs <code>ROW_NUMBER</code></p>
+                <div class="ref-method-grid">
+                  <div><h5>What it does</h5>RANK skips numbers after ties (1, 1, 3); DENSE_RANK does not (1, 1, 2); ROW_NUMBER never ties (1, 2, 3) and the tiebreak depends on ORDER BY.</div>
+                  <div><h5>When to reach for it</h5>"Nth distinct" use DENSE_RANK; "exactly one winner per group" use ROW_NUMBER with a tiebreak; "Olympic-style ranking" use RANK.</div>
+                </div>
+                <pre class="ref-method-code"><code>DENSE_RANK() OVER (
+  PARTITION BY dept
+  ORDER BY salary DESC
+)</code></pre>
+              </div>
+
+            </div>
+          </div>
+
+
+          <!-- RECIPE: FUNCTION-WRAPPED QUERIES -->
+          <div class="problem-card" id="function-wrapped">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0;">Function-Wrapped Queries (RETURNS TABLE) <span class="count-badge">recipe</span></h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>The IDE scaffolds a PL/pgSQL function and you fill in the inner SELECT. Same SELECT/CTE you'd write outside the function, with a few naming gotchas.</p>
+            </div>
+            <div class="problem-card-content">
+
+              <div style="margin-bottom: 15px;">
+                <p><strong>Signal words:</strong> "find the Nth ...," "write a function," prompt names a function like <code>getNthHighestSalary(N)</code>, IDE shows a <code>CREATE OR REPLACE FUNCTION</code> scaffold.</p>
+                <p><strong>Technique:</strong> drop a normal SELECT or CTE inside <code>RETURN QUERY ( ... );</code>. Use a subquery wrapper to return NULL when no rows match.</p>
+              </div>
+
+              <p style="margin-top: 18px;"><strong>Common pitfalls:</strong></p>
+              <table style="width: 100%; border-collapse: collapse; font-size: 1.3rem; line-height: 1.6; margin-bottom: 18px;">
+                <thead>
+                  <tr style="background: #6a1b9a; color: white; text-align: left;">
+                    <th style="padding: 10px 12px; font-weight: 600; width: 32%;">Pitfall</th>
+                    <th style="padding: 10px 12px; font-weight: 600; width: 68%;">How to avoid</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Output slot shadows column name</td>
+                    <td style="padding: 10px 12px;"><code>RETURNS TABLE (Salary INT)</code> declares a <code>salary</code> output. Alias the source table (<code>FROM Employee e</code>) and qualify every reference (<code>e.salary</code>) to avoid "column reference is ambiguous".</td>
+                  </tr>
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Empty result instead of NULL</td>
+                    <td style="padding: 10px 12px;">When no rows match, an unwrapped query returns 0 rows. Wrap with <code>SELECT (SELECT salary FROM nth_salary)</code> to force one NULL row.</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Missing function body markers</td>
+                    <td style="padding: 10px 12px;">Function bodies need <code>BEGIN ... END;</code> inside <code>$$ ... $$ LANGUAGE plpgsql;</code>. The IDE pre-fills these &mdash; edit only inside <code>RETURN QUERY ( ... );</code>.</td>
+                  </tr>
+                  <tr style="background: #fafafa;">
+                    <td style="padding: 10px 12px;">RANK vs DENSE_RANK</td>
+                    <td style="padding: 10px 12px;">For "Nth distinct" prompts use <code>DENSE_RANK</code> so rank values are 1, 2, 3 even with ties. <code>RANK</code> skips numbers after ties (1, 1, 3) and gives wrong answers.</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <p><strong>Skeleton you'll fill in:</strong></p>
+              <pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 4px; font-size: 1.2rem;"><code>CREATE OR REPLACE FUNCTION getNthHighestSalary(N INT)
+RETURNS TABLE (Salary INT) AS $$
+BEGIN
+  RETURN QUERY (
+    -- your SELECT or CTE goes here
+    -- alias the table and qualify columns to avoid name clash
+    -- wrap with SELECT ( ... ) if you need NULL on empty result
+  );
+END;
+$$ LANGUAGE plpgsql;</code></pre>
+
+              <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ddd;">
+
+              <!-- Anchor problem #177 -->
+              <div class="problem-card collapsed" style="margin-top: 15px;">
+                <div class="problem-card-header">
+                  <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                    <span style="display: inline-block; background-color: #ef6c00; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Medium</span>
+                    #177 Nth Highest Salary (function form)
+                  </h3>
+                  <span class="problem-toggle">&#9660;</span>
+                </div>
+                <div class="problem-card-excerpt">
+                  <p>Find the Nth highest distinct salary; return NULL when fewer than N distinct salaries exist. Anchor problem for the function-wrapped recipe.</p>
+                </div>
+                <div class="problem-card-content">
+
+                  <p><strong>Tables:</strong> <code>Employee</code> (id, salary)</p>
+
+                  <div class="solution-container">
+                    <details>
+                      <summary>
+                        <span class="summary-arrow">&#9654;</span>
+                        <span class="rank-badge rank-1">1</span>
+                        <strong>DENSE_RANK + DISTINCT + NULL-safe wrapper</strong>
+                      </summary>
+                      <div class="solution-content">
+                        <div class="code-block"><code>CREATE OR REPLACE FUNCTION getNthHighestSalary(N INT)
+RETURNS TABLE (Salary INT) AS $$
+BEGIN
+  RETURN QUERY (
+    WITH salary_rankings AS (
+      SELECT
+        e.id,
+        e.salary,
+        DENSE_RANK() OVER (ORDER BY e.salary DESC) AS rank
+      FROM Employee AS e
+    ),
+    nth_salary AS (
+      SELECT DISTINCT s.salary
+      FROM salary_rankings AS s
+      WHERE s.rank = N
+    )
+    SELECT (SELECT n.salary FROM nth_salary AS n)
+  );
+END;
+$$ LANGUAGE plpgsql;</code></div>
+
+                        <p style="margin: 14px 0 6px;"><strong>Line-by-line walkthrough:</strong></p>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 1.25rem; line-height: 1.55;">
+                          <thead>
+                            <tr style="background: #6a1b9a; color: white; text-align: left;">
+                              <th style="padding: 8px 10px; font-weight: 600; width: 45%;">Line</th>
+                              <th style="padding: 8px 10px; font-weight: 600; width: 55%;">What it does</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>CREATE OR REPLACE FUNCTION getNthHighestSalary(N INT)</code></td>
+                              <td style="padding: 8px 10px;">Defines the function name and accepts one integer parameter <code>N</code>.</td>
+                            </tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>RETURNS TABLE (Salary INT) AS $$</code></td>
+                              <td style="padding: 8px 10px;">Declares the function returns a one-column table named <code>Salary</code>. The <code>$$</code> opens the dollar-quoted body.</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>BEGIN</code></td>
+                              <td style="padding: 8px 10px;">Starts the procedural body of the function.</td>
+                            </tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>RETURN QUERY (</code></td>
+                              <td style="padding: 8px 10px;">Tells PL/pgSQL the inner SELECT is what the function returns to the caller.</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>WITH salary_rankings AS ( ... )</code></td>
+                              <td style="padding: 8px 10px;">First CTE: rank every employee by salary descending using <code>DENSE_RANK</code> so ties share a rank without skipping numbers.</td>
+                            </tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>FROM Employee AS e</code> + <code>e.salary</code></td>
+                              <td style="padding: 8px 10px;">Aliases the table and qualifies the column so it doesn't collide with the function's <code>Salary</code> output slot.</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>nth_salary AS ( SELECT DISTINCT s.salary ... WHERE s.rank = N )</code></td>
+                              <td style="padding: 8px 10px;">Second CTE: filters to the Nth-ranked salaries and de-duplicates them so the result is a single value.</td>
+                            </tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>SELECT (SELECT n.salary FROM nth_salary AS n)</code></td>
+                              <td style="padding: 8px 10px;">Outer scalar subquery returns one row containing either the salary or NULL (when the inner CTE has no rows).</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>);</code></td>
+                              <td style="padding: 8px 10px;">Closes the <code>RETURN QUERY</code> argument list.</td>
+                            </tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>END;</code></td>
+                              <td style="padding: 8px 10px;">Closes the procedural body.</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 8px 10px;"><code>$$ LANGUAGE plpgsql;</code></td>
+                              <td style="padding: 8px 10px;">Closes the dollar-quoted body and tells Postgres the function is written in PL/pgSQL.</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Anchor problem: Eligible for Discount -->
+              <div class="problem-card collapsed" style="margin-top: 15px;">
+                <div class="problem-card-header">
+                  <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                    <span style="display: inline-block; background-color: #ef6c00; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Easy</span>
+                    #2230 The Users That Are Eligible for Discount (function form)
+                  </h3>
+                  <span class="problem-toggle">&#9660;</span>
+                </div>
+                <div class="problem-card-excerpt">
+                  <p>Count distinct users with at least one purchase between startDate and endDate (inclusive, both treated as start-of-day) where the amount meets minAmount. Anchor problem for date-boundary nuance inside a function wrapper.</p>
+                </div>
+                <div class="problem-card-content">
+
+                  <p><strong>Tables:</strong> <code>Purchases</code> (user_id, time_stamp, amount)</p>
+
+                  <p><strong>Date boundary nuance:</strong></p>
+                  <table style="width: 100%; border-collapse: collapse; font-size: 1.25rem; line-height: 1.55; margin-bottom: 14px;">
+                    <thead>
+                      <tr style="background: #6a1b9a; color: white; text-align: left;">
+                        <th style="padding: 8px 10px; font-weight: 600; width: 30%;">Boundary</th>
+                        <th style="padding: 8px 10px; font-weight: 600; width: 35%;">DATE value Postgres reads</th>
+                        <th style="padding: 8px 10px; font-weight: 600; width: 35%;">Effect on time_stamp</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style="border-bottom: 1px solid #e0e0e0;">
+                        <td style="padding: 8px 10px;"><code>startDate = 2022-03-08</code></td>
+                        <td style="padding: 8px 10px;"><code>2022-03-08 00:00:00</code></td>
+                        <td style="padding: 8px 10px;">Any time on 2022-03-08 is &gt;= midnight, so the cast doesn't matter on the start side.</td>
+                      </tr>
+                      <tr style="background: #fafafa;">
+                        <td style="padding: 8px 10px;"><code>endDate = 2022-03-20</code></td>
+                        <td style="padding: 8px 10px;"><code>2022-03-20 00:00:00</code></td>
+                        <td style="padding: 8px 10px;">A purchase at 2022-03-20 09:03:00 is &gt; midnight, so it gets excluded. Casting <code>::date</code> would wrongly include the rest of that day.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  <div class="solution-container">
+                    <details>
+                      <summary>
+                        <span class="summary-arrow">&#9654;</span>
+                        <span class="rank-badge rank-1">1</span>
+                        <strong>Direct timestamp comparison + COUNT DISTINCT</strong>
+                      </summary>
+                      <div class="solution-content">
+                        <div class="code-block"><code>CREATE OR REPLACE FUNCTION getUserIDs(startDate DATE, endDate DATE, minAmount INT)
+RETURNS INT AS $$
+BEGIN
+  RETURN (
+    WITH eligible AS (
+      SELECT p.user_id
+      FROM Purchases AS p
+      WHERE p.time_stamp &gt;= startDate
+        AND p.time_stamp &lt;= endDate
+        AND p.amount    &gt;= minAmount
+    )
+    SELECT COUNT(DISTINCT e.user_id) AS user_cnt
+    FROM eligible AS e
+  );
+END;
+$$ LANGUAGE plpgsql;</code></div>
+
+                        <p style="margin: 14px 0 6px;"><strong>Line-by-line walkthrough:</strong></p>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 1.25rem; line-height: 1.55;">
+                          <thead>
+                            <tr style="background: #6a1b9a; color: white; text-align: left;">
+                              <th style="padding: 8px 10px; font-weight: 600; width: 45%;">Line</th>
+                              <th style="padding: 8px 10px; font-weight: 600; width: 55%;">What it does</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>CREATE OR REPLACE FUNCTION getUserIDs(startDate DATE, endDate DATE, minAmount INT)</code></td>
+                              <td style="padding: 8px 10px;">Defines the function with three parameters: two DATE bounds and an INT threshold.</td>
+                            </tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>RETURNS INT AS $$</code></td>
+                              <td style="padding: 8px 10px;">Declares the function returns a single INT (a scalar count, not a table).</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>BEGIN</code></td>
+                              <td style="padding: 8px 10px;">Starts the procedural body.</td>
+                            </tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>RETURN (</code></td>
+                              <td style="padding: 8px 10px;">Return a scalar value from the inner subquery (note: <code>RETURN</code>, not <code>RETURN QUERY</code>, since the function returns a single INT).</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>WITH eligible AS ( ... )</code></td>
+                              <td style="padding: 8px 10px;">CTE filters Purchases to rows that meet all three eligibility conditions.</td>
+                            </tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>p.time_stamp &gt;= startDate</code></td>
+                              <td style="padding: 8px 10px;">Postgres compares the timestamp directly to startDate (read as midnight). Any time on startDate is automatically &gt;= midnight, so this works without casting.</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>AND p.time_stamp &lt;= endDate</code></td>
+                              <td style="padding: 8px 10px;">Critical line: endDate is read as <code>YYYY-MM-DD 00:00:00</code>, so any purchase later that same day is excluded. Casting <code>time_stamp::date &lt;= endDate::date</code> would wrongly include the full endDate day.</td>
+                            </tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>AND p.amount &gt;= minAmount</code></td>
+                              <td style="padding: 8px 10px;">Threshold check on purchase amount.</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>SELECT COUNT(DISTINCT e.user_id) AS user_cnt</code></td>
+                              <td style="padding: 8px 10px;">Counts each eligible user once even if they have multiple qualifying purchases.</td>
+                            </tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>);</code></td>
+                              <td style="padding: 8px 10px;">Closes the <code>RETURN (...)</code> argument.</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 8px 10px;"><code>END;</code><br><code>$$ LANGUAGE plpgsql;</code></td>
+                              <td style="padding: 8px 10px;">Closes the procedural body and the function definition.</td>
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        <p style="margin: 14px 0 6px;"><strong>Common pitfalls:</strong></p>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 1.25rem; line-height: 1.55;">
+                          <thead>
+                            <tr style="background: #6a1b9a; color: white; text-align: left;">
+                              <th style="padding: 8px 10px; font-weight: 600; width: 32%;">Pitfall</th>
+                              <th style="padding: 8px 10px; font-weight: 600; width: 68%;">How to avoid</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;">Casting <code>time_stamp::date</code> on the end side</td>
+                              <td style="padding: 8px 10px;">This drops the time and includes the entire endDate calendar day. Compare the raw timestamp to <code>endDate</code> instead so anything after midnight on endDate is excluded.</td>
+                            </tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;">RETURN QUERY vs RETURN</td>
+                              <td style="padding: 8px 10px;">Use <code>RETURN QUERY</code> when the function returns a TABLE; use plain <code>RETURN ( ... );</code> when it returns a scalar like INT.</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 8px 10px;">Counting duplicate purchases</td>
+                              <td style="padding: 8px 10px;">A user with multiple qualifying purchases would be counted multiple times without <code>DISTINCT</code>. Use <code>COUNT(DISTINCT user_id)</code>.</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- RECIPE: DO BLOCK / SEQUENTIAL UPDATE -->
+          <div class="problem-card" id="do-block-sequential" style="margin-top: 30px;">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0;">DO Block: Sequential State / Row-by-Row UPDATE <span class="count-badge">recipe</span></h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>Apply a list of operations in order, mutating the target table row by row. Use procedural PL/pgSQL inside <code>DO $$ ... END $$;</code>, then a trailing SELECT so the test scaffold sees output.</p>
+            </div>
+            <div class="problem-card-content">
+
+              <div style="margin-bottom: 15px;">
+                <p><strong>Signal words:</strong> "return the table after the requests have been performed," "apply these updates in order," "process each request from lowest id," "if the seat is free / reserved by this person, then..."</p>
+                <p><strong>Technique:</strong> <code>DO $$ DECLARE r RECORD; ... BEGIN FOR r IN SELECT * FROM requests ORDER BY id LOOP ... IF ... THEN UPDATE ... END IF; END LOOP; END $$; SELECT * FROM table ORDER BY ...;</code></p>
+              </div>
+
+              <p style="margin-top: 18px;"><strong>Common pitfalls:</strong></p>
+              <table style="width: 100%; border-collapse: collapse; font-size: 1.3rem; line-height: 1.6; margin-bottom: 18px;">
+                <thead>
+                  <tr style="background: #6a1b9a; color: white; text-align: left;">
+                    <th style="padding: 10px 12px; font-weight: 600; width: 32%;">Pitfall</th>
+                    <th style="padding: 10px 12px; font-weight: 600; width: 68%;">How to avoid</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Missing trailing SELECT</td>
+                    <td style="padding: 10px 12px;">Without a final <code>SELECT * FROM table ORDER BY ...;</code> the test panel's Return Value column is empty and the harness reports "Wrong answer" even when the table is correct.</td>
+                  </tr>
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Variables declared in wrong place</td>
+                    <td style="padding: 10px 12px;">All variables go in <code>DECLARE</code> before <code>BEGIN</code>. Use <code>RECORD</code> for loop rows, scalar types (e.g., <code>INT</code>) for captured fields.</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Stale state inside loop</td>
+                    <td style="padding: 10px 12px;"><code>SELECT col INTO var FROM ...</code> reads the current state into your variable. Re-read inside each iteration if a prior iteration may have updated the same row.</td>
+                  </tr>
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Identifier case mismatch</td>
+                    <td style="padding: 10px 12px;">Lowercase function and column names match Postgres defaults. Mixed-case identifiers must be wrapped in double quotes.</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 10px 12px;">Hard to drill on standard platforms</td>
+                    <td style="padding: 10px 12px;">Most analytical SQL practice platforms do not cover this shape. Practice on SQL Fiddle or DB Fiddle with custom schemas.</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <p><strong>Skeleton you'll fill in:</strong></p>
+              <pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 4px; font-size: 1.2rem;"><code>DO $$
+DECLARE
+  r RECORD;
+  current_state INT;
+BEGIN
+  FOR r IN SELECT * FROM requests ORDER BY request_id LOOP
+    SELECT col INTO current_state
+    FROM target_table
+    WHERE key = r.key;
+
+    IF some_condition_using_r_and_current_state THEN
+      UPDATE target_table
+      SET col = new_value
+      WHERE key = r.key;
+    END IF;
+  END LOOP;
+END $$;
+
+-- Trailing SELECT so the test scaffold sees output:
+SELECT * FROM target_table ORDER BY key;</code></pre>
+
+              <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ddd;">
+
+              <!-- Anchor problem: airline seats -->
+              <div class="problem-card collapsed" style="margin-top: 15px;">
+                <div class="problem-card-header">
+                  <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                    <span style="display: inline-block; background-color: #ef6c00; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Medium</span>
+                    Airline Seats: apply reserve / purchase requests in order
+                  </h3>
+                  <span class="problem-toggle">&#9660;</span>
+                </div>
+                <div class="problem-card-excerpt">
+                  <p>Anchor problem for the DO block recipe. Apply requests from lowest <code>request_id</code> upward. A reserve succeeds only if the seat is free; a purchase succeeds if the seat is free or already reserved by that same person.</p>
+                </div>
+                <div class="problem-card-content">
+
+                  <p><strong>Tables:</strong></p>
+                  <ul style="margin: 8px 0 12px 20px; line-height: 1.7;">
+                    <li><code>seats(seat_no, status, person_id)</code> &mdash; status: 0 free, 1 reserved, 2 purchased.</li>
+                    <li><code>requests(request_id, request, seat_no, person_id)</code> &mdash; request: 1 reserve, 2 purchase.</li>
+                  </ul>
+
+                  <div class="solution-container">
+                    <details>
+                      <summary>
+                        <span class="summary-arrow">&#9654;</span>
+                        <span class="rank-badge rank-1">1</span>
+                        <strong>DO block + FOR loop + IF / ELSIF + trailing SELECT</strong>
+                      </summary>
+                      <div class="solution-content">
+                        <div class="code-block"><code>DO $$
+DECLARE
+  r RECORD;
+  current_status INT;
+  current_owner  INT;
+BEGIN
+  FOR r IN SELECT * FROM requests ORDER BY request_id LOOP
+    SELECT status, person_id INTO current_status, current_owner
+    FROM seats
+    WHERE seat_no = r.seat_no;
+
+    IF r.request = 1 AND current_status = 0 THEN
+      UPDATE seats
+      SET status = 1, person_id = r.person_id
+      WHERE seat_no = r.seat_no;
+
+    ELSIF r.request = 2
+       AND (current_status = 0
+            OR (current_status = 1 AND current_owner = r.person_id)) THEN
+      UPDATE seats
+      SET status = 2, person_id = r.person_id
+      WHERE seat_no = r.seat_no;
+    END IF;
+  END LOOP;
+END $$;
+
+SELECT * FROM seats ORDER BY seat_no;</code></div>
+
+                        <p style="margin: 14px 0 6px;"><strong>Line-by-line walkthrough:</strong></p>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 1.25rem; line-height: 1.55;">
+                          <thead>
+                            <tr style="background: #6a1b9a; color: white; text-align: left;">
+                              <th style="padding: 8px 10px; font-weight: 600; width: 45%;">Line</th>
+                              <th style="padding: 8px 10px; font-weight: 600; width: 55%;">What it does</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>DO $$</code></td>
+                              <td style="padding: 8px 10px;">Opens an anonymous procedural block. Postgres treats everything between the dollar quotes as a single PL/pgSQL routine.</td>
+                            </tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>DECLARE</code></td>
+                              <td style="padding: 8px 10px;">Starts the variable declaration section. All variables used in the body must be declared here before <code>BEGIN</code>.</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>r RECORD;</code></td>
+                              <td style="padding: 8px 10px;">Declares <code>r</code> as a generic row type that will hold one request row at a time during the loop.</td>
+                            </tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>current_status INT;</code><br><code>current_owner  INT;</code></td>
+                              <td style="padding: 8px 10px;">Two scalar variables that will hold the seat's current state (read fresh each iteration).</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>BEGIN</code></td>
+                              <td style="padding: 8px 10px;">Marks the start of the procedural body. Logic runs from here until <code>END</code>.</td>
+                            </tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>FOR r IN SELECT * FROM requests ORDER BY request_id LOOP</code></td>
+                              <td style="padding: 8px 10px;">Iterates through every request, one row at a time, in <code>request_id</code> order. The current request is bound to <code>r</code> on each pass.</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>SELECT status, person_id INTO current_status, current_owner FROM seats WHERE seat_no = r.seat_no;</code></td>
+                              <td style="padding: 8px 10px;">Reads the seat's <strong>current</strong> status and owner into the scalar variables. Done fresh each iteration so any update from a prior iteration is reflected.</td>
+                            </tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>IF r.request = 1 AND current_status = 0 THEN</code></td>
+                              <td style="padding: 8px 10px;">Reserve branch: only fires when the request is "reserve" (1) and the seat is currently free (0).</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>UPDATE seats SET status = 1, person_id = r.person_id WHERE seat_no = r.seat_no;</code></td>
+                              <td style="padding: 8px 10px;">Marks the seat reserved (status 1) and records the requester as the owner.</td>
+                            </tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>ELSIF r.request = 2 AND (current_status = 0 OR (current_status = 1 AND current_owner = r.person_id)) THEN</code></td>
+                              <td style="padding: 8px 10px;">Purchase branch: fires when the request is "purchase" (2) and the seat is either free, or already reserved by the same person making this request.</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>UPDATE seats SET status = 2, person_id = r.person_id WHERE seat_no = r.seat_no;</code></td>
+                              <td style="padding: 8px 10px;">Marks the seat purchased (status 2) and records the buyer as the owner.</td>
+                            </tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>END IF;</code></td>
+                              <td style="padding: 8px 10px;">Closes the IF/ELSIF block. Requests that match neither branch are silently ignored, which is what the prompt requires.</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>END LOOP;</code></td>
+                              <td style="padding: 8px 10px;">Closes the FOR loop. Returns to the next request until requests are exhausted.</td>
+                            </tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                              <td style="padding: 8px 10px;"><code>END $$;</code></td>
+                              <td style="padding: 8px 10px;">Closes the procedural body and the DO block. The mutations to <code>seats</code> are now committed.</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 8px 10px;"><code>SELECT * FROM seats ORDER BY seat_no;</code></td>
+                              <td style="padding: 8px 10px;">Trailing SELECT so the test harness has output to compare against the expected table. Without this line the Return Value column is empty and the test fails.</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Anchor problem: tiered discount pricing -->
+              <div class="problem-card collapsed" style="margin-top: 15px;">
+                <div class="problem-card-header">
+                  <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                    <span style="display: inline-block; background-color: #ef6c00; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Easy</span>
+                    Sequential Price Updates with Tiered Discounts
+                  </h3>
+                  <span class="problem-toggle">&#9660;</span>
+                </div>
+                <div class="problem-card-excerpt">
+                  <p>A simpler DO block anchor: apply a fixed sequence of UPDATE statements to the same table without any per-row loop. Useful for problems where the rule order matters but each rule is a single set-based UPDATE.</p>
+                </div>
+                <div class="problem-card-content">
+
+                  <p><strong>Tables:</strong> <code>products</code> (id, category, base_price, final_price)</p>
+
+                  <p><strong>Prompt:</strong> Apply the following rules in sequence, then return the updated table.</p>
+                  <ol style="margin: 8px 0 12px 20px; line-height: 1.7;">
+                    <li>Set <code>final_price = base_price</code> for all rows.</li>
+                    <li>Apply a 10% discount (multiply <code>final_price</code> by 0.90) to all Electronics products.</li>
+                    <li>Apply an additional 5% discount (multiply <code>final_price</code> by 0.95) to all products where <code>final_price &gt; 100</code> after the previous step.</li>
+                    <li>Round all <code>final_price</code> values to 2 decimal places.</li>
+                  </ol>
+
+                  <div class="solution-container">
+                    <details>
+                      <summary>
+                        <span class="summary-arrow">&#9654;</span>
+                        <span class="rank-badge rank-1">1</span>
+                        <strong>DO block with set-based UPDATEs (no per-row loop)</strong>
+                      </summary>
+                      <div class="solution-content">
+                        <div class="code-block"><code>DO $$
+BEGIN
+  UPDATE products SET final_price = base_price;
+  UPDATE products SET final_price = final_price * 0.90 WHERE category = 'Electronics';
+  UPDATE products SET final_price = final_price * 0.95 WHERE final_price &gt; 100;
+  UPDATE products SET final_price = ROUND(final_price, 2);
+END $$;
+
+SELECT * FROM products ORDER BY id;</code></div>
+                        <p style="margin: 12px 0;"><strong>Why this is best:</strong> Each rule is a single set-based UPDATE inside the DO block, applied in the exact order written. Postgres treats the four UPDATEs as one procedural unit, so each rule sees the result of the previous one. The trailing SELECT gives the test harness its output.</p>
+                        <p style="margin: 12px 0;"><strong>Differences from the airline seats pattern:</strong></p>
+                        <ul style="margin: 6px 0 0 18px; line-height: 1.7;">
+                          <li>No <code>DECLARE</code> needed — there are no variables.</li>
+                          <li>No <code>FOR ... LOOP</code> — every UPDATE is set-based.</li>
+                          <li>No <code>IF / ELSIF</code> — conditions live in <code>WHERE</code> clauses on each UPDATE.</li>
+                          <li>This is the right shape when the prompt is "apply N rules in order to one table," not "iterate through a list of requests."</li>
+                        </ul>
+                        <p style="margin: 12px 0;"><strong>Watch out:</strong></p>
+                        <ul style="margin: 6px 0 0 18px; line-height: 1.7;">
+                          <li>"Where final_price &gt; 100 after the previous step" means the comparison runs against the value sitting in <code>final_price</code> at that moment, not the original <code>base_price</code>.</li>
+                          <li>If the column is <code>DECIMAL(10,2)</code>, intermediate rounding can flip strict <code>&gt;</code> comparisons. Test borderline values.</li>
+                          <li>Don't forget the trailing <code>;</code> after <code>END $$</code>.</li>
+                        </ul>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              </div>
 
             </div>
           </div>
