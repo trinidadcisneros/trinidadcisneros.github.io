@@ -1,0 +1,54 @@
+{
+  "problem": {
+    "title": "Calculate SLA Breach Rate for Agent",
+    "prompt": "Write a PostgreSQL function named `calculate_agent_breach_rate` that accepts an `agent_id` (INTEGER) and a `start_date` (DATE) and returns a NUMERIC representing the percentage of tickets assigned to that agent (on or after the start date) that breached their SLA. A ticket breaches SLA if `resolution_time_minutes` exceeds `sla_target_minutes`. The function should return the breach rate as a percentage (0-100) rounded to 2 decimal places. If the agent has no tickets in the date range, return 0.00. The function signature must be: `calculate_agent_breach_rate(p_agent_id INTEGER, p_start_date DATE) RETURNS NUMERIC`. Call the function with: `SELECT calculate_agent_breach_rate(102, '2024-01-15') AS breach_rate;`",
+    "schema_ddl": "CREATE TABLE support_tickets (ticket_id INTEGER PRIMARY KEY, agent_id INTEGER NOT NULL, assigned_date DATE NOT NULL, sla_target_minutes INTEGER NOT NULL, resolution_time_minutes INTEGER, status VARCHAR(20));",
+    "example_input_data": "INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (1, 102, '2024-01-10', 60, 45, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (2, 102, '2024-01-16', 120, 150, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (3, 102, '2024-01-18', 60, 90, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (4, 102, '2024-01-20', 180, 120, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (5, 101, '2024-01-16', 60, 80, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (6, 102, '2024-01-22', 90, 95, 'resolved');",
+    "example_output_columns": [
+      "breach_rate"
+    ],
+    "example_output_rows": [
+      [
+        "75.00"
+      ]
+    ],
+    "test_data": "INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (101, 102, '2024-01-10', 60, 55, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (102, 102, '2024-01-12', 120, 120, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (103, 102, '2024-01-15', 60, 61, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (104, 102, '2024-01-15', 90, 45, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (105, 102, '2024-01-16', 120, 180, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (106, 102, '2024-01-18', 60, 90, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (107, 102, '2024-01-19', 180, 150, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (108, 102, '2024-01-20', 60, 60, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (109, 102, '2024-01-21', 90, 91, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (110, 102, '2024-01-22', 120, 200, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (111, 102, '2024-01-23', 60, 30, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (112, 102, '2024-01-24', 90, 100, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (113, 102, '2024-01-25', 60, 75, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (114, 102, '2024-01-26', 120, 50, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (115, 102, '2024-01-27', 180, 190, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (116, 101, '2024-01-20', 60, 90, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (117, 101, '2024-01-21', 120, 80, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (118, 103, '2024-01-15', 60, 100, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (119, 102, '2024-01-28', 90, 89, 'resolved'); INSERT INTO support_tickets (ticket_id, agent_id, assigned_date, sla_target_minutes, resolution_time_minutes, status) VALUES (120, 102, '2024-01-29', 60, 61, 'resolved');",
+    "test_expected_columns": [
+      "breach_rate"
+    ],
+    "test_expected_rows": [
+      [
+        "60.00"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "scalar_return",
+      "recipe": "function-wrapped",
+      "composite_moves": [
+        "filter by agent_id and assigned_date >= start_date",
+        "count total tickets",
+        "count tickets where resolution_time_minutes > sla_target_minutes",
+        "calculate percentage",
+        "round to 2 decimals",
+        "handle zero-division edge case"
+      ]
+    },
+    "hints": [
+      "Start by counting how many tickets the agent has on or after the given date.",
+      "Count how many of those tickets have resolution_time_minutes exceeding sla_target_minutes, then compute the percentage.",
+      "Use COALESCE or a CASE expression to handle the case where the agent has zero tickets in the date range, returning 0.00 instead of dividing by zero."
+    ],
+    "answer_key": "CREATE OR REPLACE FUNCTION calculate_agent_breach_rate(p_agent_id INTEGER, p_start_date DATE) RETURNS NUMERIC AS $$ DECLARE total_count INTEGER; breach_count INTEGER; BEGIN SELECT COUNT(*) INTO total_count FROM support_tickets WHERE agent_id = p_agent_id AND assigned_date >= p_start_date; IF total_count = 0 THEN RETURN 0.00; END IF; SELECT COUNT(*) INTO breach_count FROM support_tickets WHERE agent_id = p_agent_id AND assigned_date >= p_start_date AND resolution_time_minutes > sla_target_minutes; RETURN ROUND((breach_count::NUMERIC / total_count::NUMERIC) * 100, 2); END; $$ LANGUAGE plpgsql; SELECT calculate_agent_breach_rate(102, '2024-01-15') AS breach_rate;",
+    "_meta": {
+      "question_type": "returns_scalar",
+      "dialect": "postgresql",
+      "generated_at": "2026-04-28T09:16:50.598670",
+      "problem_id": "028963dba280",
+      "validation_attempts": 1,
+      "scenario": "a customer support tool tracking ticket SLA breaches and reassignments"
+    }
+  },
+  "user_solution": "CREATE OR REPLACE FUNCTION calculate_agent_breach_rate(\n    p_agent_id   INTEGER,\n    p_start_date DATE\n) RETURNS NUMERIC AS $$\nBEGIN\n    RETURN(\n       WITH base AS (\n       SELECT\n          st.ticket_id,\n          st.agent_id,\n          st.resolution_time_minutes,\n          st.sla_target_minutes,\n          CASE WHEN st.resolution_time_minutes > st.sla_target_minutes THEN 1 ELSE 0 END is_sla_breached\n      FROM support_tickets AS st\n      WHERE st.agent_id = p_agent_id AND st.assigned_date >= p_start_date\n      )\n      SELECT\n          ROUND(\n               COALESCE(AVG(is_sla_breached) * 100, 0.00)\n            , 2\n            ) AS breach_rate\n      FROM base\n     );\nEND;\n$$ LANGUAGE PLPGSQL;\n\nSELECT calculate_agent_breach_rate(102, '2024-01-15') AS breach_rate;",
+  "solved_at": "2026-04-28T10:14:55.612387"
+}
