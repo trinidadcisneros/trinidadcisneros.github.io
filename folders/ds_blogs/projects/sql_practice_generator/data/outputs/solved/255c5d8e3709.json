@@ -1,0 +1,147 @@
+{
+  "problem": {
+    "title": "Patient Cohort Enrollment DO Block Processor",
+    "prompt": "A population health team maintains a cohort enrollment state table and processes enrollment requests sequentially. Write a DO block that processes the cohort_enrollment_requests table in request_id order. For each request, read the current enrollment status and assigned program from cohort_enrollments, then apply these rules: (1) If request_type='ENROLL' and current status is 'INACTIVE', update status to 'ACTIVE' and set program_id from the request. (2) If request_type='TRANSFER' and current status is 'ACTIVE', update program_id to the new value from the request only if the patient is currently enrolled (status='ACTIVE'). (3) If request_type='DISCHARGE' and current status is 'ACTIVE' and the current program_id matches the request's program_id, set status to 'INACTIVE' and clear program_id to NULL. Requests that do not match any condition should be silently skipped. After processing all requests, SELECT all columns from cohort_enrollments ordered by patient_id. The answer must be a complete DO block followed by the trailing SELECT statement.",
+    "schema_ddl": "CREATE TABLE cohort_enrollments (patient_id INT PRIMARY KEY, enrollment_status VARCHAR(20) NOT NULL, program_id INT); CREATE TABLE cohort_enrollment_requests (request_id INT PRIMARY KEY, patient_id INT NOT NULL, request_type VARCHAR(20) NOT NULL, program_id INT, FOREIGN KEY (patient_id) REFERENCES cohort_enrollments(patient_id));",
+    "example_input_data": "INSERT INTO cohort_enrollments (patient_id, enrollment_status, program_id) VALUES (101, 'INACTIVE', NULL), (102, 'ACTIVE', 5), (103, 'INACTIVE', NULL), (104, 'ACTIVE', 8); INSERT INTO cohort_enrollment_requests (request_id, patient_id, request_type, program_id) VALUES (1, 101, 'ENROLL', 3), (2, 102, 'TRANSFER', 7), (3, 103, 'DISCHARGE', 5), (4, 104, 'DISCHARGE', 8), (5, 101, 'TRANSFER', 9), (6, 104, 'ENROLL', 12);",
+    "example_output_columns": [
+      "patient_id",
+      "enrollment_status",
+      "program_id"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "ACTIVE",
+        9.0
+      ],
+      [
+        102,
+        "ACTIVE",
+        7.0
+      ],
+      [
+        103,
+        "INACTIVE",
+        null
+      ],
+      [
+        104,
+        "ACTIVE",
+        12.0
+      ]
+    ],
+    "test_data": "INSERT INTO cohort_enrollments (patient_id, enrollment_status, program_id) VALUES (201, 'INACTIVE', NULL), (202, 'ACTIVE', 10), (203, 'INACTIVE', NULL), (204, 'ACTIVE', 15), (205, 'INACTIVE', NULL), (206, 'ACTIVE', 20), (207, 'ACTIVE', 25), (208, 'INACTIVE', NULL), (209, 'ACTIVE', 30), (210, 'INACTIVE', NULL), (211, 'ACTIVE', 35), (212, 'ACTIVE', 40), (213, 'INACTIVE', NULL), (214, 'ACTIVE', 45), (215, 'INACTIVE', NULL); INSERT INTO cohort_enrollment_requests (request_id, patient_id, request_type, program_id) VALUES (1, 201, 'ENROLL', 11), (2, 202, 'TRANSFER', 12), (3, 203, 'ENROLL', 13), (4, 204, 'DISCHARGE', 15), (5, 205, 'TRANSFER', 16), (6, 206, 'DISCHARGE', 18), (7, 207, 'DISCHARGE', 25), (8, 208, 'ENROLL', 26), (9, 209, 'TRANSFER', 31), (10, 210, 'ENROLL', 32), (11, 204, 'ENROLL', 33), (12, 207, 'ENROLL', 34), (13, 211, 'DISCHARGE', 35), (14, 212, 'TRANSFER', 41), (15, 213, 'ENROLL', 42), (16, 214, 'DISCHARGE', 45), (17, 215, 'ENROLL', 46), (18, 201, 'TRANSFER', 50), (19, 203, 'DISCHARGE', 13), (20, 208, 'TRANSFER', 51), (21, 210, 'DISCHARGE', 32), (22, 215, 'DISCHARGE', 46), (23, 202, 'DISCHARGE', 12), (24, 209, 'DISCHARGE', 31), (25, 211, 'ENROLL', 52), (26, 214, 'ENROLL', 53), (27, 206, 'ENROLL', 54), (28, 212, 'DISCHARGE', 41);",
+    "test_expected_columns": [
+      "patient_id",
+      "enrollment_status",
+      "program_id"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "ACTIVE",
+        50.0
+      ],
+      [
+        202,
+        "INACTIVE",
+        null
+      ],
+      [
+        203,
+        "INACTIVE",
+        null
+      ],
+      [
+        204,
+        "ACTIVE",
+        33.0
+      ],
+      [
+        205,
+        "INACTIVE",
+        null
+      ],
+      [
+        206,
+        "ACTIVE",
+        20.0
+      ],
+      [
+        207,
+        "ACTIVE",
+        34.0
+      ],
+      [
+        208,
+        "ACTIVE",
+        51.0
+      ],
+      [
+        209,
+        "INACTIVE",
+        null
+      ],
+      [
+        210,
+        "INACTIVE",
+        null
+      ],
+      [
+        211,
+        "ACTIVE",
+        52.0
+      ],
+      [
+        212,
+        "INACTIVE",
+        null
+      ],
+      [
+        213,
+        "ACTIVE",
+        42.0
+      ],
+      [
+        214,
+        "ACTIVE",
+        53.0
+      ],
+      [
+        215,
+        "INACTIVE",
+        null
+      ]
+    ],
+    "classification": {
+      "input_arrival": "procedural",
+      "output_shape": "state_mutation",
+      "recipe": "do-block-sequential",
+      "composite_moves": [
+        "declare-record-and-scalars",
+        "for-loop-ordered",
+        "select-into-current-state",
+        "if-elsif-branch-on-type-and-state",
+        "conditional-update-within-branch",
+        "trailing-select-star"
+      ]
+    },
+    "hints": [
+      "You need to process requests one at a time in request_id order, reading the patient's current enrollment state before deciding whether to act on each request.",
+      "Use a FOR loop with a RECORD variable to iterate requests, then SELECT INTO to fetch the current enrollment_status and program_id for that patient inside the loop.",
+      "Branch with IF-ELSIF-END IF on both the request_type and the current enrollment_status; for DISCHARGE, also check that the current program_id matches the requested one before clearing it."
+    ],
+    "answer_key": "DO $$\nDECLARE\n  rec RECORD;\n  cur_status VARCHAR(20);\n  cur_program INT;\nBEGIN\n  FOR rec IN SELECT * FROM cohort_enrollment_requests ORDER BY request_id LOOP\n    SELECT enrollment_status, program_id INTO cur_status, cur_program\n    FROM cohort_enrollments\n    WHERE patient_id = rec.patient_id;\n    \n    IF rec.request_type = 'ENROLL' AND cur_status = 'INACTIVE' THEN\n      UPDATE cohort_enrollments\n      SET enrollment_status = 'ACTIVE', program_id = rec.program_id\n      WHERE patient_id = rec.patient_id;\n    ELSIF rec.request_type = 'TRANSFER' AND cur_status = 'ACTIVE' THEN\n      UPDATE cohort_enrollments\n      SET program_id = rec.program_id\n      WHERE patient_id = rec.patient_id;\n    ELSIF rec.request_type = 'DISCHARGE' AND cur_status = 'ACTIVE' AND cur_program = rec.program_id THEN\n      UPDATE cohort_enrollments\n      SET enrollment_status = 'INACTIVE', program_id = NULL\n      WHERE patient_id = rec.patient_id;\n    END IF;\n  END LOOP;\nEND $$;\n\nSELECT * FROM cohort_enrollments ORDER BY patient_id;",
+    "_meta": {
+      "question_type": "do_block_queue",
+      "dialect": "postgresql",
+      "generated_at": "2026-04-27T17:04:26.757633",
+      "problem_id": "255c5d8e3709",
+      "validation_attempts": 1,
+      "scenario": "a population health team tracking chronic-condition patient cohorts"
+    }
+  },
+  "user_solution": "DO $$\n   DECLARE\n   r RECORD;\n   current_status VARCHAR(20);\n   current_program INT;\nBEGIN\n  -- load cohort_enrollments so we can cross reference with the cohort_enrollment_requests\n   FOR r IN SELECT * FROM cohort_enrollment_requests ORDER BY request_id LOOP\n      SELECT enrollment_status, program_id\n         INTO current_status, current_program\n         FROM cohort_enrollments\n      WHERE patient_id = r.patient_id;\n\n      -- Condition 1: request_type='ENROLL', current_status= 'INACTIVE' THEN enrollment_status= 'ACTIVE' program_id = r. program_id\n      IF r.request_type = 'ENROLL' AND current_status = 'INACTIVE' THEN\n         UPDATE cohort_enrollments\n            SET enrollment_status= 'ACTIVE',\n            program_id = r. program_id\n         WHERE patient_id = r.patient_id;\n\n     -- Condition 2: request_type='TRANSFER', current_status= 'ACTIVE', THEN current_program = r.program_id\n      ELSIF r.request_type = 'TRANSFER' AND current_status = 'ACTIVE' THEN\n         UPDATE cohort_enrollments\n            SET program_id = r.program_id         \n         WHERE patient_id = r.patient_id;\n\n     -- Condition 3: request_type='DISCHARGE', current_status= 'ACTIVE', current_program = r.program_id THEN  \n         -- set status to 'INACTIVE', clear program_id to NULL.\n      ELSIF r.request_type = 'DISCHARGE' AND current_status = 'ACTIVE' AND current_program = r.program_id THEN\n         UPDATE cohort_enrollments\n            SET enrollment_status = 'INACTIVE',\n                program_id = NULL\n         WHERE patient_id = r.patient_id;\n      END IF;\n    END LOOP;\nEND $$;\n\nSELECT * FROM cohort_enrollments ORDER BY patient_id;",
+  "solved_at": "2026-04-27T17:35:21.939005"
+}

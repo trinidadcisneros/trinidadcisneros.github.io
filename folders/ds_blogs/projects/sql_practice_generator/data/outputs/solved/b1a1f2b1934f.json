@@ -1,0 +1,294 @@
+{
+  "problem": {
+    "title": "Sequential Readmission Severity Update via DO Block",
+    "prompt": "A hospital tracks patient admissions in the `patient_admissions` table. When a patient is readmitted within 30 days of discharge, the severity level needs to be escalated based on specific rules. Write a DO block that processes admissions in chronological order (by admission_date, then admission_id) and applies these rules sequentially: (1) If a patient was discharged and readmitted within 30 days, increase their new admission's severity_score by 10. (2) After applying rule 1, if the resulting severity_score exceeds 75, set the high_risk flag to TRUE. (3) After applying rules 1 and 2, if high_risk is TRUE and the patient is over 65 years old, increase severity_score by an additional 5. Process each admission using the values as they exist after prior rules have been applied. After the DO block, include a SELECT statement that returns all columns from patient_admissions ordered by admission_id.",
+    "schema_ddl": "CREATE TABLE patient_admissions (admission_id INTEGER PRIMARY KEY, patient_id INTEGER NOT NULL, patient_age INTEGER NOT NULL, admission_date DATE NOT NULL, discharge_date DATE, severity_score INTEGER NOT NULL, high_risk BOOLEAN NOT NULL DEFAULT FALSE);",
+    "example_input_data": "INSERT INTO patient_admissions (admission_id, patient_id, patient_age, admission_date, discharge_date, severity_score, high_risk) VALUES (1, 101, 72, '2024-01-05', '2024-01-10', 60, FALSE), (2, 102, 45, '2024-01-08', '2024-01-12', 50, FALSE), (3, 101, 72, '2024-01-25', '2024-01-30', 65, FALSE), (4, 102, 45, '2024-02-01', '2024-02-05', 70, FALSE), (5, 101, 72, '2024-02-10', NULL, 68, FALSE), (6, 103, 58, '2024-02-15', '2024-02-20', 80, FALSE);",
+    "example_output_columns": [
+      "admission_id",
+      "patient_id",
+      "patient_age",
+      "admission_date",
+      "discharge_date",
+      "severity_score",
+      "high_risk"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        101,
+        72,
+        "2024-01-05",
+        "2024-01-10",
+        60,
+        false
+      ],
+      [
+        2,
+        102,
+        45,
+        "2024-01-08",
+        "2024-01-12",
+        50,
+        false
+      ],
+      [
+        3,
+        101,
+        72,
+        "2024-01-25",
+        "2024-01-30",
+        75,
+        false
+      ],
+      [
+        4,
+        102,
+        45,
+        "2024-02-01",
+        "2024-02-05",
+        80,
+        true
+      ],
+      [
+        5,
+        101,
+        72,
+        "2024-02-10",
+        null,
+        83,
+        true
+      ],
+      [
+        6,
+        103,
+        58,
+        "2024-02-15",
+        "2024-02-20",
+        80,
+        true
+      ]
+    ],
+    "test_data": "INSERT INTO patient_admissions (admission_id, patient_id, patient_age, admission_date, discharge_date, severity_score, high_risk) VALUES (1, 201, 68, '2024-01-01', '2024-01-05', 55, FALSE), (2, 202, 42, '2024-01-03', '2024-01-08', 45, FALSE), (3, 203, 70, '2024-01-10', '2024-01-15', 72, FALSE), (4, 201, 68, '2024-01-20', '2024-01-25', 60, FALSE), (5, 202, 42, '2024-01-22', '2024-01-28', 68, FALSE), (6, 204, 55, '2024-01-25', '2024-02-01', 50, FALSE), (7, 203, 70, '2024-02-05', '2024-02-10', 65, FALSE), (8, 201, 68, '2024-02-08', '2024-02-12', 58, FALSE), (9, 205, 80, '2024-02-10', '2024-02-15', 70, FALSE), (10, 202, 42, '2024-02-12', '2024-02-18', 55, FALSE), (11, 204, 55, '2024-02-20', '2024-02-25', 75, FALSE), (12, 203, 70, '2024-02-22', NULL, 60, FALSE), (13, 205, 80, '2024-02-28', '2024-03-05', 68, FALSE), (14, 201, 68, '2024-03-01', '2024-03-06', 66, FALSE), (15, 206, 33, '2024-03-05', '2024-03-10', 40, FALSE), (16, 202, 42, '2024-03-08', '2024-03-12', 72, FALSE), (17, 204, 55, '2024-03-10', NULL, 58, FALSE), (18, 207, 90, '2024-03-12', '2024-03-18', 50, FALSE), (19, 205, 80, '2024-03-15', '2024-03-20', 71, FALSE), (20, 206, 33, '2024-03-22', '2024-03-28', 65, FALSE);",
+    "test_expected_columns": [
+      "admission_id",
+      "patient_id",
+      "patient_age",
+      "admission_date",
+      "discharge_date",
+      "severity_score",
+      "high_risk"
+    ],
+    "test_expected_rows": [
+      [
+        1,
+        201,
+        68,
+        "2024-01-01",
+        "2024-01-05",
+        55,
+        false
+      ],
+      [
+        2,
+        202,
+        42,
+        "2024-01-03",
+        "2024-01-08",
+        45,
+        false
+      ],
+      [
+        3,
+        203,
+        70,
+        "2024-01-10",
+        "2024-01-15",
+        72,
+        false
+      ],
+      [
+        4,
+        201,
+        68,
+        "2024-01-20",
+        "2024-01-25",
+        70,
+        false
+      ],
+      [
+        5,
+        202,
+        42,
+        "2024-01-22",
+        "2024-01-28",
+        78,
+        true
+      ],
+      [
+        6,
+        204,
+        55,
+        "2024-01-25",
+        "2024-02-01",
+        50,
+        false
+      ],
+      [
+        7,
+        203,
+        70,
+        "2024-02-05",
+        "2024-02-10",
+        75,
+        false
+      ],
+      [
+        8,
+        201,
+        68,
+        "2024-02-08",
+        "2024-02-12",
+        68,
+        false
+      ],
+      [
+        9,
+        205,
+        80,
+        "2024-02-10",
+        "2024-02-15",
+        70,
+        false
+      ],
+      [
+        10,
+        202,
+        42,
+        "2024-02-12",
+        "2024-02-18",
+        65,
+        false
+      ],
+      [
+        11,
+        204,
+        55,
+        "2024-02-20",
+        "2024-02-25",
+        85,
+        true
+      ],
+      [
+        12,
+        203,
+        70,
+        "2024-02-22",
+        null,
+        70,
+        false
+      ],
+      [
+        13,
+        205,
+        80,
+        "2024-02-28",
+        "2024-03-05",
+        83,
+        true
+      ],
+      [
+        14,
+        201,
+        68,
+        "2024-03-01",
+        "2024-03-06",
+        81,
+        true
+      ],
+      [
+        15,
+        206,
+        33,
+        "2024-03-05",
+        "2024-03-10",
+        40,
+        false
+      ],
+      [
+        16,
+        202,
+        42,
+        "2024-03-08",
+        "2024-03-12",
+        82,
+        true
+      ],
+      [
+        17,
+        204,
+        55,
+        "2024-03-10",
+        null,
+        68,
+        false
+      ],
+      [
+        18,
+        207,
+        90,
+        "2024-03-12",
+        "2024-03-18",
+        50,
+        false
+      ],
+      [
+        19,
+        205,
+        80,
+        "2024-03-15",
+        "2024-03-20",
+        86,
+        true
+      ],
+      [
+        20,
+        206,
+        33,
+        "2024-03-22",
+        "2024-03-28",
+        75,
+        false
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "state_mutation",
+      "recipe": "do-block-sequential",
+      "composite_moves": [
+        "iterate rows in specified order",
+        "self-join to find prior discharge",
+        "conditional update rule 1 (readmission boost)",
+        "conditional update rule 2 (high_risk flag)",
+        "conditional update rule 3 (age + high_risk boost)",
+        "trailing SELECT to display mutated state"
+      ]
+    },
+    "hints": [
+      "You need to process admissions one by one in chronological order, checking if each admission is a readmission within 30 days of a prior discharge for the same patient.",
+      "Use a CURSOR or FOR loop to iterate through admissions ordered by admission_date and admission_id. For each admission, look for the most recent prior discharge for that patient and check the day difference.",
+      "Apply the three rules in sequence for each admission: first add 10 if readmitted within 30 days, then check if severity_score > 75 to set high_risk, then add 5 more if high_risk is TRUE and patient_age > 65. Use the updated values at each step."
+    ],
+    "answer_key": "DO $$\nDECLARE\n  rec RECORD;\n  prior_discharge DATE;\n  days_diff INTEGER;\nBEGIN\n  FOR rec IN \n    SELECT admission_id, patient_id, patient_age, admission_date, severity_score, high_risk\n    FROM patient_admissions\n    ORDER BY admission_date, admission_id\n  LOOP\n    SELECT MAX(discharge_date) INTO prior_discharge\n    FROM patient_admissions\n    WHERE patient_id = rec.patient_id\n      AND discharge_date IS NOT NULL\n      AND discharge_date < rec.admission_date;\n    \n    IF prior_discharge IS NOT NULL THEN\n      days_diff := rec.admission_date - prior_discharge;\n      IF days_diff <= 30 THEN\n        UPDATE patient_admissions\n        SET severity_score = severity_score + 10\n        WHERE admission_id = rec.admission_id;\n      END IF;\n    END IF;\n    \n    UPDATE patient_admissions\n    SET high_risk = TRUE\n    WHERE admission_id = rec.admission_id\n      AND severity_score > 75;\n    \n    UPDATE patient_admissions\n    SET severity_score = severity_score + 5\n    WHERE admission_id = rec.admission_id\n      AND high_risk = TRUE\n      AND patient_age > 65;\n  END LOOP;\nEND $$;\n\nSELECT * FROM patient_admissions ORDER BY admission_id;",
+    "_meta": {
+      "question_type": "do_block",
+      "dialect": "postgresql",
+      "generated_at": "2026-04-27T19:24:20.178372",
+      "problem_id": "b1a1f2b1934f",
+      "validation_attempts": 1,
+      "scenario": "a hospital system tracking patient admissions, discharges, and readmissions"
+    }
+  },
+  "user_solution": "DO $$\nDECLARE\n    r RECORD;\n    prior_discharge DATE;\nBEGIN\n    FOR r IN SELECT * FROM patient_admissions ORDER BY admission_id, patient_id LOOP\n\n       -- Get the last discharge date\n       SELECT MAX(discharge_date)\n       INTO prior_discharge\n       FROM patient_admissions\n       WHERE patient_id = r.patient_id AND admission_date < r.admission_date;\n\n       -- If a patient was discharged and readmitted within 30 days\n       IF r.admission_date - prior_discharge <= 30 THEN\n          --  (1) If a patient was discharged and readmitted within 30 days, severity_score + 10.\n          UPDATE patient_admissions\n          SET severity_score = severity_score  + 10\n          WHERE admission_id = r.admission_id AND patient_id = r.patient_id;\n       END IF;\n       -- (2) if severity_score > 75, set high_risk flag to TRUE.\n       UPDATE patient_admissions\n       SET high_risk = True\n       WHERE admission_id = r.admission_id AND patient_id = r.patient_id AND severity_score > 75;\n\n        -- (3) if high_risk is TRUE and the patient is over 65 years old, severity_score + 5.\n       UPDATE patient_admissions\n       SET severity_score  = severity_score + 5\n       WHERE admission_id = r.admission_id AND patient_id = r.patient_id AND high_risk = TRUE AND patient_age > 65;\n  END LOOP;\nEND $$;\n\n\nSELECT *\nFROM patient_admissions\nORDER BY 1,\n         2;",
+  "solved_at": "2026-04-27T20:12:30.440009"
+}

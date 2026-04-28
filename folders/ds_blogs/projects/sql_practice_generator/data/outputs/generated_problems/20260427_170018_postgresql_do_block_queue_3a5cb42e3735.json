@@ -1,0 +1,185 @@
+{
+  "title": "Process Claim Action Queue with State Guards",
+  "prompt": "A hospital revenue cycle department tracks insurance claim submissions in a `claim_lines` state table and processes actions through a `claim_actions` log. Each claim line has a `status` ('draft', 'submitted', 'denied', 'appealed', 'paid') and a `denial_reason_code` (NULL when not denied). The actions log records events in chronological order: action_type 'SUBMIT' moves a claim from 'draft' to 'submitted' (only if currently 'draft'), 'DENY' moves it to 'denied' and records the reason code (only if currently 'submitted'), 'APPEAL' moves it to 'appealed' (only if currently 'denied'), and 'PAY' moves it to 'paid' (only if currently 'submitted' or 'appealed'). Write a DO block that iterates `claim_actions` in `action_id` order, reads the current state of the referenced claim line, and conditionally updates it based on both the action type and the current status. Actions that arrive when the claim is in an incompatible state should be silently ignored (no-op). After the DO block, include a trailing `SELECT * FROM claim_lines ORDER BY claim_line_id;` to show the final state. The solution must use a FOR loop with per-iteration state reads and conditional branching; do not use set-based UPDATEs.",
+  "schema_ddl": "CREATE TABLE claim_lines (claim_line_id INT PRIMARY KEY, patient_account VARCHAR(20) NOT NULL, charge_amount DECIMAL(10,2) NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'draft', denial_reason_code VARCHAR(10)); CREATE TABLE claim_actions (action_id INT PRIMARY KEY, claim_line_id INT NOT NULL REFERENCES claim_lines(claim_line_id), action_type VARCHAR(20) NOT NULL, reason_code VARCHAR(10), processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);",
+  "example_input_data": "INSERT INTO claim_lines (claim_line_id, patient_account, charge_amount, status, denial_reason_code) VALUES (101, 'PT-9001', 250.00, 'draft', NULL), (102, 'PT-9002', 500.00, 'draft', NULL), (103, 'PT-9003', 150.00, 'submitted', NULL), (104, 'PT-9004', 300.00, 'draft', NULL); INSERT INTO claim_actions (action_id, claim_line_id, action_type, reason_code) VALUES (1, 101, 'SUBMIT', NULL), (2, 102, 'SUBMIT', NULL), (3, 103, 'DENY', 'CO-45'), (4, 101, 'DENY', 'PR-96'), (5, 103, 'APPEAL', NULL), (6, 102, 'PAY', NULL), (7, 103, 'PAY', NULL), (8, 104, 'PAY', NULL);",
+  "example_output_columns": [
+    "claim_line_id",
+    "patient_account",
+    "charge_amount",
+    "status",
+    "denial_reason_code"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "PT-9001",
+      "250.00",
+      "denied",
+      "PR-96"
+    ],
+    [
+      102,
+      "PT-9002",
+      "500.00",
+      "paid",
+      null
+    ],
+    [
+      103,
+      "PT-9003",
+      "150.00",
+      "paid",
+      "CO-45"
+    ],
+    [
+      104,
+      "PT-9004",
+      "300.00",
+      "draft",
+      null
+    ]
+  ],
+  "test_data": "INSERT INTO claim_lines (claim_line_id, patient_account, charge_amount, status, denial_reason_code) VALUES (201, 'PT-8001', 125.50, 'draft', NULL), (202, 'PT-8002', 450.75, 'draft', NULL), (203, 'PT-8003', 200.00, 'draft', NULL), (204, 'PT-8004', 375.25, 'submitted', NULL), (205, 'PT-8005', 600.00, 'draft', NULL), (206, 'PT-8006', 180.00, 'draft', NULL), (207, 'PT-8007', 220.50, 'submitted', NULL), (208, 'PT-8008', 310.00, 'draft', NULL), (209, 'PT-8009', 275.00, 'draft', NULL), (210, 'PT-8010', 525.00, 'draft', NULL), (211, 'PT-8011', 150.00, 'draft', NULL), (212, 'PT-8012', 410.00, 'draft', NULL), (213, 'PT-8013', 195.00, 'draft', NULL), (214, 'PT-8014', 285.00, 'draft', NULL), (215, 'PT-8015', 340.00, 'submitted', NULL); INSERT INTO claim_actions (action_id, claim_line_id, action_type, reason_code) VALUES (1, 201, 'SUBMIT', NULL), (2, 202, 'SUBMIT', NULL), (3, 203, 'SUBMIT', NULL), (4, 204, 'DENY', 'CO-16'), (5, 205, 'PAY', NULL), (6, 201, 'DENY', 'PR-27'), (7, 202, 'PAY', NULL), (8, 203, 'DENY', 'CO-45'), (9, 204, 'APPEAL', NULL), (10, 206, 'SUBMIT', NULL), (11, 203, 'APPEAL', NULL), (12, 207, 'PAY', NULL), (13, 208, 'SUBMIT', NULL), (14, 204, 'PAY', NULL), (15, 209, 'SUBMIT', NULL), (16, 210, 'SUBMIT', NULL), (17, 203, 'PAY', NULL), (18, 206, 'DENY', 'PR-96'), (19, 211, 'DENY', 'CO-22'), (20, 208, 'DENY', 'CO-50'), (21, 209, 'DENY', 'PR-1'), (22, 210, 'PAY', NULL), (23, 212, 'SUBMIT', NULL), (24, 206, 'APPEAL', NULL), (25, 208, 'APPEAL', NULL), (26, 213, 'SUBMIT', NULL), (27, 214, 'SUBMIT', NULL), (28, 209, 'APPEAL', NULL), (29, 215, 'DENY', 'CO-97'), (30, 212, 'PAY', NULL);",
+  "test_expected_columns": [
+    "claim_line_id",
+    "patient_account",
+    "charge_amount",
+    "status",
+    "denial_reason_code"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "PT-8001",
+      "125.50",
+      "denied",
+      "PR-27"
+    ],
+    [
+      202,
+      "PT-8002",
+      "450.75",
+      "paid",
+      null
+    ],
+    [
+      203,
+      "PT-8003",
+      "200.00",
+      "paid",
+      "CO-45"
+    ],
+    [
+      204,
+      "PT-8004",
+      "375.25",
+      "paid",
+      "CO-16"
+    ],
+    [
+      205,
+      "PT-8005",
+      "600.00",
+      "draft",
+      null
+    ],
+    [
+      206,
+      "PT-8006",
+      "180.00",
+      "appealed",
+      "PR-96"
+    ],
+    [
+      207,
+      "PT-8007",
+      "220.50",
+      "paid",
+      null
+    ],
+    [
+      208,
+      "PT-8008",
+      "310.00",
+      "appealed",
+      "CO-50"
+    ],
+    [
+      209,
+      "PT-8009",
+      "275.00",
+      "appealed",
+      "PR-1"
+    ],
+    [
+      210,
+      "PT-8010",
+      "525.00",
+      "paid",
+      null
+    ],
+    [
+      211,
+      "PT-8011",
+      "150.00",
+      "draft",
+      null
+    ],
+    [
+      212,
+      "PT-8012",
+      "410.00",
+      "paid",
+      null
+    ],
+    [
+      213,
+      "PT-8013",
+      "195.00",
+      "submitted",
+      null
+    ],
+    [
+      214,
+      "PT-8014",
+      "285.00",
+      "submitted",
+      null
+    ],
+    [
+      215,
+      "PT-8015",
+      "340.00",
+      "denied",
+      "CO-97"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "procedural",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "declare-record-and-scalars",
+      "for-loop-ordered-log",
+      "per-iteration-select-into-state",
+      "branch-on-type-and-state",
+      "conditional-update-state",
+      "trailing-select-final-state"
+    ]
+  },
+  "hints": [
+    "You need to loop through actions in order and check the current status of each claim line before deciding whether to apply the action.",
+    "Declare variables to hold the current status and denial_reason_code, then SELECT these values fresh from claim_lines inside the loop for each action's target claim_line_id.",
+    "Use IF-ELSIF to match both action_type and current status: SUBMIT only works from 'draft', DENY from 'submitted', APPEAL from 'denied', and PAY from 'submitted' or 'appealed'. Update the status and reason_code fields conditionally within each branch."
+  ],
+  "answer_key": "DO $$\nDECLARE\n  rec RECORD;\n  cur_status VARCHAR(20);\n  cur_denial_code VARCHAR(10);\nBEGIN\n  FOR rec IN SELECT * FROM claim_actions ORDER BY action_id LOOP\n    SELECT status, denial_reason_code INTO cur_status, cur_denial_code\n    FROM claim_lines\n    WHERE claim_line_id = rec.claim_line_id;\n    \n    IF rec.action_type = 'SUBMIT' AND cur_status = 'draft' THEN\n      UPDATE claim_lines\n      SET status = 'submitted'\n      WHERE claim_line_id = rec.claim_line_id;\n    ELSIF rec.action_type = 'DENY' AND cur_status = 'submitted' THEN\n      UPDATE claim_lines\n      SET status = 'denied', denial_reason_code = rec.reason_code\n      WHERE claim_line_id = rec.claim_line_id;\n    ELSIF rec.action_type = 'APPEAL' AND cur_status = 'denied' THEN\n      UPDATE claim_lines\n      SET status = 'appealed'\n      WHERE claim_line_id = rec.claim_line_id;\n    ELSIF rec.action_type = 'PAY' AND (cur_status = 'submitted' OR cur_status = 'appealed') THEN\n      UPDATE claim_lines\n      SET status = 'paid'\n      WHERE claim_line_id = rec.claim_line_id;\n    END IF;\n  END LOOP;\nEND $$;\n\nSELECT * FROM claim_lines ORDER BY claim_line_id;",
+  "_meta": {
+    "question_type": "do_block_queue",
+    "dialect": "postgresql",
+    "generated_at": "2026-04-27T17:00:17.828716",
+    "problem_id": "3a5cb42e3735",
+    "validation_attempts": 1,
+    "scenario": "a hospital revenue cycle team tracking claim submissions and denial reasons"
+  }
+}

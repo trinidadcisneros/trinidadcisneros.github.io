@@ -12498,6 +12498,27 @@ WHERE c.years_of_exp >= 2 AND t.total >= 15;</code></div>
                 <p style="margin: 6px 0; line-height: 1.7;">When you want every left row to survive (e.g., "all books, even ones with zero sales last year"), put date filters on the right table in <code>ON</code>, not <code>WHERE</code>. A <code>WHERE</code> on a right-side date drops unmatched rows and undercounts groups with no recent activity.</p>
                 <p style="margin: 6px 0;"><a href="#pitfall-on-vs-where">Open the full ON vs WHERE walkthrough &rarr;</a></p>
               </div>
+
+              <div style="background-color: #fff3e0; border-left: 5px solid #f57f17; padding: 12px 15px; margin-bottom: 20px; border-radius: 4px;">
+                <p style="margin: 0 0 10px 0; font-weight: 600; color: #e65100;">Common Trap: WHERE Filters Drop Rows You Want to Show as 0</p>
+                <p style="margin: 0 0 10px 0; font-size: 1.3rem; line-height: 1.7;">Many enrich-aggregate problems expect a row with count 0 when a left-side row has no qualifying right-side matches. Example: "for each user, count their orders in 2019" &mdash; users with no 2019 orders should appear with count 0, not disappear from the result.</p>
+                <p style="margin: 0 0 10px 0; font-size: 1.3rem; line-height: 1.7;"><strong>Why it breaks:</strong> WHERE runs after the LEFT JOIN. A filter on a right-side column (e.g. <code>WHERE EXTRACT(YEAR FROM o.order_date) = 2019</code>) drops unmatched rows along with mismatched ones, so users with no orders at all silently vanish.</p>
+                <p style="margin: 0 0 10px 0; font-size: 1.3rem; line-height: 1.7;"><strong>The fix:</strong> Keep the LEFT JOIN, then move the filter inside the aggregate. <code>SUM(CASE WHEN ... THEN 1 ELSE 0 END)</code> turns rows that fail the condition into 0 instead of removing them, so every left-side row survives with a real count.</p>
+                <pre style="background-color: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 6px; font-size: 1.2rem; line-height: 1.6; overflow-x: auto; white-space: pre; font-family: 'Courier New', Consolas, monospace; margin: 10px 0;"><code><span style="color: #808080;">-- BREAKS: users with no 2019 orders are dropped entirely</span>
+<span style="color: #569cd6;">SELECT</span> u.user_id, u.join_date, <span style="color: #569cd6;">COUNT</span>(o.order_id) <span style="color: #569cd6;">AS</span> orders_in_2019
+<span style="color: #569cd6;">FROM</span> Users u
+<span style="color: #569cd6;">LEFT JOIN</span> Orders o <span style="color: #569cd6;">ON</span> u.user_id = o.buyer_id
+<span style="color: #569cd6;">WHERE</span> <span style="color: #569cd6;">EXTRACT</span>(<span style="color: #569cd6;">YEAR FROM</span> o.order_date) = 2019
+<span style="color: #569cd6;">GROUP BY</span> u.user_id, u.join_date;
+
+<span style="color: #808080;">-- WORKS: every user survives, count rolls up to 0 when no row matches</span>
+<span style="color: #569cd6;">SELECT</span> u.user_id, u.join_date,
+       <span style="color: #569cd6;">SUM</span>(<span style="color: #569cd6;">CASE WHEN</span> <span style="color: #569cd6;">EXTRACT</span>(<span style="color: #569cd6;">YEAR FROM</span> o.order_date) = 2019 <span style="color: #569cd6;">THEN</span> 1 <span style="color: #569cd6;">ELSE</span> 0 <span style="color: #569cd6;">END</span>) <span style="color: #569cd6;">AS</span> orders_in_2019
+<span style="color: #569cd6;">FROM</span> Users u
+<span style="color: #569cd6;">LEFT JOIN</span> Orders o <span style="color: #569cd6;">ON</span> u.user_id = o.buyer_id
+<span style="color: #569cd6;">GROUP BY</span> u.user_id, u.join_date;</code></pre>
+                <p style="margin: 10px 0 0 0; font-size: 1.3rem; line-height: 1.7;"><strong>How to spot this:</strong> Scan the example output for any row showing 0 (or "no activity," "0 orders," "never purchased"). That is the signal to keep the LEFT JOIN and filter inside <code>SUM</code> or <code>COUNT</code> with <code>CASE WHEN</code>, never with a WHERE on the right-side column.</p>
+              </div>
               <div class="problem-card collapsed" style="margin: 0 0 20px 0;">
                 <div class="problem-card-header">
                   <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
@@ -13705,6 +13726,42 @@ LEFT JOIN ranked r ON r.seller_id = u.user_id AND r.rn = 2
 LEFT JOIN Items i ON i.item_id = r.item_id;</code></div>
                     <p style="margin: 12px 0;"><strong>Why this is best:</strong> ROW_NUMBER isolates the second order per seller; brand is looked up and compared.</p>
                     <p style="margin: 12px 0;"><strong>Performance:</strong> One window + two joins.</p>
+                  </div>
+                </details>
+
+                <details style="margin-top: 10px;">
+                  <summary>
+                    <span class="summary-arrow">&#9654;</span>
+                    <span class="rank-badge rank-2">2</span>
+                    <strong>Conditional Aggregation on Ranked Base</strong>
+                  </summary>
+                  <div class="solution-content">
+                    <div class="code-block"><code>WITH base AS (
+  SELECT
+    u.user_id AS seller_id,
+    ROW_NUMBER() OVER (PARTITION BY u.user_id ORDER BY o.order_date ASC) AS order_rn,
+    o.order_id,
+    o.order_date,
+    o.item_id,
+    u.favorite_brand,
+    i.item_brand,
+    CASE WHEN u.favorite_brand = i.item_brand THEN 'yes' ELSE 'no' END AS item_fav_brand
+  FROM Users AS u
+  LEFT JOIN Orders AS o
+    ON u.user_id = o.seller_id
+  LEFT JOIN Items AS i
+    ON i.item_id = o.item_id
+)
+SELECT
+  seller_id,
+  COALESCE(MAX(CASE WHEN order_rn = 2 THEN item_fav_brand END), 'no') AS "2nd_item_fav_brand"
+FROM base
+GROUP BY seller_id
+ORDER BY seller_id;</code></div>
+                    <p style="margin: 12px 0;"><strong>Why this works:</strong> The base CTE attaches the rn flag and the brand match to every order row. The outer GROUP BY collapses each seller; <code>MAX(CASE WHEN order_rn = 2 THEN item_fav_brand END)</code> picks up the rn=2 row's flag (NULL otherwise) and <code>COALESCE</code> defaults to <code>'no'</code> for sellers with fewer than two orders.</p>
+                    <p style="margin: 12px 0;"><strong>Pattern to keep:</strong> "per group, return the value of column X on the row where condition Y" &rarr; <code>MAX(CASE WHEN Y THEN X END)</code> over a partitioned base, with COALESCE for the missing-row default. No second pass, no UNION.</p>
+                    <p style="margin: 12px 0;"><strong>Note on column quoting:</strong> identifiers that start with a digit (here <code>2nd_item_fav_brand</code>) must be wrapped in double quotes or the parser reads them as a numeric literal.</p>
+                    <p style="margin: 12px 0;"><strong>Performance:</strong> One window + one GROUP BY. Comparable to Rank 1 in cost; trades two LEFT JOINs for one aggregate scan.</p>
                   </div>
                 </details>
               </div>
@@ -18564,6 +18621,16 @@ SELECT * FROM target ORDER BY id;</code></pre>
           </style>
 
           <!-- Procedural Blocks -->
+          <div class="problem-card collapsed" id="topic-procedural-blocks" style="margin-top: 30px;">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0;">Procedural Blocks <span class="count-badge">topic</span></h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>Anonymous DO $$ ... END $$; blocks. Two recipe shapes: row-by-row state mutation (FOR LOOP + SELECT INTO + IF / ELSIF) for queues whose state changes mid-run, and simple sequential UPDATEs for chained set-based rules.</p>
+            </div>
+            <div class="problem-card-content">
+
           <div class="problem-card collapsed" style="margin-bottom: 16px;">
             <div class="problem-card-header">
               <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
@@ -18650,13 +18717,13 @@ END IF;</code></pre>
           </div>
 
           <!-- RECIPE: DO BLOCK / SEQUENTIAL UPDATE -->
-          <div class="problem-card" id="do-block-sequential" style="margin-top: 30px;">
+          <div class="problem-card" id="do-block-row-by-row" style="margin-top: 30px;">
             <div class="problem-card-header">
-              <h3 class="problem-card-title" style="margin: 0;">DO Block: Sequential State / Row-by-Row UPDATE <span class="count-badge">recipe</span></h3>
+              <h3 class="problem-card-title" style="margin: 0;">DO Block: Row-by-Row State Mutation <span class="count-badge">recipe</span></h3>
               <span class="problem-toggle">&#9660;</span>
             </div>
             <div class="problem-card-excerpt">
-              <p>Apply a list of operations in order, mutating the target table row by row. Use procedural PL/pgSQL inside <code>DO $$ ... END $$;</code>, then a trailing SELECT so the test scaffold sees output.</p>
+              <p>Iterate a request queue strictly in ID order. Inside the loop, read the target row's current state into scalar variables, branch on event type and state with <code>IF / ELSIF</code>, then issue a scoped <code>UPDATE</code>. Use this when the result for one row depends on the latest state of that same row, or when one row's mutation changes whether a later request is valid.</p>
             </div>
             <div class="problem-card-content">
 
@@ -18720,6 +18787,8 @@ END $$;
 SELECT * FROM target_table ORDER BY key;</code></pre>
 
               <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ddd;">
+
+              <p style="margin: 14px 0 6px;"><strong>Anchor problems</strong> &mdash; airline seats (queue + seat state), refund queue (queue + line state with amount guard), cohort enrollment (queue + two-column state guard), readmission severity (history lookup with self-gating downstream rules), content watch session (four-state FSM with viewer guard and progress cap).</p>
 
               <!-- Anchor problem: airline seats -->
               <div class="problem-card collapsed" style="margin-top: 15px;">
@@ -18854,6 +18923,573 @@ SELECT * FROM seats ORDER BY seat_no;</code></div>
                 </div>
               </div>
 
+              <!-- Anchor problem: refund requests queue (practice notebook, do_block_queue) -->
+              <div class="problem-card collapsed" style="margin-top: 15px;">
+                <div class="problem-card-header">
+                  <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                    <span style="display: inline-block; background-color: #ef6c00; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Medium</span>
+                    Process Refund Requests in Queue Order
+                  </h3>
+                  <span class="problem-toggle">&#9660;</span>
+                </div>
+                <div class="problem-card-excerpt">
+                  <p>Same shape as airline seats: a state table plus a request queue, processed one request at a time in <code>request_id</code> order. The current row's status is read fresh each iteration so a state change from an earlier request affects whether a later request fires.</p>
+                </div>
+                <div class="problem-card-content">
+
+                  <p><strong>Tables:</strong></p>
+                  <table style="width: auto; border-collapse: collapse; font-size: 1.3rem; line-height: 1.6; margin: 6px 0 12px;">
+                    <thead>
+                      <tr style="background: #6a1b9a; color: white; text-align: left;">
+                        <th style="padding: 8px 12px;">Table</th>
+                        <th style="padding: 8px 12px;">Column</th>
+                        <th style="padding: 8px 12px;">Type</th>
+                        <th style="padding: 8px 12px;">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;" rowspan="3"><code>refund_state</code></td><td style="padding: 6px 12px;"><code>order_line_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">primary key</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>status</code></td><td style="padding: 6px 12px;">VARCHAR(20)</td><td style="padding: 6px 12px;">'none' | 'pending' | 'approved'</td></tr>
+                      <tr style="border-bottom: 2px solid #888;"><td style="padding: 6px 12px;"><code>refundable_amount</code></td><td style="padding: 6px 12px;">DECIMAL(10,2)</td><td style="padding: 6px 12px;">decreases as approvals consume it</td></tr>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;" rowspan="5"><code>refund_requests</code></td><td style="padding: 6px 12px;"><code>request_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">primary key, queue order</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>request_type</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">1 = initiate, 2 = approve, 3 = cancel</td></tr>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>order_line_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">FK into refund_state</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>customer_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">payload</td></tr>
+                      <tr><td style="padding: 6px 12px;"><code>requested_amount</code></td><td style="padding: 6px 12px;">DECIMAL(10,2)</td><td style="padding: 6px 12px;">amount to deduct on approve</td></tr>
+                    </tbody>
+                  </table>
+
+                  <p><strong>Prompt:</strong> Iterate <code>refund_requests</code> in <code>request_id</code> order. For each request, read the current state of the referenced line and apply the matching rule.</p>
+                  <ul style="margin: 8px 0 12px 20px; line-height: 1.7;">
+                    <li>If <code>request_type = 1</code> AND current <code>status = 'none'</code>: set <code>status = 'pending'</code>.</li>
+                    <li>If <code>request_type = 2</code> AND current <code>status = 'pending'</code> AND <code>refundable_amount &gt;= requested_amount</code>: set <code>status = 'approved'</code> and subtract <code>requested_amount</code> from <code>refundable_amount</code>.</li>
+                    <li>If <code>request_type = 3</code> AND current <code>status = 'pending'</code>: reset to <code>'none'</code>.</li>
+                    <li>Anything else is a no-op.</li>
+                  </ul>
+
+                  <div class="solution-container">
+                    <details>
+                      <summary>
+                        <span class="summary-arrow">&#9654;</span>
+                        <span class="rank-badge rank-1">1</span>
+                        <strong>FOR loop + SELECT INTO + IF / ELSIF, mirroring airline seats</strong>
+                      </summary>
+                      <div class="solution-content">
+                        <div class="code-block"><code>DO $$
+DECLARE
+  rec RECORD;
+  cur_status     VARCHAR(20);
+  cur_refundable DECIMAL(10,2);
+BEGIN
+  FOR rec IN SELECT * FROM refund_requests ORDER BY request_id LOOP
+    SELECT status, refundable_amount
+      INTO cur_status, cur_refundable
+      FROM refund_state
+     WHERE order_line_id = rec.order_line_id;
+
+    IF rec.request_type = 1 AND cur_status = 'none' THEN
+      UPDATE refund_state
+         SET status = 'pending'
+       WHERE order_line_id = rec.order_line_id;
+
+    ELSIF rec.request_type = 2
+       AND cur_status = 'pending'
+       AND cur_refundable &gt;= rec.requested_amount THEN
+      UPDATE refund_state
+         SET status = 'approved',
+             refundable_amount = refundable_amount - rec.requested_amount
+       WHERE order_line_id = rec.order_line_id;
+
+    ELSIF rec.request_type = 3 AND cur_status = 'pending' THEN
+      UPDATE refund_state
+         SET status = 'none'
+       WHERE order_line_id = rec.order_line_id;
+    END IF;
+  END LOOP;
+END $$;
+
+SELECT * FROM refund_state ORDER BY order_line_id;</code></div>
+                        <p style="margin: 12px 0;"><strong>Why this is best:</strong> The FOR loop walks the queue strictly in <code>request_id</code> order. The <code>SELECT INTO</code> reads the current state freshly each iteration so the prior iteration's UPDATE is visible. Each <code>IF / ELSIF</code> branch checks both the request type and the current state, so a request that does not match any condition is silently a no-op &mdash; exactly the behavior the prompt requires.</p>
+                        <p style="margin: 12px 0;"><strong>Why a set-based UPDATE chain fails here:</strong></p>
+                        <ul style="margin: 6px 0 0 18px; line-height: 1.7;">
+                          <li>Request 1 marks line 101 'pending'. Request 2 then approves it &mdash; this only works if request 1 already ran. A set-based <code>UPDATE refund_state SET status='approved' WHERE ...</code> can't see the intermediate 'pending' state because all UPDATEs would run against the original snapshot.</li>
+                          <li>Request 4 (cancel on line 102) only fires if line 102 is currently 'pending', which it became from request 3. The order matters.</li>
+                          <li>Request 6 (initiate on line 104) is a no-op because line 104 is already 'approved'. A set-based UPDATE with no state guard would wrongly reset it to 'pending'.</li>
+                        </ul>
+                        <p style="margin: 12px 0;"><strong>Trace through the example data:</strong></p>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 1.25rem; line-height: 1.55; margin-bottom: 12px;">
+                          <thead>
+                            <tr style="background: #6a1b9a; color: white; text-align: left;">
+                              <th style="padding: 6px 10px;">request_id</th>
+                              <th style="padding: 6px 10px;">type</th>
+                              <th style="padding: 6px 10px;">line</th>
+                              <th style="padding: 6px 10px;">state read</th>
+                              <th style="padding: 6px 10px;">action</th>
+                              <th style="padding: 6px 10px;">resulting state</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">1</td><td style="padding: 6px 10px;">1 (initiate)</td><td style="padding: 6px 10px;">101</td><td style="padding: 6px 10px;">none, $50</td><td style="padding: 6px 10px;">set 'pending'</td><td style="padding: 6px 10px;">pending, $50</td></tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">2</td><td style="padding: 6px 10px;">2 (approve)</td><td style="padding: 6px 10px;">101</td><td style="padding: 6px 10px;">pending, $50</td><td style="padding: 6px 10px;">approve, $50 &ge; $50</td><td style="padding: 6px 10px;">approved, $0</td></tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">3</td><td style="padding: 6px 10px;">1 (initiate)</td><td style="padding: 6px 10px;">102</td><td style="padding: 6px 10px;">none, $100</td><td style="padding: 6px 10px;">set 'pending'</td><td style="padding: 6px 10px;">pending, $100</td></tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">4</td><td style="padding: 6px 10px;">3 (cancel)</td><td style="padding: 6px 10px;">102</td><td style="padding: 6px 10px;">pending, $100</td><td style="padding: 6px 10px;">reset to 'none'</td><td style="padding: 6px 10px;">none, $100</td></tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">5</td><td style="padding: 6px 10px;">2 (approve)</td><td style="padding: 6px 10px;">103</td><td style="padding: 6px 10px;">pending, $75</td><td style="padding: 6px 10px;">approve, $75 &ge; $75</td><td style="padding: 6px 10px;">approved, $0</td></tr>
+                            <tr style="background: #fafafa;"><td style="padding: 6px 10px;">6</td><td style="padding: 6px 10px;">1 (initiate)</td><td style="padding: 6px 10px;">104</td><td style="padding: 6px 10px;">approved, $0</td><td style="padding: 6px 10px;">no match (status &ne; 'none')</td><td style="padding: 6px 10px;">unchanged</td></tr>
+                          </tbody>
+                        </table>
+                        <p style="margin: 12px 0;"><strong>Watch out:</strong></p>
+                        <ul style="margin: 6px 0 0 18px; line-height: 1.7;">
+                          <li><code>refundable_amount</code> is <code>DECIMAL(10,2)</code>. The strict <code>&gt;=</code> comparison can flip on borderline values if you pre-rounded the input. Trust the column's stored value, not a computed approximation.</li>
+                          <li>Re-read state with <code>SELECT INTO</code> at the top of every iteration. Reading once before the loop and reusing the variables would miss the mutations made by earlier requests in the same run.</li>
+                          <li>An <code>UPDATE</code> inside an <code>IF</code> branch must filter by <code>WHERE order_line_id = rec.order_line_id;</code> &mdash; not a global UPDATE.</li>
+                          <li>Trailing <code>;</code> after <code>END $$</code>, then a trailing <code>SELECT * FROM refund_state ORDER BY order_line_id;</code> so the harness sees output.</li>
+                        </ul>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Anchor problem: cohort enrollment processor (practice notebook, do_block_queue) -->
+              <div class="problem-card collapsed" style="margin-top: 15px;">
+                <div class="problem-card-header">
+                  <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                    <span style="display: inline-block; background-color: #ef6c00; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Medium</span>
+                    Patient Cohort Enrollment DO Block Processor
+                  </h3>
+                  <span class="problem-toggle">&#9660;</span>
+                </div>
+                <div class="problem-card-excerpt">
+                  <p>Same queue + state shape as airline seats and refund queue. The twist: the DISCHARGE rule guards on TWO state columns, so the iteration must read both <code>enrollment_status</code> and <code>program_id</code> fresh each pass.</p>
+                </div>
+                <div class="problem-card-content">
+
+                  <p><strong>Tables:</strong></p>
+                  <table style="width: auto; border-collapse: collapse; font-size: 1.3rem; line-height: 1.6; margin: 6px 0 12px;">
+                    <thead>
+                      <tr style="background: #6a1b9a; color: white; text-align: left;">
+                        <th style="padding: 8px 12px;">Table</th>
+                        <th style="padding: 8px 12px;">Column</th>
+                        <th style="padding: 8px 12px;">Type</th>
+                        <th style="padding: 8px 12px;">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;" rowspan="3"><code>cohort_enrollments</code></td><td style="padding: 6px 12px;"><code>patient_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">primary key</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>enrollment_status</code></td><td style="padding: 6px 12px;">VARCHAR(20)</td><td style="padding: 6px 12px;">'ACTIVE' | 'INACTIVE'</td></tr>
+                      <tr style="border-bottom: 2px solid #888;"><td style="padding: 6px 12px;"><code>program_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">NULL when INACTIVE</td></tr>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;" rowspan="4"><code>cohort_enrollment_requests</code></td><td style="padding: 6px 12px;"><code>request_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">primary key, queue order</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>patient_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">FK into cohort_enrollments</td></tr>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>request_type</code></td><td style="padding: 6px 12px;">VARCHAR(20)</td><td style="padding: 6px 12px;">'ENROLL' | 'TRANSFER' | 'DISCHARGE'</td></tr>
+                      <tr style="background: #fafafa;"><td style="padding: 6px 12px;"><code>program_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">target program for ENROLL/TRANSFER, must-match key for DISCHARGE</td></tr>
+                    </tbody>
+                  </table>
+
+                  <p><strong>Prompt:</strong> Iterate <code>cohort_enrollment_requests</code> in <code>request_id</code> order. For each request, read the patient's current <code>enrollment_status</code> and <code>program_id</code> from <code>cohort_enrollments</code>, then apply the matching rule.</p>
+                  <ul style="margin: 8px 0 12px 20px; line-height: 1.7;">
+                    <li><code>ENROLL</code> AND current status is <code>'INACTIVE'</code>: set status to <code>'ACTIVE'</code> and copy <code>program_id</code> from the request.</li>
+                    <li><code>TRANSFER</code> AND current status is <code>'ACTIVE'</code>: overwrite <code>program_id</code> with the request's value (status stays ACTIVE).</li>
+                    <li><code>DISCHARGE</code> AND current status is <code>'ACTIVE'</code> AND current <code>program_id</code> equals the request's <code>program_id</code>: set status to <code>'INACTIVE'</code> and clear <code>program_id</code> to NULL.</li>
+                    <li>Anything else is a no-op.</li>
+                  </ul>
+
+                  <div class="solution-container">
+                    <details>
+                      <summary>
+                        <span class="summary-arrow">&#9654;</span>
+                        <span class="rank-badge rank-1">1</span>
+                        <strong>FOR loop + per-iteration SELECT INTO + three-branch IF / ELSIF</strong>
+                      </summary>
+                      <div class="solution-content">
+                        <div class="code-block"><code>DO $$
+DECLARE
+  r RECORD;
+  current_status  VARCHAR(20);
+  current_program INT;
+BEGIN
+  FOR r IN SELECT * FROM cohort_enrollment_requests ORDER BY request_id LOOP
+    SELECT enrollment_status, program_id
+      INTO current_status, current_program
+      FROM cohort_enrollments
+     WHERE patient_id = r.patient_id;
+
+    IF r.request_type = 'ENROLL' AND current_status = 'INACTIVE' THEN
+      UPDATE cohort_enrollments
+         SET enrollment_status = 'ACTIVE',
+             program_id        = r.program_id
+       WHERE patient_id = r.patient_id;
+
+    ELSIF r.request_type = 'TRANSFER' AND current_status = 'ACTIVE' THEN
+      UPDATE cohort_enrollments
+         SET program_id = r.program_id
+       WHERE patient_id = r.patient_id;
+
+    ELSIF r.request_type = 'DISCHARGE'
+       AND current_status  = 'ACTIVE'
+       AND current_program = r.program_id THEN
+      UPDATE cohort_enrollments
+         SET enrollment_status = 'INACTIVE',
+             program_id        = NULL
+       WHERE patient_id = r.patient_id;
+    END IF;
+  END LOOP;
+END $$;
+
+SELECT * FROM cohort_enrollments ORDER BY patient_id;</code></div>
+                        <p style="margin: 12px 0;"><strong>Why this is best:</strong> Three branches, three guards. The DISCHARGE branch is the load-bearing one &mdash; it requires that the request's <code>program_id</code> matches the row's CURRENT <code>program_id</code>, not the original. So if a TRANSFER changed the program earlier in the queue, a later DISCHARGE that names the old program is correctly skipped.</p>
+                        <p style="margin: 12px 0;"><strong>Why a set-based UPDATE chain fails here:</strong></p>
+                        <ul style="margin: 6px 0 0 18px; line-height: 1.7;">
+                          <li>A patient can be ENROLLED, then TRANSFERRED, then DISCHARGED in the same run. Each step depends on the prior step's mutation being visible.</li>
+                          <li>A second ENROLL on a patient who is already ACTIVE must be a no-op. A set-based UPDATE without the <code>current_status = 'INACTIVE'</code> guard would clobber the existing program.</li>
+                          <li>A DISCHARGE that names the wrong program (because a TRANSFER moved them) must be silently skipped. Only a fresh per-iteration read can catch that.</li>
+                        </ul>
+                        <p style="margin: 12px 0;"><strong>Watch out:</strong></p>
+                        <ul style="margin: 6px 0 0 18px; line-height: 1.7;">
+                          <li>Two scalars in <code>DECLARE</code>, not one. Both <code>current_status</code> and <code>current_program</code> need to be re-read every iteration because either can change.</li>
+                          <li><code>SELECT INTO</code> requires the column order in the target list to match the variable order. Mixing them swaps the values silently.</li>
+                          <li>The DISCHARGE branch's <code>current_program = r.program_id</code> guard will fail unexpectedly if <code>current_program</code> is NULL (NULL never equals anything). That is fine here because the status guard already excludes INACTIVE rows where program is NULL, but if the prompt allowed ACTIVE-with-NULL-program rows you'd need <code>IS NOT DISTINCT FROM</code> instead.</li>
+                          <li>Trailing <code>;</code> after <code>END $$</code>, then a trailing <code>SELECT * FROM cohort_enrollments ORDER BY patient_id;</code> so the harness sees output.</li>
+                        </ul>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Anchor problem: readmission severity update (practice notebook, do_block_queue) -->
+              <div class="problem-card collapsed" style="margin-top: 15px;">
+                <div class="problem-card-header">
+                  <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                    <span style="display: inline-block; background-color: #ef6c00; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Medium</span>
+                    Sequential Readmission Severity Update via DO Block
+                  </h3>
+                  <span class="problem-toggle">&#9660;</span>
+                </div>
+                <div class="problem-card-excerpt">
+                  <p>One table only, but each iteration must look up the patient's <em>prior</em> discharge before applying the rules. Mixes a guarded UPDATE inside an <code>IF</code> with two self-gating UPDATEs whose <code>WHERE</code> clauses do the conditional work outside the IF.</p>
+                </div>
+                <div class="problem-card-content">
+
+                  <p><strong>Tables:</strong></p>
+                  <table style="width: auto; border-collapse: collapse; font-size: 1.3rem; line-height: 1.6; margin: 6px 0 12px;">
+                    <thead>
+                      <tr style="background: #6a1b9a; color: white; text-align: left;">
+                        <th style="padding: 8px 12px;">Column</th>
+                        <th style="padding: 8px 12px;">Type</th>
+                        <th style="padding: 8px 12px;">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>admission_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">primary key</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>patient_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">groups admissions across time</td></tr>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>patient_age</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">used by rule 3</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>admission_date</code></td><td style="padding: 6px 12px;">DATE</td><td style="padding: 6px 12px;">FOR loop sort key</td></tr>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>discharge_date</code></td><td style="padding: 6px 12px;">DATE</td><td style="padding: 6px 12px;">NULL while still admitted</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>severity_score</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">mutated by rules 1 and 3</td></tr>
+                      <tr><td style="padding: 6px 12px;"><code>high_risk</code></td><td style="padding: 6px 12px;">BOOLEAN</td><td style="padding: 6px 12px;">flipped by rule 2</td></tr>
+                    </tbody>
+                  </table>
+
+                  <p><strong>Prompt:</strong> Iterate <code>patient_admissions</code> in chronological order (<code>admission_date</code>, then <code>admission_id</code>). For each admission, apply these rules in order:</p>
+                  <ul style="margin: 8px 0 12px 20px; line-height: 1.7;">
+                    <li>If the patient was discharged from a prior admission within 30 days of the current <code>admission_date</code>, increase <code>severity_score</code> by 10.</li>
+                    <li>After rule 1, if <code>severity_score &gt; 75</code>, set <code>high_risk = TRUE</code>.</li>
+                    <li>After rule 2, if <code>high_risk</code> is TRUE AND <code>patient_age &gt; 65</code>, increase <code>severity_score</code> by an additional 5.</li>
+                    <li>"After rule N" means temporally after &mdash; rules 2 and 3 still run even if rule 1 did not fire.</li>
+                  </ul>
+
+                  <div class="solution-container">
+                    <details>
+                      <summary>
+                        <span class="summary-arrow">&#9654;</span>
+                        <span class="rank-badge rank-1">1</span>
+                        <strong>FOR loop + history lookup + IF for rule 1, self-gating UPDATEs for rules 2 and 3</strong>
+                      </summary>
+                      <div class="solution-content">
+                        <div class="code-block"><code>DO $$
+DECLARE
+  r RECORD;
+  prior_discharge DATE;
+BEGIN
+  FOR r IN SELECT * FROM patient_admissions
+            ORDER BY admission_date, admission_id LOOP
+
+    -- History lookup: most recent discharge for this patient before the current admission.
+    SELECT MAX(discharge_date) INTO prior_discharge
+      FROM patient_admissions
+     WHERE patient_id = r.patient_id
+       AND admission_date &lt; r.admission_date;
+
+    -- Rule 1: guarded by IF because the 30-day window only applies when prior_discharge exists.
+    IF r.admission_date - prior_discharge &lt;= 30 THEN
+      UPDATE patient_admissions
+         SET severity_score = severity_score + 10
+       WHERE admission_id = r.admission_id;
+    END IF;
+
+    -- Rule 2: self-gates via WHERE; runs every iteration regardless of rule 1.
+    UPDATE patient_admissions
+       SET high_risk = TRUE
+     WHERE admission_id = r.admission_id
+       AND severity_score &gt; 75;
+
+    -- Rule 3: self-gates via WHERE; runs every iteration regardless of rules 1 and 2.
+    UPDATE patient_admissions
+       SET severity_score = severity_score + 5
+     WHERE admission_id = r.admission_id
+       AND high_risk = TRUE
+       AND patient_age &gt; 65;
+  END LOOP;
+END $$;
+
+SELECT * FROM patient_admissions ORDER BY admission_id;</code></div>
+
+                        <p style="margin: 12px 0;"><strong>Why two shapes in the same loop body:</strong></p>
+                        <ul style="margin: 6px 0 0 18px; line-height: 1.7;">
+                          <li>Rule 1's condition (a 30-day gap from a prior discharge) is data the row itself does not carry &mdash; you have to look it up. The result lives in a scalar variable, so the gate is a procedural <code>IF</code>.</li>
+                          <li>Rules 2 and 3's conditions (<code>severity_score &gt; 75</code>, <code>high_risk = TRUE AND patient_age &gt; 65</code>) live entirely on the row being updated. The <code>WHERE</code> clause already filters them out when the condition fails, so no <code>IF</code> is needed.</li>
+                          <li>Putting rules 2 and 3 inside the <code>IF</code> would silently drop them for any admission with no prior discharge &mdash; the test fails on those rows because <code>high_risk</code> never flips.</li>
+                        </ul>
+
+                        <p style="margin: 12px 0;"><strong>Trace through admission 5</strong> (patient 101, age 72, severity 68, prior discharge 2024-01-30, current admission 2024-02-10):</p>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 1.25rem; line-height: 1.55; margin-bottom: 12px;">
+                          <thead>
+                            <tr style="background: #6a1b9a; color: white; text-align: left;">
+                              <th style="padding: 6px 10px;">Step</th>
+                              <th style="padding: 6px 10px;">What runs</th>
+                              <th style="padding: 6px 10px;">Row state after</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">A</td><td style="padding: 6px 10px;">history lookup</td><td style="padding: 6px 10px;">prior_discharge = 2024-01-30</td></tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">B</td><td style="padding: 6px 10px;">IF gap 11 days &le; 30 &rarr; rule 1 fires (+10)</td><td style="padding: 6px 10px;">severity 78, high_risk FALSE</td></tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">C</td><td style="padding: 6px 10px;">rule 2 UPDATE; WHERE severity &gt; 75 matches</td><td style="padding: 6px 10px;">severity 78, high_risk <strong>TRUE</strong></td></tr>
+                            <tr style="background: #fafafa;"><td style="padding: 6px 10px;">D</td><td style="padding: 6px 10px;">rule 3 UPDATE; WHERE high_risk AND age &gt; 65 matches (age 72)</td><td style="padding: 6px 10px;">severity <strong>83</strong>, high_risk TRUE</td></tr>
+                          </tbody>
+                        </table>
+
+                        <p style="margin: 12px 0;"><strong>Trace through admission 6</strong> (patient 103, age 58, severity 80, no prior admission):</p>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 1.25rem; line-height: 1.55; margin-bottom: 12px;">
+                          <thead>
+                            <tr style="background: #6a1b9a; color: white; text-align: left;">
+                              <th style="padding: 6px 10px;">Step</th>
+                              <th style="padding: 6px 10px;">What runs</th>
+                              <th style="padding: 6px 10px;">Row state after</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">A</td><td style="padding: 6px 10px;">history lookup</td><td style="padding: 6px 10px;">prior_discharge = NULL</td></tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">B</td><td style="padding: 6px 10px;">IF NULL &le; 30 &rarr; NULL, branch skipped</td><td style="padding: 6px 10px;">severity 80, high_risk FALSE</td></tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">C</td><td style="padding: 6px 10px;">rule 2 UPDATE; WHERE severity &gt; 75 matches</td><td style="padding: 6px 10px;">severity 80, high_risk <strong>TRUE</strong></td></tr>
+                            <tr style="background: #fafafa;"><td style="padding: 6px 10px;">D</td><td style="padding: 6px 10px;">rule 3 UPDATE; high_risk TRUE but age 58 &mdash; no match</td><td style="padding: 6px 10px;">severity 80, high_risk TRUE</td></tr>
+                          </tbody>
+                        </table>
+
+                        <p style="margin: 12px 0;"><strong>Watch out:</strong></p>
+                        <ul style="margin: 6px 0 0 18px; line-height: 1.7;">
+                          <li>"After applying rule N" is a temporal phrase, not a conditional one. Rules 2 and 3 still run even when rule 1 did not.</li>
+                          <li>A window function like <code>LAG(discharge_date) OVER (PARTITION BY patient_id ...)</code> cannot sit inside a procedural <code>IF</code> condition. Use a separate <code>SELECT MAX(discharge_date) INTO prior_discharge ... WHERE admission_date &lt; r.admission_date</code> first.</li>
+                          <li>NULL minus a date is NULL, and <code>IF NULL &lt;= 30</code> evaluates as false, so admissions with no prior discharge correctly skip rule 1 with no extra <code>IS NOT NULL</code> guard.</li>
+                          <li>Order the FOR loop by <code>admission_date, admission_id</code>. Sorting by <code>admission_id</code> alone happens to be equivalent for this dataset but the prompt asks for chronological order.</li>
+                          <li>Each UPDATE filters by <code>admission_id = r.admission_id</code> to scope to the row currently being processed. Skip that scope and rules 2 and 3 will fire on every row in the table on every loop iteration.</li>
+                        </ul>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Anchor problem: content watch session queue (practice notebook, do_block_queue) -->
+              <div class="problem-card collapsed" style="margin-top: 15px;">
+                <div class="problem-card-header">
+                  <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                    <span style="display: inline-block; background-color: #ef6c00; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Medium</span>
+                    Content Watch Session Queue Processing
+                  </h3>
+                  <span class="problem-toggle">&#9660;</span>
+                </div>
+                <div class="problem-card-excerpt">
+                  <p>Classic finite-state-machine queue: idle &rarr; watching &rarr; paused &rarr; watching &rarr; idle. Four event types, each guarded by current state and viewer ownership. The FINISH branch also accumulates a delta with a hard cap.</p>
+                </div>
+                <div class="problem-card-content">
+
+                  <p><strong>Tables:</strong></p>
+                  <table style="width: auto; border-collapse: collapse; font-size: 1.3rem; line-height: 1.6; margin: 6px 0 12px;">
+                    <thead>
+                      <tr style="background: #6a1b9a; color: white; text-align: left;">
+                        <th style="padding: 8px 12px;">Table</th>
+                        <th style="padding: 8px 12px;">Column</th>
+                        <th style="padding: 8px 12px;">Type</th>
+                        <th style="padding: 8px 12px;">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;" rowspan="4"><code>content_items</code></td><td style="padding: 6px 12px;"><code>item_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">primary key</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>viewer_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">NULL when idle</td></tr>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>watch_status</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">0=idle, 1=watching, 2=paused</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 2px solid #888;"><td style="padding: 6px 12px;"><code>completion_pct</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">0&ndash;100, accumulated by FINISH</td></tr>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;" rowspan="5"><code>watch_events</code></td><td style="padding: 6px 12px;"><code>event_id</code></td><td style="padding: 6px 12px;">SERIAL</td><td style="padding: 6px 12px;">primary key, queue order</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>item_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">FK into content_items</td></tr>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>viewer_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">who fired the event</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>event_type</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">1=START, 2=PAUSE, 3=RESUME, 4=FINISH</td></tr>
+                      <tr><td style="padding: 6px 12px;"><code>progress_delta</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">added to completion_pct on FINISH</td></tr>
+                    </tbody>
+                  </table>
+
+                  <p><strong>Prompt:</strong> Iterate <code>watch_events</code> in <code>event_id</code> order. For each event, read the item's current <code>watch_status</code> and <code>viewer_id</code>, then apply the matching transition.</p>
+                  <ul style="margin: 8px 0 12px 20px; line-height: 1.7;">
+                    <li><code>START (1)</code> AND status = 0: set status to 1, assign <code>viewer_id</code> from the event.</li>
+                    <li><code>PAUSE (2)</code> AND status = 1 AND current viewer matches event viewer: set status to 2.</li>
+                    <li><code>RESUME (3)</code> AND status = 2 AND current viewer matches: set status to 1.</li>
+                    <li><code>FINISH (4)</code> AND status = 1 AND current viewer matches: add <code>progress_delta</code> to <code>completion_pct</code> (cap at 100), set status to 0, clear <code>viewer_id</code>.</li>
+                    <li>Anything else is a no-op.</li>
+                  </ul>
+
+                  <div class="solution-container">
+                    <details>
+                      <summary>
+                        <span class="summary-arrow">&#9654;</span>
+                        <span class="rank-badge rank-1">1</span>
+                        <strong>FOR loop in event_id order + four IF / ELSIF transitions + LEAST cap</strong>
+                      </summary>
+                      <div class="solution-content">
+                        <div class="code-block"><code>DO $$
+DECLARE
+  r RECORD;
+  current_status         INT;
+  current_viewer         INT;
+  current_completion_pct INT;
+BEGIN
+  FOR r IN SELECT * FROM watch_events ORDER BY event_id LOOP
+    SELECT watch_status, viewer_id, completion_pct
+      INTO current_status, current_viewer, current_completion_pct
+      FROM content_items
+     WHERE item_id = r.item_id;
+
+    IF r.event_type = 1 AND current_status = 0 THEN
+      UPDATE content_items
+         SET watch_status = 1,
+             viewer_id    = r.viewer_id
+       WHERE item_id = r.item_id;
+
+    ELSIF r.event_type = 2
+       AND current_status = 1
+       AND current_viewer = r.viewer_id THEN
+      UPDATE content_items
+         SET watch_status = 2
+       WHERE item_id = r.item_id;
+
+    ELSIF r.event_type = 3
+       AND current_status = 2
+       AND current_viewer = r.viewer_id THEN
+      UPDATE content_items
+         SET watch_status = 1
+       WHERE item_id = r.item_id;
+
+    ELSIF r.event_type = 4
+       AND current_status = 1
+       AND current_viewer = r.viewer_id THEN
+      UPDATE content_items
+         SET watch_status   = 0,
+             completion_pct = LEAST(completion_pct + r.progress_delta, 100),
+             viewer_id      = NULL
+       WHERE item_id = r.item_id;
+    END IF;
+  END LOOP;
+END $$;
+
+SELECT * FROM content_items ORDER BY item_id;</code></div>
+
+                        <p style="margin: 12px 0;"><strong>Why this is best:</strong> Four state transitions, four guarded branches. The viewer guard (<code>current_viewer = r.viewer_id</code>) prevents user B from pausing or finishing user A's session. The <code>LEAST(completion_pct + r.progress_delta, 100)</code> caps cumulative progress so a delta that overshoots saturates instead of overflowing.</p>
+
+                        <p style="margin: 12px 0;"><strong>Two traps that look right but break this problem:</strong></p>
+                        <ul style="margin: 6px 0 0 18px; line-height: 1.7;">
+                          <li><strong>Wrong sort key in the FOR loop.</strong> Ordering by <code>item_id</code> instead of <code>event_id</code> processes events grouped by item, in undefined order within an item. A FINISH that fires before its START in that ordering becomes a no-op (status still 0), then the START runs and leaves the row as "watching" forever. Always order by the queue's monotonic key.</li>
+                          <li><strong>Procedural <code>IF</code> inside an UPDATE's <code>SET</code> clause.</strong> Trying to write <code>SET completion_pct = IF current_completion_pct &lt; 100 THEN ... END IF</code> raises a syntax error. <code>SET</code> only accepts <code>column = expression</code> pairs &mdash; use <code>CASE WHEN ... THEN ... ELSE ... END</code> as the expression, or use <code>LEAST(...)</code> for a cap.</li>
+                        </ul>
+
+                        <p style="margin: 12px 0;"><strong>Watch out:</strong></p>
+                        <ul style="margin: 6px 0 0 18px; line-height: 1.7;">
+                          <li>The PAUSE, RESUME, and FINISH branches do NOT need to overwrite <code>viewer_id</code>; the current viewer stays the same. Only START assigns it; only FINISH clears it.</li>
+                          <li>If the viewer guard is omitted on FINISH, a different viewer's FINISH event would close someone else's session and credit progress to the wrong row. The guard is part of correctness, not just defensiveness.</li>
+                          <li>An empty <code>UPDATE ... SET watch_status = 1</code> with no other columns is fine. PostgreSQL does not require you to list every changing column.</li>
+                          <li>Reading three scalars in one <code>SELECT INTO</code> is one round trip per iteration; the column order in the SELECT list must match the variable order or values get swapped silently.</li>
+                          <li>Trailing <code>;</code> after <code>END $$</code>, then a trailing <code>SELECT * FROM content_items ORDER BY item_id;</code> so the harness sees output.</li>
+                        </ul>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- ================================================================ -->
+          <!-- Recipe: DO Block Simple Sequential UPDATEs (set-based, no loop) -->
+          <!-- ================================================================ -->
+          <div class="problem-card" id="do-block-set-based" style="margin-top: 30px;">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0;">DO Block: Simple Sequential UPDATEs <span class="count-badge">recipe</span></h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>Apply N rules in order to one table. Each rule is a single <code>UPDATE ... WHERE ...</code> inside a <code>DO $$ ... END $$;</code> block. No <code>DECLARE</code>, no <code>FOR LOOP</code>, no <code>IF</code> &mdash; the order of the UPDATEs is what makes it sequential. Use this when each rule's condition lives entirely on the row being updated.</p>
+            </div>
+            <div class="problem-card-content">
+
+              <div style="margin-bottom: 15px;">
+                <p><strong>Signal words:</strong> "apply these adjustments in order," "after step N, ...," "round to two decimals at the end," "for every row in the table, do X then Y then Z."</p>
+                <p><strong>Technique:</strong> <code>DO $$ BEGIN UPDATE ... ; UPDATE ... ; UPDATE ... ; END $$; SELECT * FROM target ORDER BY ...;</code></p>
+              </div>
+
+              <p style="margin-top: 18px;"><strong>Common pitfalls:</strong></p>
+              <table style="width: 100%; border-collapse: collapse; font-size: 1.3rem; line-height: 1.6; margin-bottom: 18px;">
+                <thead>
+                  <tr style="background: #6a1b9a; color: white; text-align: left;">
+                    <th style="padding: 10px 12px; font-weight: 600; width: 32%;">Pitfall</th>
+                    <th style="padding: 10px 12px; font-weight: 600; width: 68%;">How to avoid</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Re-applying a rule to a row it already changed</td>
+                    <td style="padding: 10px 12px;">Add a guard predicate in the WHERE clause (e.g., <code>tier &lt;&gt; 'platinum'</code>) so a row that already moved up does not re-match a later rule's filter and get reclassified.</td>
+                  </tr>
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Reading "after step N" as conditional</td>
+                    <td style="padding: 10px 12px;">"After step N" means temporally after &mdash; later rules still run even if step N did not match. Each rule has its own WHERE; do not nest them.</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">DECIMAL rounding flips a strict comparison</td>
+                    <td style="padding: 10px 12px;">A <code>DECIMAL(10,2)</code> column rounds intermediate UPDATE results, which can flip a strict <code>&gt;</code> or <code>&lt;</code> comparison on borderline values. Test edge data.</td>
+                  </tr>
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Reaching for a FOR LOOP unnecessarily</td>
+                    <td style="padding: 10px 12px;">If every rule's condition lives on the same row being updated, the set-based shape works. The loop is for cases where one row's mutation changes whether a different row qualifies, or where order across rows matters (use the row-by-row recipe).</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 10px 12px;">Forgetting the trailing SELECT</td>
+                    <td style="padding: 10px 12px;">Without a final <code>SELECT * FROM target ORDER BY ...;</code> the harness sees no output and reports failure even when the mutations are correct. Also remember the <code>;</code> after <code>END $$</code>.</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <p><strong>Skeleton you'll fill in:</strong></p>
+              <pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 4px; font-size: 1.2rem;"><code>DO $$
+BEGIN
+  UPDATE target_table SET col_a = expr_a WHERE rule_1_predicate;
+  UPDATE target_table SET col_b = expr_b WHERE rule_2_predicate AND guard_predicate;
+  UPDATE target_table SET col_c = expr_c WHERE rule_3_predicate AND guard_predicate;
+END $$;
+
+-- Trailing SELECT so the test scaffold sees output:
+SELECT * FROM target_table ORDER BY key;</code></pre>
+
+              <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ddd;">
+
+              <p style="margin: 14px 0 6px;"><strong>Anchor problems</strong> &mdash; tiered discounts (chained percentage UPDATEs), driver shifts (rule chain on independent guard columns), loyalty points (set-based with guard predicates, plus a per-row variant for when guards are not enough).</p>
+
               <!-- Anchor problem: tiered discount pricing -->
               <div class="problem-card collapsed" style="margin-top: 15px;">
                 <div class="problem-card-header">
@@ -18915,9 +19551,181 @@ SELECT * FROM products ORDER BY id;</code></div>
                 </div>
               </div>
 
+              <!-- Anchor problem: driver shift performance adjustments (practice notebook) -->
+              <div class="problem-card collapsed" style="margin-top: 15px;">
+                <div class="problem-card-header">
+                  <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                    <span style="display: inline-block; background-color: #ef6c00; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Easy</span>
+                    Apply Driver Shift Performance Adjustments
+                  </h3>
+                  <span class="problem-toggle">&#9660;</span>
+                </div>
+                <div class="problem-card-excerpt">
+                  <p>Same set-based shape as tiered discounts, applied to a ride-share payout table. Three sequential UPDATEs, each one reading the value left behind by the previous rule.</p>
+                </div>
+                <div class="problem-card-content">
+
+                  <p><strong>Tables:</strong> <code>driver_shifts</code> (shift_id, driver_name, hours_worked, completed_trips, acceptance_rate, base_payout)</p>
+
+                  <p><strong>Prompt:</strong> Apply the following rules to <code>driver_shifts</code> in order, then return the updated table sorted by <code>shift_id</code>.</p>
+                  <ol style="margin: 8px 0 12px 20px; line-height: 1.7;">
+                    <li>If <code>completed_trips &gt;= 15</code>, multiply <code>base_payout</code> by 1.20 (a 20% bonus).</li>
+                    <li>After step 1, if <code>acceptance_rate &lt; 0.75</code>, multiply <code>base_payout</code> by 0.85 (a 15% penalty).</li>
+                    <li>After step 2, if <code>hours_worked &gt; 10</code>, add a flat <code>$25</code> bonus to <code>base_payout</code>.</li>
+                  </ol>
+
+                  <div class="solution-container">
+                    <details>
+                      <summary>
+                        <span class="summary-arrow">&#9654;</span>
+                        <span class="rank-badge rank-1">1</span>
+                        <strong>Three set-based UPDATEs in a DO block</strong>
+                      </summary>
+                      <div class="solution-content">
+                        <div class="code-block"><code>DO $$
+BEGIN
+  UPDATE driver_shifts SET base_payout = base_payout * 1.20 WHERE completed_trips &gt;= 15;
+  UPDATE driver_shifts SET base_payout = base_payout * 0.85 WHERE acceptance_rate &lt; 0.75;
+  UPDATE driver_shifts SET base_payout = base_payout + 25    WHERE hours_worked &gt; 10;
+END $$;
+
+SELECT * FROM driver_shifts ORDER BY shift_id;</code></div>
+                        <p style="margin: 12px 0;"><strong>Why this is best:</strong> Every rule is a single set-based UPDATE that filters on a column the prior rule did not change (<code>completed_trips</code>, <code>acceptance_rate</code>, <code>hours_worked</code>). So the order of UPDATEs only affects the cumulative <code>base_payout</code>, not which rows match. No <code>DECLARE</code>, no <code>FOR LOOP</code>, no <code>IF</code>.</p>
+                        <p style="margin: 12px 0;"><strong>Watch out:</strong></p>
+                        <ul style="margin: 6px 0 0 18px; line-height: 1.7;">
+                          <li><code>base_payout</code> is <code>DECIMAL(10,2)</code>. Two multiplicative UPDATEs in a row can introduce penny-level rounding. Test borderline values if the prompt depends on a strict <code>&gt;</code> or <code>&lt;</code> comparison against payout.</li>
+                          <li>If a future variant adds a rule that filters on <code>base_payout</code> itself, the set-based shape still works &mdash; just remember the filter sees the value <em>after</em> prior UPDATEs, not the original.</li>
+                          <li>Trailing <code>;</code> after <code>END $$</code>, and a trailing <code>SELECT</code> so the harness has output.</li>
+                        </ul>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Anchor problem: loyalty points sequential tier adjustment (practice notebook) -->
+              <div class="problem-card collapsed" style="margin-top: 15px;">
+                <div class="problem-card-header">
+                  <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                    <span style="display: inline-block; background-color: #ef6c00; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Medium</span>
+                    Loyalty Points Sequential Tier Adjustment
+                  </h3>
+                  <span class="problem-toggle">&#9660;</span>
+                </div>
+                <div class="problem-card-excerpt">
+                  <p>Three rules where each rule's filter depends on a column an earlier rule just changed (<code>tier</code>). Solvable with set-based UPDATEs <em>only</em> if you add a guard so a row that already moved up does not get reclassified.</p>
+                </div>
+                <div class="problem-card-content">
+
+                  <p><strong>Tables:</strong> <code>member_accounts</code> (member_id, member_name, current_points, tier)</p>
+
+                  <p><strong>Prompt:</strong> Apply the following rules to <code>member_accounts</code> in order, then return the table sorted by <code>member_id</code>.</p>
+                  <ol style="margin: 8px 0 12px 20px; line-height: 1.7;">
+                    <li>If <code>current_points &gt;= 5000</code>, set <code>tier = 'platinum'</code> and deduct 500 points.</li>
+                    <li>After step 1, if <code>current_points &gt;= 2000</code> AND <code>tier &lt;&gt; 'platinum'</code>, set <code>tier = 'gold'</code> and deduct 200 points.</li>
+                    <li>After step 2, if <code>current_points &lt; 500</code> AND <code>tier &lt;&gt; 'bronze'</code>, set <code>tier = 'bronze'</code> and add 100 points.</li>
+                  </ol>
+
+                  <div class="solution-container">
+                    <details>
+                      <summary>
+                        <span class="summary-arrow">&#9654;</span>
+                        <span class="rank-badge rank-1">1</span>
+                        <strong>Set-based UPDATEs with guard predicates</strong>
+                      </summary>
+                      <div class="solution-content">
+                        <div class="code-block"><code>DO $$
+BEGIN
+  UPDATE member_accounts
+     SET tier = 'platinum', current_points = current_points - 500
+   WHERE current_points &gt;= 5000;
+
+  UPDATE member_accounts
+     SET tier = 'gold', current_points = current_points - 200
+   WHERE current_points &gt;= 2000 AND tier &lt;&gt; 'platinum';
+
+  UPDATE member_accounts
+     SET tier = 'bronze', current_points = current_points + 100
+   WHERE current_points &lt; 500 AND tier &lt;&gt; 'bronze';
+END $$;
+
+SELECT * FROM member_accounts ORDER BY member_id;</code></div>
+                        <p style="margin: 12px 0;"><strong>Why the guards matter:</strong> The platinum UPDATE drops points by 500. Without <code>tier &lt;&gt; 'platinum'</code> on rule 2, a member that just became platinum at 5300 points would land at 4800 and re-match the gold rule (<code>current_points &gt;= 2000</code>), demoting them. The guard pins each row to the highest tier it qualified for in this pass.</p>
+                        <p style="margin: 12px 0;"><strong>Watch out:</strong></p>
+                        <ul style="margin: 6px 0 0 18px; line-height: 1.7;">
+                          <li>Reading "set tier to X if current_points satisfies condition" without a tier guard is the trap. Always ask: could a row that already mutated still match a later rule's <code>WHERE</code>?</li>
+                          <li>The bronze rule uses <code>current_points &lt; 500</code>. After the gold UPDATE, a row that started at 2400 now sits at 2200 &mdash; it does not match. But a row that started at 600 with no tier change drops nowhere from rule 1 or 2 and stays eligible for rule 3.</li>
+                          <li>Trailing <code>SELECT * FROM member_accounts ORDER BY member_id;</code> after <code>END $$;</code> so the harness sees output.</li>
+                        </ul>
+                      </div>
+                    </details>
+
+                    <details style="margin-top: 10px;">
+                      <summary>
+                        <span class="summary-arrow">&#9654;</span>
+                        <span class="rank-badge rank-2">2</span>
+                        <strong>Per-row <code>FOR LOOP</code> with <code>IF</code> blocks (when guards are not enough)</strong>
+                      </summary>
+                      <div class="solution-content">
+                        <div class="code-block"><code>DO $$
+DECLARE
+  rec RECORD;
+  curr_points INT;
+  curr_tier   VARCHAR(20);
+BEGIN
+  FOR rec IN SELECT member_id FROM member_accounts ORDER BY member_id LOOP
+    SELECT current_points, tier INTO curr_points, curr_tier
+      FROM member_accounts WHERE member_id = rec.member_id;
+
+    IF curr_points &gt;= 5000 THEN
+      UPDATE member_accounts SET tier = 'platinum', current_points = current_points - 500
+       WHERE member_id = rec.member_id;
+    END IF;
+
+    SELECT current_points, tier INTO curr_points, curr_tier
+      FROM member_accounts WHERE member_id = rec.member_id;
+
+    IF curr_points &gt;= 2000 AND curr_tier &lt;&gt; 'platinum' THEN
+      UPDATE member_accounts SET tier = 'gold', current_points = current_points - 200
+       WHERE member_id = rec.member_id;
+    END IF;
+
+    SELECT current_points, tier INTO curr_points, curr_tier
+      FROM member_accounts WHERE member_id = rec.member_id;
+
+    IF curr_points &lt; 500 AND curr_tier &lt;&gt; 'bronze' THEN
+      UPDATE member_accounts SET tier = 'bronze', current_points = current_points + 100
+       WHERE member_id = rec.member_id;
+    END IF;
+  END LOOP;
+END $$;
+
+SELECT * FROM member_accounts ORDER BY member_id;</code></div>
+                        <p style="margin: 12px 0;"><strong>When you actually need this:</strong> If the prompt says "process rows in a specific order and the result for row N depends on what just happened to row M," the loop is required. The set-based version above only works because each row's three rules read and write that row's own columns. A loop is also the right fall back if you cannot construct a clean guard predicate.</p>
+                        <p style="margin: 12px 0;"><strong>How to spot the loop case:</strong> The prompt names a specific iteration order ("for each member, in order"), or one row's outcome would change another row's eligibility. If neither holds, prefer the set-based version &mdash; it is shorter and ships fewer round trips between the procedural body and the table.</p>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
           <!-- Functions -->
+
+            </div>
+          </div>
+
+          <div class="problem-card collapsed" id="topic-functions" style="margin-top: 30px;">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0;">Functions <span class="count-badge">topic</span></h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>CREATE OR REPLACE FUNCTION wrappers around a SELECT. Two recipe shapes: RETURNS TABLE for row-set outputs and RETURNS scalar for single-value returns. End every script with a trailing call so the harness sees output.</p>
+            </div>
+            <div class="problem-card-content">
+
           <div class="problem-card collapsed" style="margin-bottom: 16px;">
             <div class="problem-card-header">
               <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
@@ -19484,7 +20292,207 @@ SELECT * FROM get_adherence_report(101, 30);</code></div>
             </div>
           </div>
 
+          <!-- ================================================================ -->
+          <!-- Recipe: Function-Wrapped Queries (RETURNS scalar)                -->
+          <!-- ================================================================ -->
+          <div class="problem-card" id="function-wrapped-scalar" style="margin-top: 30px;">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0;">Function-Wrapped Queries (RETURNS scalar) <span class="count-badge">recipe</span></h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>Wrap a single-value computation in a function that returns one number, boolean, or text. The body uses <code>RETURN ( ... );</code> &mdash; not <code>RETURN QUERY</code> &mdash; with a scalar subquery inside. Common shape for rates, ratios, counts, and lookup helpers called from other queries.</p>
+            </div>
+            <div class="problem-card-content">
+
+              <div style="margin-bottom: 15px;">
+                <p><strong>Signal words:</strong> "write a function that returns the percentage / count / total / ratio for a given X," prompt names a function like <code>calculate_xxx_rate(args)</code> with a numeric or boolean return type, the call site is <code>SELECT fn(args) AS result;</code>.</p>
+                <p><strong>Technique:</strong> <code>CREATE OR REPLACE FUNCTION fn(args) RETURNS &lt;type&gt; AS $$ BEGIN RETURN ( /* scalar subquery */ ); END; $$ LANGUAGE plpgsql;</code> followed by a trailing <code>SELECT fn(args);</code> call so the harness sees output.</p>
+              </div>
+
+              <p style="margin-top: 18px;"><strong>Common pitfalls:</strong></p>
+              <table style="width: 100%; border-collapse: collapse; font-size: 1.3rem; line-height: 1.6; margin-bottom: 18px;">
+                <thead>
+                  <tr style="background: #6a1b9a; color: white; text-align: left;">
+                    <th style="padding: 10px 12px; font-weight: 600; width: 32%;">Pitfall</th>
+                    <th style="padding: 10px 12px; font-weight: 600; width: 68%;">How to avoid</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Using <code>RETURN QUERY</code> instead of <code>RETURN</code></td>
+                    <td style="padding: 10px 12px;"><code>RETURN QUERY</code> is for <code>RETURNS TABLE</code> functions. A scalar function uses plain <code>RETURN ( ... );</code> with a single-value subquery inside the parens.</td>
+                  </tr>
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Integer division silently zeroing out a ratio</td>
+                    <td style="padding: 10px 12px;"><code>3 / 4</code> returns <code>0</code> in integer arithmetic. Cast the numerator with <code>::NUMERIC</code> or multiply by <code>100.0</code> (a numeric literal) before dividing.</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Divide-by-zero when the input range is empty</td>
+                    <td style="padding: 10px 12px;">Wrap the denominator with <code>NULLIF(COUNT(*), 0)</code> so the division returns NULL rather than throwing, then <code>COALESCE(..., 0)</code> for the empty-range default.</td>
+                  </tr>
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px 12px;">Forgetting <code>ROUND</code></td>
+                    <td style="padding: 10px 12px;">Prompts that say "rounded to N decimals" mean the function returns the rounded value. Apply <code>ROUND(value, N)</code> before <code>RETURN</code>; do not rely on display formatting.</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 10px 12px;">Missing trailing function call</td>
+                    <td style="padding: 10px 12px;"><code>CREATE OR REPLACE FUNCTION ...</code> alone produces no rows. End the script with <code>SELECT fn(args);</code> so the harness has output to compare against.</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <p><strong>Skeleton you'll fill in:</strong></p>
+              <pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 4px; font-size: 1.2rem;"><code>CREATE OR REPLACE FUNCTION fn_name(p_arg1 TYPE1, p_arg2 TYPE2)
+RETURNS NUMERIC AS $$
+BEGIN
+  RETURN (
+    SELECT COALESCE(
+      ROUND( /* numeric expression */ , 2),
+      0
+    )
+    FROM source_table
+    WHERE col_a = p_arg1
+      AND col_b &gt;= p_arg2
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trailing call so the harness sees output:
+SELECT fn_name(arg1_value, arg2_value);</code></pre>
+
+              <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ddd;">
+
+              <p style="margin: 14px 0 6px;"><strong>Anchor problems</strong> &mdash; SLA breach rate (conditional aggregation inside a scalar function with empty-range guard).</p>
+
+              <!-- Anchor problem: SLA breach rate (practice notebook, returns_scalar) -->
+              <div class="problem-card collapsed" style="margin-top: 15px;">
+                <div class="problem-card-header">
+                  <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                    <span style="display: inline-block; background-color: #ef6c00; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Medium</span>
+                    Calculate SLA Breach Rate for Agent
+                  </h3>
+                  <span class="problem-toggle">&#9660;</span>
+                </div>
+                <div class="problem-card-excerpt">
+                  <p>A scalar function that returns one rate. Combines conditional aggregation (SUM over CASE) with empty-range guards (NULLIF + COALESCE) inside a single subquery, so the entire computation is one pass over the filtered rows.</p>
+                </div>
+                <div class="problem-card-content">
+
+                  <p><strong>Tables:</strong></p>
+                  <table style="width: auto; border-collapse: collapse; font-size: 1.3rem; line-height: 1.6; margin: 6px 0 12px;">
+                    <thead>
+                      <tr style="background: #6a1b9a; color: white; text-align: left;">
+                        <th style="padding: 8px 12px;">Column</th>
+                        <th style="padding: 8px 12px;">Type</th>
+                        <th style="padding: 8px 12px;">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>ticket_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">primary key</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>agent_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">filter argument</td></tr>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>assigned_date</code></td><td style="padding: 6px 12px;">DATE</td><td style="padding: 6px 12px;">filter cutoff (on or after start_date)</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>sla_target_minutes</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">SLA threshold</td></tr>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>resolution_time_minutes</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">breach when this exceeds the target</td></tr>
+                      <tr style="background: #fafafa;"><td style="padding: 6px 12px;"><code>status</code></td><td style="padding: 6px 12px;">VARCHAR(20)</td><td style="padding: 6px 12px;">unused by the rate calculation</td></tr>
+                    </tbody>
+                  </table>
+
+                  <p><strong>Prompt:</strong> Write a function <code>calculate_agent_breach_rate(p_agent_id INTEGER, p_start_date DATE) RETURNS NUMERIC</code> that returns the percentage of tickets assigned to that agent on or after the start date that breached SLA, where breach means <code>resolution_time_minutes &gt; sla_target_minutes</code>.</p>
+                  <ul style="margin: 8px 0 12px 20px; line-height: 1.7;">
+                    <li>Return the rate as a percentage from 0 to 100.</li>
+                    <li>Round to 2 decimals.</li>
+                    <li>If the agent has no tickets in range, return <code>0.00</code> (not NULL, not an error).</li>
+                  </ul>
+
+                  <div class="solution-container">
+                    <details>
+                      <summary>
+                        <span class="summary-arrow">&#9654;</span>
+                        <span class="rank-badge rank-1">1</span>
+                        <strong>Single-pass conditional aggregation with NULLIF + COALESCE</strong>
+                      </summary>
+                      <div class="solution-content">
+                        <div class="code-block"><code>CREATE OR REPLACE FUNCTION calculate_agent_breach_rate(
+    p_agent_id   INTEGER,
+    p_start_date DATE
+) RETURNS NUMERIC AS $$
+BEGIN
+  RETURN (
+    SELECT COALESCE(
+      ROUND(
+        100.0 * SUM(CASE WHEN resolution_time_minutes &gt; sla_target_minutes
+                         THEN 1 ELSE 0 END)::NUMERIC
+              / NULLIF(COUNT(*), 0),
+        2
+      ),
+      0.00
+    )
+    FROM support_tickets
+    WHERE agent_id = p_agent_id
+      AND assigned_date &gt;= p_start_date
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT calculate_agent_breach_rate(102, '2024-01-15') AS breach_rate;</code></div>
+
+                        <p style="margin: 12px 0;"><strong>Why this is best:</strong> One subquery does all four jobs &mdash; filter to the agent's tickets in range, count breaches via <code>SUM(CASE WHEN ...)</code>, divide by total with <code>NULLIF</code> guarding zero, and <code>COALESCE</code> the NULL back to <code>0.00</code> for the empty-range case. Single pass over the table, no IF blocks, no DECLARE.</p>
+
+                        <p style="margin: 12px 0;"><strong>Trace through the example data</strong> (agent 102, start 2024-01-15):</p>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 1.25rem; line-height: 1.55; margin-bottom: 12px;">
+                          <thead>
+                            <tr style="background: #6a1b9a; color: white; text-align: left;">
+                              <th style="padding: 6px 10px;">ticket_id</th>
+                              <th style="padding: 6px 10px;">assigned_date</th>
+                              <th style="padding: 6px 10px;">target / actual</th>
+                              <th style="padding: 6px 10px;">in range?</th>
+                              <th style="padding: 6px 10px;">CASE WHEN value</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">1</td><td style="padding: 6px 10px;">2024-01-10</td><td style="padding: 6px 10px;">60 / 45</td><td style="padding: 6px 10px;">no (before 2024-01-15)</td><td style="padding: 6px 10px;">excluded</td></tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">2</td><td style="padding: 6px 10px;">2024-01-16</td><td style="padding: 6px 10px;">120 / 150</td><td style="padding: 6px 10px;">yes</td><td style="padding: 6px 10px;">1 (breach)</td></tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">3</td><td style="padding: 6px 10px;">2024-01-18</td><td style="padding: 6px 10px;">60 / 90</td><td style="padding: 6px 10px;">yes</td><td style="padding: 6px 10px;">1 (breach)</td></tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">4</td><td style="padding: 6px 10px;">2024-01-20</td><td style="padding: 6px 10px;">180 / 120</td><td style="padding: 6px 10px;">yes</td><td style="padding: 6px 10px;">0 (within SLA)</td></tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">5</td><td style="padding: 6px 10px;">2024-01-16</td><td style="padding: 6px 10px;">60 / 80</td><td style="padding: 6px 10px;">no (different agent)</td><td style="padding: 6px 10px;">excluded</td></tr>
+                            <tr style="background: #fafafa;"><td style="padding: 6px 10px;">6</td><td style="padding: 6px 10px;">2024-01-22</td><td style="padding: 6px 10px;">90 / 95</td><td style="padding: 6px 10px;">yes</td><td style="padding: 6px 10px;">1 (breach)</td></tr>
+                          </tbody>
+                        </table>
+                        <p style="margin: 12px 0;">SUM = 3, COUNT = 4, ratio = 0.75, &times; 100 = 75.00. Rounded: <code>75.00</code>.</p>
+
+                        <p style="margin: 12px 0;"><strong>Watch out:</strong></p>
+                        <ul style="margin: 6px 0 0 18px; line-height: 1.7;">
+                          <li>The <code>::NUMERIC</code> cast on the SUM (or the <code>100.0</code> literal) prevents integer division. Without it, <code>3 / 4</code> evaluates to <code>0</code> and the function returns <code>0.00</code> regardless of how many breaches there were.</li>
+                          <li><code>NULLIF(COUNT(*), 0)</code> is the standard divide-by-zero guard. Postgres throws on <code>x / 0</code> but quietly returns NULL for <code>x / NULL</code>, which <code>COALESCE</code> then converts to the requested default.</li>
+                          <li>The empty-range default has to be <code>0.00</code> (NUMERIC), not <code>0</code> (INTEGER) &mdash; matching the function's declared return type avoids subtle implicit-cast surprises.</li>
+                          <li>Use <code>RETURN ( ... )</code> with parentheses around a single-value subquery. <code>RETURN QUERY</code> is for <code>RETURNS TABLE</code> functions and will fail to compile here.</li>
+                          <li>End the script with <code>SELECT calculate_agent_breach_rate(102, '2024-01-15');</code> &mdash; without the trailing call the function definition succeeds but the harness sees no rows and reports failure.</li>
+                        </ul>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
           <!-- Recursive queries -->
+
+            </div>
+          </div>
+
+          <div class="problem-card collapsed" id="topic-recursive-queries" style="margin-top: 30px;">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0;">Recursive Queries <span class="count-badge">topic</span></h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>Self-referencing CTEs that walk a chain of unknown depth. Anchor query plus a recursive step that joins back to the CTE itself, repeating until no new rows match.</p>
+            </div>
+            <div class="problem-card-content">
+
           <div class="problem-card collapsed" style="margin-bottom: 16px;">
             <div class="problem-card-header">
               <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
@@ -19722,6 +20730,20 @@ ORDER BY c.transaction_id ASC, c.chain_depth DESC;</code></div>
           </div>
 
           <!-- DML -->
+
+            </div>
+          </div>
+
+          <div class="problem-card collapsed" id="topic-dml" style="margin-top: 30px;">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0;">Updates, Deletes, and Inserts <span class="count-badge">topic</span></h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>Mutation patterns: UPDATE, DELETE, INSERT, plus a confirming SELECT so the harness can verify the post-mutation state.</p>
+            </div>
+            <div class="problem-card-content">
+
           <div class="problem-card collapsed" style="margin-bottom: 16px;">
             <div class="problem-card-header">
               <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
@@ -19780,6 +20802,20 @@ WHERE cond;</code></pre>
           </div>
 
           <!-- Window Function Edges -->
+
+            </div>
+          </div>
+
+          <div class="problem-card collapsed" id="topic-window-edges" style="margin-top: 30px;">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0;">Window Function Edges <span class="count-badge">topic</span></h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>Window-function distinctions that flip answers: ROWS vs RANGE for frame definitions, and RANK vs DENSE_RANK vs ROW_NUMBER for tiebreaking.</p>
+            </div>
+            <div class="problem-card-content">
+
           <div class="problem-card collapsed" style="margin-bottom: 30px;">
             <div class="problem-card-header">
               <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
@@ -19823,6 +20859,10 @@ WHERE cond;</code></pre>
           </div>
 
 
+
+
+            </div>
+          </div>
 
         </div>
 

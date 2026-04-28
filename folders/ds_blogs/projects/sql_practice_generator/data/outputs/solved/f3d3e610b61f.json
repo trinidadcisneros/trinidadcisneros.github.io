@@ -1,0 +1,132 @@
+{
+  "problem": {
+    "title": "Content Watch Session Queue Processing",
+    "prompt": "You manage a streaming platform. The `content_items` table tracks each video's current watch session state: `item_id` (PK), `viewer_id` (who is currently watching, NULL if idle), `watch_status` (0=idle, 1=watching, 2=paused), and `completion_pct` (cumulative progress, 0-100). The `watch_events` log records user actions in chronological order: `event_id` (PK, auto-increment), `item_id` (FK), `viewer_id`, `event_type` (1=start, 2=pause, 3=resume, 4=finish), and `progress_delta` (how many percentage points to add when finishing). Write a DO block that processes the `watch_events` log in `event_id` order. For each event, read the item's current `watch_status` and `viewer_id`, then apply these rules: (1) START (type=1): if status=0 (idle), set status=1, assign viewer_id, do nothing otherwise. (2) PAUSE (type=2): if status=1 AND the current viewer matches event viewer, set status=2, else no-op. (3) RESUME (type=3): if status=2 AND viewer matches, set status=1, else no-op. (4) FINISH (type=4): if status=1 AND viewer matches, add progress_delta to completion_pct (cap at 100), set status=0, clear viewer_id, else no-op. After the DO block, SELECT all rows from `content_items` ordered by `item_id` to show the final state.",
+    "schema_ddl": "CREATE TABLE content_items (item_id INT PRIMARY KEY, viewer_id INT, watch_status INT NOT NULL, completion_pct INT NOT NULL); CREATE TABLE watch_events (event_id SERIAL PRIMARY KEY, item_id INT NOT NULL REFERENCES content_items(item_id), viewer_id INT NOT NULL, event_type INT NOT NULL, progress_delta INT);",
+    "example_input_data": "INSERT INTO content_items (item_id, viewer_id, watch_status, completion_pct) VALUES (101, NULL, 0, 0), (102, NULL, 0, 25), (103, 303, 1, 50); INSERT INTO watch_events (item_id, viewer_id, event_type, progress_delta) VALUES (101, 201, 1, 0), (101, 201, 2, 0), (102, 202, 1, 0), (102, 203, 2, 0), (101, 201, 3, 0), (101, 201, 4, 30), (103, 303, 4, 20);",
+    "example_output_columns": [
+      "item_id",
+      "viewer_id",
+      "watch_status",
+      "completion_pct"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        null,
+        0,
+        30
+      ],
+      [
+        102,
+        202.0,
+        1,
+        25
+      ],
+      [
+        103,
+        null,
+        0,
+        70
+      ]
+    ],
+    "test_data": "INSERT INTO content_items (item_id, viewer_id, watch_status, completion_pct) VALUES (201, NULL, 0, 0), (202, NULL, 0, 10), (203, 403, 2, 60), (204, 404, 1, 80), (205, NULL, 0, 95), (206, 406, 1, 45), (207, NULL, 0, 0), (208, 408, 2, 30), (209, NULL, 0, 0), (210, 410, 1, 70); INSERT INTO watch_events (item_id, viewer_id, event_type, progress_delta) VALUES (201, 501, 1, 0), (201, 501, 2, 0), (202, 502, 1, 0), (202, 502, 4, 40), (203, 403, 3, 0), (203, 403, 4, 15), (204, 404, 2, 0), (204, 405, 3, 0), (205, 505, 1, 0), (205, 505, 4, 5), (206, 406, 4, 25), (207, 507, 1, 0), (207, 508, 1, 0), (208, 408, 3, 0), (208, 408, 2, 0), (209, 509, 1, 0), (209, 509, 2, 0), (209, 509, 3, 0), (209, 510, 3, 0), (210, 410, 4, 50), (201, 501, 3, 0), (201, 501, 4, 10), (203, 999, 1, 0), (204, 404, 3, 0), (204, 404, 4, 20), (206, 999, 1, 0), (208, 408, 4, 10);",
+    "test_expected_columns": [
+      "item_id",
+      "viewer_id",
+      "watch_status",
+      "completion_pct"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        null,
+        0,
+        10
+      ],
+      [
+        202,
+        null,
+        0,
+        50
+      ],
+      [
+        203,
+        999.0,
+        1,
+        75
+      ],
+      [
+        204,
+        null,
+        0,
+        100
+      ],
+      [
+        205,
+        null,
+        0,
+        100
+      ],
+      [
+        206,
+        999.0,
+        1,
+        70
+      ],
+      [
+        207,
+        507.0,
+        1,
+        0
+      ],
+      [
+        208,
+        408.0,
+        2,
+        30
+      ],
+      [
+        209,
+        509.0,
+        1,
+        0
+      ],
+      [
+        210,
+        null,
+        0,
+        100
+      ]
+    ],
+    "classification": {
+      "input_arrival": "procedural",
+      "output_shape": "state_mutation",
+      "recipe": "do-block-sequential",
+      "composite_moves": [
+        "declare-loop-variable",
+        "for-loop-ordered-select",
+        "read-state-into-variables",
+        "multi-branch-if-on-type-and-state",
+        "conditional-update-state",
+        "trailing-select-star-ordered"
+      ]
+    },
+    "hints": [
+      "You must process events in chronological order and read the item's current state before deciding what to do.",
+      "Some events will fail to apply because the item is in the wrong state or owned by a different viewer; those are no-ops.",
+      "Declare a RECORD for the event row and scalar variables for the item's current watch_status and viewer_id, then use IF/ELSIF to match both event_type and the state guards."
+    ],
+    "answer_key": "DO $$\nDECLARE\n  rec RECORD;\n  cur_status INT;\n  cur_viewer INT;\nBEGIN\n  FOR rec IN SELECT * FROM watch_events ORDER BY event_id LOOP\n    SELECT watch_status, viewer_id INTO cur_status, cur_viewer FROM content_items WHERE item_id = rec.item_id;\n    IF rec.event_type = 1 AND cur_status = 0 THEN\n      UPDATE content_items SET watch_status = 1, viewer_id = rec.viewer_id WHERE item_id = rec.item_id;\n    ELSIF rec.event_type = 2 AND cur_status = 1 AND cur_viewer = rec.viewer_id THEN\n      UPDATE content_items SET watch_status = 2 WHERE item_id = rec.item_id;\n    ELSIF rec.event_type = 3 AND cur_status = 2 AND cur_viewer = rec.viewer_id THEN\n      UPDATE content_items SET watch_status = 1 WHERE item_id = rec.item_id;\n    ELSIF rec.event_type = 4 AND cur_status = 1 AND cur_viewer = rec.viewer_id THEN\n      UPDATE content_items SET completion_pct = LEAST(completion_pct + rec.progress_delta, 100), watch_status = 0, viewer_id = NULL WHERE item_id = rec.item_id;\n    END IF;\n  END LOOP;\nEND $$;\n\nSELECT * FROM content_items ORDER BY item_id;",
+    "_meta": {
+      "question_type": "do_block_queue",
+      "dialect": "postgresql",
+      "generated_at": "2026-04-27T21:27:31.390499",
+      "problem_id": "f3d3e610b61f",
+      "validation_attempts": 1,
+      "scenario": "a streaming platform tracking content views, completion rates, and ratings"
+    }
+  },
+  "user_solution": "DO $$\nDECLARE\n   r RECORD;\n   current_status INT;\n   current_viewer INT;\n   current_completion_pct INT;\nBEGIN\n   FOR r IN SELECT * FROM watch_events ORDER BY event_id LOOP\n       SELECT watch_status, viewer_id, completion_pct\n       INTO current_status, current_viewer, current_completion_pct\n       FROM content_items\n       WHERE item_id = r.item_id;\n\n       IF r.event_type = 1 AND current_status = 0 THEN\n           UPDATE content_items\n           SET watch_status = 1,\n               viewer_id = r.viewer_id\n           WHERE item_id = r.item_id;\n\n       ELSIF r.event_type = 2 AND current_status = 1 AND current_viewer = r. viewer_id THEN\n           UPDATE content_items\n           SET watch_status = 2,\n               viewer_id = r.viewer_id\n           WHERE item_id = r.item_id;\n\n       ELSIF r.event_type = 3 AND current_status = 2 AND current_viewer = r. viewer_id THEN\n           UPDATE content_items\n           SET watch_status = 1,\n               viewer_id = r.viewer_id\n           WHERE item_id = r.item_id;\n\n       ELSIF r.event_type = 4 AND current_status = 1 AND current_viewer = r. viewer_id THEN\n           UPDATE content_items\n           SET watch_status = 0,\n               completion_pct = LEAST(completion_pct + r.progress_delta, 100),\n               viewer_id = NULL\n           WHERE item_id = r.item_id;\n        END IF;\n   END LOOP;\nEND $$;\n\nSELECT * FROM content_items;",
+  "solved_at": "2026-04-27T22:11:02.657773"
+}

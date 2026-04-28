@@ -1,0 +1,149 @@
+{
+  "problem": {
+    "title": "Article Moderation Queue Processor",
+    "prompt": "You are building a content moderation system for a publishing platform. The `articles` table tracks each article's current approval status (0=draft, 1=pending_review, 2=approved, 3=rejected) and the editor_id who last reviewed it. The `moderation_events` table logs requests in chronological order: event_type 1 = submit_for_review, 2 = approve, 3 = reject, 4 = withdraw. Write a DO block that processes events in event_id order. For each event, read the article's current status and editor_id, then apply these rules: (1) submit_for_review: if status=0, set status=1; (2) approve: if status=1, set status=2 and record the editor_id from the event; (3) reject: if status=1, set status=3 and record the editor_id; (4) withdraw: if status=1 or status=2, set status=0 and clear editor_id. Any event whose precondition is not met should be silently ignored. After the DO block, include a trailing SELECT * FROM articles ORDER BY article_id to show the final state.",
+    "schema_ddl": "CREATE TABLE articles (article_id INT PRIMARY KEY, title VARCHAR(100), status INT, editor_id INT); CREATE TABLE moderation_events (event_id INT PRIMARY KEY, article_id INT, event_type INT, editor_id INT);",
+    "example_input_data": "INSERT INTO articles (article_id, title, status, editor_id) VALUES (1, 'Understanding PostgreSQL', 0, NULL), (2, 'SQL Best Practices', 0, NULL), (3, 'Database Indexing', 1, NULL), (4, 'Query Optimization', 2, 105); INSERT INTO moderation_events (event_id, article_id, event_type, editor_id) VALUES (1, 1, 1, NULL), (2, 1, 2, 101), (3, 2, 1, NULL), (4, 3, 2, 102), (5, 2, 3, 103), (6, 4, 4, NULL);",
+    "example_output_columns": [
+      "article_id",
+      "title",
+      "status",
+      "editor_id"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "Understanding PostgreSQL",
+        2,
+        101.0
+      ],
+      [
+        2,
+        "SQL Best Practices",
+        3,
+        103.0
+      ],
+      [
+        3,
+        "Database Indexing",
+        2,
+        102.0
+      ],
+      [
+        4,
+        "Query Optimization",
+        0,
+        null
+      ]
+    ],
+    "test_data": "INSERT INTO articles (article_id, title, status, editor_id) VALUES (1, 'Advanced Joins', 0, NULL), (2, 'Transaction Isolation', 0, NULL), (3, 'Window Functions', 0, NULL), (4, 'CTEs Explained', 1, NULL), (5, 'Stored Procedures', 2, 201), (6, 'Trigger Design', 1, NULL), (7, 'Index Strategies', 3, 202), (8, 'Partitioning Guide', 0, NULL), (9, 'Replication Setup', 1, NULL), (10, 'Backup Strategies', 2, 203), (11, 'Performance Tuning', 0, NULL), (12, 'Security Practices', 1, NULL); INSERT INTO moderation_events (event_id, article_id, event_type, editor_id) VALUES (1, 1, 1, NULL), (2, 1, 2, 201), (3, 2, 1, NULL), (4, 3, 1, NULL), (5, 4, 2, 202), (6, 2, 2, 203), (7, 1, 4, NULL), (8, 5, 4, NULL), (9, 6, 3, 204), (10, 7, 2, 205), (11, 1, 1, NULL), (12, 8, 1, NULL), (13, 1, 2, 206), (14, 9, 2, 207), (15, 10, 3, 208), (16, 11, 1, NULL), (17, 12, 2, 209), (18, 3, 3, 210), (19, 8, 2, 211), (20, 11, 2, 212), (21, 2, 4, NULL), (22, 5, 1, NULL), (23, 6, 1, NULL), (24, 10, 1, NULL), (25, 3, 1, NULL);",
+    "test_expected_columns": [
+      "article_id",
+      "title",
+      "status",
+      "editor_id"
+    ],
+    "test_expected_rows": [
+      [
+        1,
+        "Advanced Joins",
+        2,
+        206.0
+      ],
+      [
+        2,
+        "Transaction Isolation",
+        0,
+        null
+      ],
+      [
+        3,
+        "Window Functions",
+        3,
+        210.0
+      ],
+      [
+        4,
+        "CTEs Explained",
+        2,
+        202.0
+      ],
+      [
+        5,
+        "Stored Procedures",
+        1,
+        null
+      ],
+      [
+        6,
+        "Trigger Design",
+        3,
+        204.0
+      ],
+      [
+        7,
+        "Index Strategies",
+        3,
+        202.0
+      ],
+      [
+        8,
+        "Partitioning Guide",
+        2,
+        211.0
+      ],
+      [
+        9,
+        "Replication Setup",
+        2,
+        207.0
+      ],
+      [
+        10,
+        "Backup Strategies",
+        2,
+        203.0
+      ],
+      [
+        11,
+        "Performance Tuning",
+        2,
+        212.0
+      ],
+      [
+        12,
+        "Security Practices",
+        2,
+        209.0
+      ]
+    ],
+    "classification": {
+      "input_arrival": "procedural",
+      "output_shape": "state_mutation",
+      "recipe": "do-block-sequential",
+      "composite_moves": [
+        "FOR loop over request log ordered by PK",
+        "SELECT current state into variables",
+        "IF/ELSIF branch on request type AND current state",
+        "Conditional UPDATE inside matching branch",
+        "Trailing SELECT to capture final state"
+      ]
+    },
+    "hints": [
+      "You need to process events in chronological order and check the article's current state before applying each event.",
+      "Use a FOR loop with a RECORD variable to iterate moderation_events by event_id, then SELECT the article's current status and editor_id into scalar variables before deciding what to do.",
+      "Inside the loop, use IF/ELSIF to match both event_type and the current status: submit_for_review only works if status=0, approve/reject only if status=1, withdraw only if status=1 or 2. Update only when the condition is met."
+    ],
+    "answer_key": "DO $$\nDECLARE\n  rec RECORD;\n  cur_status INT;\n  cur_editor INT;\nBEGIN\n  FOR rec IN SELECT * FROM moderation_events ORDER BY event_id LOOP\n    SELECT status, editor_id INTO cur_status, cur_editor FROM articles WHERE article_id = rec.article_id;\n    IF rec.event_type = 1 AND cur_status = 0 THEN\n      UPDATE articles SET status = 1 WHERE article_id = rec.article_id;\n    ELSIF rec.event_type = 2 AND cur_status = 1 THEN\n      UPDATE articles SET status = 2, editor_id = rec.editor_id WHERE article_id = rec.article_id;\n    ELSIF rec.event_type = 3 AND cur_status = 1 THEN\n      UPDATE articles SET status = 3, editor_id = rec.editor_id WHERE article_id = rec.article_id;\n    ELSIF rec.event_type = 4 AND (cur_status = 1 OR cur_status = 2) THEN\n      UPDATE articles SET status = 0, editor_id = NULL WHERE article_id = rec.article_id;\n    END IF;\n  END LOOP;\nEND $$;\n\nSELECT * FROM articles ORDER BY article_id;",
+    "_meta": {
+      "question_type": "do_block_queue",
+      "dialect": "postgresql",
+      "generated_at": "2026-04-27T18:03:49.314276",
+      "problem_id": "ed6c72e3d5c8",
+      "validation_attempts": 1,
+      "scenario": "a publishing platform tracking article views, comments, and editor approvals"
+    }
+  },
+  "user_solution": "DO $$\nDECLARE\n  r RECORD;\n  current_status INT;\n  current_editor_id INT;\n\nBEGIN\n  FOR r IN SELECT * FROM moderation_events ORDER BY event_id LOOP\n    SELECT status, editor_id\n        INTO current_status, current_editor_id\n    FROM articles\n    WHERE article_id = r.article_id;\n\n    -- (1) submit_for_review: if status=0, set status=1;\n    IF r.event_type = 1 AND current_status = 0 THEN\n       UPDATE articles\n       SET status = 1\n       WHERE article_id = r.article_id;\n\n    -- (2) approve: if status=1, set status=2 and record the editor_id from the event;\n    ELSIF r.event_type = 2 AND current_status = 1 THEN\n       UPDATE articles\n       SET status = 2,\n         editor_id = r.editor_id\n       WHERE article_id = r.article_id;\n\n    -- (3) reject: if status=1, set status=3 and record the editor_id;\n    ELSIF r.event_type = 3 AND current_status = 1 THEN\n       UPDATE articles\n       SET status = 3,\n         editor_id = r.editor_id\n       WHERE article_id = r.article_id;\n\n    -- (4) withdraw: if status=1 or status=2, set status=0 and clear editor_id.\n    ELSIF (r.event_type = 4 AND current_status = 0) OR (r.event_type = 4 AND current_status = 2) THEN\n       UPDATE articles\n       SET status = 0,\n        editor_id = NULL\n       WHERE article_id = r.article_id;\n    END IF;\n  END LOOP;\nEND $$;\n\n\nSELECT *\nFROM articles\nORDER BY article_id;",
+  "solved_at": "2026-04-27T19:07:19.680534"
+}

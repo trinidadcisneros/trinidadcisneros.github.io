@@ -113,6 +113,11 @@ QUESTION_TYPES = {
         "description": "Apply a list of operations row by row inside DO $$ ... $$;",
         "dialects": ["postgresql"],
     },
+    "do_block_queue": {
+        "label": "DO Block (queue + state, per-row loop)",
+        "description": "Two tables: a state table and a request/event log. FOR-loop the log in ID order, read current state, branch on request type, conditionally mutate state.",
+        "dialects": ["postgresql"],
+    },
     "returns_table": {
         "label": "RETURNS TABLE function",
         "description": "Function that wraps an inner SELECT and returns a TABLE.",
@@ -253,6 +258,50 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None) -> 
             "that mutates one of the tables, followed by a trailing "
             "`SELECT * FROM target ORDER BY ...;` so the test harness sees output. "
             "answer_key must include both the DO block and the trailing SELECT."
+        )
+    elif qtype == "do_block_queue":
+        base += (
+            "Build the airline-seats / queue-processor shape. Hard requirements:\n"
+            "1) The schema MUST contain TWO tables:\n"
+            "   - a STATE table (e.g., seats, accounts, inventory_lots, patient_beds, claim_lines) "
+            "with a primary key and at least one mutable status/value column.\n"
+            "   - a REQUEST LOG table (e.g., requests, events, transactions, claim_actions) with a "
+            "monotonically increasing primary key (request_id / event_id), a TYPE column whose "
+            "value selects which branch fires, a FOREIGN KEY pointing at the state row to act on, "
+            "and any payload columns the rules need (person_id, amount, etc.).\n"
+            "2) The DO block MUST:\n"
+            "   - DECLARE a RECORD variable for the request row plus 1-3 scalar variables that hold "
+            "the state row's current values.\n"
+            "   - Use `FOR rec IN SELECT * FROM <request_log> ORDER BY <id> LOOP` to iterate the "
+            "log in ID order. NO set-based UPDATE that bypasses the loop.\n"
+            "   - Inside the loop, do `SELECT col1, col2 INTO var1, var2 FROM <state_table> WHERE "
+            "<pk> = rec.<fk>;` to read CURRENT state freshly each iteration (the prior iteration's "
+            "UPDATE must be visible).\n"
+            "   - Branch with `IF ... ELSIF ... END IF;` on BOTH the request type AND the current "
+            "state. Some requests must be no-ops because the current state does not satisfy any "
+            "branch (this is the whole point of reading state per iteration).\n"
+            "   - Conditionally `UPDATE <state_table> SET ... WHERE <pk> = rec.<fk>;` inside the "
+            "matching branch. Do not update unconditionally.\n"
+            "3) Design the test data so that:\n"
+            "   - At least one request is a no-op because state already disqualifies it.\n"
+            "   - At least one request CHANGES state in a way that affects whether a LATER request "
+            "in the same run becomes valid or invalid (this is what makes the loop necessary).\n"
+            "   - Borderline ordering matters: if you reordered two specific requests, the final "
+            "state would differ.\n"
+            "4) The trailing statement MUST be `SELECT * FROM <state_table> ORDER BY <pk>;` so the "
+            "harness sees the post-mutation snapshot.\n"
+            "5) DO NOT generate a problem solvable with two or three set-based UPDATEs. If your "
+            "rules can collapse to `UPDATE ... WHERE <type predicate>;` chains, you have the wrong "
+            "shape — add a state-dependent guard that requires reading the row's current value.\n"
+            "Reference shape (do not copy verbatim, use as a structural template):\n"
+            "   FOR r IN SELECT * FROM requests ORDER BY request_id LOOP\n"
+            "     SELECT status, person_id INTO cur_status, cur_owner FROM seats WHERE seat_no = r.seat_no;\n"
+            "     IF r.request = 1 AND cur_status = 0 THEN UPDATE seats SET ... ;\n"
+            "     ELSIF r.request = 2 AND (cur_status = 0 OR (cur_status = 1 AND cur_owner = r.person_id)) THEN UPDATE seats SET ... ;\n"
+            "     END IF;\n"
+            "   END LOOP;\n"
+            "Set classification.recipe to `do-block-sequential` and classification.input_arrival "
+            "to `procedural`."
         )
     elif qtype == "returns_table":
         base += (
@@ -558,3 +607,172 @@ def expected_to_dataframe(problem: Dict[str, Any], which: str = "example") -> pd
         cols = problem.get("test_expected_columns", [])
         rows = problem.get("test_expected_rows", [])
     return pd.DataFrame(rows, columns=cols)
+
+
+# ============================================================
+# Rendering helpers for the notebook UI
+# Parse CREATE TABLE / INSERT INTO / prompt strings and emit HTML
+# tables and bullet lists so the notebook never shows blobs of SQL.
+# ============================================================
+
+import re as _re
+
+
+def _split_top_level(s: str):
+    """Split a string on commas at paren-depth 0, respecting single quotes."""
+    parts, depth, cur, in_str = [], 0, '', False
+    for ch in s:
+        if in_str:
+            cur += ch
+            if ch == "'":
+                in_str = False
+        elif ch == "'":
+            in_str = True
+            cur += ch
+        elif ch == '(':
+            depth += 1
+            cur += ch
+        elif ch == ')':
+            depth -= 1
+            cur += ch
+        elif ch == ',' and depth == 0:
+            parts.append(cur.strip())
+            cur = ''
+        else:
+            cur += ch
+    if cur.strip():
+        parts.append(cur.strip())
+    return parts
+
+
+def parse_create_tables(ddl: str):
+    """Return [(table_name, [(col_name, type), ...]), ...]. Handles nested parens like VARCHAR(20), DECIMAL(10,2)."""
+    out = []
+    if not ddl:
+        return out
+    # Find each CREATE TABLE header, then walk the body with paren balancing
+    header = _re.compile(r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w_]+)\s*\(', _re.IGNORECASE)
+    pos = 0
+    while True:
+        m = header.search(ddl, pos)
+        if not m:
+            break
+        name = m.group(1)
+        i = m.end()  # right after the opening (
+        depth = 1
+        body_start = i
+        while i < len(ddl) and depth > 0:
+            ch = ddl[i]
+            if ch == '(':
+                depth += 1
+            elif ch == ')':
+                depth -= 1
+            i += 1
+        body = ddl[body_start:i - 1]  # exclude the closing )
+        pos = i
+        cols = _split_top_level(body)
+        parsed = []
+        for col in cols:
+            up = col.strip().upper()
+            if up.startswith(('PRIMARY KEY', 'FOREIGN KEY', 'CONSTRAINT', 'UNIQUE', 'CHECK')):
+                continue
+            parts = col.strip().split(None, 1)
+            if len(parts) == 2:
+                parsed.append((parts[0], parts[1].rstrip(',')))
+            elif len(parts) == 1:
+                parsed.append((parts[0], ''))
+        out.append((name, parsed))
+    return out
+
+
+def parse_inserts(sql: str):
+    """Return {table_name: (col_names, [row_values, ...])}."""
+    out = {}
+    pattern = r"INSERT\s+INTO\s+([\w_]+)\s*\(([^)]+)\)\s*VALUES\s*(.+?);"
+    for m in _re.finditer(pattern, sql or '', _re.IGNORECASE | _re.DOTALL):
+        name = m.group(1)
+        cols = [c.strip() for c in m.group(2).split(',')]
+        rows = _parse_value_rows(m.group(3))
+        if name in out:
+            out[name][1].extend(rows)
+        else:
+            out[name] = (cols, rows)
+    return out
+
+
+def _parse_value_rows(s: str):
+    rows, depth, cur_row, cur_val, in_str = [], 0, [], '', False
+    for ch in s:
+        if in_str:
+            cur_val += ch
+            if ch == "'":
+                in_str = False
+        elif ch == "'":
+            in_str = True
+            cur_val += ch
+        elif ch == '(' and depth == 0:
+            depth, cur_row, cur_val = 1, [], ''
+        elif ch == ')' and depth == 1:
+            cur_row.append(cur_val.strip())
+            rows.append(cur_row)
+            depth, cur_val = 0, ''
+        elif ch == ',' and depth == 1:
+            cur_row.append(cur_val.strip())
+            cur_val = ''
+        elif depth == 1:
+            cur_val += ch
+    return rows
+
+
+def schema_to_html(ddl: str) -> str:
+    """Render every CREATE TABLE statement as a Column / Type HTML table."""
+    tables = parse_create_tables(ddl)
+    if not tables:
+        return f'<pre style="background:#0d1117; color:#e6edf3; padding:8px; border-radius:4px; font-size:12px; white-space:pre-wrap;">{ddl}</pre>'
+    parts = []
+    for name, cols in tables:
+        df = pd.DataFrame(cols, columns=['Column', 'Type'])
+        parts.append(
+            f'<div style="margin-bottom:12px;">'
+            f'<div style="font-weight:600; margin:6px 0; font-size:13px;">Table: <code>{name}</code></div>'
+            + df.to_html(index=False, classes='nb-schema-table')
+            + '</div>'
+        )
+    return ''.join(parts)
+
+
+def _clean_sql_value(v: str) -> str:
+    """Strip wrapping single quotes from string literals; pass numerics and NULL through."""
+    s = v.strip()
+    if len(s) >= 2 and s.startswith("'") and s.endswith("'"):
+        # Unescape doubled single quotes inside ('It''s' -> "It's")
+        return s[1:-1].replace("''", "'")
+    return s
+
+
+def insert_data_to_html(sql: str) -> str:
+    """Render every INSERT INTO statement as an HTML table of the rows it inserts."""
+    tables = parse_inserts(sql)
+    if not tables:
+        return f'<pre style="background:#0d1117; color:#e6edf3; padding:8px; border-radius:4px; font-size:12px; white-space:pre-wrap;">{sql}</pre>'
+    parts = []
+    for name, (cols, rows) in tables.items():
+        cleaned = [[_clean_sql_value(v) for v in row] for row in rows]
+        df = pd.DataFrame(cleaned, columns=cols)
+        parts.append(
+            f'<div style="margin-bottom:12px;">'
+            f'<div style="font-weight:600; margin:6px 0; font-size:13px;">Data: <code>{name}</code></div>'
+            + df.to_html(index=False, classes='nb-data-table')
+            + '</div>'
+        )
+    return ''.join(parts)
+
+
+def prompt_to_bullets(prompt: str) -> str:
+    """Split a prompt into sentences and render as a bulleted list."""
+    if not prompt:
+        return ''
+    raw = _re.split(r'(?<=[.!?])\s+', prompt.strip())
+    sentences = [s.strip() for s in raw if s.strip()]
+    items = ''.join(f'<li style="margin-bottom:4px;">{s}</li>' for s in sentences)
+    return f'<ul style="line-height:1.6; margin:0 0 8px 18px; padding-left:0;">{items}</ul>'

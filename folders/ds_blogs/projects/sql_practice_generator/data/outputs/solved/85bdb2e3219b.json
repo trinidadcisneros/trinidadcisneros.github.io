@@ -1,0 +1,122 @@
+{
+  "problem": {
+    "title": "Process Refund Requests in Queue Order",
+    "prompt": "You are building a refund processing system for an e-commerce platform. The `refund_state` table tracks each order line's current refund status and remaining refundable amount. The `refund_requests` table is a queue of incoming refund requests that must be processed strictly in `request_id` order. Each request has a `request_type`: 1=initiate refund (marks the line as 'pending' if currently 'none'), 2=approve refund (deducts the requested amount if status is 'pending' and sufficient funds remain, then sets status to 'approved'), 3=cancel refund (resets to 'none' only if currently 'pending'). Write a DO block that iterates the `refund_requests` table in `request_id` order, reads the current state for each referenced `order_line_id`, and conditionally updates `refund_state` only when both the request type and the current state satisfy the rule. A trailing SELECT must return all rows from `refund_state` ordered by `order_line_id` to show the final snapshot. Note that a request may be a no-op if the current state does not match any branch condition, and earlier requests in the queue can change state in ways that affect later requests.",
+    "schema_ddl": "CREATE TABLE refund_state (order_line_id INT PRIMARY KEY, status VARCHAR(20), refundable_amount DECIMAL(10,2)); CREATE TABLE refund_requests (request_id INT PRIMARY KEY, request_type INT, order_line_id INT, customer_id INT, requested_amount DECIMAL(10,2));",
+    "example_input_data": "INSERT INTO refund_state (order_line_id, status, refundable_amount) VALUES (101, 'none', 50.00), (102, 'none', 100.00), (103, 'pending', 75.00), (104, 'approved', 0.00); INSERT INTO refund_requests (request_id, request_type, order_line_id, customer_id, requested_amount) VALUES (1, 1, 101, 201, 0.00), (2, 2, 101, 201, 50.00), (3, 1, 102, 202, 0.00), (4, 3, 102, 202, 0.00), (5, 2, 103, 203, 75.00), (6, 1, 104, 204, 0.00);",
+    "example_output_columns": [
+      "order_line_id",
+      "status",
+      "refundable_amount"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "approved",
+        "0.00"
+      ],
+      [
+        102,
+        "none",
+        "100.00"
+      ],
+      [
+        103,
+        "approved",
+        "0.00"
+      ],
+      [
+        104,
+        "approved",
+        "0.00"
+      ]
+    ],
+    "test_data": "INSERT INTO refund_state (order_line_id, status, refundable_amount) VALUES (201, 'none', 120.50), (202, 'none', 85.00), (203, 'pending', 200.00), (204, 'none', 45.75), (205, 'approved', 0.00), (206, 'none', 150.00), (207, 'pending', 99.99), (208, 'none', 0.00), (209, 'pending', 10.00), (210, 'none', 300.00); INSERT INTO refund_requests (request_id, request_type, order_line_id, customer_id, requested_amount) VALUES (1, 1, 201, 301, 0.00), (2, 2, 201, 301, 60.00), (3, 1, 202, 302, 0.00), (4, 2, 202, 302, 85.00), (5, 3, 203, 303, 0.00), (6, 1, 203, 303, 0.00), (7, 2, 204, 304, 45.75), (8, 1, 204, 304, 0.00), (9, 2, 204, 304, 20.00), (10, 1, 205, 305, 0.00), (11, 3, 205, 305, 0.00), (12, 2, 206, 306, 150.00), (13, 1, 206, 306, 0.00), (14, 2, 207, 307, 50.00), (15, 2, 207, 307, 49.99), (16, 3, 207, 307, 0.00), (17, 1, 208, 308, 0.00), (18, 2, 208, 308, 10.00), (19, 3, 209, 309, 0.00), (20, 2, 209, 309, 5.00), (21, 1, 210, 310, 0.00), (22, 2, 210, 310, 100.00), (23, 3, 210, 310, 0.00), (24, 1, 210, 310, 0.00), (25, 2, 210, 310, 200.00);",
+    "test_expected_columns": [
+      "order_line_id",
+      "status",
+      "refundable_amount"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "approved",
+        "60.50"
+      ],
+      [
+        202,
+        "approved",
+        "0.00"
+      ],
+      [
+        203,
+        "pending",
+        "200.00"
+      ],
+      [
+        204,
+        "approved",
+        "25.75"
+      ],
+      [
+        205,
+        "approved",
+        "0.00"
+      ],
+      [
+        206,
+        "pending",
+        "150.00"
+      ],
+      [
+        207,
+        "approved",
+        "49.99"
+      ],
+      [
+        208,
+        "pending",
+        "0.00"
+      ],
+      [
+        209,
+        "none",
+        "10.00"
+      ],
+      [
+        210,
+        "approved",
+        "200.00"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "procedural",
+      "output_shape": "state_mutation",
+      "recipe": "do-block-sequential",
+      "composite_moves": [
+        "declare-variables",
+        "for-loop-ordered",
+        "select-into-current-state",
+        "if-elsif-branch-on-type-and-state",
+        "conditional-update-within-branch",
+        "trailing-select-final-state"
+      ]
+    },
+    "hints": [
+      "You need a DO block with a FOR loop that processes requests in request_id order, reading the current state inside the loop before deciding what to do.",
+      "Declare variables to hold the current status and refundable_amount, then use SELECT INTO for each request's order_line_id. Branch with IF/ELSIF on both request_type and the state variables.",
+      "Type 1 sets status='pending' only if currently 'none'. Type 2 deducts requested_amount and sets status='approved' only if currently 'pending' and refundable_amount >= requested_amount. Type 3 sets status='none' only if currently 'pending'. End with SELECT * FROM refund_state ORDER BY order_line_id."
+    ],
+    "answer_key": "DO $$ DECLARE rec RECORD; cur_status VARCHAR(20); cur_refundable DECIMAL(10,2); BEGIN FOR rec IN SELECT * FROM refund_requests ORDER BY request_id LOOP SELECT status, refundable_amount INTO cur_status, cur_refundable FROM refund_state WHERE order_line_id = rec.order_line_id; IF rec.request_type = 1 AND cur_status = 'none' THEN UPDATE refund_state SET status = 'pending' WHERE order_line_id = rec.order_line_id; ELSIF rec.request_type = 2 AND cur_status = 'pending' AND cur_refundable >= rec.requested_amount THEN UPDATE refund_state SET status = 'approved', refundable_amount = refundable_amount - rec.requested_amount WHERE order_line_id = rec.order_line_id; ELSIF rec.request_type = 3 AND cur_status = 'pending' THEN UPDATE refund_state SET status = 'none' WHERE order_line_id = rec.order_line_id; END IF; END LOOP; END $$; SELECT * FROM refund_state ORDER BY order_line_id;",
+    "_meta": {
+      "question_type": "do_block_queue",
+      "dialect": "postgresql",
+      "generated_at": "2026-04-27T15:47:39.442954",
+      "problem_id": "85bdb2e3219b",
+      "validation_attempts": 1,
+      "scenario": "an e-commerce platform tracking customer orders, returns, and refunds"
+    }
+  },
+  "user_solution": "DO $$\nDECLARE\n  rec RECORD;\n  cur_status     VARCHAR(20);\n  cur_refundable DECIMAL(10,2);\nBEGIN\n  FOR rec IN SELECT * FROM refund_requests ORDER BY request_id LOOP\n    SELECT status, refundable_amount\n      INTO cur_status, cur_refundable\n      FROM refund_state\n     WHERE order_line_id = rec.order_line_id;\n\n    IF rec.request_type = 1 AND cur_status = 'none' THEN\n      UPDATE refund_state\n         SET status = 'pending'\n       WHERE order_line_id = rec.order_line_id;\n\n    ELSIF rec.request_type = 2\n       AND cur_status = 'pending'\n       AND cur_refundable >= rec.requested_amount THEN\n      UPDATE refund_state\n         SET status = 'approved',\n             refundable_amount = refundable_amount - rec.requested_amount\n       WHERE order_line_id = rec.order_line_id;\n\n    ELSIF rec.request_type = 3 AND cur_status = 'pending' THEN\n      UPDATE refund_state\n         SET status = 'none'\n       WHERE order_line_id = rec.order_line_id;\n    END IF;\n  END LOOP;\nEND $$;\n\nSELECT * FROM refund_state ORDER BY order_line_id;",
+  "solved_at": "2026-04-27T16:50:03.599642"
+}

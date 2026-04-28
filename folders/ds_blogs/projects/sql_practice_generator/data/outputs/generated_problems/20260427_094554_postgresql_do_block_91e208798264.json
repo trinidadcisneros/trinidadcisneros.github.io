@@ -1,0 +1,197 @@
+{
+  "title": "Loyalty Points Sequential Tier Adjustment",
+  "prompt": "You are managing a loyalty program database. The `member_accounts` table tracks each member's current points balance and tier status. Write a DO block that processes tier adjustments in sequential order. For each member (ordered by member_id ascending), apply these rules in order: (1) If current_points >= 5000, set tier to 'platinum' and deduct 500 points. (2) After step 1, if current_points >= 2000 and tier is not 'platinum', set tier to 'gold' and deduct 200 points. (3) After step 2, if current_points < 500 and tier is not 'bronze', set tier to 'bronze' and add 100 bonus points. Your DO block must process members one at a time in ascending member_id order, applying all three rules to each member before moving to the next. After the DO block, write a SELECT statement that returns all columns from member_accounts ordered by member_id.",
+  "schema_ddl": "CREATE TABLE member_accounts (member_id INT PRIMARY KEY, member_name VARCHAR(100), current_points INT, tier VARCHAR(20));",
+  "example_input_data": "INSERT INTO member_accounts (member_id, member_name, current_points, tier) VALUES (1, 'Alice Chen', 5200, 'gold'), (2, 'Bob Martinez', 2100, 'silver'), (3, 'Carol Wu', 450, 'silver'), (4, 'David Kim', 1800, 'bronze'), (5, 'Eva Patel', 6000, 'silver');",
+  "example_output_columns": [
+    "member_id",
+    "member_name",
+    "current_points",
+    "tier"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Alice Chen",
+      4700,
+      "platinum"
+    ],
+    [
+      2,
+      "Bob Martinez",
+      1900,
+      "gold"
+    ],
+    [
+      3,
+      "Carol Wu",
+      550,
+      "bronze"
+    ],
+    [
+      4,
+      "David Kim",
+      1800,
+      "bronze"
+    ],
+    [
+      5,
+      "Eva Patel",
+      5500,
+      "platinum"
+    ]
+  ],
+  "test_data": "INSERT INTO member_accounts (member_id, member_name, current_points, tier) VALUES (101, 'Member A', 5500, 'gold'), (102, 'Member B', 5000, 'silver'), (103, 'Member C', 4999, 'silver'), (104, 'Member D', 2500, 'bronze'), (105, 'Member E', 2000, 'silver'), (106, 'Member F', 1999, 'gold'), (107, 'Member G', 499, 'gold'), (108, 'Member H', 500, 'silver'), (109, 'Member I', 0, 'silver'), (110, 'Member J', 10000, 'bronze'), (111, 'Member K', 2200, 'platinum'), (112, 'Member L', 1500, 'platinum'), (113, 'Member M', 400, 'bronze'), (114, 'Member N', 5001, 'gold'), (115, 'Member O', 499, 'bronze'), (116, 'Member P', 2001, 'silver'), (117, 'Member Q', 1000, 'gold'), (118, 'Member R', 3000, 'silver'), (119, 'Member S', 250, 'gold'), (120, 'Member T', 5500, 'platinum');",
+  "test_expected_columns": [
+    "member_id",
+    "member_name",
+    "current_points",
+    "tier"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      "Member A",
+      5000,
+      "platinum"
+    ],
+    [
+      102,
+      "Member B",
+      4500,
+      "platinum"
+    ],
+    [
+      103,
+      "Member C",
+      4799,
+      "gold"
+    ],
+    [
+      104,
+      "Member D",
+      2300,
+      "gold"
+    ],
+    [
+      105,
+      "Member E",
+      1800,
+      "gold"
+    ],
+    [
+      106,
+      "Member F",
+      1999,
+      "gold"
+    ],
+    [
+      107,
+      "Member G",
+      599,
+      "bronze"
+    ],
+    [
+      108,
+      "Member H",
+      500,
+      "silver"
+    ],
+    [
+      109,
+      "Member I",
+      100,
+      "bronze"
+    ],
+    [
+      110,
+      "Member J",
+      9500,
+      "platinum"
+    ],
+    [
+      111,
+      "Member K",
+      2200,
+      "platinum"
+    ],
+    [
+      112,
+      "Member L",
+      1500,
+      "platinum"
+    ],
+    [
+      113,
+      "Member M",
+      400,
+      "bronze"
+    ],
+    [
+      114,
+      "Member N",
+      4501,
+      "platinum"
+    ],
+    [
+      115,
+      "Member O",
+      499,
+      "bronze"
+    ],
+    [
+      116,
+      "Member P",
+      1801,
+      "gold"
+    ],
+    [
+      117,
+      "Member Q",
+      1000,
+      "gold"
+    ],
+    [
+      118,
+      "Member R",
+      2800,
+      "gold"
+    ],
+    [
+      119,
+      "Member S",
+      350,
+      "bronze"
+    ],
+    [
+      120,
+      "Member T",
+      5000,
+      "platinum"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "procedural-loop",
+      "conditional-update",
+      "sequential-rule-application"
+    ]
+  },
+  "hints": [
+    "You need to loop through members in order and apply conditional UPDATE statements based on the current state of each row after previous updates.",
+    "Use a FOR loop with 'SELECT member_id FROM member_accounts ORDER BY member_id' and then check conditions with IF statements. Remember that each rule checks the points AFTER the previous rule modified them.",
+    "Structure: FOR rec IN SELECT member_id FROM member_accounts ORDER BY member_id LOOP ... three IF blocks with UPDATE WHERE member_id = rec.member_id, each checking the current state with a nested SELECT ... END LOOP. Follow with SELECT * FROM member_accounts ORDER BY member_id outside the DO block."
+  ],
+  "answer_key": "DO $$\nDECLARE\n  rec RECORD;\n  curr_points INT;\n  curr_tier VARCHAR(20);\nBEGIN\n  FOR rec IN SELECT member_id FROM member_accounts ORDER BY member_id LOOP\n    SELECT current_points, tier INTO curr_points, curr_tier FROM member_accounts WHERE member_id = rec.member_id;\n    \n    IF curr_points >= 5000 THEN\n      UPDATE member_accounts SET tier = 'platinum', current_points = current_points - 500 WHERE member_id = rec.member_id;\n    END IF;\n    \n    SELECT current_points, tier INTO curr_points, curr_tier FROM member_accounts WHERE member_id = rec.member_id;\n    \n    IF curr_points >= 2000 AND curr_tier != 'platinum' THEN\n      UPDATE member_accounts SET tier = 'gold', current_points = current_points - 200 WHERE member_id = rec.member_id;\n    END IF;\n    \n    SELECT current_points, tier INTO curr_points, curr_tier FROM member_accounts WHERE member_id = rec.member_id;\n    \n    IF curr_points < 500 AND curr_tier != 'bronze' THEN\n      UPDATE member_accounts SET tier = 'bronze', current_points = current_points + 100 WHERE member_id = rec.member_id;\n    END IF;\n  END LOOP;\nEND $$;\n\nSELECT * FROM member_accounts ORDER BY member_id;",
+  "_meta": {
+    "question_type": "do_block",
+    "dialect": "postgresql",
+    "generated_at": "2026-04-27T09:45:54.111625",
+    "problem_id": "91e208798264",
+    "validation_attempts": 1,
+    "scenario": "a loyalty program tracking points earned, redeemed, and tier upgrades"
+  }
+}
