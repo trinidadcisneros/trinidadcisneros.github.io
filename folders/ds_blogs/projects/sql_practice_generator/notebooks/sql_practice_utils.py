@@ -305,11 +305,21 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml
         )
     elif qtype == "returns_table":
         base += (
-            "The schema_ddl should END with a `CREATE OR REPLACE FUNCTION fn_name(...) "
-            "RETURNS TABLE (...) AS $$ BEGIN RETURN QUERY ( /* placeholder */ ); END; "
-            "$$ LANGUAGE plpgsql;` scaffold so the user fills in the inner SELECT. "
-            "test_data invokes the function with concrete arguments via a final "
-            "`SELECT * FROM fn_name(arg1, arg2);` in the answer_key."
+            "Function returns a row set via `RETURNS TABLE (...)`. "
+            "schema_ddl MUST contain ONLY `CREATE TABLE` statements — do NOT put a "
+            "function scaffold or placeholder body into schema_ddl, because Postgres "
+            "validates plpgsql bodies at CREATE FUNCTION time and an empty "
+            "`RETURN QUERY ( /* placeholder */ );` is a syntax error that fails "
+            "schema loading. "
+            "The prompt MUST specify the exact function signature the user should write: "
+            "function name, parameter names and types, and the RETURNS TABLE column names "
+            "and types (match source column lengths exactly, e.g. VARCHAR(100) not bare VARCHAR). "
+            "The answer_key contains the full "
+            "`CREATE OR REPLACE FUNCTION fn_name(...) RETURNS TABLE (...) AS $$ BEGIN "
+            "RETURN QUERY ( ... ); END; $$ LANGUAGE plpgsql;` definition followed by a "
+            "trailing `SELECT * FROM fn_name(arg1, arg2);` so the harness sees output. "
+            "Alias the source table inside RETURN QUERY and qualify every column to avoid "
+            "RETURNS TABLE column shadowing."
         )
     elif qtype == "returns_scalar":
         base += (

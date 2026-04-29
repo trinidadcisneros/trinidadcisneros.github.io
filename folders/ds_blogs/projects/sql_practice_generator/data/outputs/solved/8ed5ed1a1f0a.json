@@ -1,0 +1,71 @@
+{
+  "problem": {
+    "title": "Loan Stage Duration Analysis Function",
+    "prompt": "You are building a reporting tool for a lending platform. Write a PostgreSQL function named get_stage_durations that accepts two parameters: p_application_id (INTEGER) and p_min_hours (NUMERIC). The function should RETURNS TABLE(stage_name VARCHAR(100), entered_at TIMESTAMP, exited_at TIMESTAMP, duration_hours NUMERIC(10,2)). For the given application_id, return all stages the application passed through, calculating the time spent in each stage in hours (rounded to 2 decimals). Only include stages where duration_hours is greater than or equal to p_min_hours. Order results by entered_at ascending. If a stage has not been exited yet (exited_at IS NULL), exclude it from results. Your function must use RETURN QUERY with proper table aliasing to avoid column name conflicts.",
+    "schema_ddl": "CREATE TABLE loan_applications (application_id INTEGER PRIMARY KEY, borrower_name VARCHAR(200), requested_amount NUMERIC(12,2), submission_date DATE); CREATE TABLE application_stage_history (history_id INTEGER PRIMARY KEY, application_id INTEGER, stage_name VARCHAR(100), entered_at TIMESTAMP, exited_at TIMESTAMP);",
+    "example_input_data": "INSERT INTO loan_applications (application_id, borrower_name, requested_amount, submission_date) VALUES (1001, 'Alice Chen', 50000.00, '2024-01-10'), (1002, 'Bob Martinez', 75000.00, '2024-01-11'); INSERT INTO application_stage_history (history_id, application_id, stage_name, entered_at, exited_at) VALUES (1, 1001, 'Initial Review', '2024-01-10 09:00:00', '2024-01-10 11:30:00'), (2, 1001, 'Credit Check', '2024-01-10 11:30:00', '2024-01-10 12:00:00'), (3, 1001, 'Underwriting', '2024-01-10 12:00:00', '2024-01-11 14:00:00'), (4, 1001, 'Final Approval', '2024-01-11 14:00:00', '2024-01-11 15:00:00'), (5, 1002, 'Initial Review', '2024-01-11 08:00:00', '2024-01-11 09:00:00'), (6, 1002, 'Credit Check', '2024-01-11 09:00:00', NULL);",
+    "example_output_columns": [
+      "stage_name",
+      "entered_at",
+      "exited_at",
+      "duration_hours"
+    ],
+    "example_output_rows": [
+      [
+        "Initial Review",
+        "2024-01-10 09:00:00",
+        "2024-01-10 11:30:00",
+        "2.50"
+      ],
+      [
+        "Underwriting",
+        "2024-01-10 12:00:00",
+        "2024-01-11 14:00:00",
+        "26.00"
+      ],
+      [
+        "Final Approval",
+        "2024-01-11 14:00:00",
+        "2024-01-11 15:00:00",
+        "1.00"
+      ]
+    ],
+    "test_data": "INSERT INTO loan_applications (application_id, borrower_name, requested_amount, submission_date) VALUES (2001, 'Carol White', 100000.00, '2024-02-01'), (2002, 'David Lee', 45000.00, '2024-02-02'), (2003, 'Emma Stone', 60000.00, '2024-02-03'), (2004, 'Frank Zhang', 80000.00, '2024-02-04'); INSERT INTO application_stage_history (history_id, application_id, stage_name, entered_at, exited_at) VALUES (101, 2001, 'Initial Review', '2024-02-01 10:00:00', '2024-02-01 10:15:00'), (102, 2001, 'Credit Check', '2024-02-01 10:15:00', '2024-02-01 10:45:00'), (103, 2001, 'Underwriting', '2024-02-01 10:45:00', '2024-02-02 16:45:00'), (104, 2001, 'Final Approval', '2024-02-02 16:45:00', '2024-02-02 18:00:00'), (105, 2001, 'Funding', '2024-02-02 18:00:00', '2024-02-02 19:30:00'), (106, 2002, 'Initial Review', '2024-02-02 09:00:00', '2024-02-02 09:20:00'), (107, 2002, 'Credit Check', '2024-02-02 09:20:00', '2024-02-02 11:20:00'), (108, 2002, 'Underwriting', '2024-02-02 11:20:00', '2024-02-03 11:20:00'), (109, 2002, 'Final Approval', '2024-02-03 11:20:00', '2024-02-03 11:50:00'), (110, 2003, 'Initial Review', '2024-02-03 14:00:00', '2024-02-03 14:05:00'), (111, 2003, 'Credit Check', '2024-02-03 14:05:00', '2024-02-03 14:10:00'), (112, 2003, 'Underwriting', '2024-02-03 14:10:00', NULL), (113, 2004, 'Initial Review', '2024-02-04 08:00:00', '2024-02-04 08:01:00'), (114, 2004, 'Credit Check', '2024-02-04 08:01:00', '2024-02-04 10:01:00'), (115, 2004, 'Underwriting', '2024-02-04 10:01:00', '2024-02-04 13:01:00'), (116, 2004, 'Final Approval', '2024-02-04 13:01:00', '2024-02-04 13:31:00'), (117, 2004, 'Funding', '2024-02-04 13:31:00', '2024-02-04 14:01:00');",
+    "test_expected_columns": [
+      "stage_name",
+      "entered_at",
+      "exited_at",
+      "duration_hours"
+    ],
+    "test_expected_rows": [],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "table_return",
+      "recipe": "function-wrapped",
+      "composite_moves": [
+        "row-filter by application_id",
+        "row-filter by exited_at IS NOT NULL",
+        "row-transform to compute duration_hours",
+        "row-filter by duration_hours >= threshold",
+        "sort by entered_at"
+      ]
+    },
+    "hints": [
+      "Your function must accept two parameters and return a table with four columns matching the specified types exactly.",
+      "Use EXTRACT(EPOCH FROM (exited_at - entered_at)) / 3600 to convert timestamp differences to hours, then round to 2 decimals.",
+      "Inside RETURN QUERY, alias the application_stage_history table and qualify every column reference (e.g., ash.stage_name) to prevent shadowing conflicts with the RETURNS TABLE column names."
+    ],
+    "answer_key": "CREATE OR REPLACE FUNCTION get_stage_durations(p_application_id INTEGER, p_min_hours NUMERIC) RETURNS TABLE(stage_name VARCHAR(100), entered_at TIMESTAMP, exited_at TIMESTAMP, duration_hours NUMERIC(10,2)) AS $$ BEGIN RETURN QUERY ( SELECT ash.stage_name, ash.entered_at, ash.exited_at, ROUND(CAST(EXTRACT(EPOCH FROM (ash.exited_at - ash.entered_at)) / 3600 AS NUMERIC), 2) AS duration_hours FROM application_stage_history ash WHERE ash.application_id = p_application_id AND ash.exited_at IS NOT NULL AND ROUND(CAST(EXTRACT(EPOCH FROM (ash.exited_at - ash.entered_at)) / 3600 AS NUMERIC), 2) >= p_min_hours ORDER BY ash.entered_at ); END; $$ LANGUAGE plpgsql; SELECT * FROM get_stage_durations(1001, 1.00);",
+    "_meta": {
+      "question_type": "returns_table",
+      "dialect": "postgresql",
+      "generated_at": "2026-04-29T12:22:19.958931",
+      "problem_id": "8ed5ed1a1f0a",
+      "validation_attempts": 1,
+      "scenario": "a lending platform tracking loan application stages and approval times",
+      "dml_op": null
+    }
+  },
+  "user_solution": "CREATE OR REPLACE FUNCTION get_stage_durations(p_application_id INT, p_min_hours NUMERIC)\nRETURNS TABLE (stage_name VARCHAR(100), entered_at TIMESTAMP, exited_at TIMESTAMP, duration_hours NUMERIC(10,2)) AS $$\nBEGIN\n   RETURN QUERY (\n     WITH base AS (\n     SELECT\n        ash.stage_name,\n        ash.entered_at,\n        ash.exited_at,\n        ROUND(EXTRACT(EPOCH FROM (ash.exited_at - ash.entered_at)) / 3600, 2) AS duration_hours\n     FROM application_stage_history AS ash\n     WHERE ash.application_id = p_application_id AND ash.exited_at IS NOT NULL\n    )\n     SELECT *\n     FROM base AS b\n     WHERE b.duration_hours >= p_min_hours\n   );\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT * FROM get_stage_durations(1001, 1);\n\n\n\n",
+  "solved_at": "2026-04-29T12:50:23.745349"
+}

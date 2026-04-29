@@ -1,0 +1,124 @@
+{
+  "title": "Process Therapy Session Attendance Requests",
+  "prompt": "You are building a mental health app that tracks therapy session attendance. The system maintains a sessions table storing each session's current state (status and attendee_id), and processes a log of attendance requests sequentially. Write a DO block that loops through the attendance_requests table in request_id order. For each request, read the current session state, then apply these rules: (1) If request_type=1 (join) and the session status is 0 (open), set status=1 (reserved) and assign attendee_id to the requesting client. (2) If request_type=2 (cancel) and the session status is 1 AND the current attendee_id matches the requesting client_id, set status=0 and clear attendee_id. (3) If request_type=3 (confirm) and the session status is 1 AND the current attendee_id matches the requesting client_id, set status=2 (confirmed). Requests that do not match any rule should be silently skipped. After the DO block, include a trailing SELECT * FROM sessions ORDER BY session_id to show the final state.",
+  "schema_ddl": "CREATE TABLE sessions (session_id INT PRIMARY KEY, status INT NOT NULL, attendee_id INT); CREATE TABLE attendance_requests (request_id INT PRIMARY KEY, session_id INT NOT NULL REFERENCES sessions(session_id), request_type INT NOT NULL, client_id INT NOT NULL);",
+  "example_input_data": "INSERT INTO sessions VALUES (1, 0, NULL), (2, 0, NULL), (3, 0, NULL), (4, 1, 101); INSERT INTO attendance_requests VALUES (1, 1, 1, 101), (2, 2, 1, 102), (3, 1, 2, 101), (4, 3, 1, 103), (5, 3, 3, 103), (6, 4, 2, 999);",
+  "example_output_columns": [
+    "session_id",
+    "status",
+    "attendee_id"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      0,
+      null
+    ],
+    [
+      2,
+      1,
+      102.0
+    ],
+    [
+      3,
+      2,
+      103.0
+    ],
+    [
+      4,
+      1,
+      101.0
+    ]
+  ],
+  "test_data": "INSERT INTO sessions VALUES (10, 0, NULL), (11, 0, NULL), (12, 0, NULL), (13, 1, 201), (14, 0, NULL), (15, 1, 202), (16, 0, NULL), (17, 2, 203), (18, 0, NULL), (19, 1, 204), (20, 0, NULL); INSERT INTO attendance_requests VALUES (101, 10, 1, 201), (102, 10, 1, 202), (103, 11, 1, 203), (104, 11, 2, 203), (105, 12, 1, 204), (106, 12, 3, 204), (107, 12, 2, 204), (108, 13, 2, 201), (109, 13, 1, 205), (110, 14, 1, 206), (111, 14, 2, 206), (112, 14, 1, 207), (113, 15, 3, 202), (114, 15, 2, 999), (115, 16, 1, 208), (116, 16, 3, 208), (117, 16, 2, 208), (118, 17, 2, 203), (119, 18, 1, 209), (120, 18, 3, 210), (121, 19, 3, 204), (122, 19, 2, 204), (123, 20, 1, 210), (124, 20, 3, 210), (125, 11, 1, 211);",
+  "test_expected_columns": [
+    "session_id",
+    "status",
+    "attendee_id"
+  ],
+  "test_expected_rows": [
+    [
+      10,
+      1,
+      201
+    ],
+    [
+      11,
+      1,
+      211
+    ],
+    [
+      12,
+      2,
+      204
+    ],
+    [
+      13,
+      1,
+      205
+    ],
+    [
+      14,
+      1,
+      207
+    ],
+    [
+      15,
+      2,
+      202
+    ],
+    [
+      16,
+      2,
+      208
+    ],
+    [
+      17,
+      2,
+      203
+    ],
+    [
+      18,
+      1,
+      209
+    ],
+    [
+      19,
+      2,
+      204
+    ],
+    [
+      20,
+      2,
+      210
+    ]
+  ],
+  "classification": {
+    "input_arrival": "procedural",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "declare-record-and-state-vars",
+      "for-loop-ordered-by-id",
+      "select-into-current-state",
+      "if-elsif-branch-on-type-and-state",
+      "conditional-update-in-branches",
+      "trailing-select-final-state"
+    ]
+  },
+  "hints": [
+    "You need to process requests one at a time in order, checking the session's current state before deciding what to do.",
+    "Use a FOR loop over attendance_requests ordered by request_id, and inside the loop SELECT the current status and attendee_id from sessions into variables before branching.",
+    "Your IF/ELSIF structure should check both the request_type and the current session state (status and attendee_id) to decide whether to UPDATE the session row. Some requests will not match any condition and should do nothing."
+  ],
+  "answer_key": "DO $$\nDECLARE\n  rec RECORD;\n  cur_status INT;\n  cur_attendee INT;\nBEGIN\n  FOR rec IN SELECT * FROM attendance_requests ORDER BY request_id LOOP\n    SELECT status, attendee_id INTO cur_status, cur_attendee FROM sessions WHERE session_id = rec.session_id;\n    IF rec.request_type = 1 AND cur_status = 0 THEN\n      UPDATE sessions SET status = 1, attendee_id = rec.client_id WHERE session_id = rec.session_id;\n    ELSIF rec.request_type = 2 AND cur_status = 1 AND cur_attendee = rec.client_id THEN\n      UPDATE sessions SET status = 0, attendee_id = NULL WHERE session_id = rec.session_id;\n    ELSIF rec.request_type = 3 AND cur_status = 1 AND cur_attendee = rec.client_id THEN\n      UPDATE sessions SET status = 2 WHERE session_id = rec.session_id;\n    END IF;\n  END LOOP;\nEND $$;\nSELECT * FROM sessions ORDER BY session_id;",
+  "_meta": {
+    "question_type": "do_block_queue",
+    "dialect": "postgresql",
+    "generated_at": "2026-04-29T15:00:36.755768",
+    "problem_id": "8e4dae7e97fc",
+    "validation_attempts": 1,
+    "scenario": "a mental health app tracking therapy session attendance and engagement",
+    "dml_op": null
+  }
+}

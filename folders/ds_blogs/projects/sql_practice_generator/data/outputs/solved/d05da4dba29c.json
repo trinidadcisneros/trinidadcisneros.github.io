@@ -1,0 +1,210 @@
+{
+  "problem": {
+    "title": "Apply Sequential Box Price Adjustments",
+    "prompt": "You are managing a subscription box company's monthly pricing system. The box_inventory table tracks each box variant with its base_price and final_price. A series of pricing rules must be applied sequentially in a DO block: (1) Apply a 15% markup to all boxes where box_type = 'premium' (update final_price = base_price * 1.15), (2) Apply an additional $5 flat discount to boxes where final_price > 50 after the previous step, (3) Round all final_price values to 2 decimal places. Write a DO block that performs these three updates in order, then include a trailing SELECT statement that returns all columns from box_inventory ordered by box_id. The output should show the box_id, box_type, base_price, and final_price after all transformations.",
+    "schema_ddl": "CREATE TABLE box_inventory (box_id INTEGER PRIMARY KEY, box_type VARCHAR(50), base_price DECIMAL(10,2), final_price DECIMAL(10,2));",
+    "example_input_data": "INSERT INTO box_inventory (box_id, box_type, base_price, final_price) VALUES (1, 'premium', 40.00, 40.00), (2, 'basic', 25.00, 25.00), (3, 'premium', 55.00, 55.00), (4, 'premium', 48.00, 48.00), (5, 'basic', 30.00, 30.00), (6, 'premium', 42.00, 42.00);",
+    "example_output_columns": [
+      "box_id",
+      "box_type",
+      "base_price",
+      "final_price"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "premium",
+        "40.00",
+        "46.00"
+      ],
+      [
+        2,
+        "basic",
+        "25.00",
+        "25.00"
+      ],
+      [
+        3,
+        "premium",
+        "55.00",
+        "58.25"
+      ],
+      [
+        4,
+        "premium",
+        "48.00",
+        "50.20"
+      ],
+      [
+        5,
+        "basic",
+        "30.00",
+        "30.00"
+      ],
+      [
+        6,
+        "premium",
+        "42.00",
+        "48.30"
+      ]
+    ],
+    "test_data": "INSERT INTO box_inventory (box_id, box_type, base_price, final_price) VALUES (101, 'premium', 35.00, 35.00), (102, 'basic', 20.00, 20.00), (103, 'premium', 60.00, 60.00), (104, 'deluxe', 45.00, 45.00), (105, 'premium', 50.00, 50.00), (106, 'basic', 28.00, 28.00), (107, 'premium', 44.00, 44.00), (108, 'premium', 38.00, 38.00), (109, 'basic', 22.00, 22.00), (110, 'premium', 52.00, 52.00), (111, 'deluxe', 55.00, 55.00), (112, 'premium', 46.00, 46.00), (113, 'basic', 18.00, 18.00), (114, 'premium', 58.00, 58.00), (115, 'premium', 43.47, 43.47), (116, 'basic', 32.00, 32.00), (117, 'premium', 49.00, 49.00), (118, 'premium', 41.00, 41.00), (119, 'deluxe', 50.00, 50.00), (120, 'premium', 47.00, 47.00);",
+    "test_expected_columns": [
+      "box_id",
+      "box_type",
+      "base_price",
+      "final_price"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        "premium",
+        "35.00",
+        "40.25"
+      ],
+      [
+        102,
+        "basic",
+        "20.00",
+        "20.00"
+      ],
+      [
+        103,
+        "premium",
+        "60.00",
+        "64.00"
+      ],
+      [
+        104,
+        "deluxe",
+        "45.00",
+        "45.00"
+      ],
+      [
+        105,
+        "premium",
+        "50.00",
+        "52.50"
+      ],
+      [
+        106,
+        "basic",
+        "28.00",
+        "28.00"
+      ],
+      [
+        107,
+        "premium",
+        "44.00",
+        "45.60"
+      ],
+      [
+        108,
+        "premium",
+        "38.00",
+        "43.70"
+      ],
+      [
+        109,
+        "basic",
+        "22.00",
+        "22.00"
+      ],
+      [
+        110,
+        "premium",
+        "52.00",
+        "54.80"
+      ],
+      [
+        111,
+        "deluxe",
+        "55.00",
+        "50.00"
+      ],
+      [
+        112,
+        "premium",
+        "46.00",
+        "47.90"
+      ],
+      [
+        113,
+        "basic",
+        "18.00",
+        "18.00"
+      ],
+      [
+        114,
+        "premium",
+        "58.00",
+        "61.70"
+      ],
+      [
+        115,
+        "premium",
+        "43.47",
+        "49.99"
+      ],
+      [
+        116,
+        "basic",
+        "32.00",
+        "32.00"
+      ],
+      [
+        117,
+        "premium",
+        "49.00",
+        "51.35"
+      ],
+      [
+        118,
+        "premium",
+        "41.00",
+        "47.15"
+      ],
+      [
+        119,
+        "deluxe",
+        "50.00",
+        "50.00"
+      ],
+      [
+        120,
+        "premium",
+        "47.00",
+        "49.05"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "state_mutation",
+      "recipe": "do-block-sequential",
+      "composite_moves": [
+        "declare-do-block",
+        "update-conditional-step1",
+        "update-conditional-step2",
+        "update-rounding-step3",
+        "trailing-select-ordered"
+      ]
+    },
+    "hints": [
+      "You need to write a DO block with three separate UPDATE statements that execute in sequence.",
+      "The first UPDATE multiplies base_price by 1.15 for premium boxes and stores in final_price. The second UPDATE subtracts 5 from final_price where the current final_price exceeds 50. The third UPDATE rounds final_price.",
+      "Use UPDATE box_inventory SET final_price = base_price * 1.15 WHERE box_type = 'premium'; then UPDATE box_inventory SET final_price = final_price - 5 WHERE final_price > 50; then UPDATE box_inventory SET final_price = ROUND(final_price, 2); followed by SELECT * FROM box_inventory ORDER BY box_id;"
+    ],
+    "answer_key": "DO $$\nBEGIN\n  UPDATE box_inventory SET final_price = base_price * 1.15 WHERE box_type = 'premium';\n  UPDATE box_inventory SET final_price = final_price - 5 WHERE final_price > 50;\n  UPDATE box_inventory SET final_price = ROUND(final_price, 2);\nEND $$;\n\nSELECT * FROM box_inventory ORDER BY box_id;",
+    "_meta": {
+      "question_type": "do_block",
+      "dialect": "postgresql",
+      "generated_at": "2026-04-29T11:25:06.034556",
+      "problem_id": "d05da4dba29c",
+      "validation_attempts": 1,
+      "scenario": "a subscription-box retailer managing monthly box assembly and customer churn",
+      "dml_op": null
+    }
+  },
+  "user_solution": "DO $$\nBEGIN\n\nUPDATE box_inventory\n   SET final_price = base_price * 1.15\n   WHERE box_type = 'premium';\n\nUPDATE box_inventory\n   SET final_price = final_price - 5\n   WHERE final_price > 50;\n\nUPDATE box_inventory\n   SET final_price = ROUND(final_price, 2);\n   \nEND $$;\n\nSELECT * FROM box_inventory ORDER BY box_id\n\n\n",
+  "solved_at": "2026-04-29T11:33:04.040850"
+}

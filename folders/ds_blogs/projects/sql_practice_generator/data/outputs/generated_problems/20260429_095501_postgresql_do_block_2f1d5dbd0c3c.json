@@ -1,0 +1,289 @@
+{
+  "title": "Sequential Price Adjustment and Refund Calculation",
+  "prompt": "You are given a table `refund_requests` containing customer refund claims for returned items. Each row has an `original_price`, `discount_applied`, and `refund_status` ('pending', 'approved', or 'rejected'). Write a DO block that processes these requests sequentially in order of `request_id`. For each row: (1) Calculate `final_price` as `original_price - discount_applied`. (2) If `final_price > 100` AND `refund_status = 'approved'`, set `refund_amount = final_price * 0.90` (10% restocking fee). (3) Otherwise, if `refund_status = 'approved'`, set `refund_amount = final_price`. (4) If `refund_status != 'approved'`, set `refund_amount = 0`. After the DO block, write a SELECT statement that returns all columns from `refund_requests` ordered by `request_id` ASC.",
+  "schema_ddl": "CREATE TABLE refund_requests (request_id INT PRIMARY KEY, customer_email VARCHAR(100), original_price DECIMAL(10,2), discount_applied DECIMAL(10,2), refund_status VARCHAR(20), final_price DECIMAL(10,2), refund_amount DECIMAL(10,2));",
+  "example_input_data": "INSERT INTO refund_requests (request_id, customer_email, original_price, discount_applied, refund_status, final_price, refund_amount) VALUES (1, 'alice@example.com', 150.00, 20.00, 'approved', NULL, NULL), (2, 'bob@example.com', 80.00, 5.00, 'approved', NULL, NULL), (3, 'carol@example.com', 200.00, 50.00, 'pending', NULL, NULL), (4, 'dave@example.com', 120.00, 15.00, 'approved', NULL, NULL), (5, 'eve@example.com', 95.00, 10.00, 'rejected', NULL, NULL), (6, 'frank@example.com', 110.00, 8.00, 'approved', NULL, NULL);",
+  "example_output_columns": [
+    "request_id",
+    "customer_email",
+    "original_price",
+    "discount_applied",
+    "refund_status",
+    "final_price",
+    "refund_amount"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "alice@example.com",
+      "150.00",
+      "20.00",
+      "approved",
+      "130.00",
+      "117.00"
+    ],
+    [
+      2,
+      "bob@example.com",
+      "80.00",
+      "5.00",
+      "approved",
+      "75.00",
+      "75.00"
+    ],
+    [
+      3,
+      "carol@example.com",
+      "200.00",
+      "50.00",
+      "pending",
+      "150.00",
+      "0.00"
+    ],
+    [
+      4,
+      "dave@example.com",
+      "120.00",
+      "15.00",
+      "approved",
+      "105.00",
+      "94.50"
+    ],
+    [
+      5,
+      "eve@example.com",
+      "95.00",
+      "10.00",
+      "rejected",
+      "85.00",
+      "0.00"
+    ],
+    [
+      6,
+      "frank@example.com",
+      "110.00",
+      "8.00",
+      "approved",
+      "102.00",
+      "91.80"
+    ]
+  ],
+  "test_data": "INSERT INTO refund_requests (request_id, customer_email, original_price, discount_applied, refund_status, final_price, refund_amount) VALUES (1, 'user1@test.com', 250.00, 50.00, 'approved', NULL, NULL), (2, 'user2@test.com', 100.00, 0.00, 'approved', NULL, NULL), (3, 'user3@test.com', 100.00, 0.01, 'approved', NULL, NULL), (4, 'user4@test.com', 99.99, 0.00, 'approved', NULL, NULL), (5, 'user5@test.com', 150.00, 49.99, 'approved', NULL, NULL), (6, 'user6@test.com', 150.00, 50.00, 'approved', NULL, NULL), (7, 'user7@test.com', 50.00, 10.00, 'approved', NULL, NULL), (8, 'user8@test.com', 200.00, 100.00, 'approved', NULL, NULL), (9, 'user9@test.com', 300.00, 50.00, 'pending', NULL, NULL), (10, 'user10@test.com', 120.00, 20.00, 'rejected', NULL, NULL), (11, 'user11@test.com', 0.00, 0.00, 'approved', NULL, NULL), (12, 'user12@test.com', 101.00, 0.00, 'approved', NULL, NULL), (13, 'user13@test.com', 101.00, 1.00, 'approved', NULL, NULL), (14, 'user14@test.com', 500.00, 399.99, 'approved', NULL, NULL), (15, 'user15@test.com', 75.50, 5.50, 'approved', NULL, NULL), (16, 'user16@test.com', 88.88, 8.88, 'rejected', NULL, NULL), (17, 'user17@test.com', 110.00, 10.00, 'approved', NULL, NULL), (18, 'user18@test.com', 200.00, 99.99, 'approved', NULL, NULL), (19, 'user19@test.com', 1000.00, 900.00, 'approved', NULL, NULL), (20, 'user20@test.com', 150.00, 25.00, 'pending', NULL, NULL);",
+  "test_expected_columns": [
+    "request_id",
+    "customer_email",
+    "original_price",
+    "discount_applied",
+    "refund_status",
+    "final_price",
+    "refund_amount"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "user1@test.com",
+      "250.00",
+      "50.00",
+      "approved",
+      "200.00",
+      "180.00"
+    ],
+    [
+      2,
+      "user2@test.com",
+      "100.00",
+      "0.00",
+      "approved",
+      "100.00",
+      "100.00"
+    ],
+    [
+      3,
+      "user3@test.com",
+      "100.00",
+      "0.01",
+      "approved",
+      "99.99",
+      "99.99"
+    ],
+    [
+      4,
+      "user4@test.com",
+      "99.99",
+      "0.00",
+      "approved",
+      "99.99",
+      "99.99"
+    ],
+    [
+      5,
+      "user5@test.com",
+      "150.00",
+      "49.99",
+      "approved",
+      "100.01",
+      "90.01"
+    ],
+    [
+      6,
+      "user6@test.com",
+      "150.00",
+      "50.00",
+      "approved",
+      "100.00",
+      "100.00"
+    ],
+    [
+      7,
+      "user7@test.com",
+      "50.00",
+      "10.00",
+      "approved",
+      "40.00",
+      "40.00"
+    ],
+    [
+      8,
+      "user8@test.com",
+      "200.00",
+      "100.00",
+      "approved",
+      "100.00",
+      "100.00"
+    ],
+    [
+      9,
+      "user9@test.com",
+      "300.00",
+      "50.00",
+      "pending",
+      "250.00",
+      "0.00"
+    ],
+    [
+      10,
+      "user10@test.com",
+      "120.00",
+      "20.00",
+      "rejected",
+      "100.00",
+      "0.00"
+    ],
+    [
+      11,
+      "user11@test.com",
+      "0.00",
+      "0.00",
+      "approved",
+      "0.00",
+      "0.00"
+    ],
+    [
+      12,
+      "user12@test.com",
+      "101.00",
+      "0.00",
+      "approved",
+      "101.00",
+      "90.90"
+    ],
+    [
+      13,
+      "user13@test.com",
+      "101.00",
+      "1.00",
+      "approved",
+      "100.00",
+      "100.00"
+    ],
+    [
+      14,
+      "user14@test.com",
+      "500.00",
+      "399.99",
+      "approved",
+      "100.01",
+      "90.01"
+    ],
+    [
+      15,
+      "user15@test.com",
+      "75.50",
+      "5.50",
+      "approved",
+      "70.00",
+      "70.00"
+    ],
+    [
+      16,
+      "user16@test.com",
+      "88.88",
+      "8.88",
+      "rejected",
+      "80.00",
+      "0.00"
+    ],
+    [
+      17,
+      "user17@test.com",
+      "110.00",
+      "10.00",
+      "approved",
+      "100.00",
+      "100.00"
+    ],
+    [
+      18,
+      "user18@test.com",
+      "200.00",
+      "99.99",
+      "approved",
+      "100.01",
+      "90.01"
+    ],
+    [
+      19,
+      "user19@test.com",
+      "1000.00",
+      "900.00",
+      "approved",
+      "100.00",
+      "100.00"
+    ],
+    [
+      20,
+      "user20@test.com",
+      "150.00",
+      "25.00",
+      "pending",
+      "125.00",
+      "0.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "procedural",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "do-block-sequential: iterate rows by request_id",
+      "row-transform: compute final_price = original_price - discount_applied",
+      "row-filter: branch on final_price > 100 AND refund_status",
+      "row-transform: set refund_amount based on branch"
+    ]
+  },
+  "hints": [
+    "You need to loop through each row in order of request_id and apply the rules step-by-step.",
+    "First compute final_price for each row, then check if it exceeds 100 and if the status is approved to decide the refund_amount formula.",
+    "Use a cursor-based FOR loop inside the DO block to UPDATE each row: SET final_price = original_price - discount_applied, then in a second UPDATE (or CASE) set refund_amount based on the conditions."
+  ],
+  "answer_key": "DO $$\nDECLARE\n  rec RECORD;\nBEGIN\n  FOR rec IN SELECT request_id FROM refund_requests ORDER BY request_id LOOP\n    UPDATE refund_requests\n    SET final_price = original_price - discount_applied\n    WHERE request_id = rec.request_id;\n    \n    UPDATE refund_requests\n    SET refund_amount = CASE\n      WHEN refund_status = 'approved' AND final_price > 100 THEN final_price * 0.90\n      WHEN refund_status = 'approved' THEN final_price\n      ELSE 0\n    END\n    WHERE request_id = rec.request_id;\n  END LOOP;\nEND $$;\n\nSELECT * FROM refund_requests ORDER BY request_id;",
+  "_meta": {
+    "question_type": "do_block",
+    "dialect": "postgresql",
+    "generated_at": "2026-04-29T09:55:01.399682",
+    "problem_id": "2f1d5dbd0c3c",
+    "validation_attempts": 1,
+    "scenario": "an e-commerce platform tracking customer orders, returns, and refunds",
+    "dml_op": null
+  }
+}

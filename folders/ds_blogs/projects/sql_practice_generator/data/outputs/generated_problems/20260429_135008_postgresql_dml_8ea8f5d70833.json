@@ -1,0 +1,151 @@
+{
+  "title": "Archive Approved Loan Applications",
+  "prompt": "You manage a lending platform that tracks loan applications through various stages. Applications move from 'pending' to 'reviewed' to 'approved' or 'rejected'. Your database contains a 'loan_applications' table with current active applications and an 'approved_loans_archive' table for storing finalized approved loans with enriched information. Write a single INSERT statement (using INSERT ... SELECT) that copies all loan applications with status 'approved' from the 'loan_applications' table into the 'approved_loans_archive' table. During the copy, calculate the number of days between submission_date and approval_date as 'days_to_approval', and round the requested_amount down to the nearest thousand as 'approved_amount_rounded'. Only include applications where approval_date is not NULL. After the INSERT, select all rows from the archive table ordered by application_id to confirm the result.",
+  "schema_ddl": "CREATE TABLE loan_applications (application_id INT PRIMARY KEY, applicant_name VARCHAR(100), requested_amount DECIMAL(12,2), submission_date DATE, approval_date DATE, status VARCHAR(20)); CREATE TABLE approved_loans_archive (application_id INT PRIMARY KEY, applicant_name VARCHAR(100), approved_amount_rounded DECIMAL(12,2), days_to_approval INT);",
+  "example_input_data": "INSERT INTO loan_applications (application_id, applicant_name, requested_amount, submission_date, approval_date, status) VALUES (101, 'Alice Johnson', 15500.00, '2024-01-10', '2024-01-15', 'approved'), (102, 'Bob Smith', 22750.50, '2024-01-12', '2024-01-20', 'approved'), (103, 'Carol White', 8300.00, '2024-01-14', NULL, 'pending'), (104, 'David Lee', 31200.75, '2024-01-15', '2024-01-18', 'approved'), (105, 'Emma Brown', 12000.00, '2024-01-16', NULL, 'rejected'), (106, 'Frank Davis', 45600.00, '2024-01-18', '2024-01-25', 'approved');",
+  "example_output_columns": [
+    "application_id",
+    "applicant_name",
+    "approved_amount_rounded",
+    "days_to_approval"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Alice Johnson",
+      "15000.00",
+      5
+    ],
+    [
+      102,
+      "Bob Smith",
+      "22000.00",
+      8
+    ],
+    [
+      104,
+      "David Lee",
+      "31000.00",
+      3
+    ],
+    [
+      106,
+      "Frank Davis",
+      "45000.00",
+      7
+    ]
+  ],
+  "test_data": "INSERT INTO loan_applications (application_id, applicant_name, requested_amount, submission_date, approval_date, status) VALUES (201, 'Grace Miller', 9999.99, '2024-02-01', '2024-02-03', 'approved'), (202, 'Henry Wilson', 50000.00, '2024-02-02', '2024-02-02', 'approved'), (203, 'Iris Taylor', 17450.25, '2024-02-03', NULL, 'pending'), (204, 'Jack Anderson', 28900.00, '2024-02-04', '2024-02-10', 'approved'), (205, 'Karen Thomas', 5600.50, '2024-02-05', NULL, 'rejected'), (206, 'Leo Martinez', 35250.75, '2024-02-06', '2024-02-15', 'approved'), (207, 'Mia Garcia', 12500.00, '2024-02-07', NULL, 'pending'), (208, 'Noah Rodriguez', 41000.00, '2024-02-08', '2024-02-09', 'approved'), (209, 'Olivia Hernandez', 19800.80, '2024-02-09', '2024-02-20', 'approved'), (210, 'Paul Lopez', 7250.00, '2024-02-10', NULL, 'rejected'), (211, 'Quinn Gonzalez', 0.00, '2024-02-11', '2024-02-12', 'approved'), (212, 'Rachel Perez', 62100.00, '2024-02-12', '2024-02-28', 'approved'), (213, 'Sam Wilson', 14750.50, '2024-02-13', NULL, 'pending'), (214, 'Tina Moore', 33333.33, '2024-02-14', '2024-02-14', 'approved'), (215, 'Uma Jackson', 29999.99, '2024-02-15', '2024-03-01', 'approved'), (216, 'Victor Martin', 18000.00, '2024-02-16', NULL, 'rejected'), (217, 'Wendy Lee', 52500.50, '2024-02-17', '2024-02-19', 'approved'), (218, 'Xavier White', 11250.25, '2024-02-18', '2024-02-29', 'approved'), (219, 'Yara Harris', 8888.88, '2024-02-19', NULL, 'pending'), (220, 'Zack Clark', 44500.00, '2024-02-20', '2024-02-21', 'approved');",
+  "test_expected_columns": [
+    "application_id",
+    "applicant_name",
+    "approved_amount_rounded",
+    "days_to_approval"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Grace Miller",
+      "9000.00",
+      2
+    ],
+    [
+      202,
+      "Henry Wilson",
+      "50000.00",
+      0
+    ],
+    [
+      204,
+      "Jack Anderson",
+      "28000.00",
+      6
+    ],
+    [
+      206,
+      "Leo Martinez",
+      "35000.00",
+      9
+    ],
+    [
+      208,
+      "Noah Rodriguez",
+      "41000.00",
+      1
+    ],
+    [
+      209,
+      "Olivia Hernandez",
+      "19000.00",
+      11
+    ],
+    [
+      211,
+      "Quinn Gonzalez",
+      "0.00",
+      1
+    ],
+    [
+      212,
+      "Rachel Perez",
+      "62000.00",
+      16
+    ],
+    [
+      214,
+      "Tina Moore",
+      "33000.00",
+      0
+    ],
+    [
+      215,
+      "Uma Jackson",
+      "29000.00",
+      15
+    ],
+    [
+      217,
+      "Wendy Lee",
+      "52000.00",
+      2
+    ],
+    [
+      218,
+      "Xavier White",
+      "11000.00",
+      11
+    ],
+    [
+      220,
+      "Zack Clark",
+      "44000.00",
+      1
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "state_mutation",
+    "recipe": "row-filter",
+    "composite_moves": [
+      "filter by status and non-null approval_date",
+      "transform requested_amount by floor division",
+      "compute date difference",
+      "insert into target table"
+    ]
+  },
+  "hints": [
+    "You need to filter rows based on two conditions related to status and approval date.",
+    "Use FLOOR(requested_amount / 1000) * 1000 to round down to the nearest thousand, and cast the result to DECIMAL(12,2).",
+    "The difference between two DATE columns can be computed directly with subtraction in PostgreSQL, yielding an integer number of days."
+  ],
+  "answer_key": "INSERT INTO approved_loans_archive (application_id, applicant_name, approved_amount_rounded, days_to_approval)\nSELECT application_id, applicant_name, (FLOOR(requested_amount / 1000) * 1000)::DECIMAL(12,2), (approval_date - submission_date)\nFROM loan_applications\nWHERE status = 'approved' AND approval_date IS NOT NULL;\n\nSELECT * FROM approved_loans_archive ORDER BY application_id;",
+  "_meta": {
+    "question_type": "dml",
+    "dialect": "postgresql",
+    "generated_at": "2026-04-29T13:50:08.685370",
+    "problem_id": "8ea8f5d70833",
+    "validation_attempts": 1,
+    "scenario": "a lending platform tracking loan application stages and approval times",
+    "dml_op": "INSERT"
+  }
+}

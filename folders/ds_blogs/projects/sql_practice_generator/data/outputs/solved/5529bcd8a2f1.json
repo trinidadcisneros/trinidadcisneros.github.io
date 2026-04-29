@@ -1,0 +1,155 @@
+{
+  "problem": {
+    "title": "Sequential Medication Dose Adjustments",
+    "prompt": "A hospital pharmacy system needs to process a batch of doctor-ordered dose adjustments for active medication orders. The adjustments must be applied sequentially in order of adjustment_priority (lowest number first), and each adjustment modifies the current_daily_dose based on the operation type. Write a DO block that processes the pending_adjustments table row by row: for 'increase' operations, multiply current_daily_dose by the adjustment_factor; for 'decrease' operations, divide current_daily_dose by the adjustment_factor; for 'set' operations, replace current_daily_dose with adjustment_factor. After processing all adjustments, the DO block should mark each adjustment as processed by setting is_processed = true. Follow the DO block with a SELECT statement that returns all columns from medication_orders ordered by order_id.",
+    "schema_ddl": "CREATE TABLE medication_orders (order_id INT PRIMARY KEY, patient_id INT NOT NULL, medication_name VARCHAR(100) NOT NULL, current_daily_dose DECIMAL(10,2) NOT NULL, dose_unit VARCHAR(20) NOT NULL); CREATE TABLE pending_adjustments (adjustment_id INT PRIMARY KEY, order_id INT NOT NULL, operation_type VARCHAR(20) NOT NULL, adjustment_factor DECIMAL(10,2) NOT NULL, adjustment_priority INT NOT NULL, is_processed BOOLEAN DEFAULT false);",
+    "example_input_data": "INSERT INTO medication_orders (order_id, patient_id, medication_name, current_daily_dose, dose_unit) VALUES (1, 101, 'Metformin', 1000.00, 'mg'), (2, 102, 'Lisinopril', 10.00, 'mg'), (3, 103, 'Atorvastatin', 20.00, 'mg'), (4, 104, 'Levothyroxine', 50.00, 'mcg'); INSERT INTO pending_adjustments (adjustment_id, order_id, operation_type, adjustment_factor, adjustment_priority, is_processed) VALUES (1, 1, 'increase', 1.50, 1, false), (2, 2, 'decrease', 2.00, 2, false), (3, 1, 'set', 2000.00, 3, false), (4, 3, 'increase', 2.00, 4, false);",
+    "example_output_columns": [
+      "order_id",
+      "patient_id",
+      "medication_name",
+      "current_daily_dose",
+      "dose_unit"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        101,
+        "Metformin",
+        "2000.00",
+        "mg"
+      ],
+      [
+        2,
+        102,
+        "Lisinopril",
+        "5.00",
+        "mg"
+      ],
+      [
+        3,
+        103,
+        "Atorvastatin",
+        "40.00",
+        "mg"
+      ],
+      [
+        4,
+        104,
+        "Levothyroxine",
+        "50.00",
+        "mcg"
+      ]
+    ],
+    "test_data": "INSERT INTO medication_orders (order_id, patient_id, medication_name, current_daily_dose, dose_unit) VALUES (1, 201, 'Metformin', 500.00, 'mg'), (2, 202, 'Lisinopril', 20.00, 'mg'), (3, 203, 'Atorvastatin', 40.00, 'mg'), (4, 204, 'Levothyroxine', 100.00, 'mcg'), (5, 205, 'Amlodipine', 5.00, 'mg'), (6, 206, 'Omeprazole', 20.00, 'mg'), (7, 207, 'Metoprolol', 50.00, 'mg'), (8, 208, 'Gabapentin', 300.00, 'mg'), (9, 209, 'Sertraline', 50.00, 'mg'), (10, 210, 'Losartan', 50.00, 'mg'); INSERT INTO pending_adjustments (adjustment_id, order_id, operation_type, adjustment_factor, adjustment_priority, is_processed) VALUES (1, 1, 'increase', 2.00, 1, false), (2, 2, 'set', 10.00, 2, false), (3, 3, 'decrease', 2.00, 3, false), (4, 1, 'increase', 1.50, 4, false), (5, 4, 'set', 75.00, 5, false), (6, 5, 'increase', 2.00, 6, false), (7, 6, 'decrease', 4.00, 7, false), (8, 7, 'increase', 1.20, 8, false), (9, 8, 'set', 600.00, 9, false), (10, 2, 'increase', 2.00, 10, false), (11, 9, 'decrease', 2.00, 11, false), (12, 10, 'set', 100.00, 12, false), (13, 1, 'decrease', 3.00, 13, false), (14, 3, 'increase', 3.00, 14, false), (15, 5, 'set', 20.00, 15, false);",
+    "test_expected_columns": [
+      "order_id",
+      "patient_id",
+      "medication_name",
+      "current_daily_dose",
+      "dose_unit"
+    ],
+    "test_expected_rows": [
+      [
+        1,
+        201,
+        "Metformin",
+        "500.00",
+        "mg"
+      ],
+      [
+        2,
+        202,
+        "Lisinopril",
+        "20.00",
+        "mg"
+      ],
+      [
+        3,
+        203,
+        "Atorvastatin",
+        "60.00",
+        "mg"
+      ],
+      [
+        4,
+        204,
+        "Levothyroxine",
+        "75.00",
+        "mcg"
+      ],
+      [
+        5,
+        205,
+        "Amlodipine",
+        "20.00",
+        "mg"
+      ],
+      [
+        6,
+        206,
+        "Omeprazole",
+        "5.00",
+        "mg"
+      ],
+      [
+        7,
+        207,
+        "Metoprolol",
+        "60.00",
+        "mg"
+      ],
+      [
+        8,
+        208,
+        "Gabapentin",
+        "600.00",
+        "mg"
+      ],
+      [
+        9,
+        209,
+        "Sertraline",
+        "25.00",
+        "mg"
+      ],
+      [
+        10,
+        210,
+        "Losartan",
+        "100.00",
+        "mg"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "procedural",
+      "output_shape": "state_mutation",
+      "recipe": "do-block-sequential",
+      "composite_moves": [
+        "do-block-sequential: DECLARE cursor/record variables",
+        "do-block-sequential: FOR loop over adjustments ordered by priority",
+        "do-block-sequential: CASE/IF on operation_type",
+        "do-block-sequential: UPDATE target table using current row values",
+        "do-block-sequential: UPDATE adjustment status flag",
+        "do-block-sequential: trailing SELECT to show final state"
+      ]
+    },
+    "hints": [
+      "You need to process adjustments in order and update the medication_orders table for each one",
+      "Use a FOR loop to iterate through pending_adjustments ordered by adjustment_priority, and use CASE or IF statements to handle the three operation types differently",
+      "For each adjustment record, UPDATE medication_orders SET current_daily_dose = (calculation based on operation_type) WHERE order_id = adjustment.order_id, then mark the adjustment as processed"
+    ],
+    "answer_key": "DO $$\nDECLARE\n  adj RECORD;\nBEGIN\n  FOR adj IN SELECT * FROM pending_adjustments ORDER BY adjustment_priority\n  LOOP\n    IF adj.operation_type = 'increase' THEN\n      UPDATE medication_orders\n      SET current_daily_dose = current_daily_dose * adj.adjustment_factor\n      WHERE order_id = adj.order_id;\n    ELSIF adj.operation_type = 'decrease' THEN\n      UPDATE medication_orders\n      SET current_daily_dose = current_daily_dose / adj.adjustment_factor\n      WHERE order_id = adj.order_id;\n    ELSIF adj.operation_type = 'set' THEN\n      UPDATE medication_orders\n      SET current_daily_dose = adj.adjustment_factor\n      WHERE order_id = adj.order_id;\n    END IF;\n    \n    UPDATE pending_adjustments\n    SET is_processed = true\n    WHERE adjustment_id = adj.adjustment_id;\n  END LOOP;\nEND $$;\n\nSELECT * FROM medication_orders ORDER BY order_id;",
+    "_meta": {
+      "question_type": "do_block",
+      "dialect": "postgresql",
+      "generated_at": "2026-04-29T14:15:08.979877",
+      "problem_id": "5529bcd8a2f1",
+      "validation_attempts": 1,
+      "scenario": "an electronic health record system tracking medication orders and refills",
+      "dml_op": null
+    }
+  },
+  "user_solution": "DO $$\nDECLARE\n   r RECORD;\nBEGIN\n   FOR r IN SELECT * FROM pending_adjustments ORDER BY adjustment_priority LOOP\n\n     IF r.operation_type = 'increase' THEN\n        UPDATE medication_orders\n           SET current_daily_dose = current_daily_dose * r.adjustment_factor\n        WHERE order_id = r.order_id;\n\n     ELSIF r.operation_type = 'decrease' THEN\n        UPDATE medication_orders\n           SET current_daily_dose = current_daily_dose / r.adjustment_factor\n        WHERE order_id = r.order_id;\n\n     ELSIF r.operation_type = 'set' THEN\n        UPDATE medication_orders\n           SET current_daily_dose = r.adjustment_factor\n        WHERE order_id = r.order_id;\n\n   UPDATE pending_adjustments\n   SET is_processed = TRUE\n   WHERE adjustment_id = r. adjustment_id;\n\n     END IF;\n  END LOOP;\nEND $$;\n\nSELECT *\n  FROM medication_orders\n ORDER BY order_id;",
+  "solved_at": "2026-04-29T14:36:38.072358"
+}
