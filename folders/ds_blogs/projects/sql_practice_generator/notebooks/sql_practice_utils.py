@@ -242,7 +242,7 @@ Hard rules:
 """
 
 
-def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None) -> str:
+def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml_op: str = None) -> str:
     base = f"Question type: {QUESTION_TYPES[qtype]['label']} ({QUESTION_TYPES[qtype]['description']}).\n"
     base += f"Dialect: {dialect}.\n"
     if scenario:
@@ -319,9 +319,57 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None) -> 
     elif qtype == "recursive_cte":
         base += "The answer_key must use `WITH RECURSIVE`."
     elif qtype == "dml":
+        # dml_op is chosen randomly in generate_problem so each generation lands on
+        # a different operation. If somehow not provided, default to UPDATE.
+        op = (dml_op or "UPDATE").upper()
+        op_specific = {
+            "UPDATE": (
+                "Generate an UPDATE problem. The answer_key is a single bare `UPDATE` "
+                "statement followed by a confirming SELECT. The prompt MUST say 'write "
+                "a single UPDATE statement'. Use `SET col = CASE WHEN ... THEN ... ELSE "
+                "col END` for tiered or conditional value changes; use `WHERE` ONLY when "
+                "some rows should be left untouched entirely. Pick a real-world rule "
+                "shape (tier upgrades, status flips, percentage adjustments, flag "
+                "toggles) so the CASE branches do meaningful work."
+            ),
+            "DELETE": (
+                "Generate a DELETE problem. The answer_key is a single bare `DELETE` "
+                "statement followed by a confirming SELECT. The prompt MUST say 'write "
+                "a single DELETE statement'. Pick a real-world removal rule: "
+                "deduplicate keeping the smallest/largest id per group, drop rows that "
+                "fail a quality check, prune rows older than a cutoff, remove orphaned "
+                "rows (NOT IN / NOT EXISTS against another table). The WHERE clause "
+                "should require a meaningful subquery or correlated condition, not "
+                "just a trivial column comparison."
+            ),
+            "INSERT": (
+                "Generate an INSERT problem. The answer_key is a single bare "
+                "`INSERT INTO target (cols) SELECT ...` statement followed by a "
+                "confirming SELECT. The prompt MUST say 'write a single INSERT "
+                "statement' (using INSERT ... SELECT, NOT bulk INSERT VALUES). Pick a "
+                "real-world seeding rule: copy qualifying rows from a source table to "
+                "a target with transformation, archive matching rows, materialize a "
+                "rolled-up summary into a target. The schema MUST include both a "
+                "source table (pre-populated) and a target table (initially empty or "
+                "partial) so the INSERT does meaningful work."
+            ),
+        }[op]
         base += (
-            "Answer_key must include the UPDATE/DELETE/INSERT statement(s) followed by "
-            "a `SELECT * FROM target ORDER BY ...;` that produces test_expected_rows."
+            f"{op_specific}\n\n"
+            "Hard requirements (apply to all DML operations):\n"
+            "1) The answer_key MUST NOT contain `DO $$`, `BEGIN`, `END $$`, `DECLARE`, "
+            "`FOR ... IN ... LOOP`, `IF ... THEN`, or any PL/pgSQL construct. If the "
+            "rules cannot be expressed without procedural logic, generate a different "
+            "problem &mdash; do not fall back to a DO block.\n"
+            "2) The answer_key ends with a single confirming "
+            "`SELECT * FROM target_table ORDER BY ...;` that the harness reads as the "
+            "result.\n"
+            "3) Each rule must be expressible inside the chosen DML statement (in the "
+            "WHERE, the SET CASE, or the SELECT feeding the INSERT). No per-row state "
+            "lookup, no cross-row dependency that would require a loop.\n"
+            f"4) Pick a scenario-appropriate target table and rule. Operation requested: {op}.\n"
+            "Set classification.input_arrival to `single_table` or `join` as "
+            "appropriate. classification.output_shape is `state_mutation`."
         )
     elif qtype == "window_edge":
         base += (
@@ -424,6 +472,9 @@ def generate_problem(
 
     last_error = None
     scenario = _pick_scenario(qtype)  # pick once so retries refine the same scenario
+    # For dml, pick which operation (UPDATE / DELETE / INSERT) once so retries stay
+    # consistent. Each option has equal probability.
+    dml_op = random.choice(["UPDATE", "DELETE", "INSERT"]) if qtype == "dml" else None
     for attempt in range(1, max_retries + 1):
         if on_attempt:
             try:
@@ -431,7 +482,7 @@ def generate_problem(
             except Exception:
                 pass
 
-        user_prompt = _topic_specific_guidance(qtype, dialect, scenario=scenario)
+        user_prompt = _topic_specific_guidance(qtype, dialect, scenario=scenario, dml_op=dml_op)
         if last_error:
             user_prompt += (
                 "\n\nPREVIOUS ATTEMPT FAILED VALIDATION. The answer_key did not "
@@ -456,6 +507,7 @@ def generate_problem(
             "problem_id": uuid.uuid4().hex[:12],
             "validation_attempts": attempt,
             "scenario": scenario,
+            "dml_op": dml_op,  # None for non-dml types; UPDATE/DELETE/INSERT for dml
         }
         ok, err = _validate_problem(parsed)
         if ok:

@@ -1,0 +1,48 @@
+{
+  "title": "Calculate Average Session Engagement Score",
+  "prompt": "You are building a mental health app that tracks therapy sessions. Write a PostgreSQL function named calculate_avg_engagement that accepts a client_id (INTEGER) and returns the average engagement_score (NUMERIC(5,2)) for all sessions attended by that client in the past 90 days. The engagement_score is a value between 0 and 100 representing how actively the client participated in each session. If the client has no sessions in the past 90 days, return 0.00. The function must return a NUMERIC(5,2) value. Call the function using SELECT calculate_avg_engagement(client_id) AS avg_score;",
+  "schema_ddl": "CREATE TABLE clients (client_id INTEGER PRIMARY KEY, client_name VARCHAR(100), enrollment_date DATE); CREATE TABLE therapy_sessions (session_id INTEGER PRIMARY KEY, client_id INTEGER, session_date DATE, engagement_score NUMERIC(5,2), duration_minutes INTEGER, therapist_id INTEGER);",
+  "example_input_data": "INSERT INTO clients (client_id, client_name, enrollment_date) VALUES (1, 'Sarah Johnson', '2024-01-15'), (2, 'Michael Chen', '2024-02-20'), (3, 'Emma Davis', '2023-12-01'); INSERT INTO therapy_sessions (session_id, client_id, session_date, engagement_score, duration_minutes, therapist_id) VALUES (101, 1, '2024-03-15', 85.50, 60, 201), (102, 1, '2024-03-22', 78.25, 60, 201), (103, 1, '2024-03-29', 92.00, 60, 201), (104, 2, '2024-01-10', 65.75, 45, 202), (105, 2, '2024-03-25', 88.50, 60, 202), (106, 3, '2024-03-20', 71.00, 50, 203), (107, 3, '2024-03-27', 79.50, 50, 203);",
+  "example_output_columns": [
+    "avg_score"
+  ],
+  "example_output_rows": [
+    [
+      "0.00"
+    ]
+  ],
+  "test_data": "INSERT INTO clients (client_id, client_name, enrollment_date) VALUES (1, 'Sarah Johnson', '2024-01-15'), (2, 'Michael Chen', '2024-02-20'), (3, 'Emma Davis', '2023-12-01'), (4, 'Alex Martinez', '2024-03-01'), (5, 'Jordan Lee', '2023-11-15'), (6, 'Taylor Brown', '2024-02-10'); INSERT INTO therapy_sessions (session_id, client_id, session_date, engagement_score, duration_minutes, therapist_id) VALUES (101, 1, CURRENT_DATE - INTERVAL '10 days', 85.50, 60, 201), (102, 1, CURRENT_DATE - INTERVAL '17 days', 78.25, 60, 201), (103, 1, CURRENT_DATE - INTERVAL '24 days', 92.00, 60, 201), (104, 1, CURRENT_DATE - INTERVAL '31 days', 88.75, 60, 201), (105, 1, CURRENT_DATE - INTERVAL '45 days', 91.50, 60, 201), (106, 1, CURRENT_DATE - INTERVAL '60 days', 83.25, 60, 201), (107, 1, CURRENT_DATE - INTERVAL '75 days', 87.00, 60, 201), (108, 1, CURRENT_DATE - INTERVAL '89 days', 79.50, 60, 201), (109, 1, CURRENT_DATE - INTERVAL '91 days', 95.00, 60, 201), (110, 2, CURRENT_DATE - INTERVAL '5 days', 88.50, 60, 202), (111, 2, CURRENT_DATE - INTERVAL '150 days', 65.75, 45, 202), (112, 3, CURRENT_DATE - INTERVAL '12 days', 71.00, 50, 203), (113, 3, CURRENT_DATE - INTERVAL '19 days', 79.50, 50, 203), (114, 3, CURRENT_DATE - INTERVAL '26 days', 82.75, 50, 203), (115, 3, CURRENT_DATE - INTERVAL '40 days', 76.25, 50, 203), (116, 3, CURRENT_DATE - INTERVAL '55 days', NULL, 50, 203), (117, 3, CURRENT_DATE - INTERVAL '70 days', 84.00, 50, 203), (118, 3, CURRENT_DATE - INTERVAL '85 days', 73.50, 50, 203), (119, 4, CURRENT_DATE - INTERVAL '8 days', 92.25, 45, 204), (120, 4, CURRENT_DATE - INTERVAL '22 days', 89.00, 45, 204), (121, 4, CURRENT_DATE - INTERVAL '36 days', 94.50, 45, 204), (122, 4, CURRENT_DATE - INTERVAL '50 days', 87.75, 45, 204), (123, 4, CURRENT_DATE - INTERVAL '64 days', 90.25, 45, 204), (124, 4, CURRENT_DATE - INTERVAL '78 days', 93.00, 45, 204), (125, 5, CURRENT_DATE - INTERVAL '95 days', 81.00, 60, 205), (126, 5, CURRENT_DATE - INTERVAL '105 days', 77.50, 60, 205), (127, 5, CURRENT_DATE - INTERVAL '120 days', 85.25, 60, 205);",
+  "test_expected_columns": [
+    "avg_score"
+  ],
+  "test_expected_rows": [
+    [
+      "85.7187500000000000"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "scalar_return",
+    "recipe": "function-wrapped",
+    "composite_moves": [
+      "row-filter (date range + client_id match)",
+      "scalar-extract (AVG aggregation)",
+      "function wrapper with RETURN scalar",
+      "null-handling (COALESCE for no rows)"
+    ]
+  },
+  "hints": [
+    "You need to filter sessions by both client_id and a date condition relative to CURRENT_DATE",
+    "Use AVG() to calculate the mean engagement_score, and handle the case where no rows match with COALESCE",
+    "The function signature should be: CREATE OR REPLACE FUNCTION calculate_avg_engagement(p_client_id INTEGER) RETURNS NUMERIC(5,2) and use RETURN (SELECT COALESCE(AVG(engagement_score), 0.00) FROM ... WHERE ... AND session_date >= CURRENT_DATE - INTERVAL '90 days');"
+  ],
+  "answer_key": "CREATE OR REPLACE FUNCTION calculate_avg_engagement(p_client_id INTEGER) RETURNS NUMERIC(5,2) AS $$ BEGIN RETURN (SELECT COALESCE(AVG(engagement_score), 0.00) FROM therapy_sessions WHERE client_id = p_client_id AND session_date >= CURRENT_DATE - INTERVAL '90 days' AND engagement_score IS NOT NULL); END; $$ LANGUAGE plpgsql; SELECT calculate_avg_engagement(1) AS avg_score;",
+  "_meta": {
+    "question_type": "returns_scalar",
+    "dialect": "postgresql",
+    "generated_at": "2026-04-28T15:12:57.596101",
+    "problem_id": "599b01ec3c82",
+    "validation_attempts": 1,
+    "scenario": "a mental health app tracking therapy session attendance and engagement"
+  }
+}

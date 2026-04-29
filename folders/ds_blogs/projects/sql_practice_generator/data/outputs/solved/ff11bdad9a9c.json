@@ -1,0 +1,86 @@
+{
+  "problem": {
+    "title": "Function: Filter Claims by Denial Category",
+    "prompt": "The revenue cycle team needs a reusable function to retrieve claims denied for specific denial categories within a date range. Write a PostgreSQL function `get_claims_by_denial_category` that accepts three parameters: `p_denial_category` (VARCHAR), `p_start_date` (DATE), and `p_end_date` (DATE). The function should return a table with columns: claim_id (INTEGER), patient_id (INTEGER), submission_date (DATE), billed_amount (DECIMAL), denial_reason (VARCHAR), denial_category (VARCHAR). The function should filter claims where the denial_category matches the parameter (case-insensitive) and the submission_date falls within the date range (inclusive). Order results by submission_date ascending, then claim_id ascending.",
+    "schema_ddl": "CREATE TABLE claims (claim_id INTEGER PRIMARY KEY, patient_id INTEGER NOT NULL, submission_date DATE NOT NULL, billed_amount DECIMAL(10,2) NOT NULL, denial_reason VARCHAR(200), denial_category VARCHAR(100)); CREATE OR REPLACE FUNCTION get_claims_by_denial_category(p_denial_category VARCHAR, p_start_date DATE, p_end_date DATE) RETURNS TABLE (claim_id INTEGER, patient_id INTEGER, submission_date DATE, billed_amount DECIMAL, denial_reason VARCHAR, denial_category VARCHAR) AS $$ BEGIN RETURN QUERY (SELECT 1 WHERE FALSE); END; $$ LANGUAGE plpgsql;",
+    "example_input_data": "INSERT INTO claims (claim_id, patient_id, submission_date, billed_amount, denial_reason, denial_category) VALUES (101, 5001, '2024-01-15', 450.00, 'Missing prior authorization', 'Authorization'), (102, 5002, '2024-01-18', 320.50, 'Service not covered', 'Coverage'), (103, 5003, '2024-01-20', 890.00, 'Authorization expired', 'Authorization'), (104, 5004, '2024-01-22', 275.75, 'Out of network provider', 'Network'), (105, 5005, '2024-02-01', 510.00, 'Claim submitted after deadline', 'Timely Filing'), (106, 5006, '2024-02-05', 625.00, 'Prior auth not on file', 'Authorization'), (107, 5007, '2024-02-10', 410.00, 'Plan does not cover procedure', 'Coverage'), (108, 5008, '2024-02-15', 350.00, 'Authorization number invalid', 'Authorization');",
+    "example_output_columns": [
+      "claim_id",
+      "patient_id",
+      "submission_date",
+      "billed_amount",
+      "denial_reason",
+      "denial_category"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        5001,
+        "2024-01-15",
+        "450.00",
+        "Missing prior authorization",
+        "Authorization"
+      ],
+      [
+        103,
+        5003,
+        "2024-01-20",
+        "890.00",
+        "Authorization expired",
+        "Authorization"
+      ],
+      [
+        106,
+        5006,
+        "2024-02-05",
+        "625.00",
+        "Prior auth not on file",
+        "Authorization"
+      ],
+      [
+        108,
+        5008,
+        "2024-02-15",
+        "350.00",
+        "Authorization number invalid",
+        "Authorization"
+      ]
+    ],
+    "test_data": "INSERT INTO claims (claim_id, patient_id, submission_date, billed_amount, denial_reason, denial_category) VALUES (201, 6001, '2024-03-01', 150.00, 'Duplicate claim', 'Duplicate'), (202, 6002, '2024-03-05', 780.00, 'Missing documentation', 'Documentation'), (203, 6003, '2024-03-08', 920.00, 'Incomplete claim form', 'Documentation'), (204, 6004, '2024-03-10', 450.00, 'Medical records not provided', 'Documentation'), (205, 6005, '2024-03-12', 340.00, 'CPT code mismatch', 'Coding'), (206, 6006, '2024-03-15', 510.00, 'Documentation insufficient', 'Documentation'), (207, 6007, '2024-03-18', 675.00, 'Service not medically necessary', 'Medical Necessity'), (208, 6008, '2024-03-20', 890.00, 'Chart notes missing', 'Documentation'), (209, 6009, '2024-03-22', 420.00, 'Provider signature absent', 'Documentation'), (210, 6010, '2024-03-25', 310.00, 'ICD-10 code invalid', 'Coding'), (211, 6011, '2024-03-28', 590.00, 'Lab results not attached', 'Documentation'), (212, 6012, '2024-03-30', 720.00, 'Progress notes incomplete', 'Documentation'), (213, 6013, '2024-04-02', 480.00, 'Modifier error', 'Coding'), (214, 6014, '2024-04-05', 630.00, 'Treatment plan not documented', 'Documentation'), (215, 6015, '2024-04-08', 390.00, 'Consent form missing', 'Documentation'), (216, 6016, '2024-04-10', 850.00, 'Referral documentation absent', 'Documentation'), (217, 6017, '2024-04-12', 270.00, 'Duplicate service date', 'Duplicate'), (218, 6018, '2024-04-15', 560.00, 'Medical record pages missing', 'Documentation'), (219, 6019, '2024-04-18', 710.00, 'Documentation does not support service', 'Documentation'), (220, 6020, '2024-04-20', 440.00, 'DOCUMENTATION quality issue', 'Documentation');",
+    "test_expected_columns": [
+      "claim_id",
+      "patient_id",
+      "submission_date",
+      "billed_amount",
+      "denial_reason",
+      "denial_category"
+    ],
+    "test_expected_rows": [],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "function-wrapped",
+      "composite_moves": [
+        "row-filter on denial_category (case-insensitive)",
+        "row-filter on submission_date range",
+        "ORDER BY submission_date, claim_id"
+      ]
+    },
+    "hints": [
+      "The function signature is already provided; you need to replace the placeholder SELECT with a query against the claims table.",
+      "Use LOWER() or UPPER() to make the denial_category comparison case-insensitive, and use BETWEEN for the date range filter.",
+      "Your RETURN QUERY should be: SELECT c.claim_id, c.patient_id, c.submission_date, c.billed_amount, c.denial_reason, c.denial_category FROM claims c WHERE LOWER(c.denial_category) = LOWER(p_denial_category) AND c.submission_date BETWEEN p_start_date AND p_end_date ORDER BY c.submission_date, c.claim_id;"
+    ],
+    "answer_key": "CREATE OR REPLACE FUNCTION get_claims_by_denial_category(p_denial_category VARCHAR, p_start_date DATE, p_end_date DATE) RETURNS TABLE (claim_id INTEGER, patient_id INTEGER, submission_date DATE, billed_amount DECIMAL, denial_reason VARCHAR, denial_category VARCHAR) AS $$ BEGIN RETURN QUERY (SELECT c.claim_id, c.patient_id, c.submission_date, c.billed_amount, c.denial_reason, c.denial_category FROM claims c WHERE LOWER(c.denial_category) = LOWER(p_denial_category) AND c.submission_date BETWEEN p_start_date AND p_end_date ORDER BY c.submission_date, c.claim_id); END; $$ LANGUAGE plpgsql; SELECT * FROM get_claims_by_denial_category('Authorization', '2024-01-01', '2024-02-28');",
+    "_meta": {
+      "question_type": "returns_table",
+      "dialect": "postgresql",
+      "generated_at": "2026-04-28T11:31:32.062150",
+      "problem_id": "ff11bdad9a9c",
+      "validation_attempts": 2,
+      "scenario": "a hospital revenue cycle team tracking claim submissions and denial reasons"
+    }
+  },
+  "user_solution": "CREATE OR REPLACE FUNCTION get_claims_by_denial_category(p_denial_category VARCHAR, p_start_date DATE, p_end_date DATE) \nRETURNS TABLE(claim_id INTEGER, patient_id INTEGER, submission_date DATE, billed_amount DECIMAL, denial_reason VARCHAR, denial_category VARCHAR) AS $$\nBEGIN\n     RETURN QUERY (\n          WITH base AS (\n             SELECT\n                   c.claim_id,\n                   c.patient_id,\n                   c.submission_date,\n                   c.billed_amount,\n                   c.denial_reason,\n                   c.denial_category\n             FROM claims AS c\n             WHERE lower(c.denial_category) = lower(p_denial_category)\n             AND c.submission_date >= p_start_date AND c.submission_date <= p_end_date\n          )\n          SELECT * \n          FROM base\n     );\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT * FROM get_claims_by_denial_category('Authorization', '2024-01-01', '2024-12-31');",
+  "solved_at": "2026-04-28T12:06:32.318251"
+}
