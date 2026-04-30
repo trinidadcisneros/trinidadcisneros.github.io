@@ -1,0 +1,55 @@
+{
+  "problem": {
+    "title": "Calculate Trial Conversion Rate by Cohort",
+    "prompt": "Write a PostgreSQL function named calculate_cohort_conversion_rate that accepts a cohort_month (DATE) parameter and returns the conversion rate as a NUMERIC value between 0 and 1 (rounded to 4 decimal places). The function should calculate what percentage of trial signups in that month eventually converted to a paid plan. A trial is considered converted if there exists a subscription record for that account with plan_type = 'paid'. Only count trials that started in the specified cohort month (using the trial_start_date). If there are no trials in that month, return 0.0000. The function should return a single NUMERIC value.",
+    "schema_ddl": "CREATE TABLE trial_signups (account_id INT PRIMARY KEY, company_name VARCHAR(100), trial_start_date DATE, trial_end_date DATE); CREATE TABLE subscriptions (subscription_id INT PRIMARY KEY, account_id INT, plan_type VARCHAR(20), subscription_start_date DATE, mrr NUMERIC(10,2));",
+    "example_input_data": "INSERT INTO trial_signups (account_id, company_name, trial_start_date, trial_end_date) VALUES (101, 'Acme Corp', '2024-01-15', '2024-01-29'), (102, 'Widget Inc', '2024-01-20', '2024-02-03'), (103, 'Gadget LLC', '2024-01-25', '2024-02-08'), (104, 'Tools Co', '2024-02-10', '2024-02-24'), (105, 'Systems Ltd', '2024-02-15', '2024-02-29'); INSERT INTO subscriptions (subscription_id, account_id, plan_type, subscription_start_date, mrr) VALUES (1, 101, 'paid', '2024-01-30', 99.00), (2, 102, 'paid', '2024-02-05', 199.00), (3, 104, 'trial', '2024-02-10', 0.00), (4, 105, 'paid', '2024-03-01', 299.00);",
+    "example_output_columns": [
+      "result"
+    ],
+    "example_output_rows": [
+      [
+        "0.6667"
+      ]
+    ],
+    "test_data": "INSERT INTO trial_signups (account_id, company_name, trial_start_date, trial_end_date) VALUES (201, 'Alpha Systems', '2024-03-01', '2024-03-15'), (202, 'Beta Corp', '2024-03-05', '2024-03-19'), (203, 'Gamma Inc', '2024-03-08', '2024-03-22'), (204, 'Delta LLC', '2024-03-12', '2024-03-26'), (205, 'Epsilon Ltd', '2024-03-15', '2024-03-29'), (206, 'Zeta Co', '2024-03-18', '2024-04-01'), (207, 'Eta Systems', '2024-03-22', '2024-04-05'), (208, 'Theta Corp', '2024-03-25', '2024-04-08'), (209, 'Iota Inc', '2024-03-28', '2024-04-11'), (210, 'Kappa LLC', '2024-04-02', '2024-04-16'), (211, 'Lambda Ltd', '2024-04-05', '2024-04-19'), (212, 'Mu Co', '2024-04-08', '2024-04-22'), (213, 'Nu Systems', '2024-04-12', '2024-04-26'), (214, 'Xi Corp', '2024-04-15', '2024-04-29'), (215, 'Omicron Inc', '2024-04-18', '2024-05-02'), (216, 'Pi LLC', '2024-04-22', '2024-05-06'), (217, 'Rho Ltd', '2024-04-25', '2024-05-09'), (218, 'Sigma Co', '2024-04-28', '2024-05-12'), (219, 'Tau Systems', '2024-05-01', '2024-05-15'), (220, 'Upsilon Corp', '2024-05-05', '2024-05-19'); INSERT INTO subscriptions (subscription_id, account_id, plan_type, subscription_start_date, mrr) VALUES (101, 201, 'paid', '2024-03-16', 149.00), (102, 202, 'paid', '2024-03-20', 249.00), (103, 203, 'trial', '2024-03-08', 0.00), (104, 205, 'paid', '2024-03-30', 349.00), (105, 206, 'paid', '2024-04-02', 199.00), (106, 208, 'trial', '2024-03-25', 0.00), (107, 209, 'paid', '2024-04-12', 299.00), (108, 210, 'paid', '2024-04-17', 399.00), (109, 212, 'paid', '2024-04-23', 179.00), (110, 213, 'trial', '2024-04-12', 0.00), (111, 215, 'paid', '2024-05-03', 229.00), (112, 217, 'paid', '2024-05-10', 449.00), (113, 218, 'trial', '2024-04-28', 0.00), (114, 220, 'paid', '2024-05-20', 159.00);",
+    "test_expected_columns": [
+      "result"
+    ],
+    "test_expected_rows": [
+      [
+        "0.0000"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "scalar_return",
+      "recipe": "function-wrapped",
+      "composite_moves": [
+        "join trial_signups to subscriptions on account_id",
+        "filter subscriptions by plan_type = 'paid'",
+        "filter trial_signups by DATE_TRUNC('month', trial_start_date) = cohort_month",
+        "group-aggregate to count total trials and converted trials",
+        "scalar-extract division with NULL handling",
+        "round result to 4 decimals"
+      ]
+    },
+    "hints": [
+      "You'll need to count how many trial signups occurred in the given month and how many of those accounts have a paid subscription.",
+      "Use DATE_TRUNC to match the cohort month, and a LEFT JOIN to check for paid subscriptions. Handle the case where no trials exist.",
+      "The conversion rate is COUNT(DISTINCT account_id with paid plan) / COUNT(DISTINCT total account_id in cohort). Use COALESCE to handle division by zero and return 0.0000 when appropriate."
+    ],
+    "answer_key": "CREATE OR REPLACE FUNCTION calculate_cohort_conversion_rate(cohort_month DATE) RETURNS NUMERIC AS $$ DECLARE total_trials INT; converted_trials INT; conversion_rate NUMERIC; BEGIN SELECT COUNT(DISTINCT ts.account_id) INTO total_trials FROM trial_signups ts WHERE DATE_TRUNC('month', ts.trial_start_date) = DATE_TRUNC('month', cohort_month); IF total_trials = 0 THEN RETURN 0.0000; END IF; SELECT COUNT(DISTINCT ts.account_id) INTO converted_trials FROM trial_signups ts INNER JOIN subscriptions s ON ts.account_id = s.account_id WHERE DATE_TRUNC('month', ts.trial_start_date) = DATE_TRUNC('month', cohort_month) AND s.plan_type = 'paid'; conversion_rate := ROUND(converted_trials::NUMERIC / total_trials::NUMERIC, 4); RETURN conversion_rate; END; $$ LANGUAGE plpgsql; SELECT calculate_cohort_conversion_rate('2024-01-01') AS result;",
+    "_meta": {
+      "question_type": "returns_scalar",
+      "dialect": "postgresql",
+      "generated_at": "2026-04-30T12:04:21.384940",
+      "problem_id": "83f1398d03d4",
+      "validation_attempts": 1,
+      "scenario": "a B2B SaaS company tracking trial signups and conversion to paid plans",
+      "dml_op": null
+    }
+  },
+  "user_solution": "CREATE OR REPLACE\nFUNCTION calculate_cohort_conversion_rate(p_cohort_month DATE) RETURNS NUMERIC AS $$\nBEGIN\nRETURN (\nWITH ts_base AS (\n    SELECT\n        account_id,\n        company_name,\n        TO_CHAR(trial_start_date, 'YYYY-MM') AS cohort_month\n    FROM trial_signups\n    WHERE DATE_TRUNC('month', trial_start_date) = DATE_TRUNC('month', p_cohort_month)\n),\nsub_base AS (\n    SELECT\n        s.subscription_id,\n        s.account_id,\n        s.plan_type,\n        TO_CHAR(s.subscription_start_date, 'YYYY-MM') AS cohort_month,\n        CASE WHEN s.plan_type = 'paid' THEN 1.0 ELSE 0 END AS converted\n    FROM subscriptions AS s\n),\nbase AS (\nSELECT\n    t.cohort_month,\n    t.account_id,\n    t.company_name,\n    s.subscription_id,\n    COALESCE(s.plan_type, 'no subscription') AS plan_type,\n    COALESCE(s.converted, 0) AS converted\nFROM ts_base AS t\nLEFT JOIN sub_base AS s\nON t.account_id = s.account_id\n),\nconversion_result AS (\n    SELECT\n        COALESCE(ROUND(AVG(converted), 4),0.0000) AS result\n    FROM base\n)\nSELECT * FROM conversion_result\n);\n\nEND;\n$$ LANGUAGE PLPGSQL;\n\nSELECT *\n  FROM calculate_cohort_conversion_rate('2024-01-01') AS RESULT;",
+  "solved_at": "2026-04-30T12:48:08.522739"
+}

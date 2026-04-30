@@ -1,0 +1,292 @@
+{
+  "problem": {
+    "title": "Ticket SLA Tier and Escalation Update",
+    "prompt": "You are managing a support ticket system that tracks SLA breaches and agent reassignments. The `support_tickets` table contains one row per ticket with columns: ticket_id (integer, PK), priority (text), response_hours (integer, hours since ticket creation), resolution_hours (integer, hours to resolve or NULL if open), agent_tier (text, currently 'junior', 'senior', or 'lead'), breach_count (integer, number of SLA violations), and escalated (boolean, whether ticket was escalated to management). Write a DO block that applies these rules in sequence: (1) Set agent_tier to 'senior' for any ticket where priority is 'high' and response_hours > 4; (2) Set agent_tier to 'lead' for any ticket where priority is 'critical' and response_hours > 2; (3) Increment breach_count by 1 for any ticket where resolution_hours > 48 OR (resolution_hours IS NULL AND response_hours > 24); (4) Set escalated to TRUE for any ticket where breach_count >= 2. After the DO block, write a SELECT statement that returns all columns from support_tickets ordered by ticket_id.",
+    "schema_ddl": "CREATE TABLE support_tickets (ticket_id INTEGER PRIMARY KEY, priority TEXT NOT NULL, response_hours INTEGER NOT NULL, resolution_hours INTEGER, agent_tier TEXT NOT NULL, breach_count INTEGER NOT NULL DEFAULT 0, escalated BOOLEAN NOT NULL DEFAULT FALSE);",
+    "example_input_data": "INSERT INTO support_tickets (ticket_id, priority, response_hours, resolution_hours, agent_tier, breach_count, escalated) VALUES (1, 'low', 2, 12, 'junior', 0, FALSE), (2, 'high', 6, 30, 'junior', 0, FALSE), (3, 'critical', 3, 10, 'junior', 1, FALSE), (4, 'high', 3, 50, 'senior', 1, FALSE), (5, 'critical', 1, 60, 'junior', 0, FALSE), (6, 'medium', 8, NULL, 'junior', 0, FALSE);",
+    "example_output_columns": [
+      "ticket_id",
+      "priority",
+      "response_hours",
+      "resolution_hours",
+      "agent_tier",
+      "breach_count",
+      "escalated"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "low",
+        2,
+        12.0,
+        "junior",
+        0,
+        false
+      ],
+      [
+        2,
+        "high",
+        6,
+        30.0,
+        "senior",
+        0,
+        false
+      ],
+      [
+        3,
+        "critical",
+        3,
+        10.0,
+        "lead",
+        1,
+        false
+      ],
+      [
+        4,
+        "high",
+        3,
+        50.0,
+        "senior",
+        2,
+        true
+      ],
+      [
+        5,
+        "critical",
+        1,
+        60.0,
+        "junior",
+        1,
+        false
+      ],
+      [
+        6,
+        "medium",
+        8,
+        null,
+        "junior",
+        0,
+        false
+      ]
+    ],
+    "test_data": "INSERT INTO support_tickets (ticket_id, priority, response_hours, resolution_hours, agent_tier, breach_count, escalated) VALUES (101, 'low', 1, 8, 'junior', 0, FALSE), (102, 'high', 5, 20, 'junior', 0, FALSE), (103, 'high', 4, 55, 'junior', 1, FALSE), (104, 'critical', 2, 15, 'junior', 0, FALSE), (105, 'critical', 3, 72, 'senior', 0, FALSE), (106, 'medium', 10, NULL, 'junior', 0, FALSE), (107, 'high', 6, NULL, 'junior', 1, TRUE), (108, 'critical', 1, 40, 'junior', 2, FALSE), (109, 'low', 3, 50, 'junior', 0, FALSE), (110, 'high', 7, 100, 'senior', 1, FALSE), (111, 'critical', 2, NULL, 'junior', 0, FALSE), (112, 'medium', 5, 30, 'junior', 0, FALSE), (113, 'high', 4, 49, 'junior', 0, FALSE), (114, 'critical', 4, 5, 'junior', 1, FALSE), (115, 'low', 12, NULL, 'junior', 0, FALSE), (116, 'high', 8, 48, 'junior', 0, FALSE), (117, 'critical', 3, 90, 'lead', 0, FALSE), (118, 'medium', 25, NULL, 'junior', 0, FALSE), (119, 'high', 3, NULL, 'junior', 1, FALSE), (120, 'critical', 1, NULL, 'junior', 1, FALSE);",
+    "test_expected_columns": [
+      "ticket_id",
+      "priority",
+      "response_hours",
+      "resolution_hours",
+      "agent_tier",
+      "breach_count",
+      "escalated"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        "low",
+        1,
+        8.0,
+        "junior",
+        0,
+        false
+      ],
+      [
+        102,
+        "high",
+        5,
+        20.0,
+        "senior",
+        0,
+        false
+      ],
+      [
+        103,
+        "high",
+        4,
+        55.0,
+        "junior",
+        2,
+        true
+      ],
+      [
+        104,
+        "critical",
+        2,
+        15.0,
+        "junior",
+        0,
+        false
+      ],
+      [
+        105,
+        "critical",
+        3,
+        72.0,
+        "lead",
+        1,
+        false
+      ],
+      [
+        106,
+        "medium",
+        10,
+        null,
+        "junior",
+        0,
+        false
+      ],
+      [
+        107,
+        "high",
+        6,
+        null,
+        "senior",
+        1,
+        true
+      ],
+      [
+        108,
+        "critical",
+        1,
+        40.0,
+        "junior",
+        2,
+        true
+      ],
+      [
+        109,
+        "low",
+        3,
+        50.0,
+        "junior",
+        1,
+        false
+      ],
+      [
+        110,
+        "high",
+        7,
+        100.0,
+        "senior",
+        2,
+        true
+      ],
+      [
+        111,
+        "critical",
+        2,
+        null,
+        "junior",
+        0,
+        false
+      ],
+      [
+        112,
+        "medium",
+        5,
+        30.0,
+        "junior",
+        0,
+        false
+      ],
+      [
+        113,
+        "high",
+        4,
+        49.0,
+        "junior",
+        1,
+        false
+      ],
+      [
+        114,
+        "critical",
+        4,
+        5.0,
+        "lead",
+        1,
+        false
+      ],
+      [
+        115,
+        "low",
+        12,
+        null,
+        "junior",
+        0,
+        false
+      ],
+      [
+        116,
+        "high",
+        8,
+        48.0,
+        "senior",
+        0,
+        false
+      ],
+      [
+        117,
+        "critical",
+        3,
+        90.0,
+        "lead",
+        1,
+        false
+      ],
+      [
+        118,
+        "medium",
+        25,
+        null,
+        "junior",
+        1,
+        false
+      ],
+      [
+        119,
+        "high",
+        3,
+        null,
+        "junior",
+        1,
+        false
+      ],
+      [
+        120,
+        "critical",
+        1,
+        null,
+        "junior",
+        1,
+        false
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "state_mutation",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "row-transform: tiered agent_tier assignment based on priority and response_hours",
+        "row-transform: breach_count increment based on resolution SLA violation",
+        "row-transform: escalated flag update based on breach threshold"
+      ]
+    },
+    "hints": [
+      "Think about how each UPDATE statement applies independently to the entire table based on conditions at that moment.",
+      "The first two rules assign agent_tier based on priority and response_hours thresholds. The third rule increments breach_count for SLA violations. The fourth rule sets escalated based on the updated breach_count.",
+      "Use four sequential UPDATE statements: UPDATE ... SET agent_tier = 'senior' WHERE ...; UPDATE ... SET agent_tier = 'lead' WHERE ...; UPDATE ... SET breach_count = breach_count + 1 WHERE ...; UPDATE ... SET escalated = TRUE WHERE breach_count >= 2;"
+    ],
+    "answer_key": "DO $$\nBEGIN\n  UPDATE support_tickets SET agent_tier = 'senior' WHERE priority = 'high' AND response_hours > 4;\n  UPDATE support_tickets SET agent_tier = 'lead' WHERE priority = 'critical' AND response_hours > 2;\n  UPDATE support_tickets SET breach_count = breach_count + 1 WHERE resolution_hours > 48 OR (resolution_hours IS NULL AND response_hours > 24);\n  UPDATE support_tickets SET escalated = TRUE WHERE breach_count >= 2;\nEND $$;\nSELECT * FROM support_tickets ORDER BY ticket_id;",
+    "_meta": {
+      "question_type": "do_block",
+      "dialect": "postgresql",
+      "generated_at": "2026-04-30T10:53:31.309648",
+      "problem_id": "6499cc176a45",
+      "validation_attempts": 1,
+      "scenario": "a customer support tool tracking ticket SLA breaches and reassignments",
+      "dml_op": null
+    }
+  },
+  "user_solution": "DO $$\nBEGIN\n    UPDATE support_tickets\n    SET agent_tier = 'senior'\n    WHERE priority = 'high' AND response_hours > 4;\n    \n    UPDATE support_tickets\n    SET agent_tier = 'lead'\n    WHERE priority = 'critical' AND response_hours > 2;\n    \n    UPDATE support_tickets\n    SET breach_count = breach_count + 1\n    WHERE resolution_hours > 48 OR (resolution_hours IS NULL AND response_hours > 24);\n    \n    UPDATE support_tickets\n    SET escalated = TRUE\n    WHERE breach_count >= 2;\n\nEND $$;\n\n\nSELECT * FROM support_tickets ORDER BY ticket_id;\n\n",
+  "solved_at": "2026-04-30T11:07:37.876337"
+}

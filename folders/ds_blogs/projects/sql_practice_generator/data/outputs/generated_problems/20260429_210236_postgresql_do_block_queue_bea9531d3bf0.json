@@ -1,0 +1,134 @@
+{
+  "title": "Process Article Approval Queue Sequentially",
+  "prompt": "You are building a publishing platform's approval workflow engine. The `articles` table tracks each article's current approval status (0=draft, 1=pending_review, 2=approved, 3=rejected) and the editor_id who last acted on it. The `approval_actions` table logs chronological requests to transition articles through the workflow; each action references an article_id, specifies an action_type (1=submit_for_review, 2=approve, 3=reject, 4=withdraw), and carries the editor_id making the request. Write a DO block that processes the approval_actions log in action_id order. For each action, read the article's CURRENT status and last editor, then apply these rules: (1) submit_for_review (type 1) moves draft articles (status=0) to pending_review (status=1) and records the editor; (2) approve (type 2) moves pending_review articles (status=1) to approved (status=2) only if performed by a DIFFERENT editor than the one who submitted it; (3) reject (type 3) moves pending_review articles (status=1) to rejected (status=3); (4) withdraw (type 4) moves pending_review or rejected articles back to draft (status=0). If the current state does not satisfy the action's precondition, the action is a no-op. After the loop, SELECT all columns from articles ordered by article_id to show the final state.",
+  "schema_ddl": "CREATE TABLE articles (article_id INT PRIMARY KEY, title VARCHAR(100), status INT, editor_id INT); CREATE TABLE approval_actions (action_id INT PRIMARY KEY, article_id INT, action_type INT, editor_id INT);",
+  "example_input_data": "INSERT INTO articles (article_id, title, status, editor_id) VALUES (1, 'Intro to SQL', 0, NULL), (2, 'Advanced Joins', 0, NULL), (3, 'Window Functions', 0, NULL), (4, 'CTEs Explained', 0, NULL); INSERT INTO approval_actions (action_id, article_id, action_type, editor_id) VALUES (1, 1, 1, 10), (2, 2, 1, 10), (3, 1, 2, 10), (4, 1, 2, 20), (5, 2, 3, 20), (6, 3, 1, 15), (7, 4, 2, 25);",
+  "example_output_columns": [
+    "article_id",
+    "title",
+    "status",
+    "editor_id"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Intro to SQL",
+      2,
+      20.0
+    ],
+    [
+      2,
+      "Advanced Joins",
+      3,
+      20.0
+    ],
+    [
+      3,
+      "Window Functions",
+      1,
+      15.0
+    ],
+    [
+      4,
+      "CTEs Explained",
+      0,
+      null
+    ]
+  ],
+  "test_data": "INSERT INTO articles (article_id, title, status, editor_id) VALUES (1, 'Data Modeling Basics', 0, NULL), (2, 'Indexing Strategies', 0, NULL), (3, 'Query Optimization', 0, NULL), (4, 'Transaction Isolation', 0, NULL), (5, 'Backup Best Practices', 0, NULL), (6, 'Security Patterns', 0, NULL), (7, 'Scaling Techniques', 0, NULL), (8, 'Migration Guide', 1, 12), (9, 'Performance Tuning', 3, 18), (10, 'Schema Design', 2, 22); INSERT INTO approval_actions (action_id, article_id, action_type, editor_id) VALUES (1, 1, 1, 10), (2, 2, 1, 10), (3, 3, 1, 15), (4, 1, 2, 10), (5, 1, 2, 20), (6, 2, 2, 20), (7, 3, 3, 18), (8, 4, 1, 12), (9, 5, 1, 14), (10, 6, 1, 16), (11, 7, 1, 10), (12, 4, 2, 25), (13, 5, 2, 14), (14, 6, 2, 22), (15, 7, 2, 20), (16, 3, 4, 19), (17, 9, 4, 21), (18, 3, 1, 24), (19, 9, 1, 26), (20, 8, 2, 30), (21, 3, 2, 28), (22, 9, 2, 28), (23, 2, 4, 11), (24, 2, 1, 13), (25, 2, 2, 17), (26, 5, 4, 99), (27, 10, 4, 99), (28, 1, 3, 99);",
+  "test_expected_columns": [
+    "article_id",
+    "title",
+    "status",
+    "editor_id"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "Data Modeling Basics",
+      2,
+      20.0
+    ],
+    [
+      2,
+      "Indexing Strategies",
+      2,
+      20.0
+    ],
+    [
+      3,
+      "Query Optimization",
+      2,
+      28.0
+    ],
+    [
+      4,
+      "Transaction Isolation",
+      2,
+      25.0
+    ],
+    [
+      5,
+      "Backup Best Practices",
+      0,
+      null
+    ],
+    [
+      6,
+      "Security Patterns",
+      2,
+      22.0
+    ],
+    [
+      7,
+      "Scaling Techniques",
+      2,
+      20.0
+    ],
+    [
+      8,
+      "Migration Guide",
+      2,
+      30.0
+    ],
+    [
+      9,
+      "Performance Tuning",
+      2,
+      28.0
+    ],
+    [
+      10,
+      "Schema Design",
+      2,
+      22.0
+    ]
+  ],
+  "classification": {
+    "input_arrival": "procedural",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "FOR-loop over request log in ID order",
+      "SELECT current state INTO variables",
+      "IF-ELSIF branch on request type AND current state",
+      "Conditional UPDATE inside matching branches",
+      "Trailing SELECT to expose final state"
+    ]
+  },
+  "hints": [
+    "You need to loop through actions in order and check the article's current status before deciding whether to update.",
+    "Use a FOR loop with a RECORD variable and SELECT INTO to read the current status and editor_id for each action's article before applying the transition rules.",
+    "Each action type has a specific precondition on current status; for example, approve requires status=1 AND a different editor than the one who submitted. Read the current state inside the loop, then use IF-ELSIF to match the action type and state guard."
+  ],
+  "answer_key": "DO $$\nDECLARE\n  rec RECORD;\n  cur_status INT;\n  cur_editor INT;\nBEGIN\n  FOR rec IN SELECT * FROM approval_actions ORDER BY action_id LOOP\n    SELECT status, editor_id INTO cur_status, cur_editor FROM articles WHERE article_id = rec.article_id;\n    IF rec.action_type = 1 AND cur_status = 0 THEN\n      UPDATE articles SET status = 1, editor_id = rec.editor_id WHERE article_id = rec.article_id;\n    ELSIF rec.action_type = 2 AND cur_status = 1 AND (cur_editor IS NULL OR cur_editor <> rec.editor_id) THEN\n      UPDATE articles SET status = 2, editor_id = rec.editor_id WHERE article_id = rec.article_id;\n    ELSIF rec.action_type = 3 AND cur_status = 1 THEN\n      UPDATE articles SET status = 3, editor_id = rec.editor_id WHERE article_id = rec.article_id;\n    ELSIF rec.action_type = 4 AND (cur_status = 1 OR cur_status = 3) THEN\n      UPDATE articles SET status = 0, editor_id = NULL WHERE article_id = rec.article_id;\n    END IF;\n  END LOOP;\nEND $$;\nSELECT * FROM articles ORDER BY article_id;",
+  "_meta": {
+    "question_type": "do_block_queue",
+    "dialect": "postgresql",
+    "generated_at": "2026-04-29T21:02:36.637848",
+    "problem_id": "bea9531d3bf0",
+    "validation_attempts": 1,
+    "scenario": "a publishing platform tracking article views, comments, and editor approvals",
+    "dml_op": null
+  }
+}

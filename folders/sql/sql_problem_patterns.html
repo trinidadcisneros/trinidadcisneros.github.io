@@ -18382,7 +18382,7 @@ GROUP BY p.platform, n.experiment_name;</code></div>
         <!-- TAB: FUNCTIONS & LOOPS -->
         <div id="tab-procedural" class="tab-pane">
           <div class="section-heading">Procedures</div>
-          <p style="margin-bottom: 20px; line-height: 1.8;">Non-SELECT problem shapes that some practice platforms include but most analytical SQL drills skip. Two families live here: <strong>Function-Wrapped Queries</strong> (the IDE scaffolds a <code>CREATE OR REPLACE FUNCTION ... RETURNS TABLE</code> block and you fill in the inner SELECT) and <strong>DO Blocks with Sequential State</strong> (you mutate a table row by row inside <code>DO $$ ... END $$;</code> using procedural PL/pgSQL, then run a trailing SELECT so the test scaffold sees output).</p>
+          <p style="margin-bottom: 20px; line-height: 1.8;">Non-SELECT problem shapes that some practice platforms include but most analytical SQL drills skip. Five topics live here: <strong>Procedural Blocks</strong> (anonymous <code>DO $$ ... END $$;</code> blocks that mutate state row by row or via sequential UPDATEs), <strong>Functions</strong> (<code>CREATE OR REPLACE FUNCTION</code> wrappers that return a scalar value or a table), <strong>Recursive Queries</strong> (<code>WITH RECURSIVE</code> for hierarchies, paths, and chains of unknown depth), <strong>Updates, Deletes, and Inserts</strong> (single-statement DML with conditional logic and confirming SELECTs), and <strong>Window Function Edges</strong> (frame and ranking nuances that flip answers). Each topic opens with a Reference card covering methods and pitfalls, followed by recipe cards with anchor problems.</p>
 
           <!-- PROCEDURAL PROBLEM TYPE INDEX -->
           <div class="problem-card collapsed" style="margin-bottom: 25px;">
@@ -19976,6 +19976,144 @@ SELECT *
                 </div>
               </div>
 
+              <!-- Anchor problem: no-show penalties (compounding state mutation) -->
+              <div class="problem-card collapsed" style="margin-top: 15px;">
+                <div class="problem-card-header">
+                  <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                    <span style="display: inline-block; background-color: #ef6c00; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Medium</span>
+                    Apply Sequential No-Show Penalties (compounding state mutation)
+                  </h3>
+                  <span class="problem-toggle">&#9660;</span>
+                </div>
+                <div class="problem-card-excerpt">
+                  <ul style="margin: 0 0 0 20px; line-height: 1.7;">
+                    <li>FOR LOOP iterating an event log (appointments) to mutate state in a parent table (patients).</li>
+                    <li>Each iteration's contribution depends on the patient's CURRENT penalty_points value, so the increment compounds (doubles plus 1) instead of staying linear.</li>
+                    <li>Demonstrates the linear vs compounding distinction: same surface prompt language, very different math.</li>
+                  </ul>
+                </div>
+                <div class="problem-card-content">
+
+                  <p><strong>Tables:</strong></p>
+                  <table style="width: auto; border-collapse: collapse; font-size: 1.3rem; line-height: 1.6; margin: 6px 0 12px;">
+                    <thead>
+                      <tr style="background: #6a1b9a; color: white; text-align: left;">
+                        <th style="padding: 8px 12px;">Table</th>
+                        <th style="padding: 8px 12px;">Column</th>
+                        <th style="padding: 8px 12px;">Type</th>
+                        <th style="padding: 8px 12px;">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;" rowspan="3"><code>patients</code></td><td style="padding: 6px 12px;"><code>patient_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">primary key, target of mutation</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>patient_name</code></td><td style="padding: 6px 12px;">VARCHAR(100)</td><td style="padding: 6px 12px;">passthrough</td></tr>
+                      <tr style="border-bottom: 2px solid #888;"><td style="padding: 6px 12px;"><code>penalty_points</code></td><td style="padding: 6px 12px;">INT DEFAULT 0</td><td style="padding: 6px 12px;">value mutated on each no-show; pre-existing values count as the patient's "starting state"</td></tr>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;" rowspan="4"><code>appointments</code></td><td style="padding: 6px 12px;"><code>appointment_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">primary key</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>patient_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">FK into patients</td></tr>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>scheduled_at</code></td><td style="padding: 6px 12px;">TIMESTAMP</td><td style="padding: 6px 12px;">loop ORDER BY column &mdash; chronological</td></tr>
+                      <tr style="background: #fafafa;"><td style="padding: 6px 12px;"><code>status</code></td><td style="padding: 6px 12px;">VARCHAR(20)</td><td style="padding: 6px 12px;">'completed' / 'no_show' / etc.; only 'no_show' triggers mutation</td></tr>
+                    </tbody>
+                  </table>
+
+                  <p><strong>Prompt:</strong> Iterate <code>appointments</code> in <code>scheduled_at</code> order. For each row where <code>status = 'no_show'</code>, increment that patient's <code>penalty_points</code> using the rule that each no-show contributes <em>(prior penalty + 1)</em> &mdash; meaning the patient's current <code>penalty_points</code> value is treated as the running prior count. Trailing <code>SELECT * FROM patients ORDER BY patient_id;</code>.</p>
+
+                  <div class="solution-container">
+                    <details>
+                      <summary>
+                        <span class="summary-arrow">&#9654;</span>
+                        <span class="rank-badge rank-1">1</span>
+                        <strong>FOR LOOP + IF status filter + compounding UPDATE (2x+1)</strong>
+                      </summary>
+                      <div class="solution-content">
+                        <div class="code-block"><code>DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN
+      SELECT * FROM appointments ORDER BY scheduled_at
+    LOOP
+        IF r.status = 'no_show' THEN
+            UPDATE patients
+               SET penalty_points = 2 * penalty_points + 1
+             WHERE patient_id = r.patient_id;
+        END IF;
+    END LOOP;
+END $$;
+
+SELECT * FROM patients ORDER BY patient_id;</code></div>
+
+                        <p style="margin: 12px 0;"><strong>Why <code>2 * penalty_points + 1</code> matches the expected output:</strong></p>
+                        <ul style="margin: 6px 0 0 18px; line-height: 1.7;">
+                          <li>The rule says "increment by (prior count + 1)." If you treat the patient's current <code>penalty_points</code> as the prior count: <code>new = old + (old + 1) = 2 * old + 1</code>.</li>
+                          <li>Algebraically equivalent forms: <code>penalty_points + (penalty_points + 1)</code>, <code>2 * penalty_points + 1</code>, <code>(2 * penalty_points) + 1</code>. All three give the same answer.</li>
+                          <li>Since the rule reads the column as part of the increment, you don't need a <code>SELECT INTO</code> variable &mdash; the UPDATE itself reads the current value and writes the new one in one statement.</li>
+                        </ul>
+
+                        <p style="margin: 12px 0;"><strong>Linear vs compounding (the trap):</strong></p>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 1.25rem; line-height: 1.55; margin-bottom: 12px;">
+                          <thead>
+                            <tr style="background: #6a1b9a; color: white; text-align: left;">
+                              <th style="padding: 6px 10px;">Approach</th>
+                              <th style="padding: 6px 10px;">Formula</th>
+                              <th style="padding: 6px 10px;">Bob's path (start 1, 2 no-shows)</th>
+                              <th style="padding: 6px 10px;">Final</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">Linear (external counter)</td><td style="padding: 6px 10px;"><code>new = old + counter</code> (counter starts at 0, increments by 1)</td><td style="padding: 6px 10px;">1 &rarr; 1+1=2 &rarr; 2+2=4</td><td style="padding: 6px 10px;">4 (wrong)</td></tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">Linear (counter from existing penalty)</td><td style="padding: 6px 10px;"><code>new = old + counter</code> (counter starts at existing penalty)</td><td style="padding: 6px 10px;">1 &rarr; 1+2=3 &rarr; 3+3=6</td><td style="padding: 6px 10px;">6 (still wrong)</td></tr>
+                            <tr><td style="padding: 6px 10px;"><strong>Compounding (current value as count)</strong></td><td style="padding: 6px 10px;"><code>new = 2 * old + 1</code></td><td style="padding: 6px 10px;">1 &rarr; 2(1)+1=3 &rarr; 2(3)+1=7</td><td style="padding: 6px 10px;"><strong>7 (correct)</strong></td></tr>
+                          </tbody>
+                        </table>
+
+                        <p style="margin: 12px 0;"><strong>Trace through the example data (scheduled_at order):</strong></p>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 1.25rem; line-height: 1.55; margin-bottom: 12px;">
+                          <thead>
+                            <tr style="background: #6a1b9a; color: white; text-align: left;">
+                              <th style="padding: 6px 10px;">appointment_id</th>
+                              <th style="padding: 6px 10px;">patient_id</th>
+                              <th style="padding: 6px 10px;">status</th>
+                              <th style="padding: 6px 10px;">patient before</th>
+                              <th style="padding: 6px 10px;">UPDATE fires?</th>
+                              <th style="padding: 6px 10px;">patient after</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">101</td><td style="padding: 6px 10px;">1 Alice</td><td style="padding: 6px 10px;">completed</td><td style="padding: 6px 10px;">Alice 0</td><td style="padding: 6px 10px;">no</td><td style="padding: 6px 10px;">Alice 0</td></tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">102</td><td style="padding: 6px 10px;">2 Bob</td><td style="padding: 6px 10px;">no_show</td><td style="padding: 6px 10px;">Bob 1</td><td style="padding: 6px 10px;">yes</td><td style="padding: 6px 10px;">Bob 2(1)+1 = 3</td></tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">103</td><td style="padding: 6px 10px;">1 Alice</td><td style="padding: 6px 10px;">no_show</td><td style="padding: 6px 10px;">Alice 0</td><td style="padding: 6px 10px;">yes</td><td style="padding: 6px 10px;">Alice 2(0)+1 = 1</td></tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">104</td><td style="padding: 6px 10px;">3 Carol</td><td style="padding: 6px 10px;">completed</td><td style="padding: 6px 10px;">Carol 0</td><td style="padding: 6px 10px;">no</td><td style="padding: 6px 10px;">Carol 0</td></tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">105</td><td style="padding: 6px 10px;">1 Alice</td><td style="padding: 6px 10px;">no_show</td><td style="padding: 6px 10px;">Alice 1</td><td style="padding: 6px 10px;">yes</td><td style="padding: 6px 10px;">Alice 2(1)+1 = 3</td></tr>
+                            <tr style="background: #fafafa;"><td style="padding: 6px 10px;">106</td><td style="padding: 6px 10px;">2 Bob</td><td style="padding: 6px 10px;">no_show</td><td style="padding: 6px 10px;">Bob 3</td><td style="padding: 6px 10px;">yes</td><td style="padding: 6px 10px;">Bob 2(3)+1 = 7</td></tr>
+                          </tbody>
+                        </table>
+                        <p style="margin: 12px 0;">Final: Alice 3, Bob 7, Carol 0.</p>
+
+                        <p style="margin: 12px 0;"><strong>Linear vs compounding cheatsheet:</strong></p>
+                        <ul style="margin: 6px 0 0 18px; line-height: 1.7;">
+                          <li><strong>Linear formula:</strong> <code>new = old + k</code>. Add a fixed amount each step. After n steps: <code>start + n*k</code>.</li>
+                          <li><strong>Compounding formula (pure):</strong> <code>new = old * r</code>. Multiply by a fixed ratio each step. After n steps: <code>start * r^n</code>.</li>
+                          <li><strong>Compounding with offset:</strong> <code>new = old * r + k</code>. The no-show formula uses r=2, k=1 &rarr; <code>new = 2 * old + 1</code>.</li>
+                          <li><strong>Spotting compounding in a prompt:</strong> if the rule's contribution refers to the CURRENT value of the column you're updating (not a fixed amount, not an external counter), it compounds. Words like "double," "based on current," "depends on existing value" &mdash; compounding signal. Words like "add 1 each time," "add a fixed bonus" &mdash; linear signal.</li>
+                          <li><strong>Snowball memory device:</strong> linear adds the same scoop of snow each step; compounding rolls a snowball downhill that picks up more snow because it's already bigger.</li>
+                        </ul>
+
+                        <p style="margin: 12px 0;"><strong>Watch out:</strong></p>
+                        <ul style="margin: 6px 0 0 18px; line-height: 1.7;">
+                          <li><strong>Status string typo silently no-ops everything.</strong> <code>IF r.status = 'now_show'</code> (with a stray 'w') never matches, so no UPDATE fires and the patients table comes back unchanged. Match the literal in the data exactly: <code>'no_show'</code>.</li>
+                          <li><strong>The UPDATE doesn't need <code>SELECT INTO</code> here.</strong> Because the new value is a function of the column itself (<code>2 * penalty_points + 1</code>), Postgres reads the current row value as part of the UPDATE expression. Capturing into a variable first is harmless but unnecessary; the FOR LOOP exists only to enforce chronological order on the appointments side.</li>
+                          <li><strong>Existing penalty_points values matter.</strong> A patient who starts at 0 follows 0 &rarr; 1 &rarr; 3 &rarr; 7 &rarr; 15. A patient who starts at 1 (like Bob, who already had 1 prior no-show before the example data) follows 1 &rarr; 3 &rarr; 7. The compounding rule means starting state heavily affects the final result, unlike linear addition.</li>
+                          <li><strong>Pre-filtering the FOR LOOP to only no-show rows is also valid.</strong> <code>FOR r IN SELECT * FROM appointments WHERE status = 'no_show' ORDER BY scheduled_at LOOP</code> avoids the IF check inside. Either form works; the IF version is closer to the prompt's "iterate all appointments" wording.</li>
+                          <li>Trailing <code>;</code> after <code>END $$</code>, then <code>SELECT * FROM patients ORDER BY patient_id;</code> so the harness sees the post-mutation snapshot.</li>
+                        </ul>
+
+                        <p style="margin: 12px 0;"><strong>Editorial note &mdash; why the prompt language was confusing:</strong> the prompt phrasing "first no-show adds 1, second adds 2, third adds 3" sounds linear (counter-based), but the answer key uses a compounding rule that treats the patient's current <code>penalty_points</code> as the running "prior count." Those two interpretations only match for a patient starting at 0 &mdash; for any non-zero starting value, they diverge. When a problem mixes "increment by N" framing with a column whose value compounds, the math depends on which interpretation the answer key picked, and the prompt has to be explicit about that.</p>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
 
@@ -19993,8 +20131,9 @@ SELECT *
             <div class="problem-card-excerpt">
               <ul style="margin: 0 0 0 20px; line-height: 1.7;">
                 <li><code>CREATE OR REPLACE FUNCTION</code> wrappers around a SELECT.</li>
-                <li><strong>RETURNS TABLE</strong> &mdash; the function returns a row set (multiple rows, multiple columns). Call with <code>SELECT * FROM fn(args);</code>.</li>
-                <li><strong>RETURNS scalar</strong> &mdash; the function returns one value (number, boolean, text). Call with <code>SELECT fn(args) AS alias;</code>.</li>
+                <li><strong>RETURNS TABLE</strong> &mdash; the function returns a row set (multiple rows, multiple columns). Body uses <code>RETURN QUERY ( ... );</code> to stream rows back. Call with <code>SELECT * FROM fn(args);</code>.</li>
+                <li><strong>RETURNS scalar</strong> &mdash; the function returns one value (number, boolean, text). Body uses <code>RETURN ( ... );</code> to evaluate a scalar subquery. Call with <code>SELECT fn(args) AS alias;</code>.</li>
+                <li><strong>The body keywords are NOT interchangeable.</strong> <code>RETURN QUERY</code> in a scalar function raises <em>"cannot use RETURN QUERY in a non-SETOF function."</em> <code>RETURN ( ... )</code> in a table-returning function won't stream multiple rows &mdash; it tries to coerce the inner query into one composite value.</li>
                 <li>End every script with the trailing call &mdash; <code>CREATE FUNCTION</code> alone produces no rows, so the harness sees nothing.</li>
               </ul>
             </div>
@@ -21544,6 +21683,149 @@ SELECT * FROM get_stage_durations(1001, 10);</code></div>
                           <li>The <code>p_min_hours NUMERIC</code> parameter compares correctly against the <code>NUMERIC(10,2)</code> derived value because Postgres promotes both sides to NUMERIC. Passing INT values to <code>p_min_hours</code> (e.g., <code>get_stage_durations(1001, 10)</code>) implicitly casts to NUMERIC, so the comparison still works.</li>
                           <li>Like every RETURNS TABLE function, alias the source table (<code>ash</code>) and qualify column references inside RETURN QUERY so the declared output names don't shadow the source columns &mdash; same shadowing trap covered in the Filter Claims anchor.</li>
                           <li>Call with <code>SELECT * FROM get_stage_durations(1001, 10);</code>. <code>SELECT get_stage_durations(1001, 10)</code> alone collapses each row into a composite cell.</li>
+                        </ul>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Anchor problem: trial conversion report (multi-table JOIN + time-window filter + inclusive day count) -->
+              <div class="problem-card collapsed" style="margin-top: 15px;">
+                <div class="problem-card-header">
+                  <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                    <span style="display: inline-block; background-color: #ef6c00; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Medium</span>
+                    Trial Conversion Report by Plan Tier (multi-table JOIN + time-window filter + inclusive day count)
+                  </h3>
+                  <span class="problem-toggle">&#9660;</span>
+                </div>
+                <div class="problem-card-excerpt">
+                  <ul style="margin: 0 0 0 20px; line-height: 1.7;">
+                    <li>RETURNS TABLE function joining two tables where the right-hand table can have multiple rows per entity over time.</li>
+                    <li>Time-window filter on the JOIN (<code>p.subscription_start &lt;= t.trial_end</code>) keeps only conversions that happened during the trial, not later re-subscriptions.</li>
+                    <li>Inclusive day count: <code>(end_date - start_date) + 1</code> turns "days between" into "days lived through."</li>
+                  </ul>
+                </div>
+                <div class="problem-card-content">
+
+                  <p><strong>Tables:</strong></p>
+                  <table style="width: auto; border-collapse: collapse; font-size: 1.3rem; line-height: 1.6; margin: 6px 0 12px;">
+                    <thead>
+                      <tr style="background: #6a1b9a; color: white; text-align: left;">
+                        <th style="padding: 8px 12px;">Table</th>
+                        <th style="padding: 8px 12px;">Column</th>
+                        <th style="padding: 8px 12px;">Type</th>
+                        <th style="padding: 8px 12px;">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;" rowspan="4"><code>trial_accounts</code></td><td style="padding: 6px 12px;"><code>account_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">primary key, JOIN key</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>company_name</code></td><td style="padding: 6px 12px;">VARCHAR(100)</td><td style="padding: 6px 12px;">surfaced in output</td></tr>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>trial_start</code></td><td style="padding: 6px 12px;">DATE</td><td style="padding: 6px 12px;">duration anchor</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 2px solid #888;"><td style="padding: 6px 12px;"><code>trial_end</code></td><td style="padding: 6px 12px;">DATE</td><td style="padding: 6px 12px;">time-window cutoff for conversions</td></tr>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;" rowspan="5"><code>plan_subscriptions</code></td><td style="padding: 6px 12px;"><code>subscription_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">primary key</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>account_id</code></td><td style="padding: 6px 12px;">INT</td><td style="padding: 6px 12px;">FK into trial_accounts; entity may appear multiple times here</td></tr>
+                      <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>plan_tier</code></td><td style="padding: 6px 12px;">VARCHAR(50)</td><td style="padding: 6px 12px;">categorical filter argument</td></tr>
+                      <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 12px;"><code>subscription_start</code></td><td style="padding: 6px 12px;">DATE</td><td style="padding: 6px 12px;">conversion_date in output; filtered against trial_end</td></tr>
+                      <tr><td style="padding: 6px 12px;"><code>is_paid</code></td><td style="padding: 6px 12px;">BOOLEAN</td><td style="padding: 6px 12px;">unused in this solution</td></tr>
+                    </tbody>
+                  </table>
+
+                  <p><strong>Prompt:</strong> Write <code>get_trial_conversions(p_min_trial_days INT, p_tier_filter VARCHAR(50)) RETURNS TABLE (account_id INT, company_name VARCHAR(100), trial_start DATE, conversion_date DATE, plan_tier VARCHAR(50), trial_duration_days INT)</code>. Return all trial accounts that converted to a paid plan matching the tier filter where the trial lasted at least <code>p_min_trial_days</code> days. Trial duration uses inclusive counting (same-day conversion = 1 day). Order by <code>trial_duration_days</code> DESC, then <code>account_id</code> ASC.</p>
+
+                  <div class="solution-container">
+                    <details>
+                      <summary>
+                        <span class="summary-arrow">&#9654;</span>
+                        <span class="rank-badge rank-1">1</span>
+                        <strong>JOIN with time-window filter + inclusive day count + GROUP BY/HAVING</strong>
+                      </summary>
+                      <div class="solution-content">
+                        <div class="code-block"><code>CREATE OR REPLACE FUNCTION get_trial_conversions(p_min_trial_days INT, p_tier_filter VARCHAR(50))
+RETURNS TABLE (
+    account_id          INT,
+    company_name        VARCHAR(100),
+    trial_start         DATE,
+    conversion_date     DATE,
+    plan_tier           VARCHAR(50),
+    trial_duration_days INT
+) AS $$
+BEGIN
+  RETURN QUERY (
+    WITH base AS (
+      SELECT
+        t.account_id,
+        t.company_name,
+        t.trial_start,
+        t.trial_end,
+        p.subscription_id,
+        p.plan_tier::VARCHAR(50)              AS plan_tier,
+        p.subscription_start                   AS conversion_date,
+        p.is_paid,
+        ((p.subscription_start - t.trial_start) + 1) AS trial_duration_days
+      FROM trial_accounts AS t
+      JOIN plan_subscriptions AS p
+        ON t.account_id = p.account_id
+      WHERE p.plan_tier::VARCHAR(50) = p_tier_filter
+        AND p.subscription_start &lt;= t.trial_end
+    )
+    SELECT
+      b.account_id::INT,
+      b.company_name::VARCHAR(100),
+      b.trial_start::DATE,
+      b.conversion_date::DATE,
+      b.plan_tier::VARCHAR(50),
+      SUM(b.trial_duration_days)::INT AS trial_duration_days
+    FROM base AS b
+    GROUP BY 1, 2, 3, 4, 5
+    HAVING SUM(b.trial_duration_days)::INT &gt;= p_min_trial_days
+    ORDER BY trial_duration_days DESC, account_id ASC
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT * FROM get_trial_conversions(3, 'Professional');</code></div>
+
+                        <p style="margin: 12px 0;"><strong>Three patterns this anchor adds to the RETURNS TABLE recipe:</strong></p>
+                        <ul style="margin: 6px 0 0 18px; line-height: 1.7;">
+                          <li><strong>Time-window filter on a multi-row JOIN.</strong> An <code>account_id</code> can appear multiple times in <code>plan_subscriptions</code> over time (renewals, plan switches, re-signups). Joining on <code>account_id</code> alone pulls in every subscription that account ever had &mdash; including ones that started long after the trial ended, which are NOT conversions. Adding <code>AND p.subscription_start &lt;= t.trial_end</code> to the WHERE keeps only subscriptions that started during the trial window. Anytime two tables join on an entity id without a time predicate, ask: "could this entity appear multiple times in the right-hand table over time?"</li>
+                          <li><strong>Inclusive day count: <code>(end - start) + 1</code>.</strong> Date subtraction in Postgres returns the GAP between two dates: Jan 10 minus Jan 1 is 9, not 10. If the prompt counts both endpoints (same-day = 1 day, next-day = 2 days), add 1 to convert "days between" into "days lived through." This shape shows up in any "duration in days" calculation where the prompt's example output suggests off-by-one is intentional.</li>
+                          <li><strong>GROUP BY + HAVING for aggregated row filtering inside RETURN QUERY.</strong> The outer SELECT groups by every non-aggregated column and uses <code>HAVING SUM(...) &gt;= p_min_trial_days</code> to drop trials that didn't meet the threshold. <code>WHERE</code> can't filter on aggregates &mdash; it runs before grouping &mdash; so threshold filters on aggregated values must use <code>HAVING</code>.</li>
+                        </ul>
+
+                        <p style="margin: 12px 0;"><strong>Trace through Professional tier with min_trial_days = 3:</strong></p>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 1.25rem; line-height: 1.55; margin-bottom: 12px;">
+                          <thead>
+                            <tr style="background: #6a1b9a; color: white; text-align: left;">
+                              <th style="padding: 6px 10px;">account_id</th>
+                              <th style="padding: 6px 10px;">trial_start</th>
+                              <th style="padding: 6px 10px;">trial_end</th>
+                              <th style="padding: 6px 10px;">subscription_start</th>
+                              <th style="padding: 6px 10px;">plan_tier</th>
+                              <th style="padding: 6px 10px;">tier match?</th>
+                              <th style="padding: 6px 10px;">started by trial_end?</th>
+                              <th style="padding: 6px 10px;">duration (+1)</th>
+                              <th style="padding: 6px 10px;">in result?</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">101</td><td style="padding: 6px 10px;">2024-01-10</td><td style="padding: 6px 10px;">2024-01-24</td><td style="padding: 6px 10px;">2024-01-20</td><td style="padding: 6px 10px;">Professional</td><td style="padding: 6px 10px;">yes</td><td style="padding: 6px 10px;">yes</td><td style="padding: 6px 10px;">11</td><td style="padding: 6px 10px;">yes</td></tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">102</td><td style="padding: 6px 10px;">2024-01-15</td><td style="padding: 6px 10px;">2024-01-29</td><td style="padding: 6px 10px;">2024-01-25</td><td style="padding: 6px 10px;">Enterprise</td><td style="padding: 6px 10px;">no</td><td style="padding: 6px 10px;">&mdash;</td><td style="padding: 6px 10px;">&mdash;</td><td style="padding: 6px 10px;">no (wrong tier)</td></tr>
+                            <tr style="border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">103</td><td style="padding: 6px 10px;">2024-01-20</td><td style="padding: 6px 10px;">NULL</td><td style="padding: 6px 10px;">2024-01-22</td><td style="padding: 6px 10px;">Professional</td><td style="padding: 6px 10px;">yes</td><td style="padding: 6px 10px;">no (NULL)</td><td style="padding: 6px 10px;">&mdash;</td><td style="padding: 6px 10px;">no (NULL trial_end fails &le;)</td></tr>
+                            <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;"><td style="padding: 6px 10px;">104</td><td style="padding: 6px 10px;">2024-01-12</td><td style="padding: 6px 10px;">2024-01-19</td><td style="padding: 6px 10px;">2024-01-15</td><td style="padding: 6px 10px;">Professional</td><td style="padding: 6px 10px;">yes</td><td style="padding: 6px 10px;">yes</td><td style="padding: 6px 10px;">4</td><td style="padding: 6px 10px;">yes</td></tr>
+                            <tr><td style="padding: 6px 10px;">105</td><td style="padding: 6px 10px;">2024-01-18</td><td style="padding: 6px 10px;">2024-02-01</td><td style="padding: 6px 10px;">2024-01-28</td><td style="padding: 6px 10px;">Starter</td><td style="padding: 6px 10px;">no</td><td style="padding: 6px 10px;">&mdash;</td><td style="padding: 6px 10px;">&mdash;</td><td style="padding: 6px 10px;">no (wrong tier)</td></tr>
+                          </tbody>
+                        </table>
+                        <p style="margin: 12px 0;">Result: 2 rows ordered by duration DESC &mdash; Acme Corp (11 days), Delta Systems (4 days). Both clear the 3-day threshold.</p>
+
+                        <p style="margin: 12px 0;"><strong>Watch out:</strong></p>
+                        <ul style="margin: 6px 0 0 18px; line-height: 1.7;">
+                          <li><strong>NULL trial_end silently drops rows.</strong> <code>p.subscription_start &lt;= NULL</code> evaluates to NULL (not TRUE), so accounts with no recorded trial_end fall out of the result. If the prompt expects those accounts included (e.g., active trials), wrap the predicate with <code>OR t.trial_end IS NULL</code>.</li>
+                          <li><strong>Without the time-window filter.</strong> Drop <code>AND p.subscription_start &lt;= t.trial_end</code> and an account with a Professional subscription started months after their trial would still appear, with a wildly inflated <code>trial_duration_days</code>. The filter is what makes "conversion" mean "during the trial."</li>
+                          <li><strong>The GROUP BY + SUM is defensive.</strong> If an account has only one Professional subscription within the trial window, the SUM is identity (one row per group). It exists to handle the edge case where an account has multiple Professional subscriptions started during the same trial &mdash; in which case summing their durations is still semantically dubious; using <code>MIN(trial_duration_days)</code> or picking the earliest with <code>DISTINCT ON</code> would be more defensible. For most prompt shapes one row per group is guaranteed and the GROUP BY is just structural.</li>
+                          <li><strong>Type casts on every output column.</strong> <code>RETURNS TABLE</code> declares <code>VARCHAR(100)</code>, <code>VARCHAR(50)</code>, and <code>INT</code> &mdash; the inner SELECT must produce exactly those types. Postgres won't auto-coerce <code>BIGINT</code> from SUM, won't widen bare <code>VARCHAR</code> to <code>VARCHAR(N)</code>, and won't narrow <code>NUMERIC</code> to <code>INT</code>. Cast each output column or expect "structure of query does not match function result type."</li>
+                          <li><strong><code>ORDER BY trial_duration_days DESC, account_id ASC</code> lives inside RETURN QUERY.</strong> Sorting in the trailing <code>SELECT * FROM fn(...)</code> works too, but putting it inside the function encapsulates the contract &mdash; callers don't have to know the order to get correct results.</li>
+                          <li>Call with <code>SELECT * FROM get_trial_conversions(3, 'Professional');</code>. <code>SELECT get_trial_conversions(3, 'Professional')</code> alone collapses each row into a composite cell.</li>
                         </ul>
                       </div>
                     </details>

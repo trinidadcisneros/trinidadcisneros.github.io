@@ -1,0 +1,93 @@
+{
+  "problem": {
+    "title": "Apply Sequential No-Show Penalties",
+    "prompt": "You manage a telehealth platform that tracks patient appointments. When patients repeatedly miss appointments without canceling, the system applies escalating penalties. Write a DO block that processes the `appointments` table in chronological order (by `scheduled_at`). For each appointment with `status = 'no_show'`, increment that patient's `penalty_points` in the `patients` table by the number of prior no-shows that patient already has plus 1 (so first no-show adds 1 point, second adds 2, third adds 3, etc.). After all updates are complete, select all columns from the `patients` table ordered by `patient_id` ascending. The DO block must process appointments sequentially, updating the penalty_points after each no-show so subsequent no-shows in the same batch see the incremented value.",
+    "schema_ddl": "CREATE TABLE patients (patient_id INT PRIMARY KEY, patient_name VARCHAR(100), penalty_points INT DEFAULT 0); CREATE TABLE appointments (appointment_id INT PRIMARY KEY, patient_id INT, scheduled_at TIMESTAMP, status VARCHAR(20));",
+    "example_input_data": "INSERT INTO patients (patient_id, patient_name, penalty_points) VALUES (1, 'Alice Johnson', 0), (2, 'Bob Smith', 1), (3, 'Carol White', 0); INSERT INTO appointments (appointment_id, patient_id, scheduled_at, status) VALUES (101, 1, '2024-01-10 09:00', 'completed'), (102, 2, '2024-01-11 10:00', 'no_show'), (103, 1, '2024-01-12 14:00', 'no_show'), (104, 3, '2024-01-13 11:00', 'completed'), (105, 1, '2024-01-14 15:00', 'no_show'), (106, 2, '2024-01-15 16:00', 'no_show');",
+    "example_output_columns": [
+      "patient_id",
+      "patient_name",
+      "penalty_points"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "Alice Johnson",
+        3
+      ],
+      [
+        2,
+        "Bob Smith",
+        7
+      ],
+      [
+        3,
+        "Carol White",
+        0
+      ]
+    ],
+    "test_data": "INSERT INTO patients (patient_id, patient_name, penalty_points) VALUES (1, 'Alice Johnson', 0), (2, 'Bob Smith', 2), (3, 'Carol White', 0), (4, 'David Lee', 1), (5, 'Emma Davis', 0); INSERT INTO appointments (appointment_id, patient_id, scheduled_at, status) VALUES (101, 1, '2024-01-05 08:00', 'completed'), (102, 2, '2024-01-06 09:00', 'no_show'), (103, 1, '2024-01-07 10:00', 'no_show'), (104, 3, '2024-01-08 11:00', 'no_show'), (105, 4, '2024-01-09 12:00', 'completed'), (106, 1, '2024-01-10 13:00', 'no_show'), (107, 2, '2024-01-11 14:00', 'completed'), (108, 5, '2024-01-12 15:00', 'no_show'), (109, 1, '2024-01-13 16:00', 'no_show'), (110, 3, '2024-01-14 17:00', 'no_show'), (111, 4, '2024-01-15 18:00', 'no_show'), (112, 5, '2024-01-16 19:00', 'completed'), (113, 2, '2024-01-17 20:00', 'no_show'), (114, 3, '2024-01-18 21:00', 'completed'), (115, 4, '2024-01-19 22:00', 'no_show'), (116, 1, '2024-01-20 08:30', 'completed'), (117, 5, '2024-01-21 09:30', 'no_show'), (118, 2, '2024-01-22 10:30', 'no_show'), (119, 4, '2024-01-23 11:30', 'no_show'), (120, 1, '2024-01-24 12:30', 'no_show');",
+    "test_expected_columns": [
+      "patient_id",
+      "patient_name",
+      "penalty_points"
+    ],
+    "test_expected_rows": [
+      [
+        1,
+        "Alice Johnson",
+        15
+      ],
+      [
+        2,
+        "Bob Smith",
+        23
+      ],
+      [
+        3,
+        "Carol White",
+        3
+      ],
+      [
+        4,
+        "David Lee",
+        15
+      ],
+      [
+        5,
+        "Emma Davis",
+        3
+      ]
+    ],
+    "classification": {
+      "input_arrival": "procedural",
+      "output_shape": "state_mutation",
+      "recipe": "do-block-sequential",
+      "composite_moves": [
+        "declare-cursor-for-ordered-rows",
+        "loop-fetch-each-row",
+        "read-current-penalty",
+        "update-penalty-by-formula",
+        "close-cursor",
+        "trailing-select-mutated-table"
+      ]
+    },
+    "hints": [
+      "You need to process appointments in time order and keep track of each patient's current penalty points as you go.",
+      "Use a cursor to iterate through appointments with status='no_show' ordered by scheduled_at, then for each one read the patient's current penalty_points and add (current_value + 1) to it.",
+      "Declare a cursor like 'DECLARE cur CURSOR FOR SELECT patient_id FROM appointments WHERE status = ''no_show'' ORDER BY scheduled_at', then loop with FETCH cur INTO ... and UPDATE patients SET penalty_points = penalty_points + (SELECT penalty_points FROM patients WHERE patient_id = ... ) + 1."
+    ],
+    "answer_key": "DO $$\nDECLARE\n  cur CURSOR FOR SELECT patient_id FROM appointments WHERE status = 'no_show' ORDER BY scheduled_at;\n  rec RECORD;\n  current_penalty INT;\nBEGIN\n  OPEN cur;\n  LOOP\n    FETCH cur INTO rec;\n    EXIT WHEN NOT FOUND;\n    SELECT penalty_points INTO current_penalty FROM patients WHERE patient_id = rec.patient_id;\n    UPDATE patients SET penalty_points = penalty_points + current_penalty + 1 WHERE patient_id = rec.patient_id;\n  END LOOP;\n  CLOSE cur;\nEND $$;\n\nSELECT * FROM patients ORDER BY patient_id;",
+    "_meta": {
+      "question_type": "do_block",
+      "dialect": "postgresql",
+      "generated_at": "2026-04-30T08:56:44.189075",
+      "problem_id": "9409de2a0f7f",
+      "validation_attempts": 1,
+      "scenario": "a telehealth platform tracking appointment scheduling and no-shows",
+      "dml_op": null
+    }
+  },
+  "user_solution": "DO $$\nDECLARE\n    r RECORD;\n    current_penalty INT;\nBEGIN\n    FOR r IN SELECT * FROM appointments ORDER BY scheduled_at LOOP\n        SELECT penalty_points INTO current_penalty\n        FROM patients\n        WHERE patient_id = r. patient_id;\n\n        IF r.status = 'no_show' THEN\n           UPDATE patients\n           SET penalty_points = current_penalty + penalty_points + 1\n           WHERE patient_id = r. patient_id;\n\n        END IF;\n    END LOOP;\nEND $$;\n\n-- Trailing SELECT so the test scaffold sees output:\nSELECT * FROM patients ORDER BY patient_id;\n",
+  "solved_at": "2026-04-30T10:37:49.376503"
+}

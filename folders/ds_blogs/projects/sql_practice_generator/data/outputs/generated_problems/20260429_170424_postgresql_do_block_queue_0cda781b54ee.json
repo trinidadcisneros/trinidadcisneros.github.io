@@ -1,0 +1,135 @@
+{
+  "title": "Process Article Moderation Queue with State",
+  "prompt": "You are building a content moderation system for a publishing platform. The `articles` table tracks each article's current moderation status and assigned editor. The `moderation_events` table logs every action in chronological order. Each event references an article and specifies an action type: 1 = claim (editor takes ownership), 2 = approve (publish the article), 3 = reject (send back to draft). Rules: (1) Claim succeeds only if the article is currently unclaimed (editor_id IS NULL) and status is 'pending'; it sets editor_id and keeps status 'pending'. (2) Approve succeeds only if the article is 'pending' AND the requesting editor owns it; it sets status to 'published'. (3) Reject succeeds only if the article is 'pending' AND the requesting editor owns it; it sets status to 'draft' and clears editor_id. Write a DO block that iterates `moderation_events` in event_id order, reads the current article state for each event, and conditionally updates `articles` according to these rules. After the DO block, SELECT all columns from `articles` ordered by article_id to show the final state.",
+  "schema_ddl": "CREATE TABLE articles (article_id INT PRIMARY KEY, title VARCHAR(200), status VARCHAR(20), editor_id INT); CREATE TABLE moderation_events (event_id INT PRIMARY KEY, article_id INT, action_type INT, editor_id INT);",
+  "example_input_data": "INSERT INTO articles (article_id, title, status, editor_id) VALUES (1, 'Getting Started with SQL', 'pending', NULL), (2, 'Advanced Query Techniques', 'pending', NULL), (3, 'Database Design Principles', 'draft', NULL), (4, 'Performance Tuning Guide', 'pending', 42); INSERT INTO moderation_events (event_id, article_id, action_type, editor_id) VALUES (1, 1, 1, 10), (2, 1, 2, 10), (3, 2, 1, 20), (4, 3, 1, 10), (5, 2, 2, 10), (6, 4, 3, 42);",
+  "example_output_columns": [
+    "article_id",
+    "title",
+    "status",
+    "editor_id"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Getting Started with SQL",
+      "published",
+      10.0
+    ],
+    [
+      2,
+      "Advanced Query Techniques",
+      "pending",
+      20.0
+    ],
+    [
+      3,
+      "Database Design Principles",
+      "draft",
+      null
+    ],
+    [
+      4,
+      "Performance Tuning Guide",
+      "draft",
+      null
+    ]
+  ],
+  "test_data": "INSERT INTO articles (article_id, title, status, editor_id) VALUES (101, 'Intro to Indexes', 'pending', NULL), (102, 'Join Optimization', 'pending', NULL), (103, 'Transaction Isolation', 'draft', NULL), (104, 'Backup Strategies', 'pending', 55), (105, 'Replication Setup', 'pending', NULL), (106, 'Security Best Practices', 'pending', 77), (107, 'Migration Patterns', 'draft', NULL), (108, 'Monitoring Tools', 'pending', NULL), (109, 'Scaling Techniques', 'published', 99), (110, 'Cloud Databases', 'pending', NULL); INSERT INTO moderation_events (event_id, article_id, action_type, editor_id) VALUES (1001, 101, 1, 10), (1002, 102, 1, 20), (1003, 101, 2, 10), (1004, 103, 1, 10), (1005, 102, 2, 20), (1006, 104, 3, 55), (1007, 104, 1, 30), (1008, 105, 1, 40), (1009, 105, 3, 40), (1010, 105, 1, 50), (1011, 106, 2, 77), (1012, 107, 2, 60), (1013, 108, 1, 70), (1014, 108, 2, 80), (1015, 109, 1, 90), (1016, 110, 1, 10), (1017, 110, 3, 10), (1018, 110, 1, 20), (1019, 110, 2, 20), (1020, 102, 3, 30);",
+  "test_expected_columns": [
+    "article_id",
+    "title",
+    "status",
+    "editor_id"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      "Intro to Indexes",
+      "published",
+      10.0
+    ],
+    [
+      102,
+      "Join Optimization",
+      "published",
+      20.0
+    ],
+    [
+      103,
+      "Transaction Isolation",
+      "draft",
+      null
+    ],
+    [
+      104,
+      "Backup Strategies",
+      "draft",
+      null
+    ],
+    [
+      105,
+      "Replication Setup",
+      "draft",
+      null
+    ],
+    [
+      106,
+      "Security Best Practices",
+      "published",
+      77.0
+    ],
+    [
+      107,
+      "Migration Patterns",
+      "draft",
+      null
+    ],
+    [
+      108,
+      "Monitoring Tools",
+      "pending",
+      70.0
+    ],
+    [
+      109,
+      "Scaling Techniques",
+      "published",
+      99.0
+    ],
+    [
+      110,
+      "Cloud Databases",
+      "draft",
+      null
+    ]
+  ],
+  "classification": {
+    "input_arrival": "procedural",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "declare record and scalar variables for current state",
+      "FOR loop over request log in ID order",
+      "read current state into variables each iteration",
+      "branch on request type AND current state",
+      "conditionally UPDATE state row in matching branch",
+      "trailing SELECT to snapshot final state"
+    ]
+  },
+  "hints": [
+    "You need to process events one at a time in order, checking the article's current state before deciding what to do.",
+    "Use a FOR loop over moderation_events ordered by event_id. Inside the loop, SELECT the article's current status and editor_id into variables, then use IF/ELSIF to match action_type and state conditions.",
+    "Declare variables like cur_status VARCHAR(20) and cur_editor INT. For each event, do SELECT status, editor_id INTO cur_status, cur_editor FROM articles WHERE article_id = rec.article_id. Then IF rec.action_type = 1 AND cur_status = 'pending' AND cur_editor IS NULL THEN UPDATE articles SET editor_id = rec.editor_id WHERE article_id = rec.article_id; etc."
+  ],
+  "answer_key": "DO $$ DECLARE rec RECORD; cur_status VARCHAR(20); cur_editor INT; BEGIN FOR rec IN SELECT * FROM moderation_events ORDER BY event_id LOOP SELECT status, editor_id INTO cur_status, cur_editor FROM articles WHERE article_id = rec.article_id; IF rec.action_type = 1 AND cur_status = 'pending' AND cur_editor IS NULL THEN UPDATE articles SET editor_id = rec.editor_id WHERE article_id = rec.article_id; ELSIF rec.action_type = 2 AND cur_status = 'pending' AND cur_editor = rec.editor_id THEN UPDATE articles SET status = 'published' WHERE article_id = rec.article_id; ELSIF rec.action_type = 3 AND cur_status = 'pending' AND cur_editor = rec.editor_id THEN UPDATE articles SET status = 'draft', editor_id = NULL WHERE article_id = rec.article_id; END IF; END LOOP; END $$; SELECT * FROM articles ORDER BY article_id;",
+  "_meta": {
+    "question_type": "do_block_queue",
+    "dialect": "postgresql",
+    "generated_at": "2026-04-29T17:04:24.684942",
+    "problem_id": "0cda781b54ee",
+    "validation_attempts": 1,
+    "scenario": "a publishing platform tracking article views, comments, and editor approvals",
+    "dml_op": null
+  }
+}

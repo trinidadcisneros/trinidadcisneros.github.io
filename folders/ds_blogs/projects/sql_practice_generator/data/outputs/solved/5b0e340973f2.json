@@ -1,0 +1,101 @@
+{
+  "problem": {
+    "title": "Driver Shift Completion Rate Function",
+    "prompt": "You are analyzing driver performance on a ride-share platform. Write a PostgreSQL function named `get_driver_shift_summary` that accepts two parameters: `p_min_trips INTEGER` and `p_min_completion_rate DECIMAL(5,2)`. The function should return a table with columns `driver_id INTEGER`, `shift_date DATE`, `total_trips INTEGER`, and `completion_rate DECIMAL(5,2)`. For each driver and shift date, calculate the total number of trips they accepted and their completion rate (completed trips / total trips * 100, rounded to 2 decimals). Only include rows where the driver completed at least `p_min_trips` trips AND their completion rate is at least `p_min_completion_rate`. Order results by driver_id ascending, then shift_date ascending. The function signature must be: `CREATE OR REPLACE FUNCTION get_driver_shift_summary(p_min_trips INTEGER, p_min_completion_rate DECIMAL(5,2)) RETURNS TABLE (driver_id INTEGER, shift_date DATE, total_trips INTEGER, completion_rate DECIMAL(5,2))`.",
+    "schema_ddl": "CREATE TABLE driver_shifts (shift_id SERIAL PRIMARY KEY, driver_id INTEGER NOT NULL, shift_date DATE NOT NULL, shift_start_time TIME NOT NULL, shift_end_time TIME NOT NULL); CREATE TABLE trips (trip_id SERIAL PRIMARY KEY, driver_id INTEGER NOT NULL, trip_date DATE NOT NULL, trip_status VARCHAR(20) NOT NULL);",
+    "example_input_data": "INSERT INTO driver_shifts (shift_id, driver_id, shift_date, shift_start_time, shift_end_time) VALUES (1, 101, '2024-01-15', '08:00:00', '16:00:00'), (2, 101, '2024-01-16', '08:00:00', '16:00:00'), (3, 102, '2024-01-15', '09:00:00', '17:00:00'), (4, 103, '2024-01-15', '10:00:00', '18:00:00'); INSERT INTO trips (trip_id, driver_id, trip_date, trip_status) VALUES (1, 101, '2024-01-15', 'completed'), (2, 101, '2024-01-15', 'completed'), (3, 101, '2024-01-15', 'completed'), (4, 101, '2024-01-15', 'cancelled'), (5, 101, '2024-01-16', 'completed'), (6, 101, '2024-01-16', 'completed'), (7, 102, '2024-01-15', 'completed'), (8, 102, '2024-01-15', 'completed'), (9, 102, '2024-01-15', 'completed'), (10, 102, '2024-01-15', 'completed'), (11, 102, '2024-01-15', 'completed'), (12, 103, '2024-01-15', 'completed'), (13, 103, '2024-01-15', 'cancelled'), (14, 103, '2024-01-15', 'cancelled');",
+    "example_output_columns": [
+      "driver_id",
+      "shift_date",
+      "total_trips",
+      "completion_rate"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "2024-01-15",
+        4,
+        "75.00"
+      ],
+      [
+        102,
+        "2024-01-15",
+        5,
+        "100.00"
+      ]
+    ],
+    "test_data": "INSERT INTO driver_shifts (shift_id, driver_id, shift_date, shift_start_time, shift_end_time) VALUES (101, 201, '2024-02-01', '06:00:00', '14:00:00'), (102, 201, '2024-02-02', '06:00:00', '14:00:00'), (103, 201, '2024-02-03', '06:00:00', '14:00:00'), (104, 202, '2024-02-01', '07:00:00', '15:00:00'), (105, 202, '2024-02-02', '07:00:00', '15:00:00'), (106, 203, '2024-02-01', '08:00:00', '16:00:00'), (107, 203, '2024-02-02', '08:00:00', '16:00:00'), (108, 204, '2024-02-01', '09:00:00', '17:00:00'), (109, 205, '2024-02-01', '10:00:00', '18:00:00'), (110, 205, '2024-02-02', '10:00:00', '18:00:00'); INSERT INTO trips (trip_id, driver_id, trip_date, trip_status) VALUES (101, 201, '2024-02-01', 'completed'), (102, 201, '2024-02-01', 'completed'), (103, 201, '2024-02-01', 'completed'), (104, 201, '2024-02-01', 'cancelled'), (105, 201, '2024-02-01', 'completed'), (106, 201, '2024-02-02', 'completed'), (107, 201, '2024-02-02', 'completed'), (108, 201, '2024-02-02', 'completed'), (109, 201, '2024-02-03', 'completed'), (110, 201, '2024-02-03', 'completed'), (111, 201, '2024-02-03', 'cancelled'), (112, 202, '2024-02-01', 'completed'), (113, 202, '2024-02-01', 'completed'), (114, 202, '2024-02-01', 'completed'), (115, 202, '2024-02-01', 'completed'), (116, 202, '2024-02-01', 'completed'), (117, 202, '2024-02-01', 'completed'), (118, 202, '2024-02-02', 'completed'), (119, 202, '2024-02-02', 'completed'), (120, 202, '2024-02-02', 'completed'), (121, 202, '2024-02-02', 'cancelled'), (122, 203, '2024-02-01', 'completed'), (123, 203, '2024-02-01', 'cancelled'), (124, 203, '2024-02-01', 'cancelled'), (125, 203, '2024-02-02', 'completed'), (126, 203, '2024-02-02', 'completed'), (127, 203, '2024-02-02', 'completed'), (128, 203, '2024-02-02', 'completed'), (129, 204, '2024-02-01', 'cancelled'), (130, 204, '2024-02-01', 'cancelled'), (131, 204, '2024-02-01', 'cancelled'), (132, 205, '2024-02-01', 'completed'), (133, 205, '2024-02-02', 'completed'), (134, 205, '2024-02-02', 'completed'), (135, 205, '2024-02-02', 'completed');",
+    "test_expected_columns": [
+      "driver_id",
+      "shift_date",
+      "total_trips",
+      "completion_rate"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "2024-02-01",
+        5,
+        "80.00"
+      ],
+      [
+        201,
+        "2024-02-02",
+        3,
+        "100.00"
+      ],
+      [
+        202,
+        "2024-02-01",
+        6,
+        "100.00"
+      ],
+      [
+        202,
+        "2024-02-02",
+        4,
+        "75.00"
+      ],
+      [
+        203,
+        "2024-02-02",
+        4,
+        "100.00"
+      ],
+      [
+        205,
+        "2024-02-02",
+        3,
+        "100.00"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "function-wrapped",
+      "composite_moves": [
+        "enrich-join (trips to driver_shifts on driver_id and date)",
+        "group-aggregate (by driver_id, shift_date)",
+        "row-filter (WHERE completed_trips >= p_min_trips AND rate >= p_min_completion_rate)",
+        "function-wrapped (encapsulate in RETURNS TABLE)"
+      ]
+    },
+    "hints": [
+      "You'll need to aggregate trip data per driver and date, filtering by both trip count and completion percentage.",
+      "Use a GROUP BY on driver_id and trip_date, then calculate the completion rate as (COUNT of completed) / (COUNT of all) * 100. Apply the parameter filters in a HAVING or WHERE clause after aggregation.",
+      "Inside the function body, write a RETURN QUERY with a SELECT that groups trips by t.driver_id and t.trip_date, computes total trips and completion rate, filters using HAVING or a subquery WHERE clause based on the parameters, and orders by driver_id and shift_date. Alias the source table and qualify all columns to avoid shadowing the RETURNS TABLE columns."
+    ],
+    "answer_key": "CREATE OR REPLACE FUNCTION get_driver_shift_summary(p_min_trips INTEGER, p_min_completion_rate DECIMAL(5,2)) RETURNS TABLE (driver_id INTEGER, shift_date DATE, total_trips INTEGER, completion_rate DECIMAL(5,2)) AS $$ BEGIN RETURN QUERY (SELECT t.driver_id, t.trip_date AS shift_date, COUNT(*)::INTEGER AS total_trips, ROUND((SUM(CASE WHEN t.trip_status = 'completed' THEN 1 ELSE 0 END)::DECIMAL / COUNT(*)) * 100, 2) AS completion_rate FROM trips t GROUP BY t.driver_id, t.trip_date HAVING SUM(CASE WHEN t.trip_status = 'completed' THEN 1 ELSE 0 END) >= p_min_trips AND ROUND((SUM(CASE WHEN t.trip_status = 'completed' THEN 1 ELSE 0 END)::DECIMAL / COUNT(*)) * 100, 2) >= p_min_completion_rate ORDER BY t.driver_id, t.trip_date); END; $$ LANGUAGE plpgsql; SELECT * FROM get_driver_shift_summary(3, 75.00);",
+    "_meta": {
+      "question_type": "returns_table",
+      "dialect": "postgresql",
+      "generated_at": "2026-04-30T11:10:01.172044",
+      "problem_id": "5b0e340973f2",
+      "validation_attempts": 1,
+      "scenario": "a ride-share platform tracking driver shifts and trip completion rates",
+      "dml_op": null
+    }
+  },
+  "user_solution": "CREATE OR REPLACE FUNCTION get_driver_shift_summary(p_min_trips INT, p_min_completion_rate DECIMAL(5,2) ) \nRETURNS TABLE (driver_id INT, shift_date DATE, total_trips INT, completion_rate DECIMAL(5,2) ) AS $$\nBEGIN\n    RETURN QUERY (\n    WITH base AS (\n        SELECT\n            t.driver_id,\n            t.trip_date AS shift_date,\n            COUNT(t.trip_id) AS total_trips,\n            SUM(CASE WHEN t.trip_status = 'completed' THEN 1.0 ELSE 0 END) AS total_completed_trips,\n            COALESCE(\n            ROUND(AVG(CASE WHEN t.trip_status = 'completed' THEN 1.0 ELSE 0 END) * 100, 2), \n            0.00) AS completion_rate\n        FROM trips AS t\n        GROUP BY 1, 2\n    )\n    SELECT\n         d.driver_id::int,\n         d.shift_date::date,\n         b.total_trips::int,\n         b.completion_rate::decimal(5,2)\n    FROM driver_shifts AS d\n    INNER JOIN base AS b\n    ON d.driver_id = b.driver_id AND b.shift_date = d.shift_date\n    WHERE b.total_completed_trips >= p_min_trips AND b.completion_rate >= p_min_completion_rate\n    ORDER BY b.driver_id, b.shift_date ASC\n    );\nEND;\n$$ LANGUAGE PLPGSQL;\n\n\n-- Trailing select\nSELECT * FROM get_driver_shift_summary(3, 50) ORDER BY driver_id, shift_date ASC;\n\n\n\n\n",
+  "solved_at": "2026-04-30T12:02:39.525399"
+}

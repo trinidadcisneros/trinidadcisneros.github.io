@@ -1,0 +1,266 @@
+{
+  "problem": {
+    "title": "Sequential Claim Adjustment Processing",
+    "prompt": "A hospital revenue cycle team has a table of insurance claims that need sequential adjustments based on denial codes. Write a DO block that processes claims in order of submission_date (oldest first), then claim_id (ascending) as tiebreaker. For each claim in order: (1) If denial_code is 'CO-45' and billed_amount > 500, reduce billed_amount by 15% (multiply by 0.85). (2) Then, if the resulting billed_amount is now <= 200, set status to 'WITHDRAWN'. (3) Then, if status is 'PENDING' and denial_code is 'PR-1', add 50 to billed_amount. After the DO block, write a SELECT statement that returns all columns from the claims table ordered by claim_id ascending. The test harness will capture the output of that SELECT.",
+    "schema_ddl": "CREATE TABLE claims (claim_id INT PRIMARY KEY, patient_account VARCHAR(20), submission_date DATE, denial_code VARCHAR(10), billed_amount DECIMAL(10,2), status VARCHAR(20));",
+    "example_input_data": "INSERT INTO claims (claim_id, patient_account, submission_date, denial_code, billed_amount, status) VALUES (101, 'PA-2001', '2024-01-05', 'CO-45', 600.00, 'PENDING'), (102, 'PA-2002', '2024-01-05', 'PR-1', 150.00, 'PENDING'), (103, 'PA-2003', '2024-01-06', 'CO-45', 400.00, 'PENDING'), (104, 'PA-2004', '2024-01-07', 'CO-45', 250.00, 'PENDING'), (105, 'PA-2005', '2024-01-08', 'PR-1', 180.00, 'PENDING'), (106, 'PA-2006', '2024-01-08', 'CO-22', 300.00, 'PENDING');",
+    "example_output_columns": [
+      "claim_id",
+      "patient_account",
+      "submission_date",
+      "denial_code",
+      "billed_amount",
+      "status"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "PA-2001",
+        "2024-01-05",
+        "CO-45",
+        "510.00",
+        "PENDING"
+      ],
+      [
+        102,
+        "PA-2002",
+        "2024-01-05",
+        "PR-1",
+        "150.00",
+        "WITHDRAWN"
+      ],
+      [
+        103,
+        "PA-2003",
+        "2024-01-06",
+        "CO-45",
+        "400.00",
+        "PENDING"
+      ],
+      [
+        104,
+        "PA-2004",
+        "2024-01-07",
+        "CO-45",
+        "250.00",
+        "PENDING"
+      ],
+      [
+        105,
+        "PA-2005",
+        "2024-01-08",
+        "PR-1",
+        "180.00",
+        "WITHDRAWN"
+      ],
+      [
+        106,
+        "PA-2006",
+        "2024-01-08",
+        "CO-22",
+        "300.00",
+        "PENDING"
+      ]
+    ],
+    "test_data": "INSERT INTO claims (claim_id, patient_account, submission_date, denial_code, billed_amount, status) VALUES (201, 'PA-3001', '2024-02-01', 'CO-45', 700.00, 'PENDING'), (202, 'PA-3002', '2024-02-01', 'CO-45', 235.00, 'PENDING'), (203, 'PA-3003', '2024-02-02', 'PR-1', 160.00, 'PENDING'), (204, 'PA-3004', '2024-02-02', 'CO-45', 520.00, 'PENDING'), (205, 'PA-3005', '2024-02-03', 'PR-1', 150.00, 'PENDING'), (206, 'PA-3006', '2024-02-03', 'CO-22', 450.00, 'PENDING'), (207, 'PA-3007', '2024-02-04', 'CO-45', 240.00, 'PENDING'), (208, 'PA-3008', '2024-02-04', 'PR-1', 175.00, 'WITHDRAWN'), (209, 'PA-3009', '2024-02-05', 'CO-45', 600.00, 'PENDING'), (210, 'PA-3010', '2024-02-05', 'PR-1', 155.00, 'PENDING'), (211, 'PA-3011', '2024-02-06', 'CO-45', 230.00, 'PENDING'), (212, 'PA-3012', '2024-02-06', 'CO-45', 800.00, 'PENDING'), (213, 'PA-3013', '2024-02-07', 'PR-1', 140.00, 'PENDING'), (214, 'PA-3014', '2024-02-07', 'CO-45', 510.00, 'PENDING'), (215, 'PA-3015', '2024-02-08', 'PR-1', 190.00, 'PENDING'), (216, 'PA-3016', '2024-02-08', 'CO-45', 245.00, 'PENDING'), (217, 'PA-3017', '2024-02-09', 'CO-22', 320.00, 'PENDING'), (218, 'PA-3018', '2024-02-09', 'PR-1', 165.00, 'PENDING'), (219, 'PA-3019', '2024-02-10', 'CO-45', 550.00, 'PENDING'), (220, 'PA-3020', '2024-02-10', 'PR-1', 200.00, 'PENDING');",
+    "test_expected_columns": [
+      "claim_id",
+      "patient_account",
+      "submission_date",
+      "denial_code",
+      "billed_amount",
+      "status"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "PA-3001",
+        "2024-02-01",
+        "CO-45",
+        "595.00",
+        "PENDING"
+      ],
+      [
+        202,
+        "PA-3002",
+        "2024-02-01",
+        "CO-45",
+        "235.00",
+        "PENDING"
+      ],
+      [
+        203,
+        "PA-3003",
+        "2024-02-02",
+        "PR-1",
+        "160.00",
+        "WITHDRAWN"
+      ],
+      [
+        204,
+        "PA-3004",
+        "2024-02-02",
+        "CO-45",
+        "442.00",
+        "PENDING"
+      ],
+      [
+        205,
+        "PA-3005",
+        "2024-02-03",
+        "PR-1",
+        "150.00",
+        "WITHDRAWN"
+      ],
+      [
+        206,
+        "PA-3006",
+        "2024-02-03",
+        "CO-22",
+        "450.00",
+        "PENDING"
+      ],
+      [
+        207,
+        "PA-3007",
+        "2024-02-04",
+        "CO-45",
+        "240.00",
+        "PENDING"
+      ],
+      [
+        208,
+        "PA-3008",
+        "2024-02-04",
+        "PR-1",
+        "175.00",
+        "WITHDRAWN"
+      ],
+      [
+        209,
+        "PA-3009",
+        "2024-02-05",
+        "CO-45",
+        "510.00",
+        "PENDING"
+      ],
+      [
+        210,
+        "PA-3010",
+        "2024-02-05",
+        "PR-1",
+        "155.00",
+        "WITHDRAWN"
+      ],
+      [
+        211,
+        "PA-3011",
+        "2024-02-06",
+        "CO-45",
+        "230.00",
+        "PENDING"
+      ],
+      [
+        212,
+        "PA-3012",
+        "2024-02-06",
+        "CO-45",
+        "680.00",
+        "PENDING"
+      ],
+      [
+        213,
+        "PA-3013",
+        "2024-02-07",
+        "PR-1",
+        "140.00",
+        "WITHDRAWN"
+      ],
+      [
+        214,
+        "PA-3014",
+        "2024-02-07",
+        "CO-45",
+        "433.50",
+        "PENDING"
+      ],
+      [
+        215,
+        "PA-3015",
+        "2024-02-08",
+        "PR-1",
+        "190.00",
+        "WITHDRAWN"
+      ],
+      [
+        216,
+        "PA-3016",
+        "2024-02-08",
+        "CO-45",
+        "245.00",
+        "PENDING"
+      ],
+      [
+        217,
+        "PA-3017",
+        "2024-02-09",
+        "CO-22",
+        "320.00",
+        "PENDING"
+      ],
+      [
+        218,
+        "PA-3018",
+        "2024-02-09",
+        "PR-1",
+        "165.00",
+        "WITHDRAWN"
+      ],
+      [
+        219,
+        "PA-3019",
+        "2024-02-10",
+        "CO-45",
+        "467.50",
+        "PENDING"
+      ],
+      [
+        220,
+        "PA-3020",
+        "2024-02-10",
+        "PR-1",
+        "200.00",
+        "WITHDRAWN"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "procedural",
+      "output_shape": "state_mutation",
+      "recipe": "do-block-sequential",
+      "composite_moves": [
+        "fetch-ordered-cursor",
+        "conditional-update-step1",
+        "conditional-update-step2",
+        "conditional-update-step3",
+        "trailing-select"
+      ]
+    },
+    "hints": [
+      "You need to process claims one at a time in a specific order, applying multiple conditional rules to each claim before moving to the next.",
+      "Use a FOR loop with an ORDER BY clause to iterate through claims by submission_date then claim_id. Inside the loop, use IF statements to check conditions and UPDATE the current claim_id.",
+      "For each claim in order: first check CO-45 and amount > 500 to reduce by 15%, then check if the new amount <= 200 to withdraw, then check PENDING status with PR-1 to add 50. Each UPDATE should use WHERE claim_id = current_claim to modify one row at a time."
+    ],
+    "answer_key": "DO $$\nDECLARE\n  rec RECORD;\nBEGIN\n  FOR rec IN\n    SELECT claim_id, denial_code, billed_amount, status\n    FROM claims\n    ORDER BY submission_date, claim_id\n  LOOP\n    IF rec.denial_code = 'CO-45' AND rec.billed_amount > 500 THEN\n      UPDATE claims\n      SET billed_amount = billed_amount * 0.85\n      WHERE claim_id = rec.claim_id;\n      \n      SELECT billed_amount, status INTO rec.billed_amount, rec.status\n      FROM claims\n      WHERE claim_id = rec.claim_id;\n    END IF;\n    \n    IF rec.billed_amount <= 200 THEN\n      UPDATE claims\n      SET status = 'WITHDRAWN'\n      WHERE claim_id = rec.claim_id;\n      \n      SELECT status INTO rec.status\n      FROM claims\n      WHERE claim_id = rec.claim_id;\n    END IF;\n    \n    IF rec.status = 'PENDING' AND rec.denial_code = 'PR-1' THEN\n      UPDATE claims\n      SET billed_amount = billed_amount + 50\n      WHERE claim_id = rec.claim_id;\n    END IF;\n  END LOOP;\nEND $$;\n\nSELECT * FROM claims ORDER BY claim_id;",
+    "_meta": {
+      "question_type": "do_block",
+      "dialect": "postgresql",
+      "generated_at": "2026-04-29T16:52:41.254845",
+      "problem_id": "1942cdb55709",
+      "validation_attempts": 1,
+      "scenario": "a hospital revenue cycle team tracking claim submissions and denial reasons",
+      "dml_op": null
+    }
+  },
+  "user_solution": "DO $$\nBEGIN\n    \n    UPDATE claims\n    SET billed_amount = billed_amount * .85\n    WHERE denial_code = 'CO-45' AND  billed_amount > 500;\n    \n    UPDATE claims\n    SET status = 'WITHDRAWN'\n    WHERE billed_amount <= 200;\n    \n    UPDATE claims\n    SET billed_amount = billed_amount + 50\n    WHERE status = 'PENDING' AND denial_code = 'PR-1';\n\nEND $$;\n\nSELECT * FROM claims ORDER BY claim_id;",
+  "solved_at": "2026-04-29T17:03:10.449776"
+}

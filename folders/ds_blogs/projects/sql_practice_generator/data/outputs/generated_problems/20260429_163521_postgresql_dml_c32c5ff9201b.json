@@ -1,0 +1,257 @@
+{
+  "title": "Archive Completed Driver Shifts to History",
+  "prompt": "You are building a ride-share platform's data pipeline. The `active_shifts` table tracks ongoing driver shifts with real-time trip counts. When a shift ends (marked by a non-NULL `ended_at` timestamp), it should be archived to `shift_history` with calculated metrics. Write a single INSERT statement that copies all completed shifts from `active_shifts` to `shift_history`, transforming the data as follows: calculate `completion_rate` as trips_completed divided by trips_accepted (as a DECIMAL rounded to 4 places; use 0.0000 if trips_accepted is zero), calculate `shift_duration_minutes` as the difference in minutes between `started_at` and `ended_at`, and set `archived_at` to the current timestamp (use CURRENT_TIMESTAMP). Only archive shifts where `ended_at` is NOT NULL. After the INSERT, select all rows from `shift_history` ordered by shift_id to confirm the result.",
+  "schema_ddl": "CREATE TABLE active_shifts (shift_id INT PRIMARY KEY, driver_id INT NOT NULL, started_at TIMESTAMP NOT NULL, ended_at TIMESTAMP, trips_accepted INT NOT NULL DEFAULT 0, trips_completed INT NOT NULL DEFAULT 0); CREATE TABLE shift_history (shift_id INT PRIMARY KEY, driver_id INT NOT NULL, started_at TIMESTAMP NOT NULL, ended_at TIMESTAMP NOT NULL, shift_duration_minutes INT NOT NULL, trips_accepted INT NOT NULL, trips_completed INT NOT NULL, completion_rate DECIMAL(6,4) NOT NULL, archived_at TIMESTAMP NOT NULL);",
+  "example_input_data": "INSERT INTO active_shifts (shift_id, driver_id, started_at, ended_at, trips_accepted, trips_completed) VALUES (101, 5001, '2024-01-15 08:00:00', '2024-01-15 16:30:00', 20, 18), (102, 5002, '2024-01-15 09:00:00', NULL, 15, 12), (103, 5003, '2024-01-15 07:00:00', '2024-01-15 15:00:00', 25, 25), (104, 5004, '2024-01-15 10:00:00', '2024-01-15 14:00:00', 0, 0), (105, 5005, '2024-01-15 11:00:00', '2024-01-15 19:00:00', 30, 27);",
+  "example_output_columns": [
+    "shift_id",
+    "driver_id",
+    "started_at",
+    "ended_at",
+    "shift_duration_minutes",
+    "trips_accepted",
+    "trips_completed",
+    "completion_rate",
+    "archived_at"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      5001,
+      "2024-01-15 08:00:00",
+      "2024-01-15 16:30:00",
+      510,
+      20,
+      18,
+      "0.9000",
+      "2026-04-29 23:35:21.714138"
+    ],
+    [
+      103,
+      5003,
+      "2024-01-15 07:00:00",
+      "2024-01-15 15:00:00",
+      480,
+      25,
+      25,
+      "1.0000",
+      "2026-04-29 23:35:21.714138"
+    ],
+    [
+      104,
+      5004,
+      "2024-01-15 10:00:00",
+      "2024-01-15 14:00:00",
+      240,
+      0,
+      0,
+      "0.0000",
+      "2026-04-29 23:35:21.714138"
+    ],
+    [
+      105,
+      5005,
+      "2024-01-15 11:00:00",
+      "2024-01-15 19:00:00",
+      480,
+      30,
+      27,
+      "0.9000",
+      "2026-04-29 23:35:21.714138"
+    ]
+  ],
+  "test_data": "INSERT INTO active_shifts (shift_id, driver_id, started_at, ended_at, trips_accepted, trips_completed) VALUES (201, 6001, '2024-01-20 06:00:00', '2024-01-20 14:15:00', 18, 16), (202, 6002, '2024-01-20 07:30:00', NULL, 22, 20), (203, 6003, '2024-01-20 08:00:00', '2024-01-20 17:45:00', 35, 35), (204, 6004, '2024-01-20 09:00:00', NULL, 10, 8), (205, 6005, '2024-01-20 10:00:00', '2024-01-20 18:30:00', 28, 24), (206, 6006, '2024-01-20 11:00:00', '2024-01-20 20:00:00', 40, 38), (207, 6007, '2024-01-20 12:00:00', '2024-01-20 13:00:00', 5, 3), (208, 6008, '2024-01-20 13:00:00', NULL, 0, 0), (209, 6009, '2024-01-20 14:00:00', '2024-01-20 22:00:00', 32, 30), (210, 6010, '2024-01-20 15:00:00', '2024-01-20 23:59:00', 45, 42), (211, 6011, '2024-01-20 16:00:00', NULL, 12, 11), (212, 6012, '2024-01-20 17:00:00', '2024-01-21 01:00:00', 50, 48), (213, 6013, '2024-01-20 18:00:00', '2024-01-20 19:30:00', 8, 8), (214, 6014, '2024-01-20 19:00:00', '2024-01-20 23:00:00', 0, 0), (215, 6015, '2024-01-20 20:00:00', NULL, 15, 14), (216, 6016, '2024-01-20 21:00:00', '2024-01-21 05:00:00', 38, 35), (217, 6017, '2024-01-20 22:00:00', '2024-01-21 06:00:00', 42, 40), (218, 6018, '2024-01-20 23:00:00', NULL, 5, 4), (219, 6019, '2024-01-21 00:00:00', '2024-01-21 08:00:00', 30, 28), (220, 6020, '2024-01-21 01:00:00', '2024-01-21 09:00:00', 1, 1);",
+  "test_expected_columns": [
+    "shift_id",
+    "driver_id",
+    "started_at",
+    "ended_at",
+    "shift_duration_minutes",
+    "trips_accepted",
+    "trips_completed",
+    "completion_rate",
+    "archived_at"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      6001,
+      "2024-01-20 06:00:00",
+      "2024-01-20 14:15:00",
+      495,
+      18,
+      16,
+      "0.8889",
+      "2026-04-29 23:35:21.783338"
+    ],
+    [
+      203,
+      6003,
+      "2024-01-20 08:00:00",
+      "2024-01-20 17:45:00",
+      585,
+      35,
+      35,
+      "1.0000",
+      "2026-04-29 23:35:21.783338"
+    ],
+    [
+      205,
+      6005,
+      "2024-01-20 10:00:00",
+      "2024-01-20 18:30:00",
+      510,
+      28,
+      24,
+      "0.8571",
+      "2026-04-29 23:35:21.783338"
+    ],
+    [
+      206,
+      6006,
+      "2024-01-20 11:00:00",
+      "2024-01-20 20:00:00",
+      540,
+      40,
+      38,
+      "0.9500",
+      "2026-04-29 23:35:21.783338"
+    ],
+    [
+      207,
+      6007,
+      "2024-01-20 12:00:00",
+      "2024-01-20 13:00:00",
+      60,
+      5,
+      3,
+      "0.6000",
+      "2026-04-29 23:35:21.783338"
+    ],
+    [
+      209,
+      6009,
+      "2024-01-20 14:00:00",
+      "2024-01-20 22:00:00",
+      480,
+      32,
+      30,
+      "0.9375",
+      "2026-04-29 23:35:21.783338"
+    ],
+    [
+      210,
+      6010,
+      "2024-01-20 15:00:00",
+      "2024-01-20 23:59:00",
+      539,
+      45,
+      42,
+      "0.9333",
+      "2026-04-29 23:35:21.783338"
+    ],
+    [
+      212,
+      6012,
+      "2024-01-20 17:00:00",
+      "2024-01-21 01:00:00",
+      480,
+      50,
+      48,
+      "0.9600",
+      "2026-04-29 23:35:21.783338"
+    ],
+    [
+      213,
+      6013,
+      "2024-01-20 18:00:00",
+      "2024-01-20 19:30:00",
+      90,
+      8,
+      8,
+      "1.0000",
+      "2026-04-29 23:35:21.783338"
+    ],
+    [
+      214,
+      6014,
+      "2024-01-20 19:00:00",
+      "2024-01-20 23:00:00",
+      240,
+      0,
+      0,
+      "0.0000",
+      "2026-04-29 23:35:21.783338"
+    ],
+    [
+      216,
+      6016,
+      "2024-01-20 21:00:00",
+      "2024-01-21 05:00:00",
+      480,
+      38,
+      35,
+      "0.9211",
+      "2026-04-29 23:35:21.783338"
+    ],
+    [
+      217,
+      6017,
+      "2024-01-20 22:00:00",
+      "2024-01-21 06:00:00",
+      480,
+      42,
+      40,
+      "0.9524",
+      "2026-04-29 23:35:21.783338"
+    ],
+    [
+      219,
+      6019,
+      "2024-01-21 00:00:00",
+      "2024-01-21 08:00:00",
+      480,
+      30,
+      28,
+      "0.9333",
+      "2026-04-29 23:35:21.783338"
+    ],
+    [
+      220,
+      6020,
+      "2024-01-21 01:00:00",
+      "2024-01-21 09:00:00",
+      480,
+      1,
+      1,
+      "1.0000",
+      "2026-04-29 23:35:21.783338"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "state_mutation",
+    "recipe": "row-filter",
+    "composite_moves": [
+      "row-filter: WHERE ended_at IS NOT NULL",
+      "row-transform: calculate completion_rate with division and CASE for zero-handling",
+      "row-transform: calculate shift_duration_minutes with EXTRACT(EPOCH FROM (ended_at - started_at))/60",
+      "row-transform: set archived_at to CURRENT_TIMESTAMP"
+    ]
+  },
+  "hints": [
+    "You need to copy rows from one table to another, but only certain rows qualify.",
+    "Use INSERT INTO ... SELECT with a WHERE clause to filter which shifts get archived. Calculate derived columns in the SELECT list.",
+    "For the completion rate, handle division by zero with a CASE expression: CASE WHEN trips_accepted = 0 THEN 0.0000 ELSE ROUND(trips_completed::DECIMAL / trips_accepted, 4) END. For duration, use EXTRACT(EPOCH FROM (ended_at - started_at)) / 60 and cast to INT."
+  ],
+  "answer_key": "INSERT INTO shift_history (shift_id, driver_id, started_at, ended_at, shift_duration_minutes, trips_accepted, trips_completed, completion_rate, archived_at)\nSELECT \n  shift_id,\n  driver_id,\n  started_at,\n  ended_at,\n  CAST(EXTRACT(EPOCH FROM (ended_at - started_at)) / 60 AS INT) AS shift_duration_minutes,\n  trips_accepted,\n  trips_completed,\n  CASE \n    WHEN trips_accepted = 0 THEN 0.0000\n    ELSE ROUND(trips_completed::DECIMAL / trips_accepted, 4)\n  END AS completion_rate,\n  CURRENT_TIMESTAMP AS archived_at\nFROM active_shifts\nWHERE ended_at IS NOT NULL;\n\nSELECT * FROM shift_history ORDER BY shift_id;",
+  "_meta": {
+    "question_type": "dml",
+    "dialect": "postgresql",
+    "generated_at": "2026-04-29T16:35:21.647005",
+    "problem_id": "c32c5ff9201b",
+    "validation_attempts": 1,
+    "scenario": "a ride-share platform tracking driver shifts and trip completion rates",
+    "dml_op": "INSERT"
+  }
+}
