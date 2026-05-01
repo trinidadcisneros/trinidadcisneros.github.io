@@ -18384,6 +18384,205 @@ GROUP BY p.platform, n.experiment_name;</code></div>
           <div class="section-heading">Procedures</div>
           <p style="margin-bottom: 20px; line-height: 1.8;">Non-SELECT problem shapes that some practice platforms include but most analytical SQL drills skip. Five topics live here: <strong>Procedural Blocks</strong> (anonymous <code>DO $$ ... END $$;</code> blocks that mutate state row by row or via sequential UPDATEs), <strong>Functions</strong> (<code>CREATE OR REPLACE FUNCTION</code> wrappers that return a scalar value or a table), <strong>Recursive Queries</strong> (<code>WITH RECURSIVE</code> for hierarchies, paths, and chains of unknown depth), <strong>Updates, Deletes, and Inserts</strong> (single-statement DML with conditional logic and confirming SELECTs), and <strong>Window Function Edges</strong> (frame and ranking nuances that flip answers). Each topic opens with a Reference card covering methods and pitfalls, followed by recipe cards with anchor problems.</p>
 
+          <!-- QUICK SCAFFOLDS REFERENCE CARD -->
+          <div class="problem-card collapsed" style="margin-bottom: 25px;">
+            <div class="problem-card-header">
+              <h3 class="problem-card-title" style="margin: 0; display: flex; align-items: center; gap: 15px;">
+                <span style="display: inline-block; background-color: #6a1b9a; color: white; padding: 4px 10px; border-radius: 3px; font-size: 1.328rem; font-weight: 600;">Scaffolds</span>
+                Quick Code Scaffolds (paste-ready starters for each method)
+              </h3>
+              <span class="problem-toggle">&#9660;</span>
+            </div>
+            <div class="problem-card-excerpt">
+              <p>Five canonical structures: when you open a problem and recognize the shape, copy the matching scaffold and fill in the named slots. Order is roughly difficulty/frequency: DML &rarr; DO sequential &rarr; DO row-by-row &rarr; RETURNS scalar &rarr; RETURNS TABLE.</p>
+            </div>
+            <div class="problem-card-content">
+
+              <p style="margin-top: 14px; font-size: 1.45rem; font-weight: 600; color: #6a1b9a;">1. DML (single UPDATE / DELETE / INSERT)</p>
+              <p style="margin: 6px 0 8px; line-height: 1.7;"><strong>When to use:</strong> the prompt says "write a single UPDATE statement" / "write a DELETE that ..." / "INSERT into archive ...". One statement, often with <code>CASE WHEN</code> for tiered logic, followed by a confirming SELECT.</p>
+              <pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px 14px; border-radius: 4px; font-size: 1.2rem; line-height: 1.55; overflow-x: auto;"><code>-- UPDATE shape (tiered with CASE)
+UPDATE &lt;target_table&gt;
+   SET &lt;col&gt; = CASE
+                 WHEN &lt;condition_a&gt; THEN &lt;value_a&gt;
+                 WHEN &lt;condition_b&gt; THEN &lt;value_b&gt;
+                 ELSE &lt;col&gt;
+               END
+ WHERE &lt;optional_filter_for_rows_to_touch&gt;;
+
+-- DELETE shape (dedup keeping smallest pk per group)
+DELETE FROM &lt;target_table&gt;
+ WHERE &lt;pk&gt; NOT IN (
+   SELECT MIN(&lt;pk&gt;) FROM &lt;target_table&gt; GROUP BY &lt;group_cols&gt;
+ );
+
+-- INSERT shape (archive matching rows with derived columns)
+INSERT INTO &lt;archive_table&gt; (&lt;col_list&gt;)
+SELECT
+    &lt;passthrough_cols&gt;,
+    &lt;computed_col_1&gt;  AS &lt;name_1&gt;,
+    &lt;computed_col_2&gt;  AS &lt;name_2&gt;,
+    CURRENT_TIMESTAMP AS archived_at
+FROM &lt;source_table&gt;
+WHERE &lt;eligibility_filter&gt;;
+
+-- Trailing confirming SELECT
+SELECT * FROM &lt;target_table&gt; ORDER BY &lt;pk&gt;;</code></pre>
+
+              <p style="margin-top: 18px; font-size: 1.45rem; font-weight: 600; color: #6a1b9a;">2. DO block &mdash; Simple Sequential UPDATEs (set-based, NO loop)</p>
+              <p style="margin: 6px 0 8px; line-height: 1.7;"><strong>When to use:</strong> the prompt gives 2-4 ordered rules where each rule's condition lives entirely on the row being updated and ordering the UPDATEs is enough. <strong>Self-test:</strong> "Could I rewrite this as a single UPDATE with CASE WHEN?" If yes, set-based.</p>
+              <pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px 14px; border-radius: 4px; font-size: 1.2rem; line-height: 1.55; overflow-x: auto;"><code>DO $$
+BEGIN
+  UPDATE &lt;target_table&gt;
+     SET &lt;col&gt; = &lt;value_a&gt;
+   WHERE &lt;condition_a&gt;;
+
+  UPDATE &lt;target_table&gt;
+     SET &lt;col&gt; = &lt;value_b&gt;
+   WHERE &lt;condition_b&gt;;
+
+  UPDATE &lt;target_table&gt;
+     SET &lt;other_col&gt; = &lt;col&gt; * &lt;multiplier&gt;
+   WHERE &lt;tier_condition&gt;;
+END $$;
+
+SELECT * FROM &lt;target_table&gt; ORDER BY &lt;pk&gt;;</code></pre>
+
+              <p style="margin-top: 18px; font-size: 1.45rem; font-weight: 600; color: #6a1b9a;">3. DO block &mdash; Row-by-Row State Mutation (FOR LOOP, per-iteration state read)</p>
+              <p style="margin: 6px 0 8px; line-height: 1.7;"><strong>When to use:</strong> the prompt hands you a queue/event log AND each event must read the row's CURRENT state because earlier events changed it. Branching on event type AND current state. <strong>Self-test:</strong> "If I ran rule A and rule B in different orders, would I need to look up the latest value of the row in between?" If yes, FOR LOOP.</p>
+              <pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px 14px; border-radius: 4px; font-size: 1.2rem; line-height: 1.55; overflow-x: auto;"><code>DO $$
+DECLARE
+   r              RECORD;
+   current_status INT;
+   current_owner  INT;
+BEGIN
+   FOR r IN
+     SELECT * FROM &lt;event_log_table&gt; ORDER BY &lt;sequence_col&gt;
+   LOOP
+     SELECT &lt;state_col_1&gt;, &lt;state_col_2&gt;
+       INTO current_status, current_owner
+     FROM &lt;state_table&gt;
+     WHERE &lt;state_pk&gt; = r.&lt;event_fk&gt;;
+
+     IF r.&lt;event_type&gt; = &lt;type_a&gt; AND current_status = &lt;precondition_a&gt; THEN
+        UPDATE &lt;state_table&gt;
+           SET &lt;col&gt; = &lt;new_value&gt;,
+               &lt;owner_col&gt; = r.&lt;actor_col&gt;
+         WHERE &lt;state_pk&gt; = r.&lt;event_fk&gt;;
+     ELSIF r.&lt;event_type&gt; = &lt;type_b&gt; AND current_status IN (&lt;precondition_b1&gt;, &lt;precondition_b2&gt;) THEN
+        UPDATE &lt;state_table&gt;
+           SET &lt;col&gt; = &lt;reset_value&gt;,
+               &lt;owner_col&gt; = NULL
+         WHERE &lt;state_pk&gt; = r.&lt;event_fk&gt;;
+     END IF;
+
+     -- Optional cleanup: mark this event processed (after END IF, before END LOOP)
+     UPDATE &lt;event_log_table&gt;
+        SET is_processed = TRUE
+      WHERE &lt;event_pk&gt; = r.&lt;event_pk&gt;;
+   END LOOP;
+END $$;
+
+SELECT * FROM &lt;state_table&gt; ORDER BY &lt;state_pk&gt;;</code></pre>
+
+              <p style="margin-top: 18px; font-size: 1.45rem; font-weight: 600; color: #6a1b9a;">4. RETURNS scalar function (one value back)</p>
+              <p style="margin: 6px 0 8px; line-height: 1.7;"><strong>When to use:</strong> the prompt names a function that returns one number, boolean, or text value (rate, count, sum, max). Body uses <code>RETURN ( ... );</code> NOT <code>RETURN QUERY</code>.</p>
+              <pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px 14px; border-radius: 4px; font-size: 1.2rem; line-height: 1.55; overflow-x: auto;"><code>CREATE OR REPLACE FUNCTION &lt;fn_name&gt;(p_arg1 &lt;TYPE1&gt;, p_arg2 &lt;TYPE2&gt;)
+RETURNS &lt;NUMERIC|INT|BOOLEAN|VARCHAR&gt; AS $$
+BEGIN
+   RETURN (
+     WITH base AS (
+       SELECT
+         &lt;col_1&gt;,
+         &lt;col_2&gt;,
+         CASE WHEN &lt;condition&gt; THEN 1.0 ELSE 0 END AS flag
+       FROM &lt;source_table&gt;
+       WHERE &lt;filter_using_p_args&gt;
+     )
+     SELECT COALESCE(
+              ROUND(AVG(flag) * 100, 2),
+              0.00
+            )
+     FROM base
+   );
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT &lt;fn_name&gt;(&lt;arg1&gt;, &lt;arg2&gt;) AS result;</code></pre>
+
+              <p style="margin-top: 18px; font-size: 1.45rem; font-weight: 600; color: #6a1b9a;">5. RETURNS TABLE function (row set back)</p>
+              <p style="margin: 6px 0 8px; line-height: 1.7;"><strong>When to use:</strong> the prompt names a function that returns multiple rows (and usually multiple columns). Body uses <code>RETURN QUERY ( ... );</code>. Cast every output column to the declared type to dodge "structure of query does not match function result type."</p>
+              <pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px 14px; border-radius: 4px; font-size: 1.2rem; line-height: 1.55; overflow-x: auto;"><code>CREATE OR REPLACE FUNCTION &lt;fn_name&gt;(p_arg1 &lt;TYPE1&gt;, p_arg2 &lt;TYPE2&gt;)
+RETURNS TABLE (
+    &lt;out_col_1&gt;  INT,
+    &lt;out_col_2&gt;  VARCHAR(100),
+    &lt;out_col_3&gt;  DATE,
+    &lt;out_col_4&gt;  NUMERIC(10,2)
+) AS $$
+BEGIN
+   RETURN QUERY (
+     WITH base AS (
+       SELECT
+         t.&lt;col_1&gt;,
+         t.&lt;col_2&gt;,
+         t.&lt;col_3&gt;,
+         &lt;computed_expr&gt; AS &lt;derived_col&gt;
+       FROM &lt;source_table&gt; AS t
+       WHERE &lt;filter_using_p_args&gt;
+     )
+     SELECT
+       b.&lt;col_1&gt;::INT,
+       b.&lt;col_2&gt;::VARCHAR(100),
+       b.&lt;col_3&gt;::DATE,
+       b.&lt;derived_col&gt;::NUMERIC(10,2)
+     FROM base AS b
+     WHERE b.&lt;derived_col&gt; &gt;= p_arg1
+     ORDER BY b.&lt;col_1&gt; ASC, b.&lt;col_3&gt; ASC
+   );
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT * FROM &lt;fn_name&gt;(&lt;arg1&gt;, &lt;arg2&gt;);</code></pre>
+
+              <p style="margin-top: 18px; font-size: 1.45rem; font-weight: 600; color: #6a1b9a;">Quick decision guide</p>
+              <table style="width: 100%; border-collapse: collapse; font-size: 1.3rem; line-height: 1.6; margin-top: 8px;">
+                <thead>
+                  <tr style="background: #6a1b9a; color: white; text-align: left;">
+                    <th style="padding: 8px 10px; width: 38%;">Prompt signal</th>
+                    <th style="padding: 8px 10px; width: 32%;">Reach for</th>
+                    <th style="padding: 8px 10px; width: 30%;">Body keyword</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 8px 10px;">"Write a single UPDATE / DELETE / INSERT statement"</td>
+                    <td style="padding: 8px 10px;">DML (#1)</td>
+                    <td style="padding: 8px 10px;">N/A &mdash; bare statement</td>
+                  </tr>
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 8px 10px;">"Apply these rules in order; each rule's condition lives on the row itself"</td>
+                    <td style="padding: 8px 10px;">DO sequential (#2)</td>
+                    <td style="padding: 8px 10px;"><code>DO $$ BEGIN ... END $$;</code></td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 8px 10px;">"Process the events/queue in order; each event reads the row's current state"</td>
+                    <td style="padding: 8px 10px;">DO row-by-row (#3)</td>
+                    <td style="padding: 8px 10px;"><code>FOR ... LOOP / SELECT INTO</code></td>
+                  </tr>
+                  <tr style="background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 8px 10px;">"Function returns a single value (rate, count, max, ...)"</td>
+                    <td style="padding: 8px 10px;">RETURNS scalar (#4)</td>
+                    <td style="padding: 8px 10px;"><code>RETURN ( ... );</code></td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 10px;">"Function returns multiple rows / a table of results"</td>
+                    <td style="padding: 8px 10px;">RETURNS TABLE (#5)</td>
+                    <td style="padding: 8px 10px;"><code>RETURN QUERY ( ... );</code></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <!-- PROCEDURAL PROBLEM TYPE INDEX -->
           <div class="problem-card collapsed" style="margin-bottom: 25px;">
             <div class="problem-card-header">

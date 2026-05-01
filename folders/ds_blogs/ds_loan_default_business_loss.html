@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beyond Recall: How Business Loss Functions Change Which Model Wins | Bitter Scientist</title>
+
+    <!-- Bootstrap 4.3.1 -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+
+    <!-- Site framework CSS -->
+    <link rel="stylesheet" type="text/css" href="../../static/css/navbar.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/footer.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/theme.css">
+
+    <!-- MathJax 3 -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --navy: #1E2761;
+            --ice: #CADCFC;
+            --accent: #4A90D9;
+            --green: #2CA58D;
+            --red: #E15554;
+            --orange: #F18F01;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid var(--navy);
+        }
+
+        .page-header h1 {
+            color: var(--navy);
+            font-weight: 700;
+            font-size: 1.6rem;
+            margin-bottom: 10px;
+        }
+
+        .page-header p {
+            color: #666;
+            font-size: 1.1rem;
+            margin-bottom: 0;
+        }
+
+        /* Single Tier Tab Navigation */
+        .tab-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0;
+            padding: 0;
+            margin-bottom: 24px;
+            background-color: #f8f9fa;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .nav-tab {
+            padding: 10px 18px;
+            cursor: pointer;
+            background-color: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: #555;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: all 0.25s ease;
+            white-space: nowrap;
+        }
+
+        .nav-tab:hover {
+            background-color: #eef2f7;
+            color: var(--accent);
+        }
+
+        .nav-tab.active {
+            border-bottom-color: var(--accent);
+            color: var(--accent);
+            font-weight: 700;
+            background-color: #fff;
+        }
+
+        /* Tablet */
+        @media (max-width: 1024px) {
+            .main-container {
+                padding: 15px;
+            }
+
+            .styled-table {
+                font-size: 0.85rem;
+            }
+        }
+
+        /* Mobile */
+        @media (max-width: 767px) {
+            .tab-nav {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scroll-behavior: smooth;
+            }
+
+            .nav-tab {
+                font-size: 0.85rem;
+                padding: 8px 12px;
+            }
+
+            .main-container {
+                padding: 10px;
+            }
+
+            .page-header h1 {
+                font-size: 1.5rem;
+            }
+
+            .page-header .subtitle {
+                font-size: 1rem;
+            }
+
+            .math-block {
+                overflow-x: auto;
+                font-size: 0.9rem;
+            }
+
+            .worked-example {
+                padding: 12px;
+            }
+
+            .styled-table {
+                font-size: 0.75rem;
+                display: block;
+                overflow-x: auto;
+            }
+
+            .callout-info, .callout-warning, .callout-success, .callout-danger {
+                padding: 12px;
+                font-size: 0.9rem;
+            }
+
+            details.model-section summary {
+                font-size: 1rem;
+                padding: 10px 12px;
+            }
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Collapsible Sections */
+        .model-section {
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .model-section summary {
+            padding: 16px;
+            background-color: #f8f9fa;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: var(--navy);
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background-color 0.2s ease;
+        }
+
+        .model-section-body .model-section summary {
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        .model-section summary:hover {
+            background-color: #e8ecf1;
+        }
+
+        .model-section summary::after {
+            content: '\25B6';
+            display: inline-block;
+            transition: transform 0.3s ease;
+            margin-left: 10px;
+            font-size: 0.8rem;
+        }
+
+        .model-section[open] summary::after {
+            transform: rotate(90deg);
+        }
+
+        .model-section-body {
+            padding: 20px;
+            background-color: white;
+        }
+
+        .model-section-body h3 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--navy);
+            margin-top: 22px;
+            margin-bottom: 8px;
+        }
+
+        .model-section-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .model-section-body h4 {
+            font-size: 0.98rem;
+            font-weight: 600;
+            color: #333;
+            margin-top: 18px;
+            margin-bottom: 6px;
+        }
+
+        .model-section-body h5 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #555;
+            margin-top: 14px;
+            margin-bottom: 4px;
+        }
+
+        .model-section-body p,
+        .model-section-body li {
+            font-size: 0.92rem;
+        }
+
+        /* Math Block */
+        .math-block {
+            background-color: #f0f0f0;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 15px 0;
+            border-left: 4px solid var(--accent);
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+
+        .math-block-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #666;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        /* Worked Example */
+        .worked-example {
+            background-color: #faf6f1;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 15px 0;
+            border-left: 4px solid var(--orange);
+        }
+
+        .worked-example-title {
+            font-weight: 600;
+            color: var(--orange);
+            margin-bottom: 15px;
+            font-size: 1rem;
+        }
+
+        .worked-example-step {
+            margin-bottom: 10px;
+            padding-left: 10px;
+        }
+
+        .worked-example-step::before {
+            content: attr(data-step);
+            display: inline-block;
+            background-color: var(--orange);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 24px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-right: 10px;
+        }
+
+        /* Callout */
+        .callout {
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+            border-left: 4px solid;
+        }
+
+        .callout-info {
+            background-color: #ecf1f8;
+            border-left-color: var(--accent);
+            color: var(--navy);
+        }
+
+        .callout-warning {
+            background-color: #fff8e8;
+            border-left-color: var(--orange);
+            color: #8b6914;
+        }
+
+        .callout-success {
+            background-color: #f0fdf4;
+            border-left-color: var(--green);
+            color: #15803d;
+        }
+
+        .callout-danger {
+            background-color: #fef2f2;
+            border-left-color: var(--red);
+            color: #7f1d1d;
+        }
+
+        /* Styled Table */
+        .styled-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .styled-table thead tr {
+            background-color: var(--navy);
+            color: white;
+            font-weight: 600;
+        }
+
+        .styled-table th {
+            padding: 15px;
+            text-align: left;
+            font-size: 0.95rem;
+        }
+
+        .styled-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .styled-table tbody tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        .styled-table tbody tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+
+        /* Metric Badge */
+        .metric-badge {
+            display: inline-block;
+            background-color: var(--ice);
+            color: var(--navy);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin: 5px;
+        }
+
+        .metric-badge-label {
+            font-weight: 700;
+        }
+
+        /* Expand/Collapse All */
+        .section-controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .section-controls button {
+            padding: 8px 16px;
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: background-color 0.2s ease;
+        }
+
+        .section-controls button:hover {
+            background-color: #366bb3;
+        }
+
+        /* Winner highlight */
+        .winner-row {
+            background-color: #f0fdf4 !important;
+            font-weight: 600;
+        }
+
+        /* Utility */
+        .mt-30 {
+            margin-top: 30px;
+        }
+
+        .mb-30 {
+            margin-bottom: 30px;
+        }
+
+        p {
+            margin-bottom: 15px;
+        }
+
+        h2 {
+            color: var(--navy);
+            font-weight: 700;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+
+        h3 {
+            color: #333;
+            font-weight: 600;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        strong {
+            font-weight: 600;
+            color: var(--navy);
+        }
+
+        code {
+            background-color: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+
+        ul, ol {
+            margin-bottom: 15px;
+            margin-left: 20px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        /* Companion link banner */
+        .companion-banner {
+            background-color: var(--ice);
+            border: 2px solid var(--accent);
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .companion-banner .banner-icon {
+            font-size: 1.5rem;
+        }
+
+        .companion-banner .banner-text {
+            font-size: 0.95rem;
+            color: var(--navy);
+        }
+
+        /* Param cards */
+        .param-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+
+        .param-card {
+            background-color: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .param-card .param-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--navy);
+        }
+
+        .param-card .param-label {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .param-card.cost-card {
+            border-left: 4px solid var(--red);
+        }
+
+        .param-card.profit-card {
+            border-left: 4px solid var(--green);
+        }
+
+        .param-card.neutral-card {
+            border-left: 4px solid var(--accent);
+        }
+    </style>
+</head>
+<body>
+  <div id="page-container">
+    <div id="content-wrap">
+      <div w3-include-html="/folders/navbar_footer/navbar_pages.html"></div>
+      <div class="blog-container">
+    <div class="main-container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1>Beyond Recall: How Business Loss Functions Change Which Model Wins</h1>
+            <p>A follow up to The Recall Precision Spectrum &mdash; retraining 15 classifiers under cost sensitive and profit based optimization</p>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="tab-nav" id="tabNav">
+            <button class="nav-tab active" onclick="switchTab(event, 'framework')">Framework</button>
+            <button class="nav-tab" onclick="switchTab(event, 'results')">Results</button>
+            <button class="nav-tab" onclick="switchTab(event, 'threshold')">Threshold</button>
+            <button class="nav-tab" onclick="switchTab(event, 'sensitivity')">Sensitivity</button>
+            <button class="nav-tab" onclick="switchTab(event, 'dollar-impact')">Dollar Impact</button>
+            <button class="nav-tab" onclick="switchTab(event, 'takeaways')">Takeaways</button>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- FRAMEWORK TAB -->
+        <!-- ============================================================ -->
+        <div id="framework" class="tab-content active">
+            <div class="section-controls">
+                <button onclick="expandAllSections('framework')">Expand All</button>
+                <button onclick="collapseAllSections('framework')">Collapse All</button>
+            </div>
+
+            <!-- Companion Link -->
+            <div class="companion-banner">
+                <span class="banner-icon">&#128279;</span>
+                <span class="banner-text">
+                    <strong>Companion post:</strong> This analysis builds on
+                    <a href="ds_loan_default_tradeoff_matrix.html">The Recall Precision Spectrum</a>,
+                    which compares the same 15 classifiers optimized for recall alone.
+                    Start there if you want the model by model breakdown before reading this business lens.
+                </span>
+            </div>
+
+            <!-- Why This Analysis Exists -->
+            <details class="model-section" open>
+                <summary>Why This Analysis Exists</summary>
+                <div class="model-section-body">
+                    <p>
+                        In the companion post, we optimized all 15 classifiers using <strong>recall</strong> as the primary metric.
+                        The goal was to catch as many defaults as possible. That is a reasonable starting point, but it ignores two realities:
+                    </p>
+                    <ol>
+                        <li><strong>Not all errors cost the same.</strong> Missing a USD 50,000 default is far more expensive than rejecting a USD 5,000 good loan.</li>
+                        <li><strong>The bank's goal is profit, not perfect classification.</strong> A model that catches 95% of defaults but rejects 40% of good borrowers may destroy more value than it saves.</li>
+                    </ol>
+                    <p>
+                        This post runs the same 15 classifiers through two additional optimization frameworks and compares the results
+                        against the recall baseline. The central question: <strong>does the "best" model change when you optimize for
+                        business outcomes instead of statistical metrics?</strong>
+                    </p>
+                </div>
+            </details>
+
+            <!-- Three Optimization Frameworks -->
+            <details class="model-section" open>
+                <summary>Three Optimization Frameworks</summary>
+                <div class="model-section-body">
+                    <table class="styled-table">
+                        <thead>
+                            <tr>
+                                <th>Framework</th>
+                                <th>Objective</th>
+                                <th>Scorer</th>
+                                <th>What It Captures</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Recall Optimized</strong> (baseline)</td>
+                                <td>Maximize default detection</td>
+                                <td><code>recall</code></td>
+                                <td>Catches defaults regardless of cost</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Cost Sensitive</strong></td>
+                                <td>Minimize expected misclassification cost</td>
+                                <td>Custom cost scorer</td>
+                                <td>Weighs FN vs FP by dollar impact</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Profit Based</strong></td>
+                                <td>Maximize expected portfolio profit</td>
+                                <td>Custom profit scorer</td>
+                                <td>Accounts for revenue, loss severity, and recovery</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <p>
+                        Each tunable model is trained three times &mdash; once per framework. Models without hyperparameters
+                        (Logistic Regression, Naive Bayes, LDA, QDA) are trained once and evaluated from all three perspectives.
+                        This produces 45 total model evaluations across the 15 classifiers.
+                    </p>
+                </div>
+            </details>
+
+            <!-- Business Parameters -->
+            <details class="model-section" open>
+                <summary>Business Parameters</summary>
+                <div class="model-section-body">
+                    <h3>Assumptions</h3>
+                    <div class="param-grid">
+                        <div class="param-card neutral-card">
+                            <div class="param-value">USD 18,608</div>
+                            <div class="param-label">Average Loan Amount</div>
+                        </div>
+                        <div class="param-card neutral-card">
+                            <div class="param-value">50%</div>
+                            <div class="param-label">Recovery Rate (foreclosure)</div>
+                        </div>
+                        <div class="param-card neutral-card">
+                            <div class="param-value">8%</div>
+                            <div class="param-label">Annual Interest Rate</div>
+                        </div>
+                        <div class="param-card neutral-card">
+                            <div class="param-value">5 years</div>
+                            <div class="param-label">Average Loan Term</div>
+                        </div>
+                        <div class="param-card neutral-card">
+                            <div class="param-value">60%</div>
+                            <div class="param-label">Profit Margin on Interest</div>
+                        </div>
+                        <div class="param-card neutral-card">
+                            <div class="param-value">USD 500</div>
+                            <div class="param-label">Fixed Origination Cost</div>
+                        </div>
+                    </div>
+
+                    <h3>Confusion Matrix Cost Table</h3>
+                    <table class="styled-table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Actually Good (0)</th>
+                                <th>Actually Default (1)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Predict Good (Approve)</strong></td>
+                                <td style="background-color: #f0fdf4;">True Negative &mdash; Bank earns interest</td>
+                                <td style="background-color: #fef2f2;">False Negative &mdash; Bank loses principal</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Predict Default (Reject)</strong></td>
+                                <td style="background-color: #fff8e8;">False Positive &mdash; Bank loses revenue</td>
+                                <td style="background-color: #f0fdf4;">True Positive &mdash; Bank avoids loss</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h3>Derived Per Loan Costs</h3>
+                    <div class="param-grid">
+                        <div class="param-card cost-card">
+                            <div class="param-value">USD 9,304</div>
+                            <div class="param-label">Cost per FN (missed default)<br><code>LOAN &times; (1 &minus; recovery_rate)</code></div>
+                        </div>
+                        <div class="param-card cost-card">
+                            <div class="param-value">USD 4,466</div>
+                            <div class="param-label">Cost per FP (rejected good loan)<br><code>LOAN &times; rate &times; term &times; margin</code></div>
+                        </div>
+                        <div class="param-card profit-card">
+                            <div class="param-value">USD 3,966</div>
+                            <div class="param-label">Profit per approved good loan<br><code>interest revenue &minus; origination</code></div>
+                        </div>
+                        <div class="param-card cost-card">
+                            <div class="param-value">USD 9,804</div>
+                            <div class="param-label">Loss per approved defaulter<br><code>lost principal + origination</code></div>
+                        </div>
+                    </div>
+
+                    <div class="callout callout-warning">
+                        <strong>Cost ratio: 2.08x.</strong> A missed default costs 2.1 times more than a rejected good loan.
+                        This asymmetry is what makes recall optimization insufficient &mdash; it treats all true positives equally
+                        and ignores the cost of false positives entirely.
+                    </div>
+
+                    <h3>How the Custom Scorers Work</h3>
+                    <div class="math-block">
+                        <div class="math-block-label">Cost Sensitive Scorer</div>
+                        \[\text{Total Cost} = (\text{FN} \times 9{,}304) + (\text{FP} \times 4{,}466)\]
+                        <p style="font-size: 0.85rem; margin-top: 10px;">sklearn maximizes, so the scorer returns <code>&minus;cost / n</code>. Lower cost = better.</p>
+                    </div>
+                    <div class="math-block">
+                        <div class="math-block-label">Profit Based Scorer</div>
+                        \[\text{Total Profit} = (\text{TN} \times 3{,}966) - (\text{FN} \times 9{,}804)\]
+                        <p style="font-size: 0.85rem; margin-top: 10px;">Approved good borrowers generate revenue. Approved defaulters destroy it. Rejections earn USD 0.</p>
+                    </div>
+                </div>
+            </details>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- RESULTS TAB -->
+        <!-- ============================================================ -->
+        <div id="results" class="tab-content">
+            <div class="section-controls">
+                <button onclick="expandAllSections('results')">Expand All</button>
+                <button onclick="collapseAllSections('results')">Collapse All</button>
+            </div>
+
+            <!-- Top 5 by Each Framework -->
+            <details class="model-section" open>
+                <summary>Top 5 Models by Each Framework</summary>
+                <div class="model-section-body">
+                    <h3>Recall Optimized &mdash; Top 5 by Recall</h3>
+                    <table class="styled-table">
+                        <thead>
+                            <tr><th>Rank</th><th>Model</th><th>Recall</th><th>Precision</th><th>F1</th><th>Total Cost</th><th>Total Profit</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr class="winner-row"><td>1</td><td>CatBoost</td><td>0.8283</td><td>0.7455</td><td>0.7847</td><td>USD 849,640</td><td>USD 3,898,194</td></tr>
+                            <tr><td>2</td><td>SVM (RBF)</td><td>0.8249</td><td>0.6676</td><td>0.7380</td><td>USD 1,028,649</td><td>USD 3,737,685</td></tr>
+                            <tr><td>3</td><td>Decision Tree</td><td>0.8013</td><td>0.5301</td><td>0.6381</td><td>USD 1,491,243</td><td>USD 3,316,091</td></tr>
+                            <tr><td>4</td><td>XGBoost</td><td>0.7980</td><td>0.7848</td><td>0.7913</td><td>USD 848,523</td><td>USD 3,885,310</td></tr>
+                            <tr><td>5</td><td>Logistic Regression</td><td>0.7811</td><td>0.5743</td><td>0.6619</td><td>USD 1,372,896</td><td>USD 3,411,938</td></tr>
+                        </tbody>
+                    </table>
+
+                    <h3>Cost Optimized &mdash; Top 5 by Lowest Total Cost</h3>
+                    <table class="styled-table">
+                        <thead>
+                            <tr><th>Rank</th><th>Model</th><th>Recall</th><th>Precision</th><th>F1</th><th>Total Cost</th><th>Total Profit</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr class="winner-row"><td>1</td><td>CatBoost</td><td>0.7946</td><td>0.8369</td><td>0.8152</td><td>USD 772,975</td><td>USD 3,950,859</td></tr>
+                            <tr><td>2</td><td>LightGBM</td><td>0.7710</td><td>0.8642</td><td>0.8149</td><td>USD 793,444</td><td>USD 3,921,890</td></tr>
+                            <tr><td>3</td><td>XGBoost</td><td>0.7778</td><td>0.8049</td><td>0.7911</td><td>USD 864,154</td><td>USD 3,862,180</td></tr>
+                            <tr><td>4</td><td>Gradient Boosting</td><td>0.6869</td><td>0.8500</td><td>0.7598</td><td>USD 1,026,043</td><td>USD 3,676,790</td></tr>
+                            <tr><td>5</td><td>SVM (RBF)</td><td>0.8249</td><td>0.6676</td><td>0.7380</td><td>USD 1,028,649</td><td>USD 3,737,685</td></tr>
+                        </tbody>
+                    </table>
+
+                    <h3>Profit Optimized &mdash; Top 5 by Highest Total Profit</h3>
+                    <table class="styled-table">
+                        <thead>
+                            <tr><th>Rank</th><th>Model</th><th>Recall</th><th>Precision</th><th>F1</th><th>Total Cost</th><th>Total Profit</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr class="winner-row"><td>1</td><td>CatBoost</td><td>0.7946</td><td>0.8369</td><td>0.8152</td><td>USD 772,975</td><td>USD 3,950,859</td></tr>
+                            <tr><td>2</td><td>LightGBM</td><td>0.7710</td><td>0.8642</td><td>0.8149</td><td>USD 793,444</td><td>USD 3,921,890</td></tr>
+                            <tr><td>3</td><td>XGBoost</td><td>0.7778</td><td>0.8049</td><td>0.7911</td><td>USD 864,154</td><td>USD 3,862,180</td></tr>
+                            <tr><td>4</td><td>SVM (RBF)</td><td>0.8249</td><td>0.6676</td><td>0.7380</td><td>USD 1,028,649</td><td>USD 3,737,685</td></tr>
+                            <tr><td>5</td><td>Gradient Boosting</td><td>0.6869</td><td>0.8500</td><td>0.7598</td><td>USD 1,026,043</td><td>USD 3,676,790</td></tr>
+                        </tbody>
+                    </table>
+
+                    <div class="callout callout-info">
+                        <strong>Key observation:</strong> The cost optimized and profit optimized rankings are nearly identical.
+                        This makes sense &mdash; minimizing wasted dollars and maximizing earned dollars converge when the cost
+                        asymmetry is moderate (2.08x). The recall rankings are different: SVM and Decision Tree rank higher
+                        because they aggressively catch defaults at the expense of rejecting good loans.
+                    </div>
+                </div>
+            </details>
+
+            <!-- Winner Comparison -->
+            <details class="model-section" open>
+                <summary>Winner Comparison: CatBoost Across All Three Frameworks</summary>
+                <div class="model-section-body">
+                    <p>
+                        CatBoost wins under all three frameworks, but the <em>version</em> of CatBoost that wins changes.
+                        Recall optimization selects a shallower, slower learner (depth 5, learning rate 0.03). Cost and profit
+                        optimization converge on the same deeper configuration (depth 7, learning rate 0.08).
+                    </p>
+
+                    <table class="styled-table">
+                        <thead>
+                            <tr><th>Metric</th><th>Recall Optimized</th><th>Cost Optimized</th><th>Profit Optimized</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><strong>Best Model</strong></td><td>CatBoost</td><td>CatBoost</td><td>CatBoost</td></tr>
+                            <tr><td>Config</td><td>depth=5, lr=0.03</td><td>depth=7, lr=0.08</td><td>depth=7, lr=0.08</td></tr>
+                            <tr><td>CV Score</td><td>0.8274</td><td>&minus;506.62</td><td>2,670.46</td></tr>
+                            <tr><td>Recall</td><td>0.8283</td><td>0.7946</td><td>0.7946</td></tr>
+                            <tr><td>Precision</td><td>0.7455</td><td>0.8369</td><td>0.8369</td></tr>
+                            <tr><td>F1</td><td>0.7847</td><td>0.8152</td><td>0.8152</td></tr>
+                            <tr><td>Total Cost</td><td>USD 849,640</td><td>USD 772,975</td><td>USD 772,975</td></tr>
+                            <tr><td>Total Profit</td><td>USD 3,898,194</td><td>USD 3,950,859</td><td>USD 3,950,859</td></tr>
+                            <tr><td>Defaults Caught</td><td>246</td><td>236</td><td>236</td></tr>
+                            <tr><td>Good Loans Rejected</td><td>84</td><td>46</td><td>46</td></tr>
+                        </tbody>
+                    </table>
+
+                    <div class="callout callout-success">
+                        <strong>The tradeoff is clear.</strong> Switching from recall to profit optimization, CatBoost catches
+                        10 fewer defaults (246 &rarr; 236) but rejects 38 fewer good loans (84 &rarr; 46). The net result:
+                        USD 52,665 more profit and USD 76,665 less cost. The profit optimized version is strictly better
+                        on every business metric.
+                    </div>
+                </div>
+            </details>
+
+            <!-- What Changes Across Frameworks -->
+            <details class="model-section">
+                <summary>What Changes (and What Does Not) Across Frameworks</summary>
+                <div class="model-section-body">
+                    <h3>Boosted ensembles dominate every framework</h3>
+                    <p>
+                        CatBoost, LightGBM, and XGBoost hold the top 3 positions under both cost and profit optimization.
+                        Under recall optimization, CatBoost still leads, but SVM and Decision Tree climb into the top 5
+                        because they sacrifice precision to catch more defaults.
+                    </p>
+
+                    <h3>Many models are insensitive to the scorer</h3>
+                    <p>
+                        Nine of the 15 models produced identical results across all three frameworks: Logistic Regression,
+                        Gaussian Naive Bayes, LDA, QDA, Bagging, AdaBoost, Gradient Boosting, SVM, and MLP. For these models,
+                        the hyperparameter grid did not contain configurations that differentiate recall from cost/profit
+                        optimization. The three custom scorers all chose the same best hyperparameters.
+                    </p>
+
+                    <div class="callout callout-warning">
+                        <strong>Implication for practitioners:</strong> If your model is insensitive to the scorer,
+                        it may mean the hyperparameter grid is too narrow. Alternatively, the model family may lack
+                        the capacity to exploit the cost asymmetry. Either way, you should also tune the decision
+                        threshold (see the Threshold tab).
+                    </div>
+
+                    <h3>The models that do change</h3>
+                    <p>
+                        CatBoost, KNN, Decision Tree, Random Forest, XGBoost, and LightGBM all found different optimal
+                        hyperparameters under at least one scorer. CatBoost showed the most dramatic shift, selecting
+                        a deeper tree with a faster learning rate when optimizing for business metrics.
+                    </p>
+                </div>
+            </details>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- THRESHOLD TAB -->
+        <!-- ============================================================ -->
+        <div id="threshold" class="tab-content">
+            <div class="section-controls">
+                <button onclick="expandAllSections('threshold')">Expand All</button>
+                <button onclick="collapseAllSections('threshold')">Collapse All</button>
+            </div>
+
+            <!-- Why Thresholds Matter -->
+            <details class="model-section" open>
+                <summary>Why Threshold Optimization Matters</summary>
+                <div class="model-section-body">
+                    <p>
+                        The default classification threshold of 0.50 is arbitrary. It assumes that the cost of a false
+                        positive equals the cost of a false negative, which is almost never true in business applications.
+                        By sweeping the threshold from 0.01 to 0.99, we find the operating point that maximizes profit
+                        (or minimizes cost) for each model &mdash; <strong>without retraining</strong>.
+                    </p>
+                    <div class="callout callout-success">
+                        <strong>Threshold optimization is free uplift.</strong> It requires only a holdout set with predicted
+                        probabilities. No additional training, no new features, no hyperparameter search. Just move the
+                        decision boundary.
+                    </div>
+                </div>
+            </details>
+
+            <!-- Optimal Thresholds Table -->
+            <details class="model-section" open>
+                <summary>Optimal Thresholds by Model</summary>
+                <div class="model-section-body">
+                    <p>
+                        For each of the 15 models (using their profit optimized configuration where available), we swept
+                        thresholds from 0.01 to 0.99 and recorded the threshold that maximizes profit, minimizes cost,
+                        and maximizes recall.
+                    </p>
+
+                    <table class="styled-table">
+                        <thead>
+                            <tr>
+                                <th>Model</th>
+                                <th>Default</th>
+                                <th>Best Profit Threshold</th>
+                                <th>Max Profit</th>
+                                <th>Best Cost Threshold</th>
+                                <th>Min Cost</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="winner-row"><td>LightGBM</td><td>0.50</td><td>0.10</td><td>USD 4,073,558</td><td>0.30</td><td>USD 679,191</td></tr>
+                            <tr class="winner-row"><td>CatBoost</td><td>0.50</td><td>0.24</td><td>USD 4,061,117</td><td>0.24</td><td>USD 692,217</td></tr>
+                            <tr><td>XGBoost</td><td>0.50</td><td>0.26</td><td>USD 3,984,115</td><td>0.26</td><td>USD 773,719</td></tr>
+                            <tr><td>Bagging</td><td>0.50</td><td>0.17</td><td>USD 3,969,015</td><td>0.17</td><td>USD 809,819</td></tr>
+                            <tr><td>K Nearest Neighbors</td><td>0.50</td><td>0.14</td><td>USD 3,965,936</td><td>0.14</td><td>USD 799,398</td></tr>
+                            <tr><td>Random Forest</td><td>0.50</td><td>0.31</td><td>USD 3,917,901</td><td>0.31</td><td>USD 860,433</td></tr>
+                            <tr><td>Gradient Boosting</td><td>0.50</td><td>0.10</td><td>USD 3,917,901</td><td>0.19</td><td>USD 832,148</td></tr>
+                            <tr><td>SVM (RBF)</td><td>0.50</td><td>0.13</td><td>USD 3,800,575</td><td>0.13</td><td>USD 997,759</td></tr>
+                            <tr><td>Decision Tree</td><td>0.50</td><td>0.58</td><td>USD 3,488,520</td><td>0.58</td><td>USD 1,236,314</td></tr>
+                            <tr><td>AdaBoost</td><td>0.50</td><td>0.48</td><td>USD 3,671,816</td><td>0.48</td><td>USD 1,078,518</td></tr>
+                            <tr><td>MLP Neural Network</td><td>0.50</td><td>0.29</td><td>USD 3,619,052</td><td>0.32</td><td>USD 1,122,805</td></tr>
+                            <tr><td>Logistic Regression</td><td>0.50</td><td>0.57</td><td>USD 3,473,964</td><td>0.65</td><td>USD 1,291,765</td></tr>
+                            <tr><td>LDA</td><td>0.50</td><td>0.11</td><td>USD 3,455,563</td><td>0.31</td><td>USD 1,298,092</td></tr>
+                            <tr><td>Naive Bayes</td><td>0.50</td><td>0.13</td><td>USD 3,123,534</td><td>0.13</td><td>USD 1,680,300</td></tr>
+                            <tr><td>QDA</td><td>0.50</td><td>0.69</td><td>USD 2,757,807</td><td>0.69</td><td>USD 2,043,527</td></tr>
+                        </tbody>
+                    </table>
+
+                    <div class="callout callout-info">
+                        <strong>Notice the pattern:</strong> The optimal profit threshold is almost always below 0.50.
+                        This reflects the cost asymmetry &mdash; since missed defaults are 2.1x more expensive than
+                        rejected good loans, the model should classify more aggressively (lower threshold = more predicted defaults).
+                    </div>
+                </div>
+            </details>
+
+            <!-- Top 3 Threshold Sweeps -->
+            <details class="model-section" open>
+                <summary>Threshold Sweep: Top 3 Profit Models</summary>
+                <div class="model-section-body">
+                    <h3>CatBoost</h3>
+                    <p>
+                        At the default threshold of 0.50, CatBoost (profit optimized) earns USD 3,950,859 in portfolio profit.
+                        Moving the threshold to 0.24 increases profit to <strong>USD 4,061,117</strong> &mdash; a
+                        USD 110,258 uplift (2.8%) with zero retraining. The cost optimized threshold also lands at 0.24,
+                        confirming that cost and profit align at this operating point.
+                    </p>
+
+                    <h3>LightGBM</h3>
+                    <p>
+                        LightGBM shows the most dramatic threshold effect. At 0.50, it earns USD 3,921,890. At its optimal
+                        threshold of 0.10, profit jumps to <strong>USD 4,073,558</strong> &mdash; a USD 151,668 uplift (3.9%).
+                        This is the single highest profit figure across all models and all thresholds. However, the aggressive
+                        0.10 threshold means the model classifies any loan with >10% default probability as risky.
+                    </p>
+
+                    <h3>XGBoost</h3>
+                    <p>
+                        XGBoost moves from USD 3,862,180 at threshold 0.50 to <strong>USD 3,984,115</strong> at threshold 0.26,
+                        a USD 121,935 uplift (3.2%). Both cost and profit optimization converge on the same threshold.
+                    </p>
+
+                    <div class="callout callout-warning">
+                        <strong>A subtlety worth noting:</strong> After threshold optimization, LightGBM (USD 4,073,558)
+                        slightly outperforms CatBoost (USD 4,061,117). The model that wins at the default threshold
+                        is not necessarily the model that wins after threshold tuning. This is why threshold optimization
+                        should always be the final step.
+                    </div>
+                </div>
+            </details>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SENSITIVITY TAB -->
+        <!-- ============================================================ -->
+        <div id="sensitivity" class="tab-content">
+            <div class="section-controls">
+                <button onclick="expandAllSections('sensitivity')">Expand All</button>
+                <button onclick="collapseAllSections('sensitivity')">Collapse All</button>
+            </div>
+
+            <!-- Recovery Rate Sensitivity -->
+            <details class="model-section" open>
+                <summary>Recovery Rate Sensitivity</summary>
+                <div class="model-section-body">
+                    <p>
+                        The recovery rate is the single most influential business parameter. It determines how much money
+                        the bank gets back when a borrower defaults and the property is foreclosed. We hold all other
+                        parameters constant and sweep recovery from 30% to 70%.
+                    </p>
+
+                    <h3>Winner by Recovery Rate</h3>
+                    <table class="styled-table">
+                        <thead>
+                            <tr><th>Recovery Rate</th><th>Winner</th><th>Total Profit</th><th>Cost Ratio (FN/FP)</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>30%</td><td><strong>CatBoost</strong></td><td>USD 3,708,393</td><td>2.92x</td></tr>
+                            <tr><td>40%</td><td><strong>CatBoost</strong></td><td>USD 3,803,293</td><td>2.50x</td></tr>
+                            <tr style="border-top: 2px solid var(--navy);"><td>50% (baseline)</td><td><strong>LightGBM</strong></td><td>USD 3,919,575</td><td>2.08x</td></tr>
+                            <tr><td>60%</td><td><strong>LightGBM</strong></td><td>USD 4,040,527</td><td>1.67x</td></tr>
+                            <tr><td>70%</td><td><strong>LightGBM</strong></td><td>USD 4,161,478</td><td>1.25x</td></tr>
+                        </tbody>
+                    </table>
+
+                    <div class="callout callout-danger">
+                        <strong>The winner changes.</strong> At low recovery rates (30% to 40%), where missed defaults
+                        are catastrophic, CatBoost's higher recall gives it the edge. At higher recovery rates (50%+),
+                        where default losses are more manageable, LightGBM's superior precision wins because rejecting
+                        good borrowers becomes the more costly error.
+                    </div>
+
+                    <h3>What Drives the Crossover?</h3>
+                    <p>
+                        As recovery rate increases, the cost of a false negative drops while the cost of a false positive
+                        stays constant. The cost ratio falls from 2.92x at 30% recovery to 1.25x at 70%. Once the cost
+                        ratio approaches 1:1, the model that rejects fewer good loans (higher precision) wins over
+                        the model that catches more defaults (higher recall).
+                    </p>
+
+                    <div class="callout callout-info">
+                        <strong>Practical guidance:</strong> If your institution has strong collateral recovery processes
+                        (recovery rate above 50%), favor LightGBM. If recovery is uncertain or weak, favor CatBoost.
+                        Either way, both models outperform the other 13 at every recovery rate tested.
+                    </div>
+                </div>
+            </details>
+
+            <!-- Implications -->
+            <details class="model-section">
+                <summary>Implications for Production</summary>
+                <div class="model-section-body">
+                    <p>
+                        Sensitivity analysis is not an academic exercise. These parameters change over time:
+                    </p>
+                    <ul>
+                        <li><strong>Recovery rates shift</strong> with housing market conditions. In a downturn, foreclosure
+                            recovery drops; in a boom, it climbs.</li>
+                        <li><strong>Interest rates change</strong> with monetary policy. Higher rates increase the opportunity
+                            cost of rejecting good borrowers (higher FP cost).</li>
+                        <li><strong>Loan terms vary</strong> by product. A 15 year mortgage has different economics than
+                            a 5 year home equity line.</li>
+                    </ul>
+                    <p>
+                        Any production system should recalibrate these parameters quarterly and re-evaluate model rankings.
+                        A model that was optimal last quarter may not be optimal this quarter if the macro environment has shifted.
+                    </p>
+                </div>
+            </details>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- DOLLAR IMPACT TAB -->
+        <!-- ============================================================ -->
+        <div id="dollar-impact" class="tab-content">
+            <div class="section-controls">
+                <button onclick="expandAllSections('dollar-impact')">Expand All</button>
+                <button onclick="collapseAllSections('dollar-impact')">Collapse All</button>
+            </div>
+
+            <!-- Dollar Breakdown -->
+            <details class="model-section" open>
+                <summary>Dollar Impact Breakdown: Top 3 Profit Models</summary>
+                <div class="model-section-body">
+                    <p>
+                        For the top 3 profit optimized models (at the default 0.50 threshold), here is exactly where the money goes.
+                        Each row breaks the portfolio into four dollar flows:
+                    </p>
+                    <ul>
+                        <li><strong style="color: var(--green);">Revenue from approved good loans</strong> (TN &times; USD 3,966) &mdash; the bank's core income stream</li>
+                        <li><strong style="color: var(--red);">Losses from missed defaults</strong> (FN &times; USD 9,804) &mdash; loans approved that should not have been</li>
+                        <li><strong style="color: var(--orange);">Revenue lost from rejected good loans</strong> (FP &times; USD 3,966) &mdash; opportunity cost of being too cautious</li>
+                        <li><strong style="color: var(--accent);">Defaults caught</strong> (TP &times; USD 9,804) &mdash; losses avoided by correctly rejecting defaulters</li>
+                    </ul>
+
+                    <table class="styled-table">
+                        <thead>
+                            <tr>
+                                <th>Model</th>
+                                <th style="color: #2CA58D;">Revenue from Good Loans</th>
+                                <th style="color: #E15554;">Losses from Missed Defaults</th>
+                                <th style="color: #F18F01;">Revenue Lost (Rejected Good)</th>
+                                <th style="color: #4A90D9;">Defaults Caught (Saved)</th>
+                                <th><strong>Net Profit</strong></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="winner-row">
+                                <td><strong>CatBoost</strong></td>
+                                <td>USD 4,548,102</td>
+                                <td style="color: var(--red);">&minus;USD 598,044</td>
+                                <td style="color: var(--orange);">&minus;USD 182,436</td>
+                                <td>USD 2,313,744</td>
+                                <td><strong>USD 3,950,859</strong></td>
+                            </tr>
+                            <tr>
+                                <td><strong>LightGBM</strong></td>
+                                <td>USD 4,588,662</td>
+                                <td style="color: var(--red);">&minus;USD 666,672</td>
+                                <td style="color: var(--orange);">&minus;USD 142,776</td>
+                                <td>USD 2,245,116</td>
+                                <td><strong>USD 3,921,890</strong></td>
+                            </tr>
+                            <tr>
+                                <td><strong>XGBoost</strong></td>
+                                <td>USD 4,509,342</td>
+                                <td style="color: var(--red);">&minus;USD 647,064</td>
+                                <td style="color: var(--orange);">&minus;USD 221,896</td>
+                                <td>USD 2,264,724</td>
+                                <td><strong>USD 3,862,180</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="callout callout-info">
+                        <strong>Reading this table:</strong> CatBoost earns less from good loans than LightGBM (it rejects
+                        more good borrowers) but loses far less from missed defaults (it catches more). The net effect
+                        favors CatBoost by USD 28,969. XGBoost trails both because it suffers higher losses on both
+                        the FN and FP dimensions.
+                    </div>
+                </div>
+            </details>
+
+            <!-- Confusion Matrix Counts -->
+            <details class="model-section">
+                <summary>Underlying Confusion Matrix Counts</summary>
+                <div class="model-section-body">
+                    <p>
+                        The dollar flows above come from these raw prediction counts on the 1,490 sample test set
+                        (1,193 good loans, 297 defaults):
+                    </p>
+                    <table class="styled-table">
+                        <thead>
+                            <tr><th>Model</th><th>TN (Approved Good)</th><th>FP (Rejected Good)</th><th>FN (Missed Default)</th><th>TP (Caught Default)</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>CatBoost</td><td>1,147</td><td>46</td><td>61</td><td>236</td></tr>
+                            <tr><td>LightGBM</td><td>1,157</td><td>36</td><td>68</td><td>229</td></tr>
+                            <tr><td>XGBoost</td><td>1,137</td><td>56</td><td>66</td><td>231</td></tr>
+                        </tbody>
+                    </table>
+                    <p>
+                        The difference between first and third place comes down to just 20 predictions. CatBoost
+                        catches 7 more defaults than LightGBM but rejects 10 more good loans. These are small
+                        numbers, but at USD 9,804 per missed default and USD 3,966 per rejected good loan,
+                        each prediction carries real weight.
+                    </p>
+                </div>
+            </details>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- TAKEAWAYS TAB -->
+        <!-- ============================================================ -->
+        <div id="takeaways" class="tab-content">
+            <div class="section-controls">
+                <button onclick="expandAllSections('takeaways')">Expand All</button>
+                <button onclick="collapseAllSections('takeaways')">Collapse All</button>
+            </div>
+
+            <!-- Key Findings -->
+            <details class="model-section" open>
+                <summary>Key Findings</summary>
+                <div class="model-section-body">
+                    <h3>1. The optimization objective changes the "best" model</h3>
+                    <table class="styled-table">
+                        <thead>
+                            <tr><th>Question</th><th>Framework</th><th>What Matters Most</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Which model catches the most defaults?</td>
+                                <td>Recall</td>
+                                <td>True positive rate regardless of false positives</td>
+                            </tr>
+                            <tr>
+                                <td>Which model minimizes total dollar losses?</td>
+                                <td>Cost Sensitive</td>
+                                <td>Weighted error cost penalizes missed defaults more</td>
+                            </tr>
+                            <tr>
+                                <td>Which model makes the bank the most money?</td>
+                                <td>Profit Based</td>
+                                <td>Net portfolio value balances revenue against losses</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h3>2. Recall optimization is a starting point, not a destination</h3>
+                    <p>
+                        A model that catches 95% of defaults but rejects 40% of profitable borrowers may destroy value
+                        rather than create it. Recall tells you how many defaults you caught; it says nothing about
+                        how many good customers you turned away.
+                    </p>
+
+                    <h3>3. Cost sensitive and profit based training converge</h3>
+                    <p>
+                        When the cost asymmetry is moderate (2.08x in this dataset), minimizing cost and maximizing profit
+                        select the same hyperparameters and the same model. They diverge more when the asymmetry is extreme.
+                    </p>
+
+                    <h3>4. Threshold optimization is free uplift</h3>
+                    <p>
+                        Even without retraining, moving the decision threshold from 0.50 to the profit optimal point
+                        unlocked USD 110,000 to USD 150,000 in additional portfolio value for the top models.
+                        After threshold optimization, LightGBM narrowly overtakes CatBoost.
+                    </p>
+
+                    <h3>5. Sensitivity to assumptions matters</h3>
+                    <p>
+                        The recovery rate assumption alone changes which model ranks first. CatBoost wins at 30% to 40%
+                        recovery; LightGBM wins at 50% to 70%. Any production deployment should include regular
+                        recalibration of these parameters.
+                    </p>
+                </div>
+            </details>
+
+            <!-- Recommended Framework -->
+            <details class="model-section" open>
+                <summary>Recommended Two Stage Framework for Production</summary>
+                <div class="model-section-body">
+                    <div class="callout callout-success">
+                        <strong>Stage 1: Train to maximize recall or minimize cost.</strong> These objectives are more
+                        stable during cross validation and produce models that reliably catch defaults. Use the full
+                        hyperparameter grid with a cost sensitive scorer to find the right balance.
+                    </div>
+                    <div class="callout callout-success">
+                        <strong>Stage 2: Set the decision threshold using profit optimization.</strong> On a holdout
+                        calibration set, sweep thresholds from 0.01 to 0.99 and select the threshold that maximizes
+                        portfolio profit. This decouples the training objective (catch defaults) from the deployment
+                        objective (make money).
+                    </div>
+                    <div class="callout callout-info">
+                        <strong>Stage 3 (monitoring):</strong> Track both recall and profit metrics in production.
+                        If recall drops below a safety floor (for example, 0.70), override the threshold regardless of
+                        profit impact. This gives you the safety of catching defaults while maximizing business value
+                        within that constraint.
+                    </div>
+
+                    <h3>Summary</h3>
+                    <p>
+                        This analysis demonstrates a fundamental truth in applied machine learning: the "best" model
+                        depends entirely on what you are optimizing for. Statistical metrics like recall and F1 are
+                        useful starting points, but they are not business metrics. The model that catches the most
+                        defaults is not necessarily the model that makes the most money. Any serious production system
+                        should evaluate candidates through the lens of the business problem it is solving.
+                    </p>
+                </div>
+            </details>
+
+            <!-- Companion Link -->
+            <details class="model-section">
+                <summary>Related Resources</summary>
+                <div class="model-section-body">
+                    <ul>
+                        <li>
+                            <a href="ds_loan_default_tradeoff_matrix.html">The Recall Precision Spectrum</a> &mdash;
+                            the companion post comparing all 15 classifiers under recall optimization, with full
+                            model by model breakdowns.
+                        </li>
+                        <li>
+                            <strong>Source notebook:</strong> <code>Cisneros_Business_Loss_Analysis.ipynb</code> in the
+                            project repository.
+                        </li>
+                    </ul>
+                </div>
+            </details>
+        </div>
+
+    </div><!-- /.main-container -->
+
+    <!-- Bootstrap and jQuery -->
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+
+    <script>
+        // Switch tab
+        function switchTab(event, tabId) {
+            // Hide all content tabs
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            // Deactivate all nav tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+            // Show selected content
+            document.getElementById(tabId).classList.add('active');
+            // Activate clicked nav tab
+            if (event.target.classList.contains('nav-tab')) {
+                event.target.classList.add('active');
+            }
+            window.scrollTo(0, 0);
+        }
+
+        // Expand All Sections
+        function expandAllSections(tabId) {
+            const tabContent = document.getElementById(tabId);
+            const details = tabContent.querySelectorAll('details');
+            details.forEach(detail => detail.open = true);
+        }
+
+        // Collapse All Sections
+        function collapseAllSections(tabId) {
+            const tabContent = document.getElementById(tabId);
+            const details = tabContent.querySelectorAll('details');
+            details.forEach(detail => detail.open = false);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('framework').classList.add('active');
+        });
+    </script>
+      </div><!-- /.blog-container -->
+    </div><!-- /#content-wrap -->
+    <div w3-include-html="/folders/navbar_footer/footer.html"></div>
+  </div><!-- /#page-container -->
+  <script type="text/javascript" src="../../static/js/include.js"></script>
+</body>
+</html>

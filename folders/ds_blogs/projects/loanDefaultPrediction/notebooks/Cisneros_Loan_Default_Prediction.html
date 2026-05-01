@@ -7858,6 +7858,68 @@ a.anchor-link {
 30. <a href="#sec-30">Side by Side Model Comparison</a>
 31. <a href="#sec-31">Final Recommendation</a>
 32. <a href="#sec-32">Implementation Recommendations</a></p>
+<p><strong>Executive Summary</strong><br/>
+<a href="#exec-summary">Executive Summary</a></p>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=exec-summary-cell">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<hr style="border: 0; height: 4px; background: #1a1a2e; margin: 50px 0 30px 0;"/>
+<p><a id="exec-summary"></a></p>
+<h2 id="Executive-Summary">Executive Summary<a class="anchor-link" href="#Executive-Summary">¶</a></h2>
+
+<h3>Important Findings</h3>
+
+<p><strong>Objective</strong></p>
+<ul>
+<li>This project evaluated 15 classification models on the HMEQ dataset (5,960 home equity loan applicants, ~20% default rate) to predict loan default and recommend an automated underwriting solution.</li>
+</ul>
+
+<p><strong>Findings</strong></p>
+<ul>
+<li>Exploratory analysis revealed that debt to income ratio (DEBTINC), age of oldest credit line (CLAGE), number of delinquent trades (DELINQ), and property value (VALUE) are the strongest predictors of default.</li>
+<li>Missingness in DEBTINC emerged as a powerful signal across nearly every model, indicating that applicants with missing debt to income information default at substantially higher rates.</li>
+<li>All 15 models were trained with class weighted parameters to address the 80/20 imbalance, and each was tuned via 5 fold stratified cross validation. The side by side comparison (Section 30) showed a clear performance tier: gradient boosted methods (CatBoost, XGBoost, LightGBM) consistently outperformed linear, distance, and single tree models on recall, F1, and ROC AUC simultaneously.</li>
+</ul>
+
+<h3>Final Proposed Model</h3>
+
+<p><strong>Champion: CatBoost</strong> with <code>depth=5, learning_rate=0.03, iterations=500, class_weights=[1, 4.01]</code></p>
+<ul>
+<li><strong>Recall:</strong> 82.8% (246 of 297 defaulters caught on the test set), the highest of all 15 models</li>
+<li><strong>F1:</strong> 0.785 — balances default detection with a 74.5% precision rate</li>
+<li><strong>ROC AUC:</strong> 0.953 — strong probability ordering for risk tiering</li>
+<li><strong>False positive rate:</strong> 7.0% (84 good loans flagged as risky out of 1,193), manageable with human review on flagged applications</li>
+</ul>
+
+<p><strong>Why CatBoost over the alternatives</strong></p>
+<ul>
+<li>CatBoost was selected over XGBoost (79.8% recall) and LightGBM (79.5% recall) because it leads on the primary metric while handling categorical features (JOB, REASON) natively and producing the most balanced feature importance profile across DEBTINC, CLAGE, JOB, VALUE, and DELINQ.</li>
+<li><strong>Strong alternative — LightGBM:</strong> if the business prioritizes minimizing false alarms over maximizing default detection, LightGBM leads on F1 (0.818), accuracy (92.95%), and ROC AUC (0.967) with only 44 false positives. It is the recommended model for probability based risk scoring and tiering.</li>
+</ul>
+
+<h3>Key Next Steps</h3>
+<ul>
+<li><strong>Deploy CatBoost behind a scoring API</strong> using its native <code>save_model()</code> format, returning both the predicted class and the default probability so credit analysts can set approval thresholds for borderline cases.</li>
+<li><strong>Threshold optimization:</strong> sweep the decision threshold away from the default 0.50 to the point that maximizes recall at a target false positive rate (Section 32 details this). Even without retraining, threshold tuning yields significant uplift.</li>
+<li><strong>Monitor for drift:</strong> track DEBTINC missingness rate, feature distributions, and weekly recall in production. Trigger a retrain if DEBTINC missingness drops below 10% or recall falls below 70%.</li>
+<li><strong>Fair lending audit:</strong> run bias testing on proxy variables (JOB ranks in CatBoost's top three features) and generate per applicant SHAP explanations for regulatory compliance.</li>
+<li><strong>Maintain a champion/challenger framework:</strong> keep LightGBM as the challenger and compare weekly on incoming applications.</li>
+</ul>
+
+<h3>Follow Up Study: Business Loss Function Analysis</h3>
+<ul>
+<li>A companion study, <a href="../../ds_loan_default_business_loss.html"><em>Beyond Recall: How Business Loss Functions Change Which Model Wins</em></a>, extended this work by retraining all 15 models under three optimization frameworks: recall, asymmetric cost sensitive (weighting a missed default at USD 9,304 versus a rejected good loan at USD 4,466), and profit based (maximizing net portfolio value).</li>
+<li><strong>Central finding:</strong> CatBoost remains the top model across all three frameworks, but its optimal configuration changes — the profit optimized variant (depth=7, learning_rate=0.08) generates USD 3.95M in estimated portfolio profit on the test set compared to USD 3.90M for the recall optimized variant, while maintaining 79.5% recall.</li>
+<li>This confirms that the recall first approach used in this capstone identifies the right model family, and that further gains are available through business aligned threshold and objective tuning in production.</li>
+</ul>
+
 </div>
 </div>
 </div>
