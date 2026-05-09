@@ -1,0 +1,110 @@
+{
+  "title": "Pivot Seat Utilization by License Tier",
+  "prompt": "Your enterprise SaaS company tracks monthly active seat usage across customers and license tiers. The `seat_usage` table stores one row per customer per tier per month, recording how many seats were active. Pivot this long-format data into a wide-format summary showing each customer's seat usage across three license tiers: 'Basic', 'Professional', and 'Enterprise'. For each customer, create columns `basic_seats`, `professional_seats`, and `enterprise_seats` that SUM the active seats for that tier across all months. If a customer has no usage for a tier, display 0 instead of NULL. Include the customer name from the `customers` table. Output columns: `customer_name`, `basic_seats`, `professional_seats`, `enterprise_seats`. Order results by `customer_name` ascending.",
+  "schema_ddl": "CREATE TABLE customers (customer_id INT PRIMARY KEY, customer_name VARCHAR(100)); CREATE TABLE seat_usage (usage_id SERIAL PRIMARY KEY, customer_id INT, license_tier VARCHAR(20), month_name VARCHAR(10), active_seats INT);",
+  "example_input_data": "INSERT INTO customers (customer_id, customer_name) VALUES (1, 'Acme Corp'), (2, 'Beta LLC'), (3, 'Gamma Industries'); INSERT INTO seat_usage (customer_id, license_tier, month_name, active_seats) VALUES (1, 'Basic', 'January', 10), (1, 'Basic', 'February', 12), (1, 'Professional', 'January', 5), (2, 'Enterprise', 'January', 20), (2, 'Enterprise', 'February', 25), (3, 'Basic', 'January', 8), (3, 'Professional', 'March', 3);",
+  "example_output_columns": [
+    "customer_name",
+    "basic_seats",
+    "professional_seats",
+    "enterprise_seats"
+  ],
+  "example_output_rows": [
+    [
+      "Acme Corp",
+      22,
+      5,
+      0
+    ],
+    [
+      "Beta LLC",
+      0,
+      0,
+      45
+    ],
+    [
+      "Gamma Industries",
+      8,
+      3,
+      0
+    ]
+  ],
+  "test_data": "INSERT INTO customers (customer_id, customer_name) VALUES (1, 'Acme Corp'), (2, 'Beta LLC'), (3, 'Gamma Industries'), (4, 'Delta Systems'), (5, 'Epsilon Ventures'), (6, 'Zeta Partners'), (7, 'Theta Networks'); INSERT INTO seat_usage (customer_id, license_tier, month_name, active_seats) VALUES (1, 'Basic', 'January', 10), (1, 'Basic', 'February', 12), (1, 'Basic', 'March', 15), (1, 'Professional', 'January', 5), (1, 'Professional', 'February', 7), (1, 'Enterprise', 'March', 20), (2, 'Enterprise', 'January', 20), (2, 'Enterprise', 'February', 25), (2, 'Enterprise', 'March', 30), (2, 'Basic', 'January', 5), (3, 'Basic', 'January', 8), (3, 'Basic', 'February', 10), (3, 'Professional', 'March', 3), (3, 'Professional', 'April', 4), (4, 'Professional', 'January', 15), (4, 'Professional', 'February', 18), (4, 'Professional', 'March', 20), (4, 'Enterprise', 'January', 50), (4, 'Enterprise', 'February', 55), (5, 'Basic', 'February', 100), (5, 'Basic', 'March', 120), (5, 'Basic', 'April', 130), (6, 'Enterprise', 'January', 40), (6, 'Enterprise', 'February', 45), (6, 'Enterprise', 'March', 50), (6, 'Enterprise', 'April', 55), (7, 'Basic', 'January', 2), (7, 'Professional', 'February', 1), (7, 'Enterprise', 'March', 3);",
+  "test_expected_columns": [
+    "customer_name",
+    "basic_seats",
+    "professional_seats",
+    "enterprise_seats"
+  ],
+  "test_expected_rows": [
+    [
+      "Acme Corp",
+      37,
+      12,
+      20
+    ],
+    [
+      "Beta LLC",
+      5,
+      0,
+      75
+    ],
+    [
+      "Delta Systems",
+      0,
+      53,
+      105
+    ],
+    [
+      "Epsilon Ventures",
+      350,
+      0,
+      0
+    ],
+    [
+      "Gamma Industries",
+      18,
+      7,
+      0
+    ],
+    [
+      "Theta Networks",
+      2,
+      1,
+      3
+    ],
+    [
+      "Zeta Partners",
+      0,
+      0,
+      190
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "reshape",
+    "composite_moves": [
+      "join customers and seat_usage on customer_id",
+      "group by customer_id and customer_name",
+      "pivot license_tier values into separate columns using SUM(CASE WHEN...) with COALESCE for zeros"
+    ]
+  },
+  "hints": [
+    "You'll need to aggregate seat counts by customer and tier, but spread the tiers horizontally instead of vertically.",
+    "Use CASE WHEN inside an aggregate function like SUM to conditionally sum only rows matching each specific license tier.",
+    "Remember to use COALESCE to convert NULL results to 0 for customers missing a tier, and join the customers table for names."
+  ],
+  "answer_key": "SELECT c.customer_name, COALESCE(SUM(CASE WHEN s.license_tier = 'Basic' THEN s.active_seats END), 0) AS basic_seats, COALESCE(SUM(CASE WHEN s.license_tier = 'Professional' THEN s.active_seats END), 0) AS professional_seats, COALESCE(SUM(CASE WHEN s.license_tier = 'Enterprise' THEN s.active_seats END), 0) AS enterprise_seats FROM customers c LEFT JOIN seat_usage s ON c.customer_id = s.customer_id GROUP BY c.customer_id, c.customer_name ORDER BY c.customer_name;",
+  "_meta": {
+    "question_type": "pivot",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-07T07:45:21.363196",
+    "problem_id": "ffd9f484ec32",
+    "validation_attempts": 1,
+    "scenario": "an enterprise software vendor monitoring seat utilization across customers",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

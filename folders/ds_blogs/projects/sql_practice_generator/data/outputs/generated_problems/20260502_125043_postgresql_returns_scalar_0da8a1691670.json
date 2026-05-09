@@ -1,0 +1,49 @@
+{
+  "title": "Calculate Trial Conversion Rate by Cohort",
+  "prompt": "Write a PostgreSQL function named `calculate_conversion_rate` that accepts two parameters: `cohort_month` (DATE) and `days_window` (INTEGER). The function should return the conversion rate as a NUMERIC(5,2) representing the percentage of trial signups in the given cohort month that converted to a paid plan within the specified number of days. A cohort month is defined by the month of the trial_start_date. Only count conversions where converted_at is not NULL and falls within days_window days after trial_start_date. Return 0.00 if there are no signups in the cohort. Test your function by calling: `SELECT calculate_conversion_rate('2024-01-01', 14) AS result;`",
+  "schema_ddl": "CREATE TABLE trial_signups (signup_id INT PRIMARY KEY, company_name VARCHAR(100), trial_start_date DATE, converted_at DATE);",
+  "example_input_data": "INSERT INTO trial_signups (signup_id, company_name, trial_start_date, converted_at) VALUES (1, 'Acme Corp', '2024-01-05', '2024-01-12'), (2, 'Beta LLC', '2024-01-10', '2024-01-25'), (3, 'Gamma Inc', '2024-01-15', '2024-01-20'), (4, 'Delta Co', '2024-01-22', NULL), (5, 'Epsilon Ltd', '2024-02-03', '2024-02-10'), (6, 'Zeta Group', '2024-01-28', '2024-02-05');",
+  "example_output_columns": [
+    "result"
+  ],
+  "example_output_rows": [
+    [
+      "60.00"
+    ]
+  ],
+  "test_data": "INSERT INTO trial_signups (signup_id, company_name, trial_start_date, converted_at) VALUES (101, 'Alpha Systems', '2024-01-02', '2024-01-10'), (102, 'Bravo Tech', '2024-01-03', '2024-01-20'), (103, 'Charlie Innovations', '2024-01-05', '2024-01-12'), (104, 'Delta Ventures', '2024-01-07', NULL), (105, 'Echo Solutions', '2024-01-08', '2024-01-15'), (106, 'Foxtrot Labs', '2024-01-12', '2024-01-28'), (107, 'Golf Industries', '2024-01-15', '2024-01-22'), (108, 'Hotel Partners', '2024-01-18', NULL), (109, 'India Consulting', '2024-01-20', '2024-01-30'), (110, 'Juliet Enterprises', '2024-01-22', '2024-02-01'), (111, 'Kilo Dynamics', '2024-01-25', NULL), (112, 'Lima Innovations', '2024-01-27', '2024-02-05'), (113, 'Mike Technologies', '2024-01-29', '2024-02-08'), (114, 'November Corp', '2024-02-01', '2024-02-10'), (115, 'Oscar Group', '2024-02-05', NULL), (116, 'Papa Systems', '2024-01-10', '2024-01-18'), (117, 'Quebec Ltd', '2024-01-11', '2024-01-24'), (118, 'Romeo Inc', '2024-01-14', NULL), (119, 'Sierra Co', '2024-01-16', '2024-01-25'), (120, 'Tango Partners', '2024-01-19', '2024-02-03'), (121, 'Uniform Consulting', '2024-01-21', NULL), (122, 'Victor Enterprises', '2024-01-23', '2024-01-30'), (123, 'Whiskey Dynamics', '2024-01-26', NULL), (124, 'Xray Solutions', '2024-01-30', '2024-02-12'), (125, 'Yankee Ventures', '2024-01-31', '2024-02-10');",
+  "test_expected_columns": [
+    "result"
+  ],
+  "test_expected_rows": [
+    [
+      "60.87"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "scalar_return",
+    "recipe": "function-wrapped",
+    "composite_moves": [
+      "row-filter (cohort month match)",
+      "row-filter (conversion within window)",
+      "group-aggregate (count and percentage)",
+      "scalar-extract (return single value)"
+    ]
+  },
+  "hints": [
+    "You'll need to count signups in the cohort month and compare to conversions within the time window.",
+    "Use DATE_TRUNC to identify which signups belong to the cohort month, and check if converted_at - trial_start_date <= days_window.",
+    "Calculate the percentage as (converted_count::NUMERIC / total_count) * 100, handling the case where total_count is zero."
+  ],
+  "answer_key": "CREATE OR REPLACE FUNCTION calculate_conversion_rate(cohort_month DATE, days_window INTEGER)\nRETURNS NUMERIC(5,2) AS $$\nDECLARE\n  total_signups INT;\n  converted_signups INT;\n  rate NUMERIC(5,2);\nBEGIN\n  SELECT COUNT(*)\n  INTO total_signups\n  FROM trial_signups\n  WHERE DATE_TRUNC('month', trial_start_date) = DATE_TRUNC('month', cohort_month);\n  \n  IF total_signups = 0 THEN\n    RETURN 0.00;\n  END IF;\n  \n  SELECT COUNT(*)\n  INTO converted_signups\n  FROM trial_signups\n  WHERE DATE_TRUNC('month', trial_start_date) = DATE_TRUNC('month', cohort_month)\n    AND converted_at IS NOT NULL\n    AND (converted_at - trial_start_date) <= days_window;\n  \n  rate := ROUND((converted_signups::NUMERIC / total_signups) * 100, 2);\n  \n  RETURN rate;\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT calculate_conversion_rate('2024-01-01', 14) AS result;",
+  "_meta": {
+    "question_type": "returns_scalar",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-02T12:50:43.642018",
+    "problem_id": "0da8a1691670",
+    "validation_attempts": 1,
+    "scenario": "a B2B SaaS company tracking trial signups and conversion to paid plans",
+    "dml_op": null
+  }
+}

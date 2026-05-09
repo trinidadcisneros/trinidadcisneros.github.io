@@ -1,0 +1,146 @@
+{
+  "problem": {
+    "title": "Daily Kit Event Summary with dbt Materialization",
+    "prompt": "You are building a dbt model that aggregates daily metrics for an at-home diagnostic test kit ordering platform. The business needs to track how many kits were shipped, how many were returned, and how many results were released each day. The analytics team queries this data 15-20 times per hour in real-time dashboards showing operational KPIs (same-day turnaround time, return rate, result release lag). The underlying `kit_events` table receives approximately 50,000 new event records per day and currently holds 18 months of history (27 million rows). Write a SQL query that produces a daily rollup showing `event_date`, `kits_shipped`, `kits_returned`, and `results_released`. Each event type is recorded as a separate row in the `kit_events` table with an `event_type` column. In your answer, include SQL comments at the top explaining which dbt materialization strategy (table, view, or incremental) you would choose for this model and why, referencing query frequency, data volume, and freshness requirements. Order the output by `event_date` ascending.",
+    "schema_ddl": "CREATE TABLE kit_events (event_id VARCHAR(20) PRIMARY KEY, kit_id VARCHAR(20) NOT NULL, patient_id VARCHAR(20) NOT NULL, event_type VARCHAR(20) NOT NULL, event_date DATE NOT NULL, event_ts TIMESTAMP NOT NULL);",
+    "example_input_data": "INSERT INTO kit_events (event_id, kit_id, patient_id, event_type, event_date, event_ts) VALUES ('E001', 'K001', 'P001', 'shipped', '2024-01-15', '2024-01-15 09:00:00'), ('E002', 'K002', 'P002', 'shipped', '2024-01-15', '2024-01-15 10:30:00'), ('E003', 'K003', 'P003', 'shipped', '2024-01-16', '2024-01-16 08:00:00'), ('E004', 'K001', 'P001', 'returned', '2024-01-16', '2024-01-16 14:00:00'), ('E005', 'K002', 'P002', 'results_released', '2024-01-17', '2024-01-17 11:00:00'), ('E006', 'K004', 'P004', 'shipped', '2024-01-17', '2024-01-17 09:30:00'), ('E007', 'K003', 'P003', 'results_released', '2024-01-17', '2024-01-17 16:00:00'), ('E008', 'K004', 'P004', 'returned', '2024-01-18', '2024-01-18 10:00:00');",
+    "example_output_columns": [
+      "event_date",
+      "kits_shipped",
+      "kits_returned",
+      "results_released"
+    ],
+    "example_output_rows": [
+      [
+        "2024-01-15",
+        2,
+        0,
+        0
+      ],
+      [
+        "2024-01-16",
+        1,
+        1,
+        0
+      ],
+      [
+        "2024-01-17",
+        1,
+        0,
+        2
+      ],
+      [
+        "2024-01-18",
+        0,
+        1,
+        0
+      ]
+    ],
+    "test_data": "INSERT INTO kit_events (event_id, kit_id, patient_id, event_type, event_date, event_ts) VALUES ('T001', 'K101', 'P101', 'shipped', '2024-02-01', '2024-02-01 08:15:00'), ('T002', 'K102', 'P102', 'shipped', '2024-02-01', '2024-02-01 08:45:00'), ('T003', 'K103', 'P103', 'shipped', '2024-02-01', '2024-02-01 09:00:00'), ('T004', 'K104', 'P104', 'shipped', '2024-02-01', '2024-02-01 10:30:00'), ('T005', 'K105', 'P105', 'shipped', '2024-02-01', '2024-02-01 11:00:00'), ('T006', 'K101', 'P101', 'returned', '2024-02-02', '2024-02-02 13:00:00'), ('T007', 'K106', 'P106', 'shipped', '2024-02-02', '2024-02-02 08:30:00'), ('T008', 'K107', 'P107', 'shipped', '2024-02-02', '2024-02-02 09:15:00'), ('T009', 'K102', 'P102', 'results_released', '2024-02-02', '2024-02-02 15:00:00'), ('T010', 'K103', 'P103', 'results_released', '2024-02-02', '2024-02-02 16:30:00'), ('T011', 'K108', 'P108', 'shipped', '2024-02-03', '2024-02-03 08:00:00'), ('T012', 'K109', 'P109', 'shipped', '2024-02-03', '2024-02-03 08:30:00'), ('T013', 'K110', 'P110', 'shipped', '2024-02-03', '2024-02-03 09:00:00'), ('T014', 'K104', 'P104', 'results_released', '2024-02-03', '2024-02-03 14:00:00'), ('T015', 'K105', 'P105', 'results_released', '2024-02-03', '2024-02-03 15:30:00'), ('T016', 'K106', 'P106', 'results_released', '2024-02-03', '2024-02-03 16:00:00'), ('T017', 'K107', 'P107', 'returned', '2024-02-03', '2024-02-03 12:00:00'), ('T018', 'K111', 'P111', 'shipped', '2024-02-04', '2024-02-04 08:00:00'), ('T019', 'K112', 'P112', 'shipped', '2024-02-04', '2024-02-04 09:00:00'), ('T020', 'K108', 'P108', 'results_released', '2024-02-04', '2024-02-04 17:00:00'), ('T021', 'K109', 'P109', 'results_released', '2024-02-04', '2024-02-04 17:30:00'), ('T022', 'K110', 'P110', 'returned', '2024-02-04', '2024-02-04 10:00:00'), ('T023', 'K113', 'P113', 'shipped', '2024-02-05', '2024-02-05 08:15:00'), ('T024', 'K114', 'P114', 'shipped', '2024-02-05', '2024-02-05 09:30:00'), ('T025', 'K115', 'P115', 'shipped', '2024-02-05', '2024-02-05 10:00:00'), ('T026', 'K111', 'P111', 'results_released', '2024-02-05', '2024-02-05 16:00:00'), ('T027', 'K112', 'P112', 'results_released', '2024-02-05', '2024-02-05 16:30:00'), ('T028', 'K113', 'P113', 'returned', '2024-02-06', '2024-02-06 11:00:00'), ('T029', 'K114', 'P114', 'returned', '2024-02-06', '2024-02-06 11:30:00'), ('T030', 'K115', 'P115', 'results_released', '2024-02-06', '2024-02-06 15:00:00');",
+    "test_expected_columns": [
+      "event_date",
+      "kits_shipped",
+      "kits_returned",
+      "results_released"
+    ],
+    "test_expected_rows": [
+      [
+        "2024-02-01",
+        5,
+        0,
+        0
+      ],
+      [
+        "2024-02-02",
+        2,
+        1,
+        2
+      ],
+      [
+        "2024-02-03",
+        3,
+        1,
+        3
+      ],
+      [
+        "2024-02-04",
+        2,
+        1,
+        2
+      ],
+      [
+        "2024-02-05",
+        3,
+        0,
+        2
+      ],
+      [
+        "2024-02-06",
+        0,
+        2,
+        1
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "group-aggregate",
+      "composite_moves": [
+        "group by event_date",
+        "conditional count by event_type",
+        "aggregate kits_shipped, kits_returned, results_released"
+      ]
+    },
+    "hints": [
+      "You need to count events by type for each day. Think about how to conditionally count rows where event_type matches a specific value.",
+      "Use CASE expressions inside aggregate functions to count only the rows matching each event type. Each event type gets its own COUNT(CASE WHEN ... END) expression.",
+      "GROUP BY event_date and use COUNT(CASE WHEN event_type = 'shipped' THEN 1 END) for shipped kits, similarly for returned and results_released. Add a comment block at the top explaining whether this model should be a table, view, or incremental materialization given the query frequency (15-20/hour), data volume (27M rows), and freshness needs."
+    ],
+    "answer_key": "-- materialization: table\n-- Rationale: This model is queried 15-20 times per hour by real-time operational dashboards,\n-- making view materialization too expensive (each query would scan 27M raw events and re-aggregate).\n-- The aggregation is by date, producing ~540 output rows for 18 months of history, so the\n-- materialized table is small and fast to query. Incremental is unnecessary here because\n-- daily aggregations are cheap to recompute in full each dbt run, and the business does not\n-- require preserving historical snapshots of metric definitions. A nightly dbt run rebuilding\n-- the full table gives dashboard users sub-second query times without the complexity of\n-- incremental logic or the query cost of a view.\n\nSELECT\n  event_date,\n  COUNT(CASE WHEN event_type = 'shipped' THEN 1 END) AS kits_shipped,\n  COUNT(CASE WHEN event_type = 'returned' THEN 1 END) AS kits_returned,\n  COUNT(CASE WHEN event_type = 'results_released' THEN 1 END) AS results_released\nFROM kit_events\nGROUP BY event_date\nORDER BY event_date;",
+    "glossary": [
+      {
+        "term": "shipped",
+        "definition": "the event recorded when a test kit is dispatched from the fulfillment center to the patient's address"
+      },
+      {
+        "term": "returned",
+        "definition": "the event recorded when a completed test kit sample arrives back at the laboratory for processing"
+      },
+      {
+        "term": "results_released",
+        "definition": "the event recorded when lab-validated diagnostic results are made available to the patient or provider"
+      },
+      {
+        "term": "materialization (dbt)",
+        "definition": "the strategy dbt uses to persist a model's output in the warehouse, choosing between view (query-time computation), table (pre-computed and stored), ephemeral (inline CTE), or incremental (append new rows only)"
+      },
+      {
+        "term": "event_type",
+        "definition": "a categorical field indicating which lifecycle stage the kit event represents (shipped, returned, results_released, etc.)"
+      },
+      {
+        "term": "turnaround time",
+        "definition": "the elapsed time between two events in the kit lifecycle, such as shipped to returned or returned to results_released, used to track operational speed"
+      }
+    ],
+    "calculation_explanation": "1. Group all kit events by the calendar date they occurred (event_date).\n2. For each date, count how many events have event_type = 'shipped' to get kits_shipped.\n3. For the same date group, count how many events have event_type = 'returned' to get kits_returned.\n4. For the same date group, count how many events have event_type = 'results_released' to get results_released.\n5. Return one row per date with the three count columns, ordered by date ascending.",
+    "interpretation_example": "- On 2024-01-15, 2 kits were shipped with no returns or results yet, which is typical for the first day in a cohort (kits just left the warehouse).\n- On 2024-01-16, 1 kit shipped and 1 kit returned, showing a 1-day return lag (K001 shipped on the 15th, returned on the 16th), which is fast and suggests local patients or expedited shipping.\n- On 2024-01-17, 2 results were released with only 1 new shipment, indicating the lab processed samples from prior days (K002 and K003 both shipped before the 17th).\n- The return rate across the 4-day window is 2 returns out of 4 total kits shipped (50%), which is unusually high compared to the typical 70-85% return rate for at-home diagnostic kits and may indicate a data completeness issue (not all shipped kits have reached their return window yet) or a real operational problem worth investigating.",
+    "recommendation_example": "- Implement a lag-based cohort view (Analytics Engineering): build a separate dbt model that joins shipped events to their corresponding returned and results_released events by kit_id, calculates days_to_return and days_to_results, and filters to kits with at least 7 days elapsed since shipment to avoid premature return-rate calculations.\n- Add a daily return-rate alert (Operations): trigger a Slack notification when the 7-day cohort return rate drops below 70%, which is the lower bound of the industry benchmark; the current 50% in the example data would fire this alert if the data were complete.\n- Materialize this daily summary as a dbt table (Data Platform): given 15-20 queries per hour and a 27M row source table, a view would force expensive re-aggregation on every dashboard load; a table rebuild once per day gives sub-second query times and is simpler than incremental logic for a model with only 540 output rows.\n- Monitor weekly: track the P50 and P90 of days_to_return and days_to_results, watching for the P50 to exceed 3 days (return) or 5 days (results), which would indicate fulfillment or lab processing delays.",
+    "_meta": {
+      "category": "transformation_modeling",
+      "subtopic": "materialization_choice",
+      "kind": "sql",
+      "question_type": "select_analytical",
+      "dialect": "postgresql",
+      "scenario": "an at-home diagnostic test kit ordering platform tracking kit shipped, returned, results released",
+      "generated_at": "2026-05-05T10:17:57.308717",
+      "problem_id": "22ad57c0e274",
+      "validation_attempts": 2,
+      "notebook": "nb02_fuze_interview_drills"
+    }
+  },
+  "user_solution": "/*\nPurpose\nWrite a SQL query from kit_events table that produces a table kpi with these fields\n- event_date\n- kits_shipped\n- kits_returned\n- results_released\n\nContext\n- Building a dbt model that aggregates daily metrics so the business can track how many kits were shipped, how many were returned, and how many results were released each day.\n- Need: High, the analytics team queries data 15-20 times per hour for real-time dashboards showing operational KPIs (same-day turnaround time, return rate, result release lag).\n- The underlying `kit_events` table receives approximately 50,000 new event records per day and currently holds 18 months of history (27 million rows).\n\nInput Schema\nTable: kit_events\nevent_id\nkit_id\npatient_id\nevent_type\nevent_date\nevent_ts\n\nStrategy\n- group by event_date and event_type and calculate count of event_id f\n\nExample input data\nData: kit_events\nevent_id\tkit_id\tpatient_id\tevent_type\tevent_date\tevent_ts\nE001\tK001\tP001\tshipped\t2024-01-15\t2024-01-15 09:00:00\nE002\tK002\tP002\tshipped\t2024-01-15\t2024-01-15 10:30:00\nE003\tK003\tP003\tshipped\t2024-01-16\t2024-01-16 08:00:00\nE004\tK001\tP001\treturned\t2024-01-16\t2024-01-16 14:00:00\nE005\tK002\tP002\tresults_released\t2024-01-17\t2024-01-17 11:00:00\nE006\tK004\tP004\tshipped\t2024-01-17\t2024-01-17 09:30:00\nE007\tK003\tP003\tresults_released\t2024-01-17\t2024-01-17 16:00:00\nE008\tK004\tP004\treturned\t2024-01-18\t2024-01-18 10:00:00\n\nExpected output (example data)\nevent_date\tkits_shipped\tkits_returned\tresults_released\n2024-01-15\t2\t0\t0\n2024-01-16\t1\t1\t0\n2024-01-17\t1\t0\t2\n2024-01-18\t0\t1\t0\n\n\n */\nWITH aggregated AS (\n    SELECT\n        event_date,\n        SUM(CASE WHEN event_type = 'shipped' THEN 1 ELSE 0 END) AS kits_shipped,\n        SUM(CASE WHEN event_type = 'returned' THEN 1 ELSE 0 END) AS kits_returned,\n        SUM(CASE WHEN event_type = 'results_released' THEN 1 ELSE 0 END) AS results_released\n    FROM kit_events\n    GROUP BY event_date\n)\nSELECT \n    event_date,\n    COALESCE(kits_shipped, 0) AS kits_shipped,\n    COALESCE(kits_returned, 0) AS kits_returned,\n    COALESCE(results_released, 0) AS results_released\nFROM aggregated\nORDER BY event_date;\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+  "grade_result": null,
+  "solved_at": "2026-05-05T13:54:23.739816",
+  "notebook": "nb02_fuze_interview_drills"
+}

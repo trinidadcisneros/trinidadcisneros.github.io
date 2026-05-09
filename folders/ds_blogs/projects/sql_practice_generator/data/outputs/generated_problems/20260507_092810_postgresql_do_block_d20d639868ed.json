@@ -1,0 +1,282 @@
+{
+  "title": "Apply Tiered Refund Policy Updates",
+  "prompt": "You manage a `refund_requests` table for an e-commerce platform. Each row represents a customer's refund request with columns `request_id` (PK), `customer_email`, `order_total`, `return_reason`, `processing_status`, `refund_amount`, and `priority_flag`. Apply the following business rules IN ORDER inside a DO block: (1) Set `processing_status` to 'expedited' for any request where `order_total >= 500`. (2) Set `priority_flag` to TRUE for any request where `return_reason = 'defective'`. (3) Set `refund_amount` to `order_total * 1.10` (110% refund as goodwill) for any request where `processing_status = 'expedited'` AND `priority_flag = TRUE`. (4) Set `refund_amount` to `order_total * 1.00` (full refund) for any request where `priority_flag = TRUE` AND `refund_amount` is still NULL. After the DO block completes, output the final state of all rows ordered by `request_id`. Write a DO block containing only UPDATE statements (no loops, no variables, no IF statements), followed by a trailing SELECT statement.",
+  "schema_ddl": "CREATE TABLE refund_requests (request_id INT PRIMARY KEY, customer_email VARCHAR(100), order_total DECIMAL(10,2), return_reason VARCHAR(50), processing_status VARCHAR(50), refund_amount DECIMAL(10,2), priority_flag BOOLEAN DEFAULT FALSE);",
+  "example_input_data": "INSERT INTO refund_requests (request_id, customer_email, order_total, return_reason, processing_status, refund_amount, priority_flag) VALUES (1, 'alice@example.com', 600.00, 'defective', 'standard', NULL, FALSE), (2, 'bob@example.com', 450.00, 'changed_mind', 'standard', NULL, FALSE), (3, 'carol@example.com', 750.00, 'wrong_item', 'standard', NULL, FALSE), (4, 'dan@example.com', 200.00, 'defective', 'standard', NULL, FALSE), (5, 'eve@example.com', 520.00, 'defective', 'standard', NULL, FALSE);",
+  "example_output_columns": [
+    "request_id",
+    "customer_email",
+    "order_total",
+    "return_reason",
+    "processing_status",
+    "refund_amount",
+    "priority_flag"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "alice@example.com",
+      "600.00",
+      "defective",
+      "expedited",
+      "660.00",
+      true
+    ],
+    [
+      2,
+      "bob@example.com",
+      "450.00",
+      "changed_mind",
+      "standard",
+      null,
+      false
+    ],
+    [
+      3,
+      "carol@example.com",
+      "750.00",
+      "wrong_item",
+      "expedited",
+      null,
+      false
+    ],
+    [
+      4,
+      "dan@example.com",
+      "200.00",
+      "defective",
+      "standard",
+      "200.00",
+      true
+    ],
+    [
+      5,
+      "eve@example.com",
+      "520.00",
+      "defective",
+      "expedited",
+      "572.00",
+      true
+    ]
+  ],
+  "test_data": "INSERT INTO refund_requests (request_id, customer_email, order_total, return_reason, processing_status, refund_amount, priority_flag) VALUES (101, 'test1@example.com', 499.99, 'defective', 'standard', NULL, FALSE), (102, 'test2@example.com', 500.00, 'changed_mind', 'standard', NULL, FALSE), (103, 'test3@example.com', 500.01, 'defective', 'standard', NULL, FALSE), (104, 'test4@example.com', 1000.00, 'defective', 'standard', NULL, FALSE), (105, 'test5@example.com', 150.00, 'wrong_item', 'standard', NULL, FALSE), (106, 'test6@example.com', 600.00, 'defective', 'standard', NULL, FALSE), (107, 'test7@example.com', 250.00, 'defective', 'standard', NULL, FALSE), (108, 'test8@example.com', 800.00, 'changed_mind', 'standard', NULL, FALSE), (109, 'test9@example.com', 0.00, 'defective', 'standard', NULL, FALSE), (110, 'test10@example.com', 499.00, 'changed_mind', 'standard', NULL, FALSE), (111, 'test11@example.com', 550.00, 'defective', 'standard', NULL, FALSE), (112, 'test12@example.com', 750.00, 'wrong_item', 'standard', NULL, FALSE), (113, 'test13@example.com', 1200.00, 'defective', 'standard', NULL, FALSE), (114, 'test14@example.com', 300.00, 'defective', 'standard', NULL, FALSE), (115, 'test15@example.com', 500.00, 'defective', 'standard', NULL, FALSE), (116, 'test16@example.com', 2000.00, 'wrong_item', 'standard', NULL, FALSE), (117, 'test17@example.com', 100.00, 'changed_mind', 'standard', NULL, FALSE), (118, 'test18@example.com', 650.00, 'defective', 'standard', NULL, FALSE), (119, 'test19@example.com', 499.50, 'defective', 'standard', NULL, FALSE), (120, 'test20@example.com', 3000.00, 'defective', 'standard', NULL, FALSE);",
+  "test_expected_columns": [
+    "request_id",
+    "customer_email",
+    "order_total",
+    "return_reason",
+    "processing_status",
+    "refund_amount",
+    "priority_flag"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      "test1@example.com",
+      "499.99",
+      "defective",
+      "standard",
+      "499.99",
+      true
+    ],
+    [
+      102,
+      "test2@example.com",
+      "500.00",
+      "changed_mind",
+      "expedited",
+      null,
+      false
+    ],
+    [
+      103,
+      "test3@example.com",
+      "500.01",
+      "defective",
+      "expedited",
+      "550.01",
+      true
+    ],
+    [
+      104,
+      "test4@example.com",
+      "1000.00",
+      "defective",
+      "expedited",
+      "1100.00",
+      true
+    ],
+    [
+      105,
+      "test5@example.com",
+      "150.00",
+      "wrong_item",
+      "standard",
+      null,
+      false
+    ],
+    [
+      106,
+      "test6@example.com",
+      "600.00",
+      "defective",
+      "expedited",
+      "660.00",
+      true
+    ],
+    [
+      107,
+      "test7@example.com",
+      "250.00",
+      "defective",
+      "standard",
+      "250.00",
+      true
+    ],
+    [
+      108,
+      "test8@example.com",
+      "800.00",
+      "changed_mind",
+      "expedited",
+      null,
+      false
+    ],
+    [
+      109,
+      "test9@example.com",
+      "0.00",
+      "defective",
+      "standard",
+      "0.00",
+      true
+    ],
+    [
+      110,
+      "test10@example.com",
+      "499.00",
+      "changed_mind",
+      "standard",
+      null,
+      false
+    ],
+    [
+      111,
+      "test11@example.com",
+      "550.00",
+      "defective",
+      "expedited",
+      "605.00",
+      true
+    ],
+    [
+      112,
+      "test12@example.com",
+      "750.00",
+      "wrong_item",
+      "expedited",
+      null,
+      false
+    ],
+    [
+      113,
+      "test13@example.com",
+      "1200.00",
+      "defective",
+      "expedited",
+      "1320.00",
+      true
+    ],
+    [
+      114,
+      "test14@example.com",
+      "300.00",
+      "defective",
+      "standard",
+      "300.00",
+      true
+    ],
+    [
+      115,
+      "test15@example.com",
+      "500.00",
+      "defective",
+      "expedited",
+      "550.00",
+      true
+    ],
+    [
+      116,
+      "test16@example.com",
+      "2000.00",
+      "wrong_item",
+      "expedited",
+      null,
+      false
+    ],
+    [
+      117,
+      "test17@example.com",
+      "100.00",
+      "changed_mind",
+      "standard",
+      null,
+      false
+    ],
+    [
+      118,
+      "test18@example.com",
+      "650.00",
+      "defective",
+      "expedited",
+      "715.00",
+      true
+    ],
+    [
+      119,
+      "test19@example.com",
+      "499.50",
+      "defective",
+      "standard",
+      "499.50",
+      true
+    ],
+    [
+      120,
+      "test20@example.com",
+      "3000.00",
+      "defective",
+      "expedited",
+      "3300.00",
+      true
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "state_mutation",
+    "recipe": "row-transform",
+    "composite_moves": [
+      "row-filter: mark high-value orders as expedited",
+      "row-filter: mark defective items as priority",
+      "row-transform: compute 110% refund for expedited priority cases",
+      "row-transform: compute 100% refund for remaining priority cases"
+    ]
+  },
+  "hints": [
+    "Apply the four UPDATE rules in the exact order specified, each targeting different subsets of rows based on their current state.",
+    "The third rule should multiply `order_total` by 1.10 and assign to `refund_amount`, but only for rows where both `processing_status = 'expedited'` and `priority_flag = TRUE`.",
+    "Use `WHERE processing_status = 'expedited'` in rule 1, `WHERE return_reason = 'defective'` in rule 2, `WHERE processing_status = 'expedited' AND priority_flag = TRUE` in rule 3, and `WHERE priority_flag = TRUE AND refund_amount IS NULL` in rule 4."
+  ],
+  "answer_key": "DO $$\nBEGIN\n  UPDATE refund_requests SET processing_status = 'expedited' WHERE order_total >= 500;\n  UPDATE refund_requests SET priority_flag = TRUE WHERE return_reason = 'defective';\n  UPDATE refund_requests SET refund_amount = order_total * 1.10 WHERE processing_status = 'expedited' AND priority_flag = TRUE;\n  UPDATE refund_requests SET refund_amount = order_total * 1.00 WHERE priority_flag = TRUE AND refund_amount IS NULL;\nEND $$;\nSELECT * FROM refund_requests ORDER BY request_id;",
+  "_meta": {
+    "question_type": "do_block",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-07T09:28:10.005236",
+    "problem_id": "d20d639868ed",
+    "validation_attempts": 1,
+    "scenario": "an e-commerce platform tracking customer orders, returns, and refunds",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

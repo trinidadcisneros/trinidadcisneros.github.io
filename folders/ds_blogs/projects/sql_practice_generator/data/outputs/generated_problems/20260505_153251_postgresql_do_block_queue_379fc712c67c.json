@@ -1,0 +1,140 @@
+{
+  "title": "Process Shipment Milestone Events in Order",
+  "prompt": "You are building a shipment tracking system for a logistics company. The `shipments` table holds the current state of each shipment (status and last recorded location). The `milestone_events` table is a chronological log of events that update shipment state. Write a DO block that processes the events in `event_id` order. Each event must read the shipment's current state before deciding whether to apply the update. A 'depart' event sets status to 'in_transit' and updates location only if the current status is 'pending'. A 'deliver' event sets status to 'delivered' and updates location only if the current status is 'in_transit'. An 'exception' event sets status to 'delayed' regardless of current status and updates location. If an event's preconditions are not met, skip the update (no-op). Because subsequent events see the prior event's update, the order in which you process the log is critical. After the loop completes, include a trailing `SELECT * FROM shipments ORDER BY shipment_id;` so the final state is returned.",
+  "schema_ddl": "CREATE TABLE shipments (shipment_id INT PRIMARY KEY, status VARCHAR(20) NOT NULL, location VARCHAR(50)); CREATE TABLE milestone_events (event_id INT PRIMARY KEY, shipment_id INT NOT NULL REFERENCES shipments(shipment_id), event_type VARCHAR(20) NOT NULL, new_location VARCHAR(50) NOT NULL);",
+  "example_input_data": "INSERT INTO shipments (shipment_id, status, location) VALUES (101, 'pending', 'warehouse_A'), (102, 'pending', 'warehouse_B'), (103, 'in_transit', 'hub_C'); INSERT INTO milestone_events (event_id, shipment_id, event_type, new_location) VALUES (1, 101, 'depart', 'hub_X'), (2, 101, 'deliver', 'customer_site'), (3, 102, 'deliver', 'customer_site'), (4, 102, 'depart', 'hub_Y'), (5, 103, 'deliver', 'customer_site'), (6, 103, 'exception', 'hub_Z');",
+  "example_output_columns": [
+    "shipment_id",
+    "status",
+    "location"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "delivered",
+      "customer_site"
+    ],
+    [
+      102,
+      "in_transit",
+      "hub_Y"
+    ],
+    [
+      103,
+      "delayed",
+      "hub_Z"
+    ]
+  ],
+  "test_data": "INSERT INTO shipments (shipment_id, status, location) VALUES (201, 'pending', 'warehouse_A'), (202, 'pending', 'warehouse_B'), (203, 'in_transit', 'hub_C'), (204, 'pending', 'warehouse_D'), (205, 'in_transit', 'hub_E'), (206, 'pending', 'warehouse_F'), (207, 'in_transit', 'hub_G'), (208, 'delivered', 'customer_site_H'), (209, 'pending', 'warehouse_I'), (210, 'in_transit', 'hub_J'), (211, 'pending', 'warehouse_K'), (212, 'in_transit', 'hub_L'), (213, 'pending', 'warehouse_M'), (214, 'in_transit', 'hub_N'), (215, 'pending', 'warehouse_O'); INSERT INTO milestone_events (event_id, shipment_id, event_type, new_location) VALUES (1, 201, 'depart', 'hub_X1'), (2, 201, 'deliver', 'customer_1'), (3, 202, 'exception', 'hub_X2'), (4, 202, 'depart', 'hub_X3'), (5, 203, 'deliver', 'customer_2'), (6, 203, 'depart', 'hub_X4'), (7, 204, 'deliver', 'customer_3'), (8, 204, 'depart', 'hub_X5'), (9, 205, 'exception', 'hub_X6'), (10, 205, 'deliver', 'customer_4'), (11, 206, 'depart', 'hub_X7'), (12, 206, 'exception', 'hub_X8'), (13, 207, 'deliver', 'customer_5'), (14, 207, 'exception', 'hub_X9'), (15, 208, 'depart', 'hub_X10'), (16, 208, 'deliver', 'customer_6'), (17, 209, 'depart', 'hub_X11'), (18, 209, 'depart', 'hub_X12'), (19, 210, 'deliver', 'customer_7'), (20, 210, 'depart', 'hub_X13'), (21, 211, 'exception', 'hub_X14'), (22, 211, 'depart', 'hub_X15'), (23, 212, 'exception', 'hub_X16'), (24, 212, 'deliver', 'customer_8'), (25, 213, 'depart', 'hub_X17'), (26, 213, 'deliver', 'customer_9'), (27, 214, 'deliver', 'customer_10'), (28, 215, 'exception', 'hub_X18');",
+  "test_expected_columns": [
+    "shipment_id",
+    "status",
+    "location"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "delivered",
+      "customer_1"
+    ],
+    [
+      202,
+      "delayed",
+      "hub_X2"
+    ],
+    [
+      203,
+      "delivered",
+      "customer_2"
+    ],
+    [
+      204,
+      "in_transit",
+      "hub_X5"
+    ],
+    [
+      205,
+      "delayed",
+      "hub_X6"
+    ],
+    [
+      206,
+      "delayed",
+      "hub_X8"
+    ],
+    [
+      207,
+      "delayed",
+      "hub_X9"
+    ],
+    [
+      208,
+      "delivered",
+      "customer_site_H"
+    ],
+    [
+      209,
+      "in_transit",
+      "hub_X11"
+    ],
+    [
+      210,
+      "delivered",
+      "customer_7"
+    ],
+    [
+      211,
+      "delayed",
+      "hub_X14"
+    ],
+    [
+      212,
+      "delayed",
+      "hub_X16"
+    ],
+    [
+      213,
+      "delivered",
+      "customer_9"
+    ],
+    [
+      214,
+      "delivered",
+      "customer_10"
+    ],
+    [
+      215,
+      "delayed",
+      "hub_X18"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "procedural",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "declare RECORD variable for event row and VARCHAR variables for current status and location",
+      "FOR loop over milestone_events ordered by event_id",
+      "SELECT current status and location INTO variables from shipments",
+      "IF event_type = 'depart' AND current status = 'pending' THEN UPDATE to 'in_transit'",
+      "ELSIF event_type = 'deliver' AND current status = 'in_transit' THEN UPDATE to 'delivered'",
+      "ELSIF event_type = 'exception' THEN UPDATE to 'delayed' unconditionally",
+      "trailing SELECT * FROM shipments ORDER BY shipment_id"
+    ]
+  },
+  "hints": [
+    "You need to iterate the milestone_events table in event_id order and apply updates conditionally based on the shipment's current state at each iteration.",
+    "Use a FOR loop with a RECORD variable for each event row, then SELECT the shipment's current status and location into scalar variables before branching on event_type and current status.",
+    "Inside the loop, use IF/ELSIF to check: 'depart' requires status='pending', 'deliver' requires status='in_transit', 'exception' always applies. Update the shipment row only when the branch condition is met, then continue to the next event."
+  ],
+  "answer_key": "DO $$ DECLARE rec RECORD; cur_status VARCHAR(20); cur_location VARCHAR(50); BEGIN FOR rec IN SELECT * FROM milestone_events ORDER BY event_id LOOP SELECT status, location INTO cur_status, cur_location FROM shipments WHERE shipment_id = rec.shipment_id; IF rec.event_type = 'depart' AND cur_status = 'pending' THEN UPDATE shipments SET status = 'in_transit', location = rec.new_location WHERE shipment_id = rec.shipment_id; ELSIF rec.event_type = 'deliver' AND cur_status = 'in_transit' THEN UPDATE shipments SET status = 'delivered', location = rec.new_location WHERE shipment_id = rec.shipment_id; ELSIF rec.event_type = 'exception' THEN UPDATE shipments SET status = 'delayed', location = rec.new_location WHERE shipment_id = rec.shipment_id; END IF; END LOOP; END $$; SELECT * FROM shipments ORDER BY shipment_id;",
+  "_meta": {
+    "question_type": "do_block_queue",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-05T15:32:51.383355",
+    "problem_id": "379fc712c67c",
+    "validation_attempts": 1,
+    "scenario": "a logistics company tracking shipment milestones and on-time delivery",
+    "dml_op": null
+  }
+}

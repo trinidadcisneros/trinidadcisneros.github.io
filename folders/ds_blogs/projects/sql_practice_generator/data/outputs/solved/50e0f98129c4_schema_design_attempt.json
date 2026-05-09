@@ -1,0 +1,168 @@
+{
+  "problem_id": "50e0f98129c4",
+  "subtopic": "schema_design",
+  "responses": {
+    "business_process": "the business process is the lifecycle of the claim_id",
+    "grain": "one row per claim_id",
+    "fact_columns": "",
+    "key_strategy": "natural",
+    "key_rationale": "Use the source's existing ID directly. It's unique at the grain, stable across time, and from a single source. No need to generate a surrogate.",
+    "dim_joins": [
+      "dim_drug",
+      "dim_payer"
+    ],
+    "scd_per_dim": {
+      "dim_drug": "type0",
+      "dim_payer": "type0"
+    },
+    "scd_rationale": "the dim drug data should not change as its just details on a given drug but we should have a field here we update if a drug is no longer available such as pulled from the market and the same for the payer if they still are active or not in the dim table",
+    "conformed_dims": [],
+    "conformed_rationale": "N/A \u2014 single-fact drill. Conformed dims is about reusing the SAME dim across multiple fact tables; with only one fact in scope, there's nothing to conform with.",
+    "models": [
+      {
+        "name": "stg_claim_events",
+        "layer": "stg",
+        "mat": "",
+        "purpose": "cleaning"
+      },
+      {
+        "name": "int_claim_lifecycle",
+        "layer": "int",
+        "mat": "",
+        "purpose": "transformation"
+      },
+      {
+        "name": "fact_claim",
+        "layer": "fct",
+        "mat": "",
+        "purpose": "fact"
+      }
+    ],
+    "tests_per_model": {
+      "stg_claim_events": [
+        "unique on grain key",
+        "not_null on grain key"
+      ],
+      "int_claim_lifecycle": [
+        "unique on grain key",
+        "not_null on grain key"
+      ],
+      "fact_claim": [
+        "unique on grain key",
+        "not_null on grain key",
+        "relationships to dim tables (FK integrity)",
+        "expression_is_true: chronology (e.g., paid_ts >= submit_ts)",
+        "expect_column_values_to_match_regex (NDC, NPI format)",
+        "expect_table_row_count_to_be_between (sanity check)",
+        "accepted_values on enum/status column"
+      ]
+    },
+    "tests_custom_per_model": {},
+    "translate_picks": {},
+    "translate_decomp": {},
+    "mode": "solve",
+    "edge_cases_per_category": {
+      "multiple_same_type": [
+        "Take latest \u2014 last_<event>_ts = MAX(event_ts WHERE event_type=...)"
+      ],
+      "source_retries": [
+        "Late correction triggers MERGE on entity row (not append)"
+      ]
+    },
+    "edge_cases_applies": {
+      "duplicates": false,
+      "out_of_order": false,
+      "null_handling": false,
+      "boundary": false,
+      "failure_events": false,
+      "multiple_same_type": true,
+      "source_retries": true
+    },
+    "idempotency_strategy": "full_rebuild",
+    "idempotency_rationale": "Full rebuild means: every run, drop the entire fact and rebuild from source. Re-run safety is guaranteed by construction (no duplicates possible). Picked because the fact is small enough that this is fast.",
+    "late_arriving_strategy": "restate",
+    "late_arriving_rationale": "Re-state means: every run, rebuild affected past partitions using the latest source events. Past period numbers shift slightly with each rebuild as late events arrive. Picked because accuracy matters more than report stability and late data volume is non-trivial.",
+    "edge_cases": "[multiple_same_type] Take latest \u2014 last_<event>_ts = MAX(event_ts WHERE event_type=...)\n[source_retries] Late correction triggers MERGE on entity row (not append)"
+  },
+  "grade": {
+    "scores": [
+      {
+        "criterion": "Business process",
+        "weight": 8,
+        "earned": 7,
+        "feedback": "Correctly identified the business process as 'lifecycle of the claim_id' \u2014 this captures the state-change nature of the source events. Would be stronger with explicit mention that events collapse into a single claim-level record (submitted \u2192 paid \u2192 possibly reversed), but the core concept is sound."
+      },
+      {
+        "criterion": "Grain",
+        "weight": 12,
+        "earned": 10,
+        "feedback": "Grain stated as 'one row per claim_id' \u2014 correct output grain. However, missing acknowledgment of the INPUT grain shift: source is event-level (multiple rows per claim_id) and the fact table collapses these into one row per claim. Full credit requires noting this transformation explicitly."
+      },
+      {
+        "criterion": "Fact columns",
+        "weight": 12,
+        "earned": 0,
+        "feedback": "Left blank. This is a critical failure in solve mode. The dashboard asks require: first_submit_ts, paid_ts (for time-to-payment), reversed_ts (for reversal rate), gross_paid_amount (audit trail of total paid before reversals), net_paid_amount (throughput metric after reversals), and final_status (to support FPAR and net acceptance rate filters). Without these columns specified, the fact table cannot answer any of the four dashboard questions."
+      },
+      {
+        "criterion": "Surrogate vs natural key",
+        "weight": 6,
+        "earned": 6,
+        "feedback": "Chose natural key with clear rationale: claim_id is unique at grain, stable, single-source. Correct choice for this problem. The rationale directly addresses uniqueness and stability \u2014 full marks."
+      },
+      {
+        "criterion": "Dim joins",
+        "weight": 8,
+        "earned": 4,
+        "feedback": "Joined only dim_drug and dim_payer. The dashboard asks require filtering by drug class (dim_drug \u2713) and payer (dim_payer \u2713), but also median time-to-payment by payer, which benefits from dim_date join on paid_date for time-series partitioning. Additionally, dim_patient, dim_prescriber, and dim_pharmacy are standard conformed dims in pharmacy claims that enable future analytics. Joining only 2 of 6 available dims is minimal \u2014 covers immediate asks but misses extensibility."
+      },
+      {
+        "criterion": "SCD type per dim",
+        "weight": 8,
+        "earned": 2,
+        "feedback": "Assigned Type 0 to both dim_drug and dim_payer, stating dims 'should not change.' This is incorrect. dim_payer should be Type 2 (plan_year_start suggests plan-year boundaries and formulary changes tracked over time). dim_drug should be Type 1 (NDC metadata updates like generic_flag flips). Type 0 means 'never update' \u2014 wrong for both. The rationale about 'pulled from the market' suggests wanting a status flag (Type 1 update), not Type 0. Fundamental misunderstanding of SCD types."
+      },
+      {
+        "criterion": "Conformed dims",
+        "weight": 4,
+        "earned": 4,
+        "feedback": "Correctly marked N/A for single-fact drill and provided accurate rationale: 'Conformed dims is about reusing the SAME dim across multiple fact tables; with only one fact in scope, there's nothing to conform with.' Perfect understanding of when this axis doesn't apply."
+      },
+      {
+        "criterion": "Models (layer + materialization)",
+        "weight": 11,
+        "earned": 5,
+        "feedback": "Proposed 3-layer structure (stg \u2192 int \u2192 fct) with logical names. However, all models marked '(no mat)' \u2014 this is problematic. The stakeholder asks require hourly dashboard refresh on 15M rows. fact_claim should be materialized as TABLE (not view) for query performance. int_claim_lifecycle (the event-to-claim collapse) should be ephemeral or view. stg_claim_events can be view. Missing materialization strategy loses half credit."
+      },
+      {
+        "criterion": "dbt tests per model",
+        "weight": 7,
+        "earned": 6,
+        "feedback": "Strong test coverage: unique/not_null on grain keys across all models, relationships (FK integrity), chronology check (paid_ts >= submit_ts), accepted_values on status, regex for NDC/NPI, row count sanity check. Only minor gap: no test for gross_paid_amount >= net_paid_amount (key business rule for reversals). Near-full marks for breadth and relevance."
+      },
+      {
+        "criterion": "Idempotency / re-run safety",
+        "weight": 9,
+        "earned": 8,
+        "feedback": "Chose full_rebuild with clear rationale: 'every run, drop the entire fact and rebuild from source. Re-run safety is guaranteed by construction.' This works and is idempotent. However, the rationale says 'fact is small enough' \u2014 at 15M rows, full rebuild may not scale as well as MERGE on claim_id with event timestamp predicates (only update claims with new events). Still, full_rebuild is a valid choice and the reasoning is sound for current scale."
+      },
+      {
+        "criterion": "Late-arriving / out-of-order events",
+        "weight": 7,
+        "earned": 6,
+        "feedback": "Chose restate with rationale: 'rebuild affected past partitions using latest source events. Accuracy matters more than report stability.' This is a reasonable strategy and the trade-off is articulated. However, with full_rebuild already chosen for idempotency, 'restate' is redundant (full rebuild already incorporates all late data). The two strategies overlap \u2014 pick one or clarify how they differ in your design. Docked 1 point for conceptual overlap."
+      },
+      {
+        "criterion": "Edge cases acknowledged",
+        "weight": 8,
+        "earned": 6,
+        "feedback": "Acknowledged two edge cases: [multiple_same_type] handled via MAX(event_ts) per event_type (correct \u2014 take latest timestamp), and [source_retries] handled via MERGE on entity row (correct \u2014 prevents append duplicates). Both are relevant and well-addressed. However, missing key edge case for this problem: what happens when a claim is reversed AFTER being paid? The fact design must preserve gross_paid_amount (audit trail) while zeroing net_paid_amount. Not mentioning reversal logic is a gap given the dashboard's reversal rate metric."
+      }
+    ],
+    "total_score": 64,
+    "what_was_strong": "Strongest field: dbt tests. You proposed a comprehensive test suite spanning grain uniqueness, FK integrity, chronology constraints, regex validation, and sanity checks \u2014 demonstrating strong data quality discipline and understanding of what can break in a claim lifecycle fact.",
+    "what_to_improve": "Weakest field: Fact columns (0/12). You left this blank, which is a critical failure. The dashboard asks require: first_submit_ts, paid_ts, reversed_ts, gross_paid_amount (audit trail), net_paid_amount (throughput after reversals), final_status. Without these, your fact table cannot answer any of the four metrics. In your next pass, derive each column from the event stream (e.g., paid_ts = MAX(event_ts WHERE event_type='paid'), net_paid_amount = SUM(paid_amount WHERE event_type IN ('paid','reversed'))).",
+    "next_drill_focus": "Practice deriving fact columns from event-grain sources: given a set of dashboard metrics, map each metric back to the timestamps, amounts, and flags you need to store at claim grain. Focus on distinguishing gross vs net measures when reversals exist."
+  },
+  "saved_at": "2026-05-06T19:20:40.328035"
+}

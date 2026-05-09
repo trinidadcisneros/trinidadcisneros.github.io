@@ -1,0 +1,119 @@
+{
+  "title": "Median Time to Fill by Drug Class",
+  "prompt": "You have a table of prescriptions with submit and dispense timestamps. Calculate the median time to fill (in minutes), the 75th percentile time to fill, and the mean time to fill for each drug class. Time to fill is defined as the duration from `submit_ts` to `dispense_ts` in minutes: `EXTRACT(EPOCH FROM (dispense_ts - submit_ts)) / 60.0`. Return one row per drug class with columns: `drug_class`, `median_time_to_fill_minutes`, `p75_time_to_fill_minutes`, `mean_time_to_fill_minutes`. Round all time columns to 2 decimal places. Order the output by `drug_class` ascending.",
+  "schema_ddl": "CREATE TABLE prescriptions (rx_id INT PRIMARY KEY, drug_class VARCHAR(50) NOT NULL, submit_ts TIMESTAMP NOT NULL, dispense_ts TIMESTAMP NOT NULL);",
+  "example_input_data": "INSERT INTO prescriptions (rx_id, drug_class, submit_ts, dispense_ts) VALUES (1, 'GLP-1 agonists', '2025-01-15 08:00:00', '2025-01-15 08:30:00'), (2, 'GLP-1 agonists', '2025-01-15 08:00:00', '2025-01-15 09:00:00'), (3, 'GLP-1 agonists', '2025-01-15 08:00:00', '2025-01-15 09:30:00'), (4, 'GLP-1 agonists', '2025-01-15 08:00:00', '2025-01-15 10:00:00'), (5, 'GLP-1 agonists', '2025-01-15 08:00:00', '2025-01-15 10:30:00'), (6, 'statins', '2025-01-15 08:00:00', '2025-01-15 08:15:00'), (7, 'statins', '2025-01-15 08:00:00', '2025-01-15 08:30:00'), (8, 'statins', '2025-01-15 08:00:00', '2025-01-15 08:45:00'), (9, 'statins', '2025-01-15 08:00:00', '2025-01-15 09:00:00'), (10, 'statins', '2025-01-15 08:00:00', '2025-01-15 12:00:00');",
+  "example_output_columns": [
+    "drug_class",
+    "median_time_to_fill_minutes",
+    "p75_time_to_fill_minutes",
+    "mean_time_to_fill_minutes"
+  ],
+  "example_output_rows": [
+    [
+      "GLP-1 agonists",
+      "90.00",
+      "120.00",
+      "90.00"
+    ],
+    [
+      "statins",
+      "45.00",
+      "60.00",
+      "78.00"
+    ]
+  ],
+  "test_data": "INSERT INTO prescriptions (rx_id, drug_class, submit_ts, dispense_ts) VALUES (101, 'oral contraceptives', '2025-01-20 09:00:00', '2025-01-20 09:20:00'), (102, 'oral contraceptives', '2025-01-20 09:00:00', '2025-01-20 09:40:00'), (103, 'oral contraceptives', '2025-01-20 09:00:00', '2025-01-20 10:00:00'), (104, 'oral contraceptives', '2025-01-20 09:00:00', '2025-01-20 10:20:00'), (105, 'SSRIs', '2025-01-20 10:00:00', '2025-01-20 10:30:00'), (106, 'SSRIs', '2025-01-20 10:00:00', '2025-01-20 11:00:00'), (107, 'SSRIs', '2025-01-20 10:00:00', '2025-01-20 11:30:00'), (108, 'SSRIs', '2025-01-20 10:00:00', '2025-01-20 12:00:00'), (109, 'fertility medications', '2025-01-20 11:00:00', '2025-01-20 11:15:00'), (110, 'fertility medications', '2025-01-20 11:00:00', '2025-01-20 11:30:00'), (111, 'fertility medications', '2025-01-20 11:00:00', '2025-01-20 11:45:00'), (112, 'fertility medications', '2025-01-20 11:00:00', '2025-01-20 15:00:00'), (113, 'HIV PrEP', '2025-01-20 12:00:00', '2025-01-20 12:25:00'), (114, 'HIV PrEP', '2025-01-20 12:00:00', '2025-01-20 12:50:00'), (115, 'HIV PrEP', '2025-01-20 12:00:00', '2025-01-20 13:15:00'), (116, 'HIV PrEP', '2025-01-20 12:00:00', '2025-01-20 13:40:00');",
+  "test_expected_columns": [
+    "drug_class",
+    "median_time_to_fill_minutes",
+    "p75_time_to_fill_minutes",
+    "mean_time_to_fill_minutes"
+  ],
+  "test_expected_rows": [
+    [
+      "HIV PrEP",
+      "62.50",
+      "81.25",
+      "62.50"
+    ],
+    [
+      "SSRIs",
+      "75.00",
+      "97.50",
+      "75.00"
+    ],
+    [
+      "fertility medications",
+      "37.50",
+      "93.75",
+      "82.50"
+    ],
+    [
+      "oral contraceptives",
+      "50.00",
+      "65.00",
+      "50.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "group-aggregate",
+    "composite_moves": [
+      "scalar-extract",
+      "group-aggregate"
+    ]
+  },
+  "hints": [
+    "You need to calculate a duration in minutes from two timestamp columns, then aggregate that duration per drug class.",
+    "Use EXTRACT(EPOCH FROM (dispense_ts - submit_ts)) / 60.0 to get the gap in minutes, then apply PERCENTILE_CONT(0.5) and PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY ...) for the median and 75th percentile.",
+    "Compute the gap in a CTE, then GROUP BY drug_class and apply PERCENTILE_CONT(0.5), PERCENTILE_CONT(0.75), and AVG() to the gap_minutes column. Round each result to 2 decimals and order by drug_class ascending."
+  ],
+  "answer_key": "WITH gaps AS (\n  SELECT\n    drug_class,\n    EXTRACT(EPOCH FROM (dispense_ts - submit_ts)) / 60.0 AS gap_minutes\n  FROM prescriptions\n)\nSELECT\n  drug_class,\n  ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY gap_minutes)::numeric, 2) AS median_time_to_fill_minutes,\n  ROUND(PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY gap_minutes)::numeric, 2) AS p75_time_to_fill_minutes,\n  ROUND(AVG(gap_minutes)::numeric, 2) AS mean_time_to_fill_minutes\nFROM gaps\nGROUP BY drug_class\nORDER BY drug_class ASC;",
+  "glossary": [
+    {
+      "term": "time to fill",
+      "definition": "The elapsed time in minutes from when the pharmacy submits a prescription claim to when the prescription is dispensed to the patient."
+    },
+    {
+      "term": "median",
+      "definition": "The 50th percentile value that splits a sorted dataset in half, robust to outliers unlike the mean."
+    },
+    {
+      "term": "percentile",
+      "definition": "A value below which a given percentage of observations fall; the 75th percentile (p75) means 75% of values are at or below that threshold."
+    },
+    {
+      "term": "PERCENTILE_CONT",
+      "definition": "A PostgreSQL aggregate function that computes a continuous percentile by interpolating between sorted values if the position is fractional."
+    },
+    {
+      "term": "GLP-1 agonists",
+      "definition": "A class of injectable or oral diabetes and weight-loss medications including semaglutide and liraglutide."
+    },
+    {
+      "term": "statins",
+      "definition": "A class of cholesterol-lowering medications such as atorvastatin and simvastatin."
+    },
+    {
+      "term": "outlier",
+      "definition": "A data point that differs significantly from other observations, which can skew the mean but has minimal effect on the median."
+    }
+  ],
+  "calculation_explanation": "1. For each prescription, compute the time to fill in minutes by subtracting submit_ts from dispense_ts and converting the interval to minutes.\n2. Group all prescriptions by drug_class.\n3. For each group, calculate the median (50th percentile), 75th percentile, and mean of the time-to-fill values.\n4. Round each aggregate to 2 decimal places.\n5. Order the final output by drug_class in ascending alphabetical order.",
+  "interpretation_example": "- GLP-1 agonists show a median of 90 minutes and a mean of 90 minutes, indicating a symmetric distribution with no outlier skew \u2014 consistent with routine at-counter fills.\n- Statins show a median of 45 minutes but a mean of 78 minutes, driven by one 240-minute outlier (4 hours); the median better represents typical turnaround.\n- The 75th percentile for statins (60 minutes) confirms that 75% of statin fills complete within an hour, while the mean is inflated by the tail.\n- The GLP-1 agonist p75 of 120 minutes (2 hours) is above the retail benchmark (15-60 minutes), suggesting potential process delays for this higher-touch drug class.\n- Comparing median to mean across drug classes is a quick diagnostic for outlier presence: when mean exceeds median by >20%, investigate the tail for operational bottlenecks.",
+  "recommendation_example": "- Segment time-to-fill reporting by median and p75 rather than mean (Pharmacy Ops + Analytics): the mean hides the typical customer experience when outliers are present; track p50 and p75 as primary KPIs.\n- Investigate the 4-hour statin outlier (Pharmacy Ops): review the dispense event logs for rx_id=10 to identify whether the delay was inventory, staffing, or patient pickup-related; one case per 10 scripts at this scale is addressable.\n- Set p75 alerts by drug class (Engineering): GLP-1 agonists at 120 minutes are above the 60-minute same-day target; trigger escalation when p75 crosses 90 minutes on a rolling 7-day basis.\n- Benchmark statins against retail FPAR and time-to-fill jointly (Product + Finance): the fast median (45 min) with high mean suggests the underlying acceptance rate may be masking late-stage holds; correlate with reject-recycle patterns.\n- Monitor weekly: track the spread between p75 and median for each drug class; a widening gap (>30 minutes) signals emerging tail risk that requires root-cause analysis.",
+  "_meta": {
+    "category": "pharmacy_sql",
+    "subtopic": "time_to_fill",
+    "kind": "sql",
+    "question_type": "select_analytical",
+    "dialect": "postgresql",
+    "scenario": "a hormone health test kit subscription tracking adherence to repeat-test cadence",
+    "generated_at": "2026-05-04T10:51:33.461299",
+    "problem_id": "466ab10f06f0",
+    "validation_attempts": 1,
+    "notebook": "nb02_fuze_interview_drills"
+  }
+}

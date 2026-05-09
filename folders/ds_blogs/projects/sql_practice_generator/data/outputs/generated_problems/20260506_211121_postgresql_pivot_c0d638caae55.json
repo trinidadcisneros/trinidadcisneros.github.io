@@ -1,0 +1,141 @@
+{
+  "title": "Pivot Trial Adverse Events by Severity",
+  "prompt": "The clinical research platform stores adverse event counts in a long-format table `trial_adverse_events` with columns (trial_id, severity_category, event_count). Each trial can have multiple rows, one per severity category, and multiple events of the same severity are recorded as separate rows that must be summed. Your task is to pivot this data into a wide-format report showing one row per trial with separate columns for each severity level. Create a query that transforms the data into columns: trial_id, mild_events, moderate_events, severe_events, critical_events. Use SUM aggregation for each severity category. The severity categories you must pivot are exactly: 'Mild', 'Moderate', 'Severe', 'Critical'. If a trial has no events in a particular severity category, show 0 (not NULL) for that column. Order the final result by trial_id ascending. The output must have exactly four columns in this order: trial_id, mild_events, moderate_events, severe_events, critical_events.",
+  "schema_ddl": "CREATE TABLE trial_adverse_events (trial_id VARCHAR(20), severity_category VARCHAR(20), event_count INT);",
+  "example_input_data": "INSERT INTO trial_adverse_events (trial_id, severity_category, event_count) VALUES ('TRIAL-001', 'Mild', 5), ('TRIAL-001', 'Moderate', 2), ('TRIAL-001', 'Severe', 1), ('TRIAL-002', 'Mild', 3), ('TRIAL-002', 'Mild', 2), ('TRIAL-002', 'Critical', 1), ('TRIAL-003', 'Moderate', 4), ('TRIAL-003', 'Severe', 2);",
+  "example_output_columns": [
+    "trial_id",
+    "mild_events",
+    "moderate_events",
+    "severe_events",
+    "critical_events"
+  ],
+  "example_output_rows": [
+    [
+      "TRIAL-001",
+      5,
+      2,
+      1,
+      0
+    ],
+    [
+      "TRIAL-002",
+      5,
+      0,
+      0,
+      1
+    ],
+    [
+      "TRIAL-003",
+      0,
+      4,
+      2,
+      0
+    ]
+  ],
+  "test_data": "INSERT INTO trial_adverse_events (trial_id, severity_category, event_count) VALUES ('TRIAL-101', 'Mild', 8), ('TRIAL-101', 'Mild', 3), ('TRIAL-101', 'Moderate', 6), ('TRIAL-101', 'Moderate', 2), ('TRIAL-101', 'Severe', 4), ('TRIAL-101', 'Critical', 1), ('TRIAL-102', 'Mild', 12), ('TRIAL-102', 'Severe', 5), ('TRIAL-102', 'Severe', 3), ('TRIAL-103', 'Moderate', 7), ('TRIAL-103', 'Critical', 2), ('TRIAL-103', 'Critical', 1), ('TRIAL-104', 'Mild', 15), ('TRIAL-104', 'Mild', 10), ('TRIAL-104', 'Mild', 5), ('TRIAL-105', 'Critical', 9), ('TRIAL-106', 'Severe', 6), ('TRIAL-106', 'Severe', 4), ('TRIAL-106', 'Moderate', 3), ('TRIAL-106', 'Moderate', 2), ('TRIAL-106', 'Moderate', 1), ('TRIAL-107', 'Mild', 20), ('TRIAL-107', 'Moderate', 8), ('TRIAL-107', 'Severe', 7), ('TRIAL-107', 'Severe', 3), ('TRIAL-107', 'Critical', 2), ('TRIAL-108', 'Moderate', 11), ('TRIAL-109', 'Severe', 14), ('TRIAL-110', 'Mild', 1), ('TRIAL-110', 'Critical', 5);",
+  "test_expected_columns": [
+    "trial_id",
+    "mild_events",
+    "moderate_events",
+    "severe_events",
+    "critical_events"
+  ],
+  "test_expected_rows": [
+    [
+      "TRIAL-101",
+      11,
+      8,
+      4,
+      1
+    ],
+    [
+      "TRIAL-102",
+      12,
+      0,
+      8,
+      0
+    ],
+    [
+      "TRIAL-103",
+      0,
+      7,
+      0,
+      3
+    ],
+    [
+      "TRIAL-104",
+      30,
+      0,
+      0,
+      0
+    ],
+    [
+      "TRIAL-105",
+      0,
+      0,
+      0,
+      9
+    ],
+    [
+      "TRIAL-106",
+      0,
+      6,
+      10,
+      0
+    ],
+    [
+      "TRIAL-107",
+      20,
+      8,
+      10,
+      2
+    ],
+    [
+      "TRIAL-108",
+      0,
+      11,
+      0,
+      0
+    ],
+    [
+      "TRIAL-109",
+      0,
+      0,
+      14,
+      0
+    ],
+    [
+      "TRIAL-110",
+      1,
+      0,
+      0,
+      5
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "reshape",
+    "composite_moves": [
+      "reshape"
+    ]
+  },
+  "hints": [
+    "Consider how to turn rows with different severity categories into separate columns for the same trial.",
+    "Use CASE expressions inside aggregate functions to filter which rows contribute to each output column, and GROUP BY trial_id.",
+    "The pattern is COALESCE(SUM(CASE WHEN severity_category = 'X' THEN event_count END), 0) AS x_events for each severity level."
+  ],
+  "answer_key": "SELECT trial_id, COALESCE(SUM(CASE WHEN severity_category = 'Mild' THEN event_count END), 0) AS mild_events, COALESCE(SUM(CASE WHEN severity_category = 'Moderate' THEN event_count END), 0) AS moderate_events, COALESCE(SUM(CASE WHEN severity_category = 'Severe' THEN event_count END), 0) AS severe_events, COALESCE(SUM(CASE WHEN severity_category = 'Critical' THEN event_count END), 0) AS critical_events FROM trial_adverse_events GROUP BY trial_id ORDER BY trial_id;",
+  "_meta": {
+    "question_type": "pivot",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-06T21:11:20.812138",
+    "problem_id": "c0d638caae55",
+    "validation_attempts": 1,
+    "scenario": "a clinical research platform tracking trial enrollment and adverse events",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

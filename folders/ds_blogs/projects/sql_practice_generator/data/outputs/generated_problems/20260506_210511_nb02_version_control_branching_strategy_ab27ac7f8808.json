@@ -1,0 +1,63 @@
+{
+  "title": "Branching Strategy for Analytics Team",
+  "scenario": "A same-day medication delivery service's analytics team of 5 uses a shared dbt repo to track on-time delivery performance. Daily prod runs power operations dashboards.",
+  "prompt": "Design the Git branching strategy for this analytics team. Your strategy should cover: (1) branch naming conventions, (2) what gets merged to main and when, (3) how dev/staging/prod environments map to branches, (4) PR review process, and (5) how dbt CI fits in. The team deploys once daily to prod at 6am UTC. Each analyst works on multiple delivery metric models at once.",
+  "instructions": "Markdown answer with headed sections (## Branch naming, ## What merges where, ## Environments, ## PR review process, ## CI). Aim for 200 to 400 words. Branching strategy answers are STRUCTURED \u2014 multiple short sections beat one long paragraph.",
+  "expected_themes": [
+    "trunk-based development or GitHub flow",
+    "feature branches off main",
+    "protected main branch",
+    "PR review required before merge",
+    "dbt CI runs on PR open",
+    "per-developer dbt schemas",
+    "dbt target switching (dev/prod)",
+    "squash merge to main",
+    "staging environment optional",
+    "daily prod deployment from main"
+  ],
+  "reference_answer": "## Branch naming\n`feature/analyst-initials-delivery-metric-name` (e.g., `feature/ab-late-delivery-rate`)\n\n## What merges where\n- All feature work branches off `main`\n- PR reviewed and CI passing \u2192 squash merge to `main`\n- `main` is protected; no direct commits\n\n## Environments\n- **Dev**: each analyst runs `dbt build --target dev` locally, writes to their own schema (`dbt_dev_ab`, `dbt_dev_cd`)\n- **Prod**: daily 6am UTC GitHub Action runs `dbt build --target prod` from latest `main`, writes to `analytics` schema\n- Staging optional; for a 5-person team, dev \u2192 prod is sufficient\n\n## PR review process\n- One peer analyst reviews for logic, naming, CTEs\n- Reviewer checks CI passed (models compile, tests pass in ephemeral schema)\n- Merge after approval\n\n## CI\n- GitHub Actions on PR open: `dbt build --target ci` in ephemeral schema, fails PR if compile errors or test failures\n- On merge to `main`: nightly prod job runs at 6am UTC",
+  "grading_rubric": [
+    {
+      "criterion": "Names a recognizable workflow pattern and matches team size",
+      "description": "Identifies trunk-based development or GitHub flow as the pattern. For a 5-person team, justifies why daily merges to main work (short-lived feature branches, no long-lived shared branches).",
+      "weight": 25
+    },
+    {
+      "criterion": "Specifies environment-to-branch mapping and deployment triggers",
+      "description": "States which branch deploys to prod (main), what triggers prod deployment (daily schedule or merge to main), and how dev environment works (local dbt runs with --target dev).",
+      "weight": 25
+    },
+    {
+      "criterion": "Defines PR review process and CI integration",
+      "description": "Describes who reviews PRs (peer analyst), what CI checks run on PR open (dbt compile and test), and that merge requires CI pass + approval.",
+      "weight": 25
+    },
+    {
+      "criterion": "Handles dbt schema isolation to prevent developer collisions",
+      "description": "Proposes per-developer schemas (e.g., dbt_dev_ab, dbt_dev_cd) or explains target switching so analysts don't overwrite each other's dev models.",
+      "weight": 25
+    }
+  ],
+  "hints": [
+    "Think about how many branches should exist at once for a 5-person team doing daily prod deploys.",
+    "For dbt, each analyst needs their own schema in dev so model builds don't collide. How do you configure that?",
+    "What happens if someone merges a breaking change to main? Should CI run before merge or after?"
+  ],
+  "common_mistakes": [
+    "Proposing long-lived shared feature branches (e.g., 'delivery_metrics_q1') that multiple analysts commit to \u2014 causes merge conflicts and stale branches",
+    "No PR review required for analytics work \u2014 'we trust the team' is not a strategy",
+    "Single shared dev schema for all analysts \u2014 one analyst's `dbt run` overwrites another's models",
+    "Manually deploying to prod without CI \u2014 no audit trail, no automated testing",
+    "No protected main branch \u2014 allows accidental direct commits that skip review"
+  ],
+  "_meta": {
+    "category": "version_control",
+    "subtopic": "branching_strategy",
+    "kind": "kpi",
+    "scenario": "a same day medication delivery service tracking on-time delivery performance",
+    "generated_at": "2026-05-06T21:05:11.981083",
+    "problem_id": "ab27ac7f8808",
+    "validation_attempts": 1,
+    "notebook": "nb02_fuze_interview_drills"
+  }
+}

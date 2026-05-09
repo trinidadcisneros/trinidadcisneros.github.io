@@ -1,0 +1,125 @@
+{
+  "title": "Collapse Consecutive Seat IDs into Ranges",
+  "prompt": "Your enterprise software vendor tracks seat assignments by a unique integer `seat_id`. The `seat_assignments` table records each seat_id that has been allocated to customers, along with its current `allocation_status` ('active', 'reserved', or 'inactive'). Write a query that finds all ranges of consecutive seat_ids within each allocation_status. Two seat_ids are consecutive if they differ by exactly 1. Output columns must be `allocation_status`, `start_id`, and `end_id` (inclusive). A range can be a single seat (start_id = end_id). Order the result by `start_id` ascending.",
+  "schema_ddl": "CREATE TABLE seat_assignments (seat_id INTEGER NOT NULL, allocation_status VARCHAR(20) NOT NULL);",
+  "example_input_data": "INSERT INTO seat_assignments (seat_id, allocation_status) VALUES (101, 'active'), (102, 'active'), (103, 'active'), (105, 'active'), (106, 'active'), (110, 'reserved'), (111, 'reserved'), (115, 'inactive');",
+  "example_output_columns": [
+    "allocation_status",
+    "start_id",
+    "end_id"
+  ],
+  "example_output_rows": [
+    [
+      "active",
+      101,
+      103
+    ],
+    [
+      "active",
+      105,
+      106
+    ],
+    [
+      "reserved",
+      110,
+      111
+    ],
+    [
+      "inactive",
+      115,
+      115
+    ]
+  ],
+  "test_data": "INSERT INTO seat_assignments (seat_id, allocation_status) VALUES (200, 'active'), (201, 'active'), (202, 'active'), (203, 'active'), (207, 'active'), (208, 'active'), (209, 'active'), (210, 'active'), (215, 'active'), (220, 'reserved'), (221, 'reserved'), (222, 'reserved'), (225, 'reserved'), (230, 'inactive'), (231, 'inactive'), (235, 'inactive'), (236, 'inactive'), (237, 'inactive'), (240, 'inactive'), (245, 'active'), (246, 'active'), (250, 'reserved'), (260, 'active'), (261, 'active'), (262, 'active'), (263, 'active'), (264, 'active');",
+  "test_expected_columns": [
+    "allocation_status",
+    "start_id",
+    "end_id"
+  ],
+  "test_expected_rows": [
+    [
+      "active",
+      200,
+      203
+    ],
+    [
+      "active",
+      207,
+      210
+    ],
+    [
+      "active",
+      215,
+      215
+    ],
+    [
+      "reserved",
+      220,
+      222
+    ],
+    [
+      "reserved",
+      225,
+      225
+    ],
+    [
+      "inactive",
+      230,
+      231
+    ],
+    [
+      "inactive",
+      235,
+      237
+    ],
+    [
+      "inactive",
+      240,
+      240
+    ],
+    [
+      "active",
+      245,
+      246
+    ],
+    [
+      "reserved",
+      250,
+      250
+    ],
+    [
+      "active",
+      260,
+      264
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "gaps-and-islands",
+    "composite_moves": [
+      "row-number-partition-by-state-order-by-id",
+      "subtract-rownumber-from-id-to-form-group-key",
+      "group-by-state-and-grp",
+      "aggregate-min-max-for-range-endpoints",
+      "order-by-start-asc"
+    ]
+  },
+  "hints": [
+    "Think about how consecutive integers relate to their position in a sorted list.",
+    "Use ROW_NUMBER() partitioned by allocation_status and ordered by seat_id, then subtract that row number from seat_id to create a grouping key.",
+    "Group by allocation_status and the (seat_id - row_number) expression, then take MIN(seat_id) as start_id and MAX(seat_id) as end_id for each group."
+  ],
+  "answer_key": "WITH numbered AS (\n  SELECT\n    seat_id,\n    allocation_status,\n    seat_id - ROW_NUMBER() OVER (PARTITION BY allocation_status ORDER BY seat_id) AS grp\n  FROM seat_assignments\n)\nSELECT\n  allocation_status,\n  MIN(seat_id) AS start_id,\n  MAX(seat_id) AS end_id\nFROM numbered\nGROUP BY allocation_status, grp\nORDER BY start_id ASC;",
+  "_meta": {
+    "question_type": "union_islands",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-07T11:08:59.066632",
+    "problem_id": "787647bd7b03",
+    "validation_attempts": 1,
+    "scenario": "an enterprise software vendor monitoring seat utilization across customers",
+    "dml_op": null,
+    "islands_flavor": "integer_seq",
+    "percentile_flavor": null
+  }
+}

@@ -1,0 +1,142 @@
+{
+  "problem": {
+    "title": "Support Ticket SLA State Processor",
+    "prompt": "You have two tables: `tickets` (state table) with columns `ticket_id`, `status` ('open', 'assigned', 'escalated', 'closed'), `assigned_agent_id`, and `breach_count`; and `ticket_events` (request log) with columns `event_id`, `event_type` ('assign', 'escalate', 'breach', 'close'), `ticket_id`, and `agent_id`. Write a DO block that processes the events in chronological order (by `event_id`). For each event, read the ticket's current state before deciding what to do. Rules: (1) 'assign' events: if the ticket is currently 'open', set `status = 'assigned'` and `assigned_agent_id = event.agent_id`. (2) 'escalate' events: if the ticket is currently 'assigned', set `status = 'escalated'` and clear `assigned_agent_id` (set to NULL). (3) 'breach' events: if the ticket is currently 'open' or 'assigned', increment `breach_count` by 1. (4) 'close' events: if the ticket is NOT already 'closed', set `status = 'closed'`. After the DO block, include a trailing `SELECT * FROM tickets ORDER BY ticket_id;` to show the final state. Each event must read the row's current state; subsequent events see the prior event's update.",
+    "schema_ddl": "CREATE TABLE tickets (ticket_id INT PRIMARY KEY, status VARCHAR(20) NOT NULL, assigned_agent_id INT, breach_count INT DEFAULT 0); CREATE TABLE ticket_events (event_id INT PRIMARY KEY, event_type VARCHAR(20) NOT NULL, ticket_id INT NOT NULL, agent_id INT, FOREIGN KEY (ticket_id) REFERENCES tickets(ticket_id));",
+    "example_input_data": "INSERT INTO tickets (ticket_id, status, assigned_agent_id, breach_count) VALUES (1, 'open', NULL, 0), (2, 'open', NULL, 0), (3, 'assigned', 101, 1); INSERT INTO ticket_events (event_id, event_type, ticket_id, agent_id) VALUES (1, 'assign', 1, 101), (2, 'breach', 1, NULL), (3, 'escalate', 1, NULL), (4, 'assign', 2, 102), (5, 'close', 2, NULL), (6, 'breach', 3, NULL), (7, 'close', 3, NULL);",
+    "example_output_columns": [
+      "ticket_id",
+      "status",
+      "assigned_agent_id",
+      "breach_count"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "escalated",
+        null,
+        1
+      ],
+      [
+        2,
+        "closed",
+        102.0,
+        0
+      ],
+      [
+        3,
+        "closed",
+        101.0,
+        2
+      ]
+    ],
+    "test_data": "INSERT INTO tickets (ticket_id, status, assigned_agent_id, breach_count) VALUES (10, 'open', NULL, 0), (11, 'open', NULL, 0), (12, 'assigned', 201, 0), (13, 'escalated', NULL, 2), (14, 'open', NULL, 1), (15, 'closed', 203, 3), (16, 'assigned', 204, 0), (17, 'open', NULL, 0), (18, 'assigned', 205, 1), (19, 'open', NULL, 0), (20, 'escalated', NULL, 0); INSERT INTO ticket_events (event_id, event_type, ticket_id, agent_id) VALUES (101, 'assign', 10, 201), (102, 'breach', 10, NULL), (103, 'breach', 10, NULL), (104, 'escalate', 10, NULL), (105, 'breach', 10, NULL), (106, 'assign', 11, 202), (107, 'escalate', 11, NULL), (108, 'close', 11, NULL), (109, 'breach', 12, NULL), (110, 'escalate', 12, NULL), (111, 'close', 12, NULL), (112, 'assign', 13, 206), (113, 'breach', 13, NULL), (114, 'breach', 14, NULL), (115, 'assign', 14, 207), (116, 'breach', 14, NULL), (117, 'close', 14, NULL), (118, 'close', 15, NULL), (119, 'assign', 15, 208), (120, 'breach', 16, NULL), (121, 'close', 16, NULL), (122, 'breach', 16, NULL), (123, 'assign', 17, 209), (124, 'assign', 17, 210), (125, 'breach', 17, NULL), (126, 'close', 17, NULL), (127, 'escalate', 18, NULL), (128, 'breach', 18, NULL), (129, 'close', 18, NULL), (130, 'assign', 19, 211), (131, 'escalate', 19, NULL), (132, 'breach', 19, NULL), (133, 'breach', 20, NULL), (134, 'close', 20, NULL);",
+    "test_expected_columns": [
+      "ticket_id",
+      "status",
+      "assigned_agent_id",
+      "breach_count"
+    ],
+    "test_expected_rows": [
+      [
+        10,
+        "escalated",
+        null,
+        2
+      ],
+      [
+        11,
+        "closed",
+        null,
+        0
+      ],
+      [
+        12,
+        "closed",
+        null,
+        1
+      ],
+      [
+        13,
+        "escalated",
+        null,
+        2
+      ],
+      [
+        14,
+        "closed",
+        207.0,
+        3
+      ],
+      [
+        15,
+        "closed",
+        203.0,
+        3
+      ],
+      [
+        16,
+        "closed",
+        204.0,
+        1
+      ],
+      [
+        17,
+        "closed",
+        209.0,
+        1
+      ],
+      [
+        18,
+        "closed",
+        null,
+        1
+      ],
+      [
+        19,
+        "escalated",
+        null,
+        0
+      ],
+      [
+        20,
+        "closed",
+        null,
+        0
+      ]
+    ],
+    "classification": {
+      "input_arrival": "procedural",
+      "output_shape": "state_mutation",
+      "recipe": "do-block-sequential",
+      "composite_moves": [
+        "declare loop record variable for ticket_events row",
+        "declare scalar variables for current ticket state (status, assigned_agent_id)",
+        "FOR loop over ticket_events ordered by event_id",
+        "per iteration: SELECT current state INTO variables from tickets WHERE ticket_id = rec.ticket_id",
+        "branch on rec.event_type with nested IF checking current state",
+        "conditionally UPDATE tickets SET new_state WHERE ticket_id = rec.ticket_id",
+        "trailing SELECT * FROM tickets ORDER BY ticket_id"
+      ]
+    },
+    "hints": [
+      "You need to loop through the events in order and check the ticket's current state before each action.",
+      "Use a FOR loop with a RECORD variable and ORDER BY event_id. Inside the loop, SELECT the ticket's current status and assigned_agent_id into local variables, then use IF/ELSIF to branch on both the event_type and the current state.",
+      "Structure: DO $$ DECLARE rec RECORD; cur_status VARCHAR(20); cur_agent INT; BEGIN FOR rec IN SELECT * FROM ticket_events ORDER BY event_id LOOP SELECT status, assigned_agent_id INTO cur_status, cur_agent FROM tickets WHERE ticket_id = rec.ticket_id; IF rec.event_type = 'assign' AND cur_status = 'open' THEN UPDATE tickets SET status = 'assigned', assigned_agent_id = rec.agent_id WHERE ticket_id = rec.ticket_id; ELSIF rec.event_type = 'escalate' AND cur_status = 'assigned' THEN UPDATE tickets SET status = 'escalated', assigned_agent_id = NULL WHERE ticket_id = rec.ticket_id; ELSIF rec.event_type = 'breach' AND cur_status IN ('open', 'assigned') THEN UPDATE tickets SET breach_count = breach_count + 1 WHERE ticket_id = rec.ticket_id; ELSIF rec.event_type = 'close' AND cur_status != 'closed' THEN UPDATE tickets SET status = 'closed' WHERE ticket_id = rec.ticket_id; END IF; END LOOP; END $$; SELECT * FROM tickets ORDER BY ticket_id;"
+    ],
+    "answer_key": "DO $$ DECLARE rec RECORD; cur_status VARCHAR(20); cur_agent INT; BEGIN FOR rec IN SELECT * FROM ticket_events ORDER BY event_id LOOP SELECT status, assigned_agent_id INTO cur_status, cur_agent FROM tickets WHERE ticket_id = rec.ticket_id; IF rec.event_type = 'assign' AND cur_status = 'open' THEN UPDATE tickets SET status = 'assigned', assigned_agent_id = rec.agent_id WHERE ticket_id = rec.ticket_id; ELSIF rec.event_type = 'escalate' AND cur_status = 'assigned' THEN UPDATE tickets SET status = 'escalated', assigned_agent_id = NULL WHERE ticket_id = rec.ticket_id; ELSIF rec.event_type = 'breach' AND (cur_status = 'open' OR cur_status = 'assigned') THEN UPDATE tickets SET breach_count = breach_count + 1 WHERE ticket_id = rec.ticket_id; ELSIF rec.event_type = 'close' AND cur_status != 'closed' THEN UPDATE tickets SET status = 'closed' WHERE ticket_id = rec.ticket_id; END IF; END LOOP; END $$; SELECT * FROM tickets ORDER BY ticket_id;",
+    "_meta": {
+      "question_type": "do_block_queue",
+      "dialect": "postgresql",
+      "generated_at": "2026-05-07T09:36:39.838110",
+      "problem_id": "f367460fe93b",
+      "validation_attempts": 1,
+      "scenario": "a customer support tool tracking ticket SLA breaches and reassignments",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\n\ntickets.status: 'open', 'assigned', 'escalated', 'closed'\nticket_events.event_type: 'assign', 'escalate', 'breach', 'close'\n\n */\n\nDO $$\nDECLARE\n    r RECORD;\n    current_status VARCHAR;\nBEGIN\n\nFOR r IN SELECT * FROM ticket_events LOOP\n    SELECT status INTO current_status\n    FROM tickets\n    WHERE ticket_id = r. ticket_id;\n\n        IF r.event_type = 'assign' AND current_status = 'open' THEN\n            UPDATE tickets\n            SET status = 'assigned',\n                assigned_agent_id = r.agent_id\n            WHERE ticket_id = r. ticket_id;\n\n        ELSIF r.event_type = 'escalate' AND current_status = 'assigned' THEN\n            UPDATE tickets\n            SET status = 'escalated',\n                assigned_agent_id = NULL\n            WHERE ticket_id = r. ticket_id;\n\n        ELSIF r.event_type = 'breach' AND (current_status = 'open' OR current_status = 'assigned') THEN\n            UPDATE tickets\n            SET breach_count = breach_count + 1\n            WHERE ticket_id = r. ticket_id;\n\n        ELSIF r.event_type = 'close' AND current_status <> 'closed' THEN\n            UPDATE tickets\n            SET status = 'closed'\n            WHERE ticket_id = r. ticket_id;\n\n        END IF;\n    END LOOP;\nEND $$;\n\n\n\nSELECT * FROM tickets ORDER BY ticket_id;\n",
+  "solved_at": "2026-05-07T09:48:41.493637"
+}

@@ -1,0 +1,106 @@
+{
+  "title": "Reversal Rate by Reason \u2013 Pharmacy Claims",
+  "prompt": "You are analyzing paid claim reversals for a digital pharmacy's fulfillment quality dashboard. A reversal event (NCPDP B2 transaction) occurs when a previously paid claim is reversed due to patient no-show, prescriber cancellation, returned-to-stock, billing correction, or duplicate fill detection. Calculate the **Reversal Rate** for each reversal reason, defined as: `count of distinct claims with a reversed event for that reason / count of distinct claims with any paid event`, rounded to 4 decimal places. Include only reversal reasons that have at least one reversal event in the output. Order the results by reversal_rate descending. The industry benchmark for retail pharmacy reversal rate is 5-12% overall, with patient_no_show typically representing 40-60% of all reversals. A reversal rate climbing above 12% is a red flag for fulfillment, engagement, or formulary churn issues.",
+  "schema_ddl": "CREATE TABLE claim_events (claim_id VARCHAR(50) NOT NULL, event_type VARCHAR(50) NOT NULL, event_ts TIMESTAMP, reversal_reason VARCHAR(100));",
+  "example_input_data": "INSERT INTO claim_events (claim_id, event_type, event_ts, reversal_reason) VALUES ('C001', 'submitted', '2024-01-10 08:00:00', NULL), ('C001', 'paid', '2024-01-10 08:00:15', NULL), ('C002', 'submitted', '2024-01-10 09:00:00', NULL), ('C002', 'paid', '2024-01-10 09:00:20', NULL), ('C002', 'reversed', '2024-01-11 14:30:00', 'patient_no_show'), ('C003', 'submitted', '2024-01-10 10:00:00', NULL), ('C003', 'paid', '2024-01-10 10:00:18', NULL), ('C003', 'reversed', '2024-01-10 16:45:00', 'returned_to_stock'), ('C004', 'submitted', '2024-01-10 11:00:00', NULL), ('C004', 'paid', '2024-01-10 11:00:22', NULL), ('C005', 'submitted', '2024-01-10 12:00:00', NULL), ('C005', 'paid', '2024-01-10 12:00:25', NULL), ('C005', 'reversed', '2024-01-11 09:15:00', 'patient_no_show');",
+  "example_output_columns": [
+    "reversal_reason",
+    "reversal_rate"
+  ],
+  "example_output_rows": [
+    [
+      "patient_no_show",
+      "0.4000"
+    ],
+    [
+      "returned_to_stock",
+      "0.2000"
+    ]
+  ],
+  "test_data": "INSERT INTO claim_events (claim_id, event_type, event_ts, reversal_reason) VALUES ('C101', 'submitted', '2024-01-15 07:00:00', NULL), ('C101', 'paid', '2024-01-15 07:00:12', NULL), ('C102', 'submitted', '2024-01-15 07:15:00', NULL), ('C102', 'paid', '2024-01-15 07:15:18', NULL), ('C102', 'reversed', '2024-01-16 10:30:00', 'patient_no_show'), ('C103', 'submitted', '2024-01-15 08:00:00', NULL), ('C103', 'paid', '2024-01-15 08:00:20', NULL), ('C103', 'reversed', '2024-01-15 14:00:00', 'returned_to_stock'), ('C104', 'submitted', '2024-01-15 08:30:00', NULL), ('C104', 'paid', '2024-01-15 08:30:15', NULL), ('C105', 'submitted', '2024-01-15 09:00:00', NULL), ('C105', 'paid', '2024-01-15 09:00:22', NULL), ('C105', 'reversed', '2024-01-16 11:00:00', 'patient_no_show'), ('C106', 'submitted', '2024-01-15 09:30:00', NULL), ('C106', 'paid', '2024-01-15 09:30:18', NULL), ('C107', 'submitted', '2024-01-15 10:00:00', NULL), ('C107', 'paid', '2024-01-15 10:00:25', NULL), ('C107', 'reversed', '2024-01-15 16:45:00', 'prescriber_cancellation'), ('C108', 'submitted', '2024-01-15 10:30:00', NULL), ('C108', 'paid', '2024-01-15 10:30:20', NULL), ('C109', 'submitted', '2024-01-15 11:00:00', NULL), ('C109', 'paid', '2024-01-15 11:00:30', NULL), ('C109', 'reversed', '2024-01-17 08:00:00', 'patient_no_show'), ('C110', 'submitted', '2024-01-15 11:30:00', NULL), ('C110', 'paid', '2024-01-15 11:30:22', NULL), ('C110', 'reversed', '2024-01-15 18:00:00', 'billing_correction'), ('C111', 'submitted', '2024-01-15 12:00:00', NULL), ('C111', 'paid', '2024-01-15 12:00:28', NULL), ('C112', 'submitted', '2024-01-15 12:30:00', NULL), ('C112', 'paid', '2024-01-15 12:30:19', NULL), ('C112', 'reversed', '2024-01-16 13:00:00', 'returned_to_stock'), ('C113', 'submitted', '2024-01-15 13:00:00', NULL), ('C113', 'paid', '2024-01-15 13:00:24', NULL), ('C114', 'submitted', '2024-01-15 13:30:00', NULL), ('C114', 'paid', '2024-01-15 13:30:21', NULL), ('C115', 'submitted', '2024-01-15 14:00:00', NULL), ('C115', 'paid', '2024-01-15 14:00:26', NULL), ('C115', 'reversed', '2024-01-17 09:30:00', 'patient_no_show');",
+  "test_expected_columns": [
+    "reversal_reason",
+    "reversal_rate"
+  ],
+  "test_expected_rows": [
+    [
+      "patient_no_show",
+      "0.2667"
+    ],
+    [
+      "returned_to_stock",
+      "0.1333"
+    ],
+    [
+      "billing_correction",
+      "0.0667"
+    ],
+    [
+      "prescriber_cancellation",
+      "0.0667"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "group-aggregate",
+    "composite_moves": [
+      "filter for paid events to get denominator count",
+      "filter for reversed events and group by reversal_reason to get numerator counts",
+      "divide numerator by denominator",
+      "round to 4 decimals",
+      "order by rate descending"
+    ]
+  },
+  "hints": [
+    "You need two counts: the total distinct claims that ever had a paid event, and for each reversal reason, the distinct claims that had a reversed event with that reason.",
+    "Use a subquery or CTE to count the paid claims once (the denominator), then join or reference it in the main query that groups by reversal_reason.",
+    "The reversal_reason column is NULL for non-reversal events, so filter for event_type = 'reversed' when counting reversals, then divide by the paid count and round to 4 decimals."
+  ],
+  "answer_key": "WITH paid_claims AS (\n  SELECT COUNT(DISTINCT claim_id) AS paid_count\n  FROM claim_events\n  WHERE event_type = 'paid'\n),\nreversed_claims AS (\n  SELECT reversal_reason, COUNT(DISTINCT claim_id) AS reversed_count\n  FROM claim_events\n  WHERE event_type = 'reversed'\n  GROUP BY reversal_reason\n)\nSELECT\n  r.reversal_reason,\n  ROUND(r.reversed_count::NUMERIC / p.paid_count, 4) AS reversal_rate\nFROM reversed_claims r\nCROSS JOIN paid_claims p\nORDER BY reversal_rate DESC;",
+  "glossary": [
+    {
+      "term": "reversal (event)",
+      "definition": "an NCPDP B2 transaction that cancels a previously paid claim, triggered by patient no-show, prescriber cancellation, returned-to-stock, billing correction, or duplicate detection"
+    },
+    {
+      "term": "paid (event)",
+      "definition": "the moment the PBM approves the claim and authorizes reimbursement to the pharmacy"
+    },
+    {
+      "term": "reversal_reason",
+      "definition": "a pharmacy system field that captures why a paid claim was reversed; common values include patient_no_show, returned_to_stock, prescriber_cancellation, billing_correction, and duplicate_fill"
+    },
+    {
+      "term": "Reversal Rate",
+      "definition": "the proportion of paid claims that are later reversed, calculated as distinct reversed claims divided by distinct paid claims"
+    },
+    {
+      "term": "patient_no_show",
+      "definition": "a reversal reason indicating the patient never picked up the filled prescription"
+    },
+    {
+      "term": "returned_to_stock",
+      "definition": "a reversal reason indicating the filled prescription was restocked after being set aside for the patient"
+    },
+    {
+      "term": "NCPDP B2",
+      "definition": "the standard transaction code for a claim reversal in the pharmacy industry"
+    }
+  ],
+  "calculation_explanation": "1. Count the distinct claim_ids that have at least one event_type = 'paid' event to get the denominator (total paid claims).\n2. Filter for event_type = 'reversed' and group by reversal_reason, counting distinct claim_ids in each group to get the numerator for each reason.\n3. Divide each reversal reason's count by the paid claims count to get the reversal rate.\n4. Round the result to 4 decimal places and order by reversal_rate descending.",
+  "interpretation_example": "- patient_no_show accounts for 0.4000 (40%) of paid claims reversed in the example data, consistent with the 40-60% industry norm for this category.\n- returned_to_stock accounts for 0.2000 (20%), which is plausible for a digital pharmacy with same-day delivery windows.\n- The combined reversal rate is 0.6000 (60%), far above the 5-12% retail benchmark, indicating a severe fulfillment or engagement issue.\n- In the test data, patient_no_show drops to 0.2667 (26.67%), still the largest category but within a more realistic range, and the overall reversal rate is 0.6000 / 1.0 = ~53% (summing across reasons), still elevated.\n- The test data's 0.0667 rates for prescriber_cancellation and billing_correction are typical tail categories; their presence signals diverse operational gaps rather than a single root cause.",
+  "recommendation_example": "- Trigger same-day patient outreach (Care Coordination): for any claim that reaches 'paid' status, initiate an SMS or app notification within 1 hour confirming the prescription is ready; industry data shows a 30-40% reduction in no-show reversals with proactive outreach.\n- Implement hold-time limits (Pharmacy Ops): reverse the claim automatically if the patient hasn't picked up within 7 days for retail or 48 hours for same-day delivery, reducing inventory lock-up and improving stock turns.\n- Segment reversal rate by delivery channel (Product + Analytics): calculate the rate separately for at-counter, same-day, and mail; if same-day exceeds 15%, the delivery promise may be too aggressive.\n- Monitor weekly: track reversal rate trend by reason and alert if patient_no_show crosses 10% for retail or 20% for specialty in any rolling 30-day window.",
+  "_meta": {
+    "category": "pharmacy_sql",
+    "subtopic": "reversal_rate",
+    "kind": "sql",
+    "question_type": "select_analytical",
+    "dialect": "postgresql",
+    "scenario": "a pharmacy manual touch volume tracker measuring care team intervention rate",
+    "generated_at": "2026-05-04T12:08:28.438657",
+    "problem_id": "bf5eda1f7d62",
+    "validation_attempts": 1,
+    "notebook": "nb02_fuze_interview_drills"
+  }
+}

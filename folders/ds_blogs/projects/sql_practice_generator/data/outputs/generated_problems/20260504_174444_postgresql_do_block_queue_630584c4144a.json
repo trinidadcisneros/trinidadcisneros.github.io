@@ -1,0 +1,138 @@
+{
+  "title": "Process Streaming Platform Watch Events",
+  "prompt": "You are building a watch-history processor for a streaming platform. Table `content_state` tracks each video's current `watch_status` (0=unwatched, 1=in_progress, 2=completed) and `total_watch_minutes` for a given viewer. Table `watch_events` is a log of viewer actions (event_id, content_id, viewer_id, event_type, minutes_watched) where event_type is 1=start_watching, 2=continue_watching, 3=mark_completed. Write a DO block that processes the events in chronological order (ORDER BY event_id). For each event, read the content_state row's current watch_status and total_watch_minutes, then apply these rules: (a) event_type=1 (start_watching): if watch_status=0, set watch_status=1 and add minutes_watched to total_watch_minutes; otherwise no-op. (b) event_type=2 (continue_watching): if watch_status=1, add minutes_watched to total_watch_minutes; otherwise no-op. (c) event_type=3 (mark_completed): if watch_status=1 OR watch_status=2, set watch_status=2 and add minutes_watched to total_watch_minutes; otherwise no-op. Each event must read the row's current state so that subsequent events see the prior event's update. After processing all events, write a trailing `SELECT * FROM content_state ORDER BY content_id, viewer_id;` so the harness can verify the final state.",
+  "schema_ddl": "CREATE TABLE content_state (content_id INT, viewer_id INT, watch_status INT DEFAULT 0, total_watch_minutes INT DEFAULT 0, PRIMARY KEY (content_id, viewer_id)); CREATE TABLE watch_events (event_id INT PRIMARY KEY, content_id INT, viewer_id INT, event_type INT, minutes_watched INT);",
+  "example_input_data": "INSERT INTO content_state (content_id, viewer_id, watch_status, total_watch_minutes) VALUES (101, 1, 0, 0), (101, 2, 0, 0), (102, 1, 0, 0), (102, 2, 1, 15); INSERT INTO watch_events (event_id, content_id, viewer_id, event_type, minutes_watched) VALUES (1, 101, 1, 1, 10), (2, 101, 1, 2, 5), (3, 101, 2, 1, 8), (4, 102, 1, 1, 12), (5, 102, 2, 2, 7), (6, 101, 1, 3, 3), (7, 102, 2, 3, 0);",
+  "example_output_columns": [
+    "content_id",
+    "viewer_id",
+    "watch_status",
+    "total_watch_minutes"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      1,
+      2,
+      18
+    ],
+    [
+      101,
+      2,
+      1,
+      8
+    ],
+    [
+      102,
+      1,
+      1,
+      12
+    ],
+    [
+      102,
+      2,
+      2,
+      22
+    ]
+  ],
+  "test_data": "INSERT INTO content_state (content_id, viewer_id, watch_status, total_watch_minutes) VALUES (201, 10, 0, 0), (201, 11, 0, 0), (202, 10, 1, 20), (202, 11, 0, 0), (203, 10, 0, 0), (203, 11, 2, 45), (204, 10, 0, 0), (204, 11, 1, 30), (205, 10, 0, 0), (205, 11, 0, 0); INSERT INTO watch_events (event_id, content_id, viewer_id, event_type, minutes_watched) VALUES (101, 201, 10, 1, 5), (102, 201, 10, 2, 10), (103, 201, 10, 3, 2), (104, 201, 11, 1, 7), (105, 201, 11, 1, 3), (106, 202, 10, 1, 8), (107, 202, 10, 2, 12), (108, 202, 11, 3, 0), (109, 202, 11, 1, 9), (110, 203, 10, 1, 15), (111, 203, 10, 2, 5), (112, 203, 11, 2, 4), (113, 203, 11, 3, 6), (114, 204, 10, 3, 18), (115, 204, 11, 2, 11), (116, 204, 11, 3, 5), (117, 205, 10, 3, 0), (118, 205, 10, 1, 22), (119, 205, 11, 1, 13), (120, 205, 11, 2, 8);",
+  "test_expected_columns": [
+    "content_id",
+    "viewer_id",
+    "watch_status",
+    "total_watch_minutes"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      10,
+      2,
+      17
+    ],
+    [
+      201,
+      11,
+      1,
+      7
+    ],
+    [
+      202,
+      10,
+      1,
+      32
+    ],
+    [
+      202,
+      11,
+      1,
+      9
+    ],
+    [
+      203,
+      10,
+      1,
+      20
+    ],
+    [
+      203,
+      11,
+      2,
+      51
+    ],
+    [
+      204,
+      10,
+      0,
+      0
+    ],
+    [
+      204,
+      11,
+      2,
+      46
+    ],
+    [
+      205,
+      10,
+      1,
+      22
+    ],
+    [
+      205,
+      11,
+      1,
+      21
+    ]
+  ],
+  "classification": {
+    "input_arrival": "procedural",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "declare RECORD for event row",
+      "declare scalars for current watch_status and total_watch_minutes",
+      "FOR event IN SELECT * FROM watch_events ORDER BY event_id LOOP",
+      "SELECT watch_status, total_watch_minutes INTO vars FROM content_state WHERE PK matches event FK",
+      "IF event_type=1 AND watch_status=0 THEN UPDATE content_state SET watch_status=1, total_watch_minutes+=minutes_watched",
+      "ELSIF event_type=2 AND watch_status=1 THEN UPDATE content_state SET total_watch_minutes+=minutes_watched",
+      "ELSIF event_type=3 AND (watch_status=1 OR watch_status=2) THEN UPDATE content_state SET watch_status=2, total_watch_minutes+=minutes_watched",
+      "END IF; END LOOP;",
+      "trailing SELECT * FROM content_state ORDER BY content_id, viewer_id"
+    ]
+  },
+  "hints": [
+    "You need a DO block that loops over watch_events in event_id order; inside the loop, read the current watch_status and total_watch_minutes for the content_id/viewer_id pair before deciding what to update.",
+    "Use a FOR loop with ORDER BY event_id, and inside the loop SELECT the current watch_status and total_watch_minutes INTO variables. Then use IF/ELSIF to branch on event_type combined with the current watch_status.",
+    "Declare a RECORD variable for the event row and two INT variables for current watch_status and total_watch_minutes. In the loop: FOR r IN SELECT * FROM watch_events ORDER BY event_id LOOP, SELECT watch_status, total_watch_minutes INTO cur_status, cur_minutes FROM content_state WHERE content_id=r.content_id AND viewer_id=r.viewer_id; then IF r.event_type=1 AND cur_status=0 THEN UPDATE content_state SET watch_status=1, total_watch_minutes=cur_minutes+r.minutes_watched WHERE content_id=r.content_id AND viewer_id=r.viewer_id; ELSIF r.event_type=2 AND cur_status=1 THEN UPDATE content_state SET total_watch_minutes=cur_minutes+r.minutes_watched WHERE content_id=r.content_id AND viewer_id=r.viewer_id; ELSIF r.event_type=3 AND (cur_status=1 OR cur_status=2) THEN UPDATE content_state SET watch_status=2, total_watch_minutes=cur_minutes+r.minutes_watched WHERE content_id=r.content_id AND viewer_id=r.viewer_id; END IF; END LOOP; then a trailing SELECT * FROM content_state ORDER BY content_id, viewer_id;"
+  ],
+  "answer_key": "DO $$\nDECLARE\n  r RECORD;\n  cur_status INT;\n  cur_minutes INT;\nBEGIN\n  FOR r IN SELECT * FROM watch_events ORDER BY event_id LOOP\n    SELECT watch_status, total_watch_minutes INTO cur_status, cur_minutes\n    FROM content_state\n    WHERE content_id = r.content_id AND viewer_id = r.viewer_id;\n\n    IF r.event_type = 1 AND cur_status = 0 THEN\n      UPDATE content_state\n      SET watch_status = 1, total_watch_minutes = cur_minutes + r.minutes_watched\n      WHERE content_id = r.content_id AND viewer_id = r.viewer_id;\n    ELSIF r.event_type = 2 AND cur_status = 1 THEN\n      UPDATE content_state\n      SET total_watch_minutes = cur_minutes + r.minutes_watched\n      WHERE content_id = r.content_id AND viewer_id = r.viewer_id;\n    ELSIF r.event_type = 3 AND (cur_status = 1 OR cur_status = 2) THEN\n      UPDATE content_state\n      SET watch_status = 2, total_watch_minutes = cur_minutes + r.minutes_watched\n      WHERE content_id = r.content_id AND viewer_id = r.viewer_id;\n    END IF;\n  END LOOP;\nEND $$;\n\nSELECT * FROM content_state ORDER BY content_id, viewer_id;",
+  "_meta": {
+    "question_type": "do_block_queue",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-04T17:44:43.988558",
+    "problem_id": "630584c4144a",
+    "validation_attempts": 1,
+    "scenario": "a streaming platform tracking content views, completion rates, and ratings",
+    "dml_op": null
+  }
+}

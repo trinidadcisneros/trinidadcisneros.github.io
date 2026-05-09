@@ -1,0 +1,137 @@
+{
+  "title": "Claim-level fact from PBM adjudication events",
+  "scenario": "A digital pharmacy processes 50K prescriptions daily. Each claim flows through multiple PBM adjudication events (submitted, paid, rejected, reversed). The ops team needs a dashboard showing FPAR, Net Acceptance Rate, and Reversal Rate by drug class and payer.",
+  "prompt": "STAKEHOLDER CONTEXT\n\nYou met with the pharmacy operations team. The fact table you're designing will populate a daily dashboard. The dashboard needs:\n\n- FPAR: count of claims paid on first submission divided by count of claims submitted, by drug class\n- Net Acceptance Rate: count of claims with net paid amount > 0 divided by count of claims submitted, by payer\n- Reversal Rate: count of claims reversed divided by count of claims paid, by drug class\n- Median time-to-payment: median of (paid_ts minus first_submit_ts) in hours, by payer\n\nVOLUME AND UPDATE FREQUENCY\n\n- Daily source volume: ~50K claim events per day\n- Dashboard freshness need: hourly\n- Total fact rows after 1 year: ~15M rows (one row per unique claim_id)\n\nWHAT YOU HAVE IN SOURCE\n\n- Source event table: `claim_events` at event grain (one row per state change). See schema below. event_type values: submitted, paid, rejected, recycled, reversed.\n- dim_patient: patient_id, cohort_label, enrollment_date, plan_type\n- dim_drug: drug_id, ndc, drug_name, drug_class, generic_flag\n- dim_payer: payer_id, payer_name, plan_year_start, formulary_tier_map\n- dim_prescriber: prescriber_id, npi, specialty, state\n- dim_pharmacy: pharmacy_id, location_id, channel\n- dim_date: date_id, calendar_date, year, month, week_of_year\n\nYOUR TASK\n\nDesign the FACT TABLE that the dashboard reads from. Dims are already built \u2014 you specify how to JOIN them and what SCD type each is. Use the response form in section 2 to record your design choices.",
+  "instructions": "Fill out each form field in section 2 (the schema design response form). Dropdowns are used where the answer set is finite (SCD types, idempotency strategies, late-arriving handling); text fields for grain, fact columns, and rationale. Click Get Schema Design Feedback to grade. For schema design problems, a complete answer runs 200 to 400 words across the 12 form fields. The PAA terseness rule does not apply here.",
+  "expected_themes": [
+    "grain: one row per claim_id",
+    "fact columns: timestamps and amounts",
+    "paid-then-reversed idempotency",
+    "gross vs net paid amount",
+    "SCD Type 2 for dim_payer plan-year",
+    "SCD Type 1 for dim_drug and dim_prescriber",
+    "surrogate key strategy",
+    "dbt incremental materialization",
+    "unique test on claim_id",
+    "relationships test to dims",
+    "late-arriving reversal handling",
+    "conformed dim_date across facts"
+  ],
+  "reference_answer": "**Grain**: one row per claim_id (~15M rows after 1 year).\n\n**Fact columns**: claim_id (PK), patient_id, drug_id, payer_id, prescriber_id, pharmacy_id, submit_date_id (FKs), first_submit_ts, paid_ts, reversed_ts (timestamps), gross_paid_amount, net_paid_amount (measures), final_status (derived: paid/rejected/reversed).\n\n**Key strategy**: Natural key claim_id is the PK. FKs to dims use their surrogate keys (patient_id, drug_id, payer_id, etc).\n\n**Dim joins**: dim_patient, dim_drug, dim_payer, dim_prescriber, dim_pharmacy, dim_date. All are INNER joins except dim_date (LEFT for late-arriving reversals).\n\n**SCD per dim**: dim_payer Type 2 (plan-year boundaries matter for formulary tier changes), dim_drug Type 1 (NDC label stable), dim_patient Type 2 (address/plan changes), dim_prescriber Type 1 (NPI stable), dim_pharmacy Type 1 (location stable), dim_date Type 1 (calendar facts don't change).\n\n**Conformed dims**: dim_date, dim_patient, dim_drug are conformed across fact_claim and fact_refill.\n\n**dbt models**: stg_claim_events (cleanup, type casting), int_claim_lifecycle (one row per claim_id, first/last event logic), fact_claim (join to dims, compute net amounts). Incremental on claim_id, unique_key=['claim_id'].\n\n**Tests**: unique(claim_id), not_null(claim_id, patient_id, drug_id), relationships(patient_id to dim_patient), accepted_values(final_status in ['paid','rejected','reversed']).\n\n**Idempotency**: paid-then-reversed claims have gross_paid_amount = original payment, net_paid_amount = 0, final_status = 'reversed'.\n\n**Late arrivals**: If a reversal arrives after period close, re-run incremental for that claim_id; net_paid_amount updates to 0.",
+  "grading_rubric": [
+    {
+      "criterion": "Grain and row count justification",
+      "description": "States 'one row per claim_id' explicitly and ties the ~15M row estimate to the daily volume and 1-year horizon. Explains why event grain would break unique counts.",
+      "weight": 20
+    },
+    {
+      "criterion": "Fact column design for the four metrics",
+      "description": "Includes first_submit_ts, paid_ts, reversed_ts (for time-to-payment and reversal detection), gross_paid_amount and net_paid_amount (for paid-then-reversed idempotency), and final_status. Missing net_paid_amount loses idempotency handling.",
+      "weight": 25
+    },
+    {
+      "criterion": "SCD type reasoning for dim_payer and dim_drug",
+      "description": "Assigns Type 2 to dim_payer (plan-year boundaries affect formulary tier, history needed) and Type 1 to dim_drug (NDC label stable, no history needed for FPAR). Rationale references the metric or update pattern.",
+      "weight": 25
+    },
+    {
+      "criterion": "Idempotency under paid-then-reversed",
+      "description": "Explains that gross_paid_amount retains the original payment but net_paid_amount = 0 after reversal, so Net Acceptance Rate uses net_paid_amount > 0 filter. Mentions final_status = 'reversed'.",
+      "weight": 20
+    },
+    {
+      "criterion": "dbt tests on fact_claim",
+      "description": "Proposes at least 2 tests with the specific column: unique(claim_id), not_null(claim_id or patient_id), relationships(patient_id to dim_patient). Generic 'data quality checks' without column names scores partial.",
+      "weight": 10
+    }
+  ],
+  "hints": [
+    "The prompt says '~15M rows after 1 year (one row per unique claim_id)' \u2014 that sentence defines the grain. Why one-row-per-claim instead of one-row-per-event?",
+    "FPAR = claims paid on first submission. Net Acceptance Rate = claims with net paid > 0. These two metrics differ when a claim is paid then reversed. What two amount columns capture that edge case?",
+    "dim_payer has a plan_year_start column. Plan years reset Jan 1, changing formulary tiers. Does FPAR by payer need historical plan assignment or just current plan? That tells you SCD Type 1 vs Type 2."
+  ],
+  "common_mistakes": [
+    "Declaring grain without justifying row count estimate or explaining why event grain wouldn't work for unique claim counts.",
+    "Storing only paid_amount without separate gross_paid_amount and net_paid_amount, so paid-then-reversed claims look like unpaid claims instead of reversed claims.",
+    "Assigning SCD Type 1 to dim_payer because 'payer name doesn't change,' ignoring that plan-year boundaries (formulary tier reassignments) require Type 2 for historical accuracy.",
+    "Omitting dbt tests entirely or proposing generic 'data quality checks' without naming the specific column and test type (unique, not_null, relationships).",
+    "Putting the 'compute net_paid_amount = gross_paid_amount if not reversed else 0' business rule in the staging model instead of the mart model."
+  ],
+  "schema_ddl": "CREATE TABLE claim_events (\n  event_id BIGINT PRIMARY KEY,\n  claim_id VARCHAR NOT NULL,\n  event_type VARCHAR NOT NULL,\n  event_ts TIMESTAMP NOT NULL,\n  patient_id VARCHAR NOT NULL,\n  drug_id VARCHAR NOT NULL,\n  payer_id VARCHAR NOT NULL,\n  prescriber_id VARCHAR NOT NULL,\n  pharmacy_id VARCHAR NOT NULL,\n  paid_amount DECIMAL(10,2),\n  copay DECIMAL(10,2),\n  days_supply INT,\n  quantity_dispensed DECIMAL(10,3)\n);",
+  "candidate_dimensions": [
+    {
+      "name": "dim_patient",
+      "key": "patient_id",
+      "description": "patient demographics, cohort label, plan type"
+    },
+    {
+      "name": "dim_drug",
+      "key": "drug_id",
+      "description": "NDC, drug name, drug class, generic flag"
+    },
+    {
+      "name": "dim_payer",
+      "key": "payer_id",
+      "description": "payer name, plan year start, formulary tier map"
+    },
+    {
+      "name": "dim_prescriber",
+      "key": "prescriber_id",
+      "description": "NPI, specialty, state"
+    },
+    {
+      "name": "dim_pharmacy",
+      "key": "pharmacy_id",
+      "description": "location id, channel (retail, mail, specialty)"
+    },
+    {
+      "name": "dim_date",
+      "key": "date_id",
+      "description": "calendar date, year, month, week for time-series rollup"
+    }
+  ],
+  "stakeholder_asks": [
+    "FPAR: count of claims paid on first submission divided by count of claims submitted, filterable by drug class",
+    "Net Acceptance Rate: count of claims with net paid amount > 0 divided by count of claims submitted, filterable by payer",
+    "Reversal Rate: count of claims reversed divided by count of claims paid, filterable by drug class",
+    "Median time-to-payment: median of (paid_ts minus first_submit_ts) in hours, filterable by payer"
+  ],
+  "field_hints": {
+    "business_process": "The business process is a prescription claim moving through PBM adjudication. Each fact row describes the full lifecycle of ONE claim from submission through final disposition (paid/rejected/reversed).",
+    "grain": "The prompt says '~15M rows after 1 year (one row per unique claim_id)'. That locks the grain. Why one-row-per-claim instead of one-row-per-event?",
+    "fact_columns": "You need timestamps (first_submit_ts, paid_ts, reversed_ts) to compute time-to-payment and detect reversals. You need TWO amount columns (gross_paid_amount, net_paid_amount) to handle paid-then-reversed idempotency. Final_status is derived.",
+    "key_strategy": "claim_id is the natural key and the PK. FKs to dims use their surrogate keys (patient_id, drug_id, payer_id, etc). State whether you're using a separate fact_claim_sk or claim_id as PK.",
+    "dim_joins": "The four metrics filter by drug class (dim_drug), payer (dim_payer), and require patient/prescriber/pharmacy context for drill-down. dim_date adds calendar grain for weekly rollups.",
+    "scd_per_dim": "dim_payer has plan_year_start \u2014 plan years reset Jan 1, changing formulary tiers. Does the metric need historical plan assignment? That tells you Type 1 vs Type 2. dim_drug NDC is stable (Type 1). dim_patient address/plan changes need Type 2 if cohort assignment matters.",
+    "conformed_dims": "dim_date, dim_patient, dim_drug are shared across fact_claim and fact_refill. Conformed dims let you join claims and refills on patient_id to compute adherence (refills per initial claim).",
+    "models": "Source: claim_events. Staging: stg_claim_events (type casting, rename columns). Intermediate: int_claim_lifecycle (one row per claim_id, first/last event logic). Mart: fact_claim (join to dims, compute net amounts).",
+    "tests": "At minimum: unique(claim_id) ensures grain integrity, not_null(claim_id, patient_id, drug_id) ensures FK integrity, relationships(patient_id to dim_patient) enforces referential integrity.",
+    "idempotency": "A claim can be paid then reversed. If you store only paid_amount, reversed claims look unpaid. Store gross_paid_amount = original payment and net_paid_amount = 0 after reversal. Net Acceptance Rate uses net_paid_amount > 0 filter.",
+    "late_arriving": "A reversal event can arrive hours or days after the paid event. If the fact table is already closed for that period, do you re-run incremental for that claim_id, or do you accept stale net_paid_amount?",
+    "edge_cases": "Paid-then-reversed claims (net to $0, not unpaid). Late-arriving reversal events (re-state closed periods?). Multi-fill prescriptions (parent-child grain if needed). Drug NDC reassignment mid-year (SCD Type 2 if metric needs historical NDC)."
+  },
+  "worked_example_per_field": {
+    "business_process": "Answer: a prescription claim moving through PBM adjudication from submission to final disposition (paid/rejected/reversed).\n\nWhy: The prompt lists four events (submitted, paid, rejected, reversed). The dashboard metrics (FPAR, Net Acceptance Rate, Reversal Rate) all measure outcomes of this adjudication process. Each fact row captures the full lifecycle of one claim.",
+    "grain": "Answer: one row per claim_id (~15M rows after 1 year).\n\nWhy: The prompt says '~15M rows after 1 year (one row per unique claim_id)' \u2014 that single sentence locks the grain. The dashboard aggregates UP from claim-level (counts by drug class, payer), so storing pre-aggregated rows would freeze the slicing dimensions and waste flexibility. Lower grain (event-level) would have multiple rows per claim and break unique claim counts.",
+    "fact_columns": "Answer: claim_id (PK), patient_id, drug_id, payer_id, prescriber_id, pharmacy_id, submit_date_id (FKs), first_submit_ts, paid_ts, reversed_ts (timestamps), gross_paid_amount, net_paid_amount (measures), final_status (derived: paid/rejected/reversed).\n\nWhy: FPAR needs first_submit_ts and paid_ts to detect first-pass payment. Median time-to-payment = MEDIAN(paid_ts - first_submit_ts). Reversal Rate needs reversed_ts. Net Acceptance Rate needs net_paid_amount (0 if reversed, else gross_paid_amount) to exclude reversed claims from 'accepted' count. Storing raw timestamps and amounts lets any BI query slice by drug class or payer at query time.",
+    "key_strategy": "Answer: Natural key claim_id is the PK. FKs to dims use their surrogate keys (patient_id, drug_id, payer_id, prescriber_id, pharmacy_id, submit_date_id).\n\nWhy: claim_id is globally unique across the PBM system, so no separate surrogate key needed. Each dim has its own surrogate key (patient_id, drug_id, etc) \u2014 the fact table stores those FKs, not the dim natural keys (e.g., NPI for prescriber).",
+    "dim_joins": "Answer: dim_patient (for cohort drill-down), dim_drug (for drug class filter), dim_payer (for payer filter), dim_prescriber (for prescriber specialty drill-down), dim_pharmacy (for channel drill-down), dim_date (for calendar rollups).\n\nWhy: The four metrics explicitly filter by drug class (dim_drug.drug_class) and payer (dim_payer.payer_name). Patient cohort, prescriber specialty, and pharmacy channel are common drill-down dimensions for ops dashboards. dim_date adds calendar grain for weekly/monthly rollups.",
+    "scd_per_dim": "Answer: dim_payer Type 2 (plan_year_start changes Jan 1, historical plan assignment needed for FPAR by payer), dim_drug Type 1 (NDC label stable, no history needed), dim_patient Type 2 (address/plan changes, cohort assignment needs history), dim_prescriber Type 1 (NPI stable), dim_pharmacy Type 1 (location stable), dim_date Type 1 (calendar facts don't change).\n\nWhy: dim_payer has plan_year_start \u2014 plan years reset Jan 1, changing formulary tiers. If a claim from Dec gets reversed in Jan, the metric needs the Dec plan assignment to count it correctly. dim_drug NDC rarely reassigns mid-year, so Type 1 is fine for FPAR. dim_patient address/plan changes matter for cohort assignment (e.g., commercial vs Medicaid), so Type 2 preserves history.",
+    "conformed_dims": "Answer: dim_date, dim_patient, dim_drug are conformed across fact_claim and fact_refill.\n\nWhy: Conformed dims let you join claims and refills on patient_id + drug_id to compute adherence (refills per initial claim). dim_date is conformed across all fact tables so calendar rollups align. Non-conformed dims (dim_prescriber, dim_pharmacy) are claim-specific and don't appear in fact_refill.",
+    "models": "Answer: stg_claim_events (cleanup, type casting), int_claim_lifecycle (one row per claim_id, first/last event logic), fact_claim (join to dims, compute net amounts). Incremental materialization on claim_id, unique_key=['claim_id'].\n\nWhy: stg_claim_events does type casting and column renaming only (no business rules). int_claim_lifecycle collapses multiple event rows per claim_id into one row with first_submit_ts, paid_ts, reversed_ts using QUALIFY ROW_NUMBER() or FIRST_VALUE() window functions. fact_claim joins to dims and computes net_paid_amount = IF(reversed_ts IS NOT NULL, 0, gross_paid_amount). Incremental on claim_id handles late-arriving reversals by re-processing the claim_id row.",
+    "tests": "Answer: unique(claim_id), not_null(claim_id, patient_id, drug_id, payer_id), relationships(patient_id to dim_patient.patient_id), relationships(drug_id to dim_drug.drug_id), accepted_values(final_status in ['paid','rejected','reversed']).\n\nWhy: unique(claim_id) ensures grain integrity (one row per claim). not_null on FKs ensures every claim has a patient, drug, payer. relationships() enforces referential integrity to dims (no orphaned FKs). accepted_values(final_status) catches invalid derived values.",
+    "idempotency": "Answer: Store gross_paid_amount (original payment) and net_paid_amount (0 if reversed, else gross_paid_amount). Net Acceptance Rate uses net_paid_amount > 0 filter. Final_status = 'reversed' flags the row.\n\nWhy: A claim can be paid ($50) then reversed hours later. If you store only paid_amount, the reversal event overwrites it to $0, and the claim looks unpaid instead of reversed. Storing both gross and net amounts preserves the original payment for audit and lets Net Acceptance Rate exclude reversed claims from 'accepted' count (net_paid_amount > 0).",
+    "late_arriving": "Answer: Re-run dbt incremental for that claim_id. The unique_key=['claim_id'] config updates the existing row with the new reversed_ts and net_paid_amount = 0.\n\nWhy: If a reversal arrives 2 days after the paid event, the fact_claim row for that claim_id is already closed. Running incremental with unique_key=['claim_id'] updates the row in place (Snowflake MERGE, BigQuery MERGE). The dashboard sees the corrected net_paid_amount immediately. Downside: historical metric values change retroactively (e.g., yesterday's Net Acceptance Rate drops by 1 claim). Alternative: accept stale net_paid_amount until the next full refresh.",
+    "edge_cases": "Answer: Paid-then-reversed claims (gross_paid_amount = $50, net_paid_amount = $0, final_status = 'reversed'). Late-arriving reversals (re-run incremental, updates the row). Multi-fill prescriptions (if needed, add parent_claim_id FK and child_sequence_number columns to fact_claim).\n\nWhy: Paid-then-reversed is the most common edge case in PBM adjudication (audit clawbacks, duplicate claim detection). Late-arriving reversals break period-close assumptions (yesterday's metrics change today). Multi-fill prescriptions (e.g., a 90-day supply split into three 30-day fills) need parent-child grain if the metric requires 'count of prescription orders' vs 'count of fills'."
+  },
+  "_meta": {
+    "category": "transformation_modeling",
+    "subtopic": "schema_design",
+    "kind": "kpi",
+    "scenario": "a digital pharmacy tracking prescription submissions through PBM adjudication",
+    "generated_at": "2026-05-06T18:54:35.293890",
+    "problem_id": "50e0f98129c4",
+    "validation_attempts": 2,
+    "notebook": "nb02_fuze_interview_drills"
+  }
+}

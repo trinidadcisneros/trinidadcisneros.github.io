@@ -1,0 +1,96 @@
+{
+  "problem": {
+    "title": "Pharmacy Adjudication Funnel Conversion Analysis",
+    "prompt": "You are analyzing a pharmacy claim adjudication funnel. The claim_events table logs every state change for each claim (submission, rejection, recycle, payment, reversal, dispense). A claim may go through multiple rejections and recycles before final payment. Calculate the step-by-step funnel showing: (1) count of unique claims reaching each stage, (2) conversion rate from the previous stage. Stages in order: submitted, rejected, recycled, paid. For each stage, use the FIRST occurrence of that event type per claim. A claim is counted in a stage only if it has at least one event of that type. Output columns: stage_name, claims_count, conversion_rate_from_prior (NULL for the first stage). Order by stage sequence (submitted first, paid last). Round conversion rates to 4 decimal places.",
+    "schema_ddl": "CREATE TABLE claim_events (claim_id VARCHAR(20), event_type VARCHAR(20), event_ts TIMESTAMP, reject_code VARCHAR(50)); CREATE TABLE claims (claim_id VARCHAR(20) PRIMARY KEY, rx_number VARCHAR(20), patient_id VARCHAR(20), ndc VARCHAR(11));",
+    "example_input_data": "INSERT INTO claims VALUES ('C001', 'RX1001', 'P100', '12345678901'), ('C002', 'RX1002', 'P101', '12345678902'), ('C003', 'RX1003', 'P102', '12345678903'), ('C004', 'RX1004', 'P103', '12345678904'), ('C005', 'RX1005', 'P104', '12345678905'); INSERT INTO claim_events VALUES ('C001', 'submitted', '2024-01-10 08:00:00', NULL), ('C001', 'rejected', '2024-01-10 08:01:00', 'PA required'), ('C001', 'recycled', '2024-01-10 10:00:00', NULL), ('C001', 'paid', '2024-01-10 10:05:00', NULL), ('C002', 'submitted', '2024-01-10 09:00:00', NULL), ('C002', 'rejected', '2024-01-10 09:01:00', 'formulary not covered'), ('C003', 'submitted', '2024-01-10 11:00:00', NULL), ('C003', 'rejected', '2024-01-10 11:01:00', 'refill too soon'), ('C003', 'recycled', '2024-01-10 12:00:00', NULL), ('C003', 'rejected', '2024-01-10 12:01:00', 'DUR reject'), ('C003', 'recycled', '2024-01-10 13:00:00', NULL), ('C003', 'paid', '2024-01-10 13:05:00', NULL), ('C004', 'submitted', '2024-01-10 14:00:00', NULL), ('C004', 'paid', '2024-01-10 14:05:00', NULL), ('C005', 'submitted', '2024-01-10 15:00:00', NULL);",
+    "example_output_columns": [
+      "stage_name",
+      "claims_count",
+      "conversion_rate_from_prior"
+    ],
+    "example_output_rows": [
+      [
+        "submitted",
+        "5",
+        null
+      ],
+      [
+        "rejected",
+        "3",
+        "0.6000"
+      ],
+      [
+        "recycled",
+        "2",
+        "0.6667"
+      ],
+      [
+        "paid",
+        "3",
+        "1.5000"
+      ]
+    ],
+    "test_data": "INSERT INTO claims VALUES ('C101', 'RX2001', 'P200', '11111111111'), ('C102', 'RX2002', 'P201', '22222222222'), ('C103', 'RX2003', 'P202', '33333333333'), ('C104', 'RX2004', 'P203', '44444444444'), ('C105', 'RX2005', 'P204', '55555555555'), ('C106', 'RX2006', 'P205', '66666666666'), ('C107', 'RX2007', 'P206', '77777777777'), ('C108', 'RX2008', 'P207', '88888888888'), ('C109', 'RX2009', 'P208', '99999999999'), ('C110', 'RX2010', 'P209', '10101010101'), ('C111', 'RX2011', 'P210', '11111111112'), ('C112', 'RX2012', 'P211', '12121212121'), ('C113', 'RX2013', 'P212', '13131313131'), ('C114', 'RX2014', 'P213', '14141414141'), ('C115', 'RX2015', 'P214', '15151515151'), ('C116', 'RX2016', 'P215', '16161616161'), ('C117', 'RX2017', 'P216', '17171717171'), ('C118', 'RX2018', 'P217', '18181818181'), ('C119', 'RX2019', 'P218', '19191919191'), ('C120', 'RX2020', 'P219', '20202020202'); INSERT INTO claim_events VALUES ('C101', 'submitted', '2024-02-01 08:00:00', NULL), ('C101', 'paid', '2024-02-01 08:05:00', NULL), ('C102', 'submitted', '2024-02-01 09:00:00', NULL), ('C102', 'rejected', '2024-02-01 09:01:00', 'PA required'), ('C102', 'recycled', '2024-02-01 10:00:00', NULL), ('C102', 'paid', '2024-02-01 10:05:00', NULL), ('C103', 'submitted', '2024-02-01 11:00:00', NULL), ('C103', 'rejected', '2024-02-01 11:01:00', 'formulary not covered'), ('C104', 'submitted', '2024-02-01 12:00:00', NULL), ('C104', 'rejected', '2024-02-01 12:01:00', 'refill too soon'), ('C104', 'recycled', '2024-02-01 13:00:00', NULL), ('C104', 'rejected', '2024-02-01 13:01:00', 'DUR reject'), ('C104', 'recycled', '2024-02-01 14:00:00', NULL), ('C104', 'paid', '2024-02-01 14:05:00', NULL), ('C105', 'submitted', '2024-02-01 15:00:00', NULL), ('C105', 'rejected', '2024-02-01 15:01:00', 'COB stale'), ('C105', 'recycled', '2024-02-01 16:00:00', NULL), ('C106', 'submitted', '2024-02-01 17:00:00', NULL), ('C107', 'submitted', '2024-02-01 18:00:00', NULL), ('C107', 'rejected', '2024-02-01 18:01:00', 'NDC not covered'), ('C107', 'recycled', '2024-02-01 19:00:00', NULL), ('C107', 'paid', '2024-02-01 19:05:00', NULL), ('C108', 'submitted', '2024-02-02 08:00:00', NULL), ('C108', 'paid', '2024-02-02 08:05:00', NULL), ('C109', 'submitted', '2024-02-02 09:00:00', NULL), ('C109', 'rejected', '2024-02-02 09:01:00', 'days supply exceeded'), ('C110', 'submitted', '2024-02-02 10:00:00', NULL), ('C110', 'rejected', '2024-02-02 10:01:00', 'plan limitations exceeded'), ('C110', 'recycled', '2024-02-02 11:00:00', NULL), ('C110', 'paid', '2024-02-02 11:05:00', NULL), ('C111', 'submitted', '2024-02-02 12:00:00', NULL), ('C111', 'paid', '2024-02-02 12:05:00', NULL), ('C112', 'submitted', '2024-02-02 13:00:00', NULL), ('C112', 'rejected', '2024-02-02 13:01:00', 'PA required'), ('C112', 'recycled', '2024-02-02 14:00:00', NULL), ('C112', 'paid', '2024-02-02 14:05:00', NULL), ('C113', 'submitted', '2024-02-02 15:00:00', NULL), ('C113', 'rejected', '2024-02-02 15:01:00', 'formulary not covered'), ('C113', 'recycled', '2024-02-02 16:00:00', NULL), ('C114', 'submitted', '2024-02-02 17:00:00', NULL), ('C115', 'submitted', '2024-02-02 18:00:00', NULL), ('C115', 'rejected', '2024-02-02 18:01:00', 'refill too soon'), ('C116', 'submitted', '2024-02-02 19:00:00', NULL), ('C116', 'rejected', '2024-02-02 19:01:00', 'DUR reject'), ('C116', 'recycled', '2024-02-02 20:00:00', NULL), ('C116', 'paid', '2024-02-02 20:05:00', NULL), ('C117', 'submitted', '2024-02-03 08:00:00', NULL), ('C117', 'paid', '2024-02-03 08:05:00', NULL), ('C118', 'submitted', '2024-02-03 09:00:00', NULL), ('C118', 'rejected', '2024-02-03 09:01:00', 'COB stale'), ('C118', 'recycled', '2024-02-03 10:00:00', NULL), ('C118', 'paid', '2024-02-03 10:05:00', NULL), ('C119', 'submitted', '2024-02-03 11:00:00', NULL), ('C119', 'rejected', '2024-02-03 11:01:00', 'NDC not covered'), ('C119', 'recycled', '2024-02-03 12:00:00', NULL), ('C120', 'submitted', '2024-02-03 13:00:00', NULL);",
+    "test_expected_columns": [
+      "stage_name",
+      "claims_count",
+      "conversion_rate_from_prior"
+    ],
+    "test_expected_rows": [
+      [
+        "submitted",
+        "20",
+        null
+      ],
+      [
+        "rejected",
+        "13",
+        "0.6500"
+      ],
+      [
+        "recycled",
+        "10",
+        "0.7692"
+      ],
+      [
+        "paid",
+        "11",
+        "1.1000"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "group-aggregate",
+      "composite_moves": [
+        "deduplicate first event per claim per stage",
+        "count distinct claims per stage",
+        "calculate conversion rate from prior stage",
+        "union stages in funnel order"
+      ]
+    },
+    "hints": [
+      "A claim may have multiple events of the same type; only the first occurrence of each event type per claim should count toward that stage.",
+      "Use window functions or subqueries to identify the first event_ts for each event_type per claim_id, then count distinct claims for each stage.",
+      "Conversion rate = current_stage_count / prior_stage_count. Use LAG() or self-join to access the prior stage count, and handle the first stage as NULL."
+    ],
+    "answer_key": "WITH first_events AS (SELECT claim_id, event_type, ROW_NUMBER() OVER (PARTITION BY claim_id, event_type ORDER BY event_ts) AS rn FROM claim_events), stage_claims AS (SELECT event_type, COUNT(DISTINCT claim_id) AS claims_count FROM first_events WHERE rn = 1 GROUP BY event_type), funnel_order AS (SELECT 'submitted' AS stage_name, 1 AS stage_seq UNION ALL SELECT 'rejected', 2 UNION ALL SELECT 'recycled', 3 UNION ALL SELECT 'paid', 4), funnel_with_counts AS (SELECT fo.stage_name, fo.stage_seq, COALESCE(sc.claims_count, 0) AS claims_count FROM funnel_order fo LEFT JOIN stage_claims sc ON fo.stage_name = sc.event_type), funnel_with_rates AS (SELECT stage_name, claims_count::TEXT, CASE WHEN LAG(claims_count) OVER (ORDER BY stage_seq) IS NULL THEN NULL ELSE ROUND(claims_count::NUMERIC / LAG(claims_count) OVER (ORDER BY stage_seq), 4)::TEXT END AS conversion_rate_from_prior FROM funnel_with_counts) SELECT stage_name, claims_count, conversion_rate_from_prior FROM funnel_with_rates ORDER BY CASE stage_name WHEN 'submitted' THEN 1 WHEN 'rejected' THEN 2 WHEN 'recycled' THEN 3 WHEN 'paid' THEN 4 END;",
+    "_meta": {
+      "category": "pharmacy_sql",
+      "subtopic": "adjudication_funnel",
+      "kind": "sql",
+      "question_type": "select_analytical",
+      "dialect": "postgresql",
+      "scenario": "a care coordination platform tracking handoffs between provider, pharmacy, and patient",
+      "generated_at": "2026-05-03T17:52:05.777361",
+      "problem_id": "9f0901b38e74",
+      "validation_attempts": 2,
+      "notebook": "nb02_fuze_interview_drills"
+    }
+  },
+  "user_solution": "/*\n\nExpected output (example data)\nstage_name\tclaims_count\tconversion_rate_from_prior\nsubmitted\t5\tNone\nrejected\t3\t0.6000\nrecycled\t2\t0.6667\npaid\t3\t1.5000\n\n*/\nWITH base_claims AS (\nSELECT \n    claim_id, \n    event_type, \n    event_ts, \n    reject_code,\n    ROW_NUMBER() OVER (PARTITION BY claim_id, event_type ORDER BY event_ts) AS claim_event_type_rn\nFROM claim_events\n),\nevent_groups AS (\nSELECT\n    event_type AS stage_name,\n    CASE WHEN event_type = 'submitted' THEN 1\n         WHEN event_type = 'rejected' THEN 2\n         WHEN event_type = 'recycled' THEN 3\n         WHEN event_type = 'paid' THEN 4\n    END AS row_number,\n    COUNT(claim_id) AS claims_count\nFROM base_claims\nWHERE claim_event_type_rn = 1\nGROUP BY event_type\nORDER BY row_number\n)\nSELECT \n    stage_name,\n    claims_count,\n    ROUND(\n        claims_count::numeric / LAG(claims_count) OVER (ORDER BY row_number),\n    4) AS conversion_rate_from_prior\nFROM event_groups;\n\n",
+  "grade_result": null,
+  "solved_at": "2026-05-03T18:33:43.573234",
+  "notebook": "nb02_fuze_interview_drills"
+}

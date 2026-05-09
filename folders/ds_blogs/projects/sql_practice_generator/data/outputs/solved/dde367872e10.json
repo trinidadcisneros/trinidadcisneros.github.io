@@ -1,0 +1,145 @@
+{
+  "problem": {
+    "title": "Pivot Ticket SLA Breach Counts by Priority",
+    "prompt": "You are given a `sla_breaches` table that records every SLA breach event in long format: each row contains a `team_id`, a `priority_level` ('critical', 'high', 'medium', 'low'), and a `breach_count` (how many tickets of that priority breached SLA in a given reporting period). Write a query that pivots this data into wide format: for each team, produce one row with columns `team_id`, `critical_breaches`, `high_breaches`, `medium_breaches`, `low_breaches`. Each priority column should contain the SUM of `breach_count` for that priority; if a team has no breaches at a given priority, show 0 (not NULL). Order the output by `team_id` ascending. The output columns in order are: `team_id`, `critical_breaches`, `high_breaches`, `medium_breaches`, `low_breaches`.",
+    "schema_ddl": "CREATE TABLE sla_breaches (team_id INTEGER NOT NULL, priority_level VARCHAR(20) NOT NULL, breach_count INTEGER NOT NULL);",
+    "example_input_data": "INSERT INTO sla_breaches (team_id, priority_level, breach_count) VALUES (1, 'critical', 3), (1, 'high', 5), (1, 'medium', 2), (2, 'critical', 1), (2, 'low', 4), (3, 'high', 2), (3, 'high', 3), (3, 'medium', 1);",
+    "example_output_columns": [
+      "team_id",
+      "critical_breaches",
+      "high_breaches",
+      "medium_breaches",
+      "low_breaches"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        3,
+        5,
+        2,
+        0
+      ],
+      [
+        2,
+        1,
+        0,
+        0,
+        4
+      ],
+      [
+        3,
+        0,
+        5,
+        1,
+        0
+      ]
+    ],
+    "test_data": "INSERT INTO sla_breaches (team_id, priority_level, breach_count) VALUES (1, 'critical', 2), (1, 'critical', 1), (1, 'high', 4), (1, 'medium', 3), (1, 'low', 1), (2, 'critical', 5), (2, 'high', 2), (2, 'high', 1), (2, 'medium', 6), (3, 'low', 2), (3, 'low', 3), (4, 'critical', 1), (4, 'high', 1), (4, 'medium', 1), (4, 'low', 1), (5, 'critical', 10), (5, 'critical', 5), (5, 'high', 8), (6, 'medium', 4), (6, 'low', 2), (7, 'critical', 3), (7, 'critical', 2), (7, 'critical', 1), (8, 'high', 7), (8, 'medium', 3), (9, 'low', 5), (10, 'critical', 2), (10, 'high', 3), (10, 'medium', 4), (10, 'low', 1);",
+    "test_expected_columns": [
+      "team_id",
+      "critical_breaches",
+      "high_breaches",
+      "medium_breaches",
+      "low_breaches"
+    ],
+    "test_expected_rows": [
+      [
+        1,
+        3,
+        4,
+        3,
+        1
+      ],
+      [
+        2,
+        5,
+        3,
+        6,
+        0
+      ],
+      [
+        3,
+        0,
+        0,
+        0,
+        5
+      ],
+      [
+        4,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        5,
+        15,
+        8,
+        0,
+        0
+      ],
+      [
+        6,
+        0,
+        0,
+        4,
+        2
+      ],
+      [
+        7,
+        6,
+        0,
+        0,
+        0
+      ],
+      [
+        8,
+        0,
+        7,
+        3,
+        0
+      ],
+      [
+        9,
+        0,
+        0,
+        0,
+        5
+      ],
+      [
+        10,
+        2,
+        3,
+        4,
+        1
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "reshape",
+      "composite_moves": [
+        "reshape"
+      ]
+    },
+    "hints": [
+      "Think about how to turn each priority_level value into a separate column in the output.",
+      "Use CASE WHEN inside an aggregate function to filter rows for each priority, then GROUP BY team_id.",
+      "Wrap each aggregation with COALESCE(..., 0) to replace NULL with 0 when a team has no breaches at a given priority."
+    ],
+    "answer_key": "SELECT\n  team_id,\n  COALESCE(SUM(CASE WHEN priority_level = 'critical' THEN breach_count END), 0) AS critical_breaches,\n  COALESCE(SUM(CASE WHEN priority_level = 'high' THEN breach_count END), 0) AS high_breaches,\n  COALESCE(SUM(CASE WHEN priority_level = 'medium' THEN breach_count END), 0) AS medium_breaches,\n  COALESCE(SUM(CASE WHEN priority_level = 'low' THEN breach_count END), 0) AS low_breaches\nFROM sla_breaches\nGROUP BY team_id\nORDER BY team_id;",
+    "_meta": {
+      "question_type": "pivot",
+      "dialect": "postgresql",
+      "generated_at": "2026-05-07T11:59:00.295381",
+      "problem_id": "dde367872e10",
+      "validation_attempts": 1,
+      "scenario": "a customer support tool tracking ticket SLA breaches and reassignments",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\n\nSELECT\n    team_id,\n    COALESCE(SUM(CASE WHEN priority_level = 'critical' THEN breach_count END), 0) AS critical_breaches,\n    COALESCE(SUM(CASE WHEN priority_level = 'high' THEN breach_count END), 0) AS high_breaches,\n    COALESCE(SUM(CASE WHEN priority_level = 'medium' THEN breach_count END), 0) AS medium_breaches,\n    COALESCE(SUM(CASE WHEN priority_level = 'low' THEN breach_count END), 0) AS low_breaches\nFROM sla_breaches\nGROUP BY 1\nORDER BY team_id;",
+  "solved_at": "2026-05-07T12:06:56.959446"
+}

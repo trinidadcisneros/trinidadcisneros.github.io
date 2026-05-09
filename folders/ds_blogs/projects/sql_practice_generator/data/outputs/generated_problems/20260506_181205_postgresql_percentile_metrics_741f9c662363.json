@@ -1,0 +1,68 @@
+{
+  "title": "Top 10% Agents by Resolution Speed",
+  "prompt": "You are analyzing agent performance in a customer support tool. Write a query to identify the top 10% of agents by their average resolution speed (measured in hours). An agent qualifies for the top 10% if their `avg_resolution_hours` ranks in the top 10% across all agents (using PERCENT_RANK). When agents have tied average resolution times at the boundary, include all tied agents. Your query should return three columns: `agent_id`, `agent_name`, and `avg_resolution_hours`, ordered by `avg_resolution_hours` ascending (fastest first), then by `agent_id` ascending for ties.",
+  "schema_ddl": "CREATE TABLE support_tickets (ticket_id INTEGER PRIMARY KEY, agent_id INTEGER NOT NULL, agent_name VARCHAR(100) NOT NULL, resolution_hours DECIMAL(10,2) NOT NULL);",
+  "example_input_data": "INSERT INTO support_tickets (ticket_id, agent_id, agent_name, resolution_hours) VALUES (1, 101, 'Alice Chen', 2.5), (2, 101, 'Alice Chen', 3.0), (3, 102, 'Bob Kumar', 4.0), (4, 102, 'Bob Kumar', 5.0), (5, 103, 'Carol Singh', 6.0), (6, 103, 'Carol Singh', 7.0), (7, 104, 'David Lee', 8.0), (8, 104, 'David Lee', 9.0);",
+  "example_output_columns": [
+    "agent_id",
+    "agent_name",
+    "avg_resolution_hours"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Alice Chen",
+      "2.75"
+    ]
+  ],
+  "test_data": "INSERT INTO support_tickets (ticket_id, agent_id, agent_name, resolution_hours) VALUES (101, 201, 'Emma Wilson', 1.2), (102, 201, 'Emma Wilson', 1.8), (103, 201, 'Emma Wilson', 2.0), (104, 202, 'Frank Torres', 2.5), (105, 202, 'Frank Torres', 3.5), (106, 203, 'Grace Park', 3.0), (107, 203, 'Grace Park', 3.0), (108, 204, 'Henry Zhang', 3.5), (109, 204, 'Henry Zhang', 4.5), (110, 205, 'Iris Kim', 4.0), (111, 205, 'Iris Kim', 4.0), (112, 206, 'Jack Brown', 5.0), (113, 206, 'Jack Brown', 5.0), (114, 207, 'Kate Miller', 6.0), (115, 207, 'Kate Miller', 6.0), (116, 208, 'Leo Garcia', 7.0), (117, 208, 'Leo Garcia', 7.0), (118, 209, 'Maya Patel', 8.0), (119, 209, 'Maya Patel', 8.0), (120, 210, 'Noah Johnson', 9.0), (121, 210, 'Noah Johnson', 9.0), (122, 211, 'Olivia Davis', 10.0), (123, 211, 'Olivia Davis', 10.0), (124, 212, 'Paul Martinez', 11.0), (125, 212, 'Paul Martinez', 11.0), (126, 213, 'Quinn Lee', 12.0), (127, 213, 'Quinn Lee', 12.0), (128, 214, 'Rita Scott', 13.0), (129, 214, 'Rita Scott', 13.0);",
+  "test_expected_columns": [
+    "agent_id",
+    "agent_name",
+    "avg_resolution_hours"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Emma Wilson",
+      "1.67"
+    ],
+    [
+      202,
+      "Frank Torres",
+      "3.00"
+    ],
+    [
+      203,
+      "Grace Park",
+      "3.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "rank-partition",
+    "composite_moves": [
+      "group-aggregate avg_resolution_hours per agent",
+      "rank-partition using PERCENT_RANK on aggregated metric",
+      "row-filter top 10% including ties"
+    ]
+  },
+  "hints": [
+    "Start by aggregating ticket resolution times per agent to compute their average resolution speed.",
+    "Use PERCENT_RANK() window function over the aggregated averages, ordering by resolution hours ascending (fastest = rank 0). Agents with PERCENT_RANK <= 0.10 are in the top 10%.",
+    "Build a CTE for aggregation, then a CTE for ranking, then filter WHERE percent_rank <= 0.10. Order final output by avg_resolution_hours ASC, agent_id ASC."
+  ],
+  "answer_key": "WITH agent_avg AS (\n  SELECT\n    agent_id,\n    agent_name,\n    ROUND(AVG(resolution_hours), 2) AS avg_resolution_hours\n  FROM support_tickets\n  GROUP BY agent_id, agent_name\n),\nagent_ranked AS (\n  SELECT\n    agent_id,\n    agent_name,\n    avg_resolution_hours,\n    PERCENT_RANK() OVER (ORDER BY avg_resolution_hours ASC) AS pct_rank\n  FROM agent_avg\n)\nSELECT\n  agent_id,\n  agent_name,\n  avg_resolution_hours\nFROM agent_ranked\nWHERE pct_rank <= 0.10\nORDER BY avg_resolution_hours ASC, agent_id ASC;",
+  "_meta": {
+    "question_type": "percentile_metrics",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-06T18:12:05.537293",
+    "problem_id": "741f9c662363",
+    "validation_attempts": 1,
+    "scenario": "a customer support tool tracking ticket SLA breaches and reassignments",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": "top_n_percent"
+  }
+}

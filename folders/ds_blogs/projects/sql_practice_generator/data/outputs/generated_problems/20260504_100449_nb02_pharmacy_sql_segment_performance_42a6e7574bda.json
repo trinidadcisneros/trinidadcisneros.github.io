@@ -1,0 +1,111 @@
+{
+  "title": "Drug Class First Pass Acceptance Rates",
+  "prompt": "You are analyzing pharmacy claim adjudication performance across drug classes. The claims table contains one row per claim submission, with reject_code NULL if the claim paid on first submit. Calculate the First Pass Acceptance Rate (FPAR) for each drug class, defined as the percentage of claims that paid on first submit (reject_code IS NULL). Return three columns: drug_class, total_claims, and first_pass_acceptance_rate (rounded to 4 decimal places). Order results by first_pass_acceptance_rate ascending to surface the worst-performing classes first. If two classes have the same FPAR, order them alphabetically by drug_class.",
+  "schema_ddl": "CREATE TABLE claims (claim_id VARCHAR(20) PRIMARY KEY, patient_id VARCHAR(20) NOT NULL, drug_class VARCHAR(50) NOT NULL, reject_code VARCHAR(50));",
+  "example_input_data": "INSERT INTO claims (claim_id, patient_id, drug_class, reject_code) VALUES ('C001', 'P001', 'GLP-1 agonists', NULL), ('C002', 'P002', 'GLP-1 agonists', NULL), ('C003', 'P003', 'GLP-1 agonists', '75 - Prior Authorization Required'), ('C004', 'P004', 'statins', NULL), ('C005', 'P005', 'statins', NULL), ('C006', 'P006', 'statins', NULL), ('C007', 'P007', 'fertility medications', '70 - Product/Service Not Covered'), ('C008', 'P008', 'fertility medications', '75 - Prior Authorization Required');",
+  "example_output_columns": [
+    "drug_class",
+    "total_claims",
+    "first_pass_acceptance_rate"
+  ],
+  "example_output_rows": [
+    [
+      "fertility medications",
+      2,
+      "0.0000"
+    ],
+    [
+      "GLP-1 agonists",
+      3,
+      "0.6667"
+    ],
+    [
+      "statins",
+      3,
+      "1.0000"
+    ]
+  ],
+  "test_data": "INSERT INTO claims (claim_id, patient_id, drug_class, reject_code) VALUES ('C101', 'P101', 'oral contraceptives', NULL), ('C102', 'P102', 'oral contraceptives', NULL), ('C103', 'P103', 'oral contraceptives', NULL), ('C104', 'P104', 'oral contraceptives', NULL), ('C105', 'P105', 'HIV PrEP', NULL), ('C106', 'P106', 'HIV PrEP', NULL), ('C107', 'P107', 'HIV PrEP', '75 - Prior Authorization Required'), ('C108', 'P108', 'SSRIs', NULL), ('C109', 'P109', 'SSRIs', '70 - Product/Service Not Covered'), ('C110', 'P110', 'SSRIs', '79 - Refill Too Soon'), ('C111', 'P111', 'SSRIs', '75 - Prior Authorization Required'), ('C112', 'P112', 'fertility medications', '75 - Prior Authorization Required'), ('C113', 'P113', 'fertility medications', '70 - Product/Service Not Covered'), ('C114', 'P114', 'fertility medications', '76 - Plan Limitations Exceeded'), ('C115', 'P115', 'fertility medications', '75 - Prior Authorization Required'), ('C116', 'P116', 'fertility medications', NULL);",
+  "test_expected_columns": [
+    "drug_class",
+    "total_claims",
+    "first_pass_acceptance_rate"
+  ],
+  "test_expected_rows": [
+    [
+      "fertility medications",
+      5,
+      "0.2000"
+    ],
+    [
+      "SSRIs",
+      4,
+      "0.2500"
+    ],
+    [
+      "HIV PrEP",
+      3,
+      "0.6667"
+    ],
+    [
+      "oral contraceptives",
+      4,
+      "1.0000"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "group-aggregate",
+    "composite_moves": [
+      "group-aggregate"
+    ]
+  },
+  "hints": [
+    "You need to group claims by a dimension and calculate a percentage metric for each group.",
+    "The percentage should count how many claims in each group have a NULL reject_code versus the total claims in that group.",
+    "Use a CASE expression inside SUM to count only the NULL reject_code rows, then divide by COUNT(*) to get the rate."
+  ],
+  "answer_key": "SELECT drug_class, COUNT(*) AS total_claims, ROUND(SUM(CASE WHEN reject_code IS NULL THEN 1 ELSE 0 END)::numeric / COUNT(*), 4) AS first_pass_acceptance_rate FROM claims GROUP BY drug_class ORDER BY first_pass_acceptance_rate ASC, drug_class ASC;",
+  "glossary": [
+    {
+      "term": "First Pass Acceptance Rate (FPAR)",
+      "definition": "The percentage of pharmacy claims that are paid by the PBM on the first submission without any rejection."
+    },
+    {
+      "term": "reject_code",
+      "definition": "The NCPDP standard code indicating why a claim was not paid on first submit (e.g., prior authorization required, formulary not covered)."
+    },
+    {
+      "term": "adjudication",
+      "definition": "The real-time decision the PBM makes on whether to pay a submitted prescription claim and how much."
+    },
+    {
+      "term": "drug_class",
+      "definition": "A grouping of medications with similar therapeutic purpose or mechanism (e.g., GLP-1 agonists for diabetes and weight management, statins for cholesterol)."
+    },
+    {
+      "term": "75 - Prior Authorization Required",
+      "definition": "The NCPDP reject code indicating the payer requires a clinical review and approval before covering the medication."
+    },
+    {
+      "term": "70 - Product/Service Not Covered",
+      "definition": "The NCPDP reject code indicating the drug is not on the payer's formulary or covered benefit list."
+    }
+  ],
+  "calculation_explanation": "1. Group all claims by their drug_class to create one output row per class.\n2. For each drug class, count the total number of claims.\n3. For each drug class, count how many claims have reject_code IS NULL (these paid on first submit).\n4. Divide the NULL count by the total count to get the FPAR, rounded to 4 decimal places.\n5. Order the results by FPAR ascending so the worst-performing classes appear first, with alphabetical tiebreaker.",
+  "interpretation_example": "- Fertility medications show 0% FPAR (0 of 2 claims paid on first submit), indicating all claims in the example require prior authorization or formulary intervention \u2014 this is expected given clinical complexity and payer controls.\n- GLP-1 agonists show 67% FPAR (2 of 3 paid), below the 75-85% retail benchmark, suggesting many payers require PA for weight-loss or off-label indications.\n- Statins show 100% FPAR (3 of 3 paid), meeting the upper end of the retail benchmark and reflecting their generic status and broad formulary coverage.\n- The 33-point FPAR gap between GLP-1s and statins highlights the operational cost difference: GLP-1s require dedicated PA workflow capacity while statins flow through automatically.",
+  "recommendation_example": "- Prioritize PA team capacity for fertility and GLP-1 classes (Pharmacy Ops): these classes drive the majority of manual PA volume; route their 75-code rejects to a specialist PA queue within 1 hour to maintain time-to-fill SLA.\n- Implement automated PA submission for GLP-1 agonists (Engineering + Care): integrate with payer portals to auto-submit standard PA documentation at point of reject; benchmark PA approval rate should reach 60-80% within 48 hours.\n- Segment FPAR reporting by drug class and payer (Product + Finance): the aggregate 75% retail benchmark does not apply uniformly; fertility and specialty biologics should be tracked separately with class-specific targets.\n- Monitor weekly: track FPAR trend for GLP-1 agonists specifically, watching for the rollout of new step-therapy requirements (common as branded drugs face competition) that could drop FPAR further and require proactive prescriber outreach.",
+  "_meta": {
+    "category": "pharmacy_sql",
+    "subtopic": "segment_performance",
+    "kind": "sql",
+    "question_type": "select_analytical",
+    "dialect": "postgresql",
+    "scenario": "a patient adherence intervention tracking which nudge channels move refill behavior",
+    "generated_at": "2026-05-04T10:04:49.450567",
+    "problem_id": "42a6e7574bda",
+    "validation_attempts": 2,
+    "notebook": "nb02_fuze_interview_drills"
+  }
+}

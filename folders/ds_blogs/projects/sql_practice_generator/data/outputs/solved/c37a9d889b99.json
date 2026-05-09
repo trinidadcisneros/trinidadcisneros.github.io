@@ -1,0 +1,264 @@
+{
+  "problem": {
+    "title": "Apply Tiered Review Status Updates",
+    "prompt": "You are maintaining a clinical documentation tool that tracks diagnosis code reviews. The `code_reviews` table contains one row per review, with columns `review_id`, `icd_code`, `days_since_submission`, `denial_count`, `review_status`, and `priority_score`. Management has asked you to apply a tiered update based on denial history and aging:\n\n1. For any review with `denial_count >= 3`, set `review_status` to 'escalated' and set `priority_score` to `priority_score * 1.5`.\n2. For any review with `denial_count = 2` and `days_since_submission > 14`, set `review_status` to 'attention_needed' and set `priority_score` to `priority_score * 1.25`.\n3. For any review with `denial_count = 1` and `days_since_submission > 30`, set `review_status` to 'flagged' and leave `priority_score` unchanged.\n4. All other reviews should keep their current `review_status` and `priority_score` unchanged.\n\nWrite a single UPDATE statement that applies these rules to all rows in the `code_reviews` table. After the UPDATE, select all columns from `code_reviews` ordered by `review_id` to confirm the result.",
+    "schema_ddl": "CREATE TABLE code_reviews (review_id INT PRIMARY KEY, icd_code VARCHAR(10), days_since_submission INT, denial_count INT, review_status VARCHAR(30), priority_score DECIMAL(10,2));",
+    "example_input_data": "INSERT INTO code_reviews (review_id, icd_code, days_since_submission, denial_count, review_status, priority_score) VALUES (1, 'E11.9', 10, 0, 'pending', 50.00), (2, 'I10', 20, 2, 'pending', 60.00), (3, 'J44.0', 5, 3, 'pending', 40.00), (4, 'M79.3', 35, 1, 'pending', 55.00), (5, 'K21.9', 40, 2, 'pending', 70.00), (6, 'N18.3', 12, 1, 'pending', 45.00);",
+    "example_output_columns": [
+      "review_id",
+      "icd_code",
+      "days_since_submission",
+      "denial_count",
+      "review_status",
+      "priority_score"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "E11.9",
+        10,
+        0,
+        "pending",
+        "50.00"
+      ],
+      [
+        2,
+        "I10",
+        20,
+        2,
+        "attention_needed",
+        "75.00"
+      ],
+      [
+        3,
+        "J44.0",
+        5,
+        3,
+        "escalated",
+        "60.00"
+      ],
+      [
+        4,
+        "M79.3",
+        35,
+        1,
+        "flagged",
+        "55.00"
+      ],
+      [
+        5,
+        "K21.9",
+        40,
+        2,
+        "attention_needed",
+        "87.50"
+      ],
+      [
+        6,
+        "N18.3",
+        12,
+        1,
+        "pending",
+        "45.00"
+      ]
+    ],
+    "test_data": "INSERT INTO code_reviews (review_id, icd_code, days_since_submission, denial_count, review_status, priority_score) VALUES (101, 'A01.0', 5, 0, 'pending', 30.00), (102, 'B20', 15, 2, 'pending', 80.00), (103, 'C50.9', 31, 1, 'pending', 90.00), (104, 'D64.9', 7, 3, 'pending', 100.00), (105, 'E78.5', 14, 2, 'pending', 120.00), (106, 'F41.1', 45, 1, 'pending', 110.00), (107, 'G43.9', 2, 4, 'pending', 95.00), (108, 'H35.3', 20, 0, 'pending', 50.00), (109, 'I25.10', 18, 2, 'pending', 75.00), (110, 'J45.9', 31, 0, 'pending', 60.00), (111, 'K50.0', 50, 1, 'pending', 85.00), (112, 'L40.9', 10, 5, 'pending', 130.00), (113, 'M06.9', 25, 2, 'pending', 140.00), (114, 'N39.0', 8, 1, 'pending', 55.00), (115, 'O80', 100, 0, 'pending', 40.00), (116, 'P07.3', 3, 3, 'pending', 150.00), (117, 'Q21.0', 16, 2, 'pending', 160.00), (118, 'R07.9', 40, 1, 'pending', 70.00), (119, 'S72.0', 12, 2, 'pending', 65.00), (120, 'T14.9', 35, 2, 'pending', 90.00);",
+    "test_expected_columns": [
+      "review_id",
+      "icd_code",
+      "days_since_submission",
+      "denial_count",
+      "review_status",
+      "priority_score"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        "A01.0",
+        5,
+        0,
+        "pending",
+        "30.00"
+      ],
+      [
+        102,
+        "B20",
+        15,
+        2,
+        "attention_needed",
+        "100.00"
+      ],
+      [
+        103,
+        "C50.9",
+        31,
+        1,
+        "flagged",
+        "90.00"
+      ],
+      [
+        104,
+        "D64.9",
+        7,
+        3,
+        "escalated",
+        "150.00"
+      ],
+      [
+        105,
+        "E78.5",
+        14,
+        2,
+        "pending",
+        "120.00"
+      ],
+      [
+        106,
+        "F41.1",
+        45,
+        1,
+        "flagged",
+        "110.00"
+      ],
+      [
+        107,
+        "G43.9",
+        2,
+        4,
+        "escalated",
+        "142.50"
+      ],
+      [
+        108,
+        "H35.3",
+        20,
+        0,
+        "pending",
+        "50.00"
+      ],
+      [
+        109,
+        "I25.10",
+        18,
+        2,
+        "attention_needed",
+        "93.75"
+      ],
+      [
+        110,
+        "J45.9",
+        31,
+        0,
+        "pending",
+        "60.00"
+      ],
+      [
+        111,
+        "K50.0",
+        50,
+        1,
+        "flagged",
+        "85.00"
+      ],
+      [
+        112,
+        "L40.9",
+        10,
+        5,
+        "escalated",
+        "195.00"
+      ],
+      [
+        113,
+        "M06.9",
+        25,
+        2,
+        "attention_needed",
+        "175.00"
+      ],
+      [
+        114,
+        "N39.0",
+        8,
+        1,
+        "pending",
+        "55.00"
+      ],
+      [
+        115,
+        "O80",
+        100,
+        0,
+        "pending",
+        "40.00"
+      ],
+      [
+        116,
+        "P07.3",
+        3,
+        3,
+        "escalated",
+        "225.00"
+      ],
+      [
+        117,
+        "Q21.0",
+        16,
+        2,
+        "attention_needed",
+        "200.00"
+      ],
+      [
+        118,
+        "R07.9",
+        40,
+        1,
+        "flagged",
+        "70.00"
+      ],
+      [
+        119,
+        "S72.0",
+        12,
+        2,
+        "pending",
+        "65.00"
+      ],
+      [
+        120,
+        "T14.9",
+        35,
+        2,
+        "attention_needed",
+        "112.50"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "state_mutation",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "row-transform: conditional multi-column UPDATE using CASE WHEN for tiered status and priority_score adjustment"
+      ]
+    },
+    "hints": [
+      "You can update multiple columns at once in a single UPDATE statement by separating them with commas in the SET clause.",
+      "Use CASE WHEN expressions to handle the tiered logic. Check the highest-priority condition first (denial_count >= 3), then the next tier, and so on. The ELSE clause should preserve the original value.",
+      "For priority_score, multiply by 1.5 when denial_count >= 3, multiply by 1.25 when denial_count = 2 AND days_since_submission > 14, and keep the original value otherwise. The CASE WHEN structure should mirror the status logic exactly."
+    ],
+    "answer_key": "UPDATE code_reviews\nSET review_status = CASE\n  WHEN denial_count >= 3 THEN 'escalated'\n  WHEN denial_count = 2 AND days_since_submission > 14 THEN 'attention_needed'\n  WHEN denial_count = 1 AND days_since_submission > 30 THEN 'flagged'\n  ELSE review_status\nEND,\npriority_score = CASE\n  WHEN denial_count >= 3 THEN priority_score * 1.5\n  WHEN denial_count = 2 AND days_since_submission > 14 THEN priority_score * 1.25\n  ELSE priority_score\nEND;\n\nSELECT * FROM code_reviews ORDER BY review_id;",
+    "_meta": {
+      "question_type": "dml",
+      "dialect": "postgresql",
+      "generated_at": "2026-05-07T10:25:55.833513",
+      "problem_id": "c37a9d889b99",
+      "validation_attempts": 1,
+      "scenario": "a clinical documentation tool tracking diagnosis code reviews and denials",
+      "dml_op": "UPDATE",
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "UPDATE code_reviews\nSET review_status = CASE\n        WHEN denial_count >= 3                                        THEN 'escalated'\n        WHEN denial_count = 2 AND days_since_submission > 14          THEN 'attention_needed'\n        WHEN denial_count = 1 AND days_since_submission > 30          THEN 'flagged'\n        ELSE review_status\n    END,\n    priority_score = CASE\n        WHEN denial_count >= 3                                        THEN priority_score * 1.5\n        WHEN denial_count = 2 AND days_since_submission > 14          THEN priority_score * 1.25\n        ELSE priority_score\n    END;\n\nSELECT * FROM code_reviews ORDER BY review_id;",
+  "solved_at": "2026-05-07T10:41:30.604902"
+}

@@ -1,0 +1,295 @@
+{
+  "problem_id": "a62b9d127ee8",
+  "subtopic": "schema_design",
+  "responses": {
+    "business_process": "the business process is to track the lifecycle of the order_id meaning when the order was placed, shipped and used by the patient",
+    "grain": "one row per order_id",
+    "input_grain": "one row per event_id",
+    "fact_columns": "",
+    "fact_columns_classifier": {
+      "fertility_order_events.event_id": {
+        "type": "VARCHAR PRIMARY KEY",
+        "per_grain": "drop",
+        "role": "dropped",
+        "include": "no"
+      },
+      "fertility_order_events.order_id": {
+        "type": "VARCHAR NOT NULL",
+        "per_grain": "one",
+        "role": "pk",
+        "include": "yes"
+      },
+      "fertility_order_events.patient_id": {
+        "type": "VARCHAR NOT NULL",
+        "per_grain": "one",
+        "role": "fk",
+        "include": "yes"
+      },
+      "fertility_order_events.protocol_id": {
+        "type": "VARCHAR NOT NULL",
+        "per_grain": "one",
+        "role": "fk",
+        "include": "yes"
+      },
+      "fertility_order_events.clinic_id": {
+        "type": "VARCHAR NOT NULL",
+        "per_grain": "one",
+        "role": "fk",
+        "include": "yes"
+      },
+      "fertility_order_events.partner_id": {
+        "type": "VARCHAR NOT NULL",
+        "per_grain": "one",
+        "role": "fk",
+        "include": "yes"
+      },
+      "fertility_order_events.event_type": {
+        "type": "VARCHAR NOT NULL",
+        "per_grain": "drop",
+        "role": "dropped",
+        "include": "no"
+      },
+      "fertility_order_events.event_ts": {
+        "type": "TIMESTAMP NOT NULL",
+        "per_grain": "many",
+        "role": "pivoted",
+        "include": "yes"
+      },
+      "fertility_order_events.doses_taken_count": {
+        "type": "INT",
+        "per_grain": "one",
+        "role": "measure",
+        "include": "yes"
+      },
+      "fertility_order_events.created_at": {
+        "type": "TIMESTAMP NOT NULL",
+        "per_grain": "drop",
+        "role": "dropped",
+        "include": "no"
+      }
+    },
+    "metrics_classifier": {
+      "0": {
+        "unit": "per_order",
+        "agg": "duration_median",
+        "filter_dim": "dim_clinic",
+        "drilldown": "_none_",
+        "ingredients": [
+          "order_id (VARCHAR NOT NULL)",
+          "event_ts (TIMESTAMP NOT NULL)"
+        ]
+      },
+      "1": {
+        "unit": "per_claim",
+        "agg": "conditional_rate",
+        "filter_dim": "dim_drug_protocol",
+        "drilldown": "dim_drug_protocol.protocol name",
+        "ingredients": [
+          "order_id (VARCHAR NOT NULL)",
+          "protocol_id (VARCHAR NOT NULL)",
+          "doses_taken_count (INT)"
+        ]
+      },
+      "2": {
+        "unit": "per_claim",
+        "agg": "count",
+        "filter_dim": "dim_shipping_partner",
+        "drilldown": "_none_",
+        "ingredients": [
+          "order_id (VARCHAR NOT NULL)",
+          "partner_id (VARCHAR NOT NULL)",
+          "event_ts (TIMESTAMP NOT NULL)"
+        ]
+      },
+      "3": {
+        "unit": "per_claim",
+        "agg": "conditional_rate",
+        "filter_dim": "dim_patient",
+        "drilldown": "_none_",
+        "ingredients": [
+          "order_id (VARCHAR NOT NULL)",
+          "doses_taken_count (INT)"
+        ]
+      }
+    },
+    "dim_attribute_usage": {
+      "dim_patient": {
+        "patient demographics": ""
+      },
+      "dim_drug_protocol": {
+        "protocol name": "",
+        "total doses prescribed": ""
+      },
+      "dim_clinic": {
+        "clinic name": ""
+      },
+      "dim_shipping_partner": {
+        "partner name": ""
+      },
+      "dim_date": {
+        "standard calendar attributes for time-series rollups": ""
+      }
+    },
+    "key_strategy": "natural",
+    "key_rationale": "Use the source's existing ID directly. It's unique at the grain, stable across time, and from a single source. No need to generate a surrogate.",
+    "dim_joins": [
+      "dim_patient",
+      "dim_drug_protocol",
+      "dim_clinic",
+      "dim_shipping_partner",
+      "dim_date"
+    ],
+    "scd_per_dim": {
+      "dim_patient": "type2",
+      "dim_drug_protocol": "type2",
+      "dim_clinic": "type2",
+      "dim_shipping_partner": "type2",
+      "dim_date": "type0"
+    },
+    "scd_rationale": "",
+    "conformed_dims": [],
+    "conformed_rationale": "N/A \u2014 single-fact drill. Conformed dims is about reusing the SAME dim across multiple fact tables; with only one fact in scope, there's nothing to conform with.",
+    "models": [
+      {
+        "name": "stg_fertility_orders",
+        "layer": "stg",
+        "mat": "",
+        "purpose": "cleaning"
+      },
+      {
+        "name": "int_fertility_orders",
+        "layer": "int",
+        "mat": "",
+        "purpose": "transformation"
+      },
+      {
+        "name": "fact_fertility_orders",
+        "layer": "fct",
+        "mat": "table",
+        "purpose": "fact"
+      }
+    ],
+    "tests_per_model": {
+      "stg_fertility_orders": [
+        "unique on grain key",
+        "not_null on grain key"
+      ],
+      "int_fertility_orders": [
+        "unique on grain key",
+        "not_null on grain key"
+      ],
+      "fact_fertility_orders": [
+        "unique on grain key",
+        "not_null on grain key",
+        "relationships to dim tables (FK integrity)",
+        "expression_is_true: range or business rule",
+        "expression_is_true: chronology (e.g., paid_ts >= submit_ts)",
+        "expect_column_values_to_match_regex (NDC, NPI format)"
+      ]
+    },
+    "tests_custom_per_model": {},
+    "translate_picks": {},
+    "translate_decomp": {},
+    "mode": "solve",
+    "edge_cases_per_category": {
+      "duplicates": [
+        "Dedupe by event_id (deterministic PK) in staging"
+      ]
+    },
+    "edge_cases_applies": {
+      "duplicates": true,
+      "out_of_order": false,
+      "null_handling": false,
+      "boundary": false,
+      "failure_events": false,
+      "multiple_same_type": false,
+      "source_retries": false
+    },
+    "idempotency_strategy": "full_rebuild",
+    "idempotency_rationale": "Full rebuild means: every run, drop the entire fact and rebuild from source. Re-run safety is guaranteed by construction (no duplicates possible). Picked because the fact is small enough that this is fast.",
+    "late_arriving_strategy": "restate",
+    "late_arriving_rationale": "Re-state means: every run, rebuild affected past partitions using the latest source events. Past period numbers shift slightly with each rebuild as late events arrive. Picked because accuracy matters more than report stability and late data volume is non-trivial.",
+    "edge_cases": "[duplicates] Dedupe by event_id (deterministic PK) in staging"
+  },
+  "grade": {
+    "scores": [
+      {
+        "criterion": "Business process",
+        "weight": 8,
+        "earned": 6,
+        "feedback": "Candidate correctly identifies tracking order lifecycle but misses the key business outcome: fertility treatment adherence and delivery performance. The process isn't just tracking state changes\u2014it's measuring clinical program effectiveness (dose adherence) and operational performance (shipment SLA compliance). Partial credit for understanding the grain shift from events to orders."
+      },
+      {
+        "criterion": "Grain",
+        "weight": 12,
+        "earned": 12,
+        "feedback": "Excellent grain statement. Candidate explicitly names INPUT grain (one row per event_id) and OUTPUT grain (one row per order_id), demonstrating clear understanding of the event-to-order collapse. This is the foundation for the entire fact design and was stated precisely."
+      },
+      {
+        "criterion": "Fact columns",
+        "weight": 12,
+        "earned": 7,
+        "feedback": "Source column classifier shows critical gaps. Candidate correctly pivots event_ts (many timestamps per order) and includes doses_taken_count as a measure. However, they marked event_ts as 'pivoted' but didn't specify WHICH pivoted columns result (order_placed_ts, shipped_ts, first_dose_ts, bundle_completed_ts are all needed for the four dashboard metrics). The dashboard requires: time to first dose (order_placed_ts \u2192 first_dose_ts), late shipment flag (shipped_ts vs order_placed_ts + 24h), completion flag (bundle_completed event present), and adherence (doses_taken vs total_prescribed). Missing: explicit pivoted timestamp columns, all_doses_completed boolean, is_late_shipment boolean, total_doses_prescribed (from protocol dim or denormalized). Doses_taken_count alone doesn't enable adherence calculation without total prescribed."
+      },
+      {
+        "criterion": "Surrogate vs natural key",
+        "weight": 6,
+        "earned": 6,
+        "feedback": "Correct choice with solid rationale. Natural key (order_id) is appropriate here: single source, stable identifier, unique at grain. Candidate articulates the decision criteria clearly."
+      },
+      {
+        "criterion": "Dim joins",
+        "weight": 8,
+        "earned": 7,
+        "feedback": "Candidate joins all five dims (patient, protocol, clinic, shipping_partner, date) which aligns with the four dashboard asks. Attribute usage is sparse but sufficient: protocol name and total_doses_prescribed are key for adherence calculation. Minor deduction: doesn't specify WHICH date to join (order_placed_date vs shipped_date vs dose_date)\u2014in a daily-grain fact tracking lifecycle events, you typically need the primary business date (order_placed_date). Still, all necessary dims are present."
+      },
+      {
+        "criterion": "SCD type per dim",
+        "weight": 8,
+        "earned": 3,
+        "feedback": "Major issue: candidate marked ALL dims (patient, protocol, clinic, shipping_partner) as Type 2, which is overkill and indicates lack of nuanced judgment. Realistic SCD picks: dim_patient Type 1 (demographics stable for treatment cycle), dim_drug_protocol Type 1 (protocols rarely change mid-cycle), dim_clinic Type 1 (clinic attributes stable), dim_shipping_partner Type 1 (partner SLA changes don't affect historical order performance), dim_date Type 0 (correct). The blanket Type 2 approach wastes storage and complicates joins. Empty rationale field compounds the issue\u2014no justification for why every dim needs history tracking. Partial credit for dim_date Type 0."
+      },
+      {
+        "criterion": "Conformed dims",
+        "weight": 4,
+        "earned": 4,
+        "feedback": "Correctly marked N/A with clear rationale explaining this is a single-fact drill. Full credit."
+      },
+      {
+        "criterion": "Models (layer + materialization)",
+        "weight": 11,
+        "earned": 9,
+        "feedback": "Three-layer structure is solid: stg \u2192 int \u2192 fct. Materializations are reasonable: ephemeral staging, ephemeral intermediate, table for fact. Small issue: the int layer should handle the event-to-order pivot logic (window functions to extract first/last event_ts per event_type per order_id), but candidate doesn't describe what int_fertility_orders DOES beyond existing. With only 70K rows/year, table materialization is fine. Would be ideal to see incremental for the fact if this were a growing dataset, but full rebuild is defensible at this scale."
+      },
+      {
+        "criterion": "dbt tests per model",
+        "weight": 7,
+        "earned": 6,
+        "feedback": "Strong test coverage overall. Candidate selected: unique/not_null on grain key (all models), relationships for FK integrity, expression_is_true for chronology and range checks, regex validation. Good diversity. Minor gap: no test for the pivoted timestamp logic (e.g., 'shipped_ts >= order_placed_ts' or 'first_dose_ts >= shipped_ts'). Also, regex validation on NDC/NPI format doesn't apply to this fertility order context (no NDC/NPI in schema). Still, 6 relevant tests selected shows solid testing discipline."
+      },
+      {
+        "criterion": "Idempotency / re-run safety",
+        "weight": 9,
+        "earned": 8,
+        "feedback": "Strategy: full_rebuild. Rationale correctly explains drop-and-rebuild guarantees no duplicates and is fast at 70K rows. This works for daily batch. Minor deduction: candidate doesn't acknowledge the trade-off\u2014full rebuild means no incremental logic, so every run processes all history. For a fact that will grow, incremental with unique key would be more scalable. But for this problem size, full_rebuild is pragmatic and the rationale is clear."
+      },
+      {
+        "criterion": "Late-arriving / out-of-order events",
+        "weight": 7,
+        "earned": 5,
+        "feedback": "Strategy: restate. Rationale says 'rebuild affected past partitions using latest source events' but the idempotency strategy is full_rebuild (entire fact, not partitions). There's a logical inconsistency: full_rebuild already handles late-arriving events by reprocessing everything, so 're-state past partitions' is redundant. Candidate shows understanding that late data shifts past numbers but doesn't connect it to their full_rebuild choice. Partial credit for recognizing the accuracy vs stability trade-off."
+      },
+      {
+        "criterion": "Edge cases acknowledged",
+        "weight": 8,
+        "earned": 4,
+        "feedback": "Candidate lists only one edge case: duplicates, handled by deduping on event_id in staging. This is correct but insufficient. Critical missing edge cases: (1) Orders with missing events (e.g., order_placed but never shipped\u2014how to handle nulls in pivoted columns?), (2) Multiple bundle_completed events per order (how to define 'completed'\u2014first or last?), (3) Dose adherence calculation when bundle not completed (doses_taken vs total_prescribed when cycle is mid-flight), (4) Timezone handling for event_ts (orders crossing midnight). One edge case acknowledged out of 4-5 obvious ones."
+      }
+    ],
+    "total_score": 77,
+    "what_was_strong": "Grain definition was exemplary\u2014candidate clearly distinguished input (event-level) from output (order-level) grain, which is the foundation of the entire design. This clarity carried through to the natural key choice and model layering.",
+    "what_to_improve": "Fact columns need explicit pivoted timestamp fields (order_placed_ts, shipped_ts, first_dose_ts, bundle_completed_ts) and derived booleans (is_late_shipment, all_doses_completed) to power the four dashboard metrics. The source column classifier marked event_ts as 'pivoted' but didn't specify the resulting columns. Also, SCD type picks were overly aggressive (blanket Type 2)\u2014most dims here are Type 1.",
+    "next_drill_focus": "Practice designing fact columns for event-collapse scenarios: given a multi-event source, explicitly list the pivoted timestamp columns and derived flags needed to answer specific dashboard questions."
+  },
+  "saved_at": "2026-05-06T20:10:48.724619"
+}

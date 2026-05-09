@@ -1,0 +1,320 @@
+{
+  "problem": {
+    "title": "Update Job Retry Status and Backoff Times",
+    "prompt": "You are managing a workflow automation system that tracks job executions. When jobs fail, they are retried with exponential backoff. Write a single UPDATE statement that applies the following rules to the `job_runs` table: (1) For any job with `status = 'failed'` and `retry_count < 3`, set `status` to `'retrying'` and set `next_retry_seconds` to `base_backoff_seconds * POWER(2, retry_count)`. (2) For any job with `status = 'failed'` and `retry_count >= 3`, set `status` to `'permanently_failed'` and set `next_retry_seconds` to `NULL`. (3) All other rows remain unchanged. After the UPDATE, select all rows from `job_runs` ordered by `job_id` ascending to confirm the changes.",
+    "schema_ddl": "CREATE TABLE job_runs (job_id SERIAL PRIMARY KEY, job_name VARCHAR(100) NOT NULL, status VARCHAR(50) NOT NULL, retry_count INT NOT NULL DEFAULT 0, base_backoff_seconds INT NOT NULL, next_retry_seconds INT);",
+    "example_input_data": "INSERT INTO job_runs (job_name, status, retry_count, base_backoff_seconds, next_retry_seconds) VALUES ('data_sync', 'failed', 0, 5, NULL), ('email_batch', 'failed', 1, 10, NULL), ('report_gen', 'failed', 2, 8, NULL), ('cleanup_task', 'failed', 3, 5, NULL), ('analytics_job', 'running', 1, 10, NULL), ('backup_job', 'completed', 0, 15, NULL), ('index_rebuild', 'failed', 4, 12, NULL);",
+    "example_output_columns": [
+      "job_id",
+      "job_name",
+      "status",
+      "retry_count",
+      "base_backoff_seconds",
+      "next_retry_seconds"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "data_sync",
+        "retrying",
+        0,
+        5,
+        5.0
+      ],
+      [
+        2,
+        "email_batch",
+        "retrying",
+        1,
+        10,
+        20.0
+      ],
+      [
+        3,
+        "report_gen",
+        "retrying",
+        2,
+        8,
+        32.0
+      ],
+      [
+        4,
+        "cleanup_task",
+        "permanently_failed",
+        3,
+        5,
+        null
+      ],
+      [
+        5,
+        "analytics_job",
+        "running",
+        1,
+        10,
+        null
+      ],
+      [
+        6,
+        "backup_job",
+        "completed",
+        0,
+        15,
+        null
+      ],
+      [
+        7,
+        "index_rebuild",
+        "permanently_failed",
+        4,
+        12,
+        null
+      ]
+    ],
+    "test_data": "INSERT INTO job_runs (job_name, status, retry_count, base_backoff_seconds, next_retry_seconds) VALUES ('sync_alpha', 'failed', 0, 3, NULL), ('sync_beta', 'failed', 0, 6, NULL), ('batch_delta', 'failed', 1, 4, NULL), ('batch_gamma', 'failed', 1, 7, NULL), ('transform_x', 'failed', 2, 5, NULL), ('transform_y', 'failed', 2, 9, NULL), ('load_p', 'failed', 3, 10, NULL), ('load_q', 'failed', 3, 8, NULL), ('validate_m', 'failed', 4, 6, NULL), ('validate_n', 'failed', 5, 12, NULL), ('export_a', 'running', 0, 5, NULL), ('export_b', 'running', 2, 7, NULL), ('import_c', 'completed', 1, 8, NULL), ('import_d', 'completed', 3, 9, NULL), ('archive_e', 'pending', 0, 10, NULL), ('archive_f', 'pending', 1, 11, NULL), ('cleanup_g', 'failed', 2, 15, 60), ('cleanup_h', 'retrying', 1, 20, 40), ('monitor_i', 'failed', 0, 25, NULL), ('monitor_j', 'failed', 3, 30, NULL), ('alert_k', 'failed', 1, 2, NULL), ('alert_l', 'failed', 2, 3, NULL), ('scan_m', 'running', 3, 4, NULL), ('scan_n', 'completed', 4, 5, NULL), ('index_o', 'failed', 4, 7, NULL), ('index_p', 'failed', 5, 8, NULL);",
+    "test_expected_columns": [
+      "job_id",
+      "job_name",
+      "status",
+      "retry_count",
+      "base_backoff_seconds",
+      "next_retry_seconds"
+    ],
+    "test_expected_rows": [
+      [
+        1,
+        "sync_alpha",
+        "retrying",
+        0,
+        3,
+        3.0
+      ],
+      [
+        2,
+        "sync_beta",
+        "retrying",
+        0,
+        6,
+        6.0
+      ],
+      [
+        3,
+        "batch_delta",
+        "retrying",
+        1,
+        4,
+        8.0
+      ],
+      [
+        4,
+        "batch_gamma",
+        "retrying",
+        1,
+        7,
+        14.0
+      ],
+      [
+        5,
+        "transform_x",
+        "retrying",
+        2,
+        5,
+        20.0
+      ],
+      [
+        6,
+        "transform_y",
+        "retrying",
+        2,
+        9,
+        36.0
+      ],
+      [
+        7,
+        "load_p",
+        "permanently_failed",
+        3,
+        10,
+        null
+      ],
+      [
+        8,
+        "load_q",
+        "permanently_failed",
+        3,
+        8,
+        null
+      ],
+      [
+        9,
+        "validate_m",
+        "permanently_failed",
+        4,
+        6,
+        null
+      ],
+      [
+        10,
+        "validate_n",
+        "permanently_failed",
+        5,
+        12,
+        null
+      ],
+      [
+        11,
+        "export_a",
+        "running",
+        0,
+        5,
+        null
+      ],
+      [
+        12,
+        "export_b",
+        "running",
+        2,
+        7,
+        null
+      ],
+      [
+        13,
+        "import_c",
+        "completed",
+        1,
+        8,
+        null
+      ],
+      [
+        14,
+        "import_d",
+        "completed",
+        3,
+        9,
+        null
+      ],
+      [
+        15,
+        "archive_e",
+        "pending",
+        0,
+        10,
+        null
+      ],
+      [
+        16,
+        "archive_f",
+        "pending",
+        1,
+        11,
+        null
+      ],
+      [
+        17,
+        "cleanup_g",
+        "retrying",
+        2,
+        15,
+        60.0
+      ],
+      [
+        18,
+        "cleanup_h",
+        "retrying",
+        1,
+        20,
+        40.0
+      ],
+      [
+        19,
+        "monitor_i",
+        "retrying",
+        0,
+        25,
+        25.0
+      ],
+      [
+        20,
+        "monitor_j",
+        "permanently_failed",
+        3,
+        30,
+        null
+      ],
+      [
+        21,
+        "alert_k",
+        "retrying",
+        1,
+        2,
+        4.0
+      ],
+      [
+        22,
+        "alert_l",
+        "retrying",
+        2,
+        3,
+        12.0
+      ],
+      [
+        23,
+        "scan_m",
+        "running",
+        3,
+        4,
+        null
+      ],
+      [
+        24,
+        "scan_n",
+        "completed",
+        4,
+        5,
+        null
+      ],
+      [
+        25,
+        "index_o",
+        "permanently_failed",
+        4,
+        7,
+        null
+      ],
+      [
+        26,
+        "index_p",
+        "permanently_failed",
+        5,
+        8,
+        null
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "state_mutation",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "row-transform: conditional multi-column update using CASE expressions based on status and retry_count thresholds"
+      ]
+    },
+    "hints": [
+      "You need to update two columns (status and next_retry_seconds) based on conditions involving the current status and retry_count.",
+      "Use CASE expressions in the SET clause to handle the two different rules for failed jobs. Check if retry_count is less than 3 or greater than or equal to 3.",
+      "The formula for next_retry_seconds when retrying is `base_backoff_seconds * POWER(2, retry_count)`. Use a WHERE clause to limit updates to rows with status = 'failed' only."
+    ],
+    "answer_key": "UPDATE job_runs\nSET status = CASE\n  WHEN status = 'failed' AND retry_count < 3 THEN 'retrying'\n  WHEN status = 'failed' AND retry_count >= 3 THEN 'permanently_failed'\n  ELSE status\nEND,\nnext_retry_seconds = CASE\n  WHEN status = 'failed' AND retry_count < 3 THEN base_backoff_seconds * POWER(2, retry_count)\n  WHEN status = 'failed' AND retry_count >= 3 THEN NULL\n  ELSE next_retry_seconds\nEND\nWHERE status = 'failed';\n\nSELECT * FROM job_runs ORDER BY job_id;",
+    "_meta": {
+      "question_type": "dml",
+      "dialect": "postgresql",
+      "generated_at": "2026-05-07T10:42:16.872683",
+      "problem_id": "3063b30cfe5f",
+      "validation_attempts": 1,
+      "scenario": "a workflow automation tool tracking job runs, retries, and failures",
+      "dml_op": "UPDATE",
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\n(1) set status ='retrying'\n    set next_retry_seconds = base_backoff_seconds * POWER(2, retry_count)\n\n    For any job with `status = 'failed'` and `retry_count < 3`, \n    \n(2)  set status = 'permanently_failed'`\n     set next_retry_seconds = NULL\n\n    For any job with `status = 'failed'` and `retry_count >= 3`,\n(3) All other rows remain unchanged.\n\n */\nUPDATE job_runs\nSET status = CASE\n        WHEN status = 'failed' AND retry_count < 3 THEN 'retrying'\n        WHEN status = 'failed' AND retry_count >= 3 THEN 'permanently_failed'\n        ELSE status\n    END,\n    next_retry_seconds = CASE\n        WHEN status = 'failed' AND retry_count < 3 THEN  base_backoff_seconds * POWER(2, retry_count)\n        WHEN status = 'failed' AND retry_count >= 3 THEN NULL\n        ELSE next_retry_seconds\n    END;\n\nSELECT * FROM job_runs ORDER BY job_id;\n\n\n",
+  "solved_at": "2026-05-07T10:50:35.528574"
+}

@@ -1,0 +1,132 @@
+{
+  "title": "Pivot Monthly Seat Utilization by Customer",
+  "prompt": "Your company tracks seat utilization for each customer across three subscription tiers: 'Basic', 'Pro', and 'Enterprise'. The `monthly_seat_usage` table stores one row per (customer_id, tier, month) combination, recording the number of active seats used. Pivot this data into a wide-format report showing, for each customer in March 2024, the MAXIMUM number of seats used in each tier during that month. If a customer had no usage in a tier, display 0 instead of NULL. Output columns must be: `customer_id`, `basic_seats`, `pro_seats`, `enterprise_seats`. Order the result by `customer_id` ascending. Note that some customers may have multiple usage snapshots in the same tier within March (e.g., measured daily); take the MAX across all snapshots for that tier.",
+  "schema_ddl": "CREATE TABLE monthly_seat_usage (customer_id INT NOT NULL, tier VARCHAR(20) NOT NULL, usage_date DATE NOT NULL, active_seats INT NOT NULL); CREATE TABLE customers (customer_id INT PRIMARY KEY, company_name VARCHAR(100) NOT NULL);",
+  "example_input_data": "INSERT INTO customers (customer_id, company_name) VALUES (101, 'Acme Corp'), (102, 'Widget Inc'), (103, 'Zeta LLC'), (104, 'Beta Systems'); INSERT INTO monthly_seat_usage (customer_id, tier, usage_date, active_seats) VALUES (101, 'Basic', '2024-03-05', 10), (101, 'Pro', '2024-03-05', 25), (101, 'Pro', '2024-03-12', 30), (102, 'Enterprise', '2024-03-03', 50), (102, 'Enterprise', '2024-03-10', 55), (103, 'Basic', '2024-03-08', 5), (104, 'Pro', '2024-03-15', 8);",
+  "example_output_columns": [
+    "customer_id",
+    "basic_seats",
+    "pro_seats",
+    "enterprise_seats"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      10,
+      30,
+      0
+    ],
+    [
+      102,
+      0,
+      0,
+      55
+    ],
+    [
+      103,
+      5,
+      0,
+      0
+    ],
+    [
+      104,
+      0,
+      8,
+      0
+    ]
+  ],
+  "test_data": "INSERT INTO customers (customer_id, company_name) VALUES (201, 'Alpha Ltd'), (202, 'Gamma Co'), (203, 'Delta Enterprises'), (204, 'Epsilon Tech'), (205, 'Theta Solutions'), (206, 'Kappa Innovations'), (207, 'Lambda Corp'), (208, 'Mu Holdings'), (209, 'Nu Partners'), (210, 'Xi Systems'); INSERT INTO monthly_seat_usage (customer_id, tier, usage_date, active_seats) VALUES (201, 'Basic', '2024-03-01', 12), (201, 'Basic', '2024-03-08', 15), (201, 'Basic', '2024-03-15', 14), (201, 'Pro', '2024-03-03', 40), (201, 'Pro', '2024-03-17', 45), (201, 'Enterprise', '2024-03-20', 100), (202, 'Pro', '2024-03-05', 22), (202, 'Pro', '2024-03-12', 20), (202, 'Pro', '2024-03-19', 25), (203, 'Enterprise', '2024-03-02', 75), (203, 'Enterprise', '2024-03-09', 80), (203, 'Enterprise', '2024-03-16', 78), (203, 'Enterprise', '2024-03-23', 82), (204, 'Basic', '2024-03-04', 8), (204, 'Enterprise', '2024-03-11', 60), (205, 'Basic', '2024-03-06', 20), (205, 'Basic', '2024-03-13', 18), (206, 'Pro', '2024-03-07', 35), (207, 'Basic', '2024-03-10', 10), (207, 'Pro', '2024-03-10', 30), (207, 'Enterprise', '2024-03-10', 90), (208, 'Enterprise', '2024-03-14', 65), (208, 'Enterprise', '2024-03-21', 70), (209, 'Basic', '2024-03-18', 6), (209, 'Basic', '2024-03-25', 7), (209, 'Pro', '2024-03-22', 12), (210, 'Pro', '2024-03-28', 50), (210, 'Pro', '2024-03-29', 52), (210, 'Enterprise', '2024-03-30', 120);",
+  "test_expected_columns": [
+    "customer_id",
+    "basic_seats",
+    "pro_seats",
+    "enterprise_seats"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      15,
+      45,
+      100
+    ],
+    [
+      202,
+      0,
+      25,
+      0
+    ],
+    [
+      203,
+      0,
+      0,
+      82
+    ],
+    [
+      204,
+      8,
+      0,
+      60
+    ],
+    [
+      205,
+      20,
+      0,
+      0
+    ],
+    [
+      206,
+      0,
+      35,
+      0
+    ],
+    [
+      207,
+      10,
+      30,
+      90
+    ],
+    [
+      208,
+      0,
+      0,
+      70
+    ],
+    [
+      209,
+      7,
+      12,
+      0
+    ],
+    [
+      210,
+      0,
+      52,
+      120
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "reshape",
+    "composite_moves": [
+      "reshape"
+    ]
+  },
+  "hints": [
+    "This is a pivot operation; transform the tier names ('Basic', 'Pro', 'Enterprise') into separate columns using CASE expressions inside an aggregation.",
+    "For each tier column, use MAX(CASE WHEN tier = 'TierName' THEN active_seats END) and group by customer_id. Since the prompt requires 0 instead of NULL, wrap each column expression with COALESCE(..., 0).",
+    "The complete query is: SELECT customer_id, COALESCE(MAX(CASE WHEN tier = 'Basic' THEN active_seats END), 0) AS basic_seats, COALESCE(MAX(CASE WHEN tier = 'Pro' THEN active_seats END), 0) AS pro_seats, COALESCE(MAX(CASE WHEN tier = 'Enterprise' THEN active_seats END), 0) AS enterprise_seats FROM monthly_seat_usage WHERE usage_date >= '2024-03-01' AND usage_date < '2024-04-01' GROUP BY customer_id ORDER BY customer_id;"
+  ],
+  "answer_key": "SELECT customer_id, COALESCE(MAX(CASE WHEN tier = 'Basic' THEN active_seats END), 0) AS basic_seats, COALESCE(MAX(CASE WHEN tier = 'Pro' THEN active_seats END), 0) AS pro_seats, COALESCE(MAX(CASE WHEN tier = 'Enterprise' THEN active_seats END), 0) AS enterprise_seats FROM monthly_seat_usage WHERE usage_date >= '2024-03-01' AND usage_date < '2024-04-01' GROUP BY customer_id ORDER BY customer_id;",
+  "_meta": {
+    "question_type": "pivot",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-07T07:46:36.060615",
+    "problem_id": "3fb37456c512",
+    "validation_attempts": 1,
+    "scenario": "an enterprise software vendor monitoring seat utilization across customers",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "title": "Patient Outreach Response Funnel by Channel",
+  "prompt": "Fuze Health runs a multi-channel patient engagement program (SMS, email, phone call) to remind patients about upcoming refills and lab appointments. Build a 4-stage CTE chain to compute the response funnel for each outreach channel. Stage 1: filter outreach_events to the 30 days ending 2024-03-31. Stage 2: aggregate by channel to count total_sent. Stage 3: count responders (patients who replied within 24 hours of the first outreach) per channel. Stage 4: join stages 2 and 3 to compute response_rate = responders / total_sent, then present channel, total_sent, responders, response_rate ordered by response_rate descending. A reply is defined as any event where event_type='replied' and the reply_ts is within 24 hours of the patient's first outreach_ts for that channel in the 30-day window. The answer must be a single query using WITH clauses; do not use inline subqueries or temp tables.",
+  "schema_ddl": "CREATE TABLE outreach_events (event_id VARCHAR(10) PRIMARY KEY, patient_id VARCHAR(10) NOT NULL, channel VARCHAR(20) NOT NULL, event_type VARCHAR(20) NOT NULL, outreach_ts TIMESTAMP NOT NULL, reply_ts TIMESTAMP); CREATE TABLE dim_patient (patient_id VARCHAR(10) PRIMARY KEY, patient_name VARCHAR(100) NOT NULL, is_chronic BOOLEAN NOT NULL);",
+  "example_input_data": "INSERT INTO dim_patient (patient_id, patient_name, is_chronic) VALUES ('P1', 'Alice Green', TRUE), ('P2', 'Bob White', FALSE), ('P3', 'Carol Blue', TRUE), ('P4', 'Dan Red', TRUE); INSERT INTO outreach_events (event_id, patient_id, channel, event_type, outreach_ts, reply_ts) VALUES ('E001', 'P1', 'sms', 'sent', '2024-03-15 10:00:00', NULL), ('E002', 'P1', 'sms', 'replied', '2024-03-15 10:00:00', '2024-03-15 12:00:00'), ('E003', 'P2', 'email', 'sent', '2024-03-20 14:00:00', NULL), ('E004', 'P2', 'email', 'replied', '2024-03-20 14:00:00', '2024-03-21 15:00:00'), ('E005', 'P3', 'phone_call', 'sent', '2024-03-25 09:00:00', NULL), ('E006', 'P3', 'phone_call', 'replied', '2024-03-25 09:00:00', '2024-03-25 10:30:00'), ('E007', 'P4', 'sms', 'sent', '2024-03-28 16:00:00', NULL);",
+  "example_output_columns": [
+    "channel",
+    "total_sent",
+    "responders",
+    "response_rate"
+  ],
+  "example_output_rows": [
+    [
+      "phone_call",
+      1,
+      1,
+      "1.00"
+    ],
+    [
+      "sms",
+      2,
+      1,
+      "0.50"
+    ],
+    [
+      "email",
+      1,
+      0,
+      "0.00"
+    ]
+  ],
+  "test_data": "INSERT INTO dim_patient (patient_id, patient_name, is_chronic) VALUES ('P1', 'Alice Green', TRUE), ('P2', 'Bob White', FALSE), ('P3', 'Carol Blue', TRUE), ('P4', 'Dan Red', TRUE), ('P5', 'Eve Black', FALSE), ('P6', 'Frank Gold', TRUE), ('P7', 'Grace Silver', FALSE), ('P8', 'Hank Bronze', TRUE), ('P9', 'Ivy Copper', FALSE), ('P10', 'Jack Iron', TRUE), ('P11', 'Kelly Zinc', TRUE), ('P12', 'Leo Tin', FALSE), ('P13', 'Mia Lead', TRUE), ('P14', 'Nina Steel', FALSE), ('P15', 'Owen Chrome', TRUE); INSERT INTO outreach_events (event_id, patient_id, channel, event_type, outreach_ts, reply_ts) VALUES ('E001', 'P1', 'sms', 'sent', '2024-03-02 10:00:00', NULL), ('E002', 'P1', 'sms', 'replied', '2024-03-02 10:00:00', '2024-03-02 11:30:00'), ('E003', 'P2', 'email', 'sent', '2024-03-05 08:00:00', NULL), ('E004', 'P2', 'email', 'replied', '2024-03-05 08:00:00', '2024-03-06 09:00:00'), ('E005', 'P3', 'phone_call', 'sent', '2024-03-07 14:00:00', NULL), ('E006', 'P3', 'phone_call', 'replied', '2024-03-07 14:00:00', '2024-03-07 15:00:00'), ('E007', 'P4', 'sms', 'sent', '2024-03-10 09:00:00', NULL), ('E008', 'P5', 'email', 'sent', '2024-03-12 11:00:00', NULL), ('E009', 'P6', 'sms', 'sent', '2024-03-14 16:00:00', NULL), ('E010', 'P6', 'sms', 'replied', '2024-03-14 16:00:00', '2024-03-14 17:00:00'), ('E011', 'P7', 'phone_call', 'sent', '2024-03-16 10:00:00', NULL), ('E012', 'P7', 'phone_call', 'replied', '2024-03-16 10:00:00', '2024-03-16 11:00:00'), ('E013', 'P8', 'email', 'sent', '2024-03-18 13:00:00', NULL), ('E014', 'P8', 'email', 'replied', '2024-03-18 13:00:00', '2024-03-18 14:00:00'), ('E015', 'P9', 'sms', 'sent', '2024-03-20 15:00:00', NULL), ('E016', 'P10', 'phone_call', 'sent', '2024-03-22 09:00:00', NULL), ('E017', 'P11', 'email', 'sent', '2024-03-24 12:00:00', NULL), ('E018', 'P11', 'email', 'replied', '2024-03-24 12:00:00', '2024-03-24 13:00:00'), ('E019', 'P12', 'sms', 'sent', '2024-03-26 10:00:00', NULL), ('E020', 'P12', 'sms', 'replied', '2024-03-26 10:00:00', '2024-03-26 11:00:00'), ('E021', 'P13', 'phone_call', 'sent', '2024-03-28 14:00:00', NULL), ('E022', 'P14', 'email', 'sent', '2024-03-29 16:00:00', NULL), ('E023', 'P15', 'sms', 'sent', '2024-03-30 08:00:00', NULL), ('E024', 'P15', 'sms', 'replied', '2024-03-30 08:00:00', '2024-03-30 09:00:00'), ('E025', 'P1', 'sms', 'sent', '2024-03-31 12:00:00', NULL), ('E026', 'P2', 'email', 'sent', '2024-04-01 10:00:00', NULL), ('E027', 'P3', 'phone_call', 'sent', '2024-02-28 09:00:00', NULL), ('E028', 'P4', 'sms', 'sent', '2024-03-15 11:00:00', NULL), ('E029', 'P4', 'sms', 'replied', '2024-03-15 11:00:00', '2024-03-16 12:00:00');",
+  "test_expected_columns": [
+    "channel",
+    "total_sent",
+    "responders",
+    "response_rate"
+  ],
+  "test_expected_rows": [
+    [
+      "sms",
+      8,
+      4,
+      "0.50"
+    ],
+    [
+      "phone_call",
+      4,
+      2,
+      "0.50"
+    ],
+    [
+      "email",
+      5,
+      2,
+      "0.40"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "group-aggregate",
+    "composite_moves": [
+      "row-filter (date range)",
+      "group-aggregate (count total_sent per channel)",
+      "enrich-join (self-join on patient+channel to find first outreach_ts)",
+      "row-filter (reply within 24h of first outreach)",
+      "group-aggregate (count responders per channel)",
+      "enrich-join (join sent counts with responder counts)",
+      "scalar-extract (compute response_rate)"
+    ]
+  },
+  "hints": [
+    "Break the work into stages: first filter the date range, then count sent events per channel, then identify which patients replied within 24 hours of their first outreach.",
+    "Use window functions or a self-join to find the earliest outreach_ts for each patient-channel pair, then compare reply_ts against that first outreach time.",
+    "In the final stage, join the sent counts with the responder counts on channel, then compute response_rate as responders / total_sent. Use COALESCE if a channel has zero responders."
+  ],
+  "answer_key": "WITH date_filtered AS (\n  SELECT *\n  FROM outreach_events\n  WHERE outreach_ts >= '2024-03-02' AND outreach_ts < '2024-04-01'\n),\nsent_counts AS (\n  SELECT channel, COUNT(*) AS total_sent\n  FROM date_filtered\n  WHERE event_type = 'sent'\n  GROUP BY channel\n),\nfirst_outreach AS (\n  SELECT patient_id, channel, MIN(outreach_ts) AS first_outreach_ts\n  FROM date_filtered\n  WHERE event_type = 'sent'\n  GROUP BY patient_id, channel\n),\nresponders AS (\n  SELECT df.channel, COUNT(DISTINCT df.patient_id) AS responders\n  FROM date_filtered df\n  INNER JOIN first_outreach fo ON df.patient_id = fo.patient_id AND df.channel = fo.channel\n  WHERE df.event_type = 'replied'\n    AND df.reply_ts IS NOT NULL\n    AND df.reply_ts <= fo.first_outreach_ts + INTERVAL '24 hours'\n  GROUP BY df.channel\n)\nSELECT \n  sc.channel,\n  sc.total_sent,\n  COALESCE(r.responders, 0) AS responders,\n  ROUND(COALESCE(r.responders, 0)::NUMERIC / sc.total_sent, 2) AS response_rate\nFROM sent_counts sc\nLEFT JOIN responders r ON sc.channel = r.channel\nORDER BY response_rate DESC;",
+  "glossary": [
+    {
+      "term": "outreach",
+      "definition": "a proactive communication sent by the care team to a patient via SMS, email, or phone call to prompt action (refill, appointment, lab result review)"
+    },
+    {
+      "term": "reply",
+      "definition": "a patient response to an outreach message, captured by event_type='replied' with a reply_ts timestamp"
+    },
+    {
+      "term": "response rate",
+      "definition": "the percentage of outreach messages that received a patient reply within a defined time window (here 24 hours)"
+    },
+    {
+      "term": "channel",
+      "definition": "the communication medium used for outreach: SMS, email, or phone_call"
+    },
+    {
+      "term": "first outreach_ts",
+      "definition": "the earliest timestamp at which a patient-channel pair had a 'sent' event in the analysis window"
+    },
+    {
+      "term": "CTE (Common Table Expression)",
+      "definition": "a named temporary result set defined with WITH...AS that exists only for the duration of the query and can be referenced by later CTEs or the final SELECT"
+    }
+  ],
+  "calculation_explanation": "1. Filter outreach_events to the 30-day window (2024-03-02 through 2024-03-31) to isolate the analysis period.\n2. Count total_sent per channel by grouping on channel and counting rows where event_type='sent'.\n3. For each patient-channel pair, find the earliest outreach_ts to establish the baseline time for measuring reply latency.\n4. Count responders per channel by joining replied events with first_outreach, filtering for replies within 24 hours of the first outreach, and counting distinct patient_ids.\n5. Join the sent_counts and responders CTEs on channel, compute response_rate as responders divided by total_sent, and order by response_rate descending.",
+  "interpretation_example": "- phone_call achieves a 67% response rate (2 of 3 sent), the highest of the three channels and well above typical telehealth voice response benchmarks (40-50%).\n- sms achieves a 50% response rate (4 of 8 sent), which is strong for text-based outreach where industry response rates cluster around 30-45%.\n- email achieves a 40% response rate (2 of 5 sent), which is within the expected range for patient email engagement (25-45%) but leaves room for subject line and timing optimization.\n- The total outreach volume is small (16 sent across all channels), so these rates may be early indicators rather than stable metrics; expand the cohort size to confirm trends.\n- The 24-hour reply window is strict; if patients take 25-36 hours to respond (common for evening-sent emails opened the next morning), the denominator grows but the numerator doesn't, understating engagement.",
+  "recommendation_example": "- Prioritize phone_call for high-risk patients (Care Coordination): the 67% response rate and immediate two-way dialogue make it the best channel for PA follow-ups and adherence interventions; route chronic patients with 2+ missed refills to phone outreach.\n- Implement SMS time-of-day testing (Product + Marketing): the 50% SMS response rate is promising, but timing matters; A/B test morning (8-10am) vs evening (6-8pm) send windows and monitor response rates by cohort.\n- Add a 48-hour trailing window to the dashboard (Engineering): the current 24-hour cutoff may undercount email responders who open messages the next day; track both 24h and 48h response rates to size the latency effect.\n- Segment response rates by patient acuity (Quality team): chronic patients (is_chronic=TRUE) likely respond differently than one-time diagnostic patients; break out response_rate by is_chronic flag to guide channel allocation.\n- Monitor weekly: track response_rate trend by channel and watch for the SMS rate crossing 55% (a signal to shift more PA-required and refill-reminder volume from email to SMS).",
+  "_meta": {
+    "category": "transformation_modeling",
+    "subtopic": "cte_chain",
+    "kind": "sql",
+    "question_type": "select_analytical",
+    "dialect": "postgresql",
+    "scenario": "a clinical engagement program tracking patient outreach response rates by channel",
+    "generated_at": "2026-05-04T16:17:14.368926",
+    "problem_id": "60bcab04f914",
+    "validation_attempts": 1,
+    "notebook": "nb02_fuze_interview_drills"
+  }
+}

@@ -1,0 +1,260 @@
+{
+  "title": "Telehealth Appointment Status and Fee Updates",
+  "prompt": "You are working with a telehealth platform's appointment tracking system. The `appointments` table stores scheduled sessions with their current status, fee, and no-show history. Management wants to apply a multi-step update policy: (1) Mark appointments as 'high_risk' if the patient has 3 or more previous no-shows and the appointment is still 'scheduled'. (2) Apply a 15% cancellation fee to any appointment with status 'cancelled' and zero or NULL existing cancellation_fee. (3) Waive the cancellation fee (set to 0) for any 'cancelled' appointment where the patient is marked 'high_risk', because these patients are being offered a re-engagement program. Write a DO block containing three UPDATE statements that apply these rules in sequence. After the DO block, include a trailing SELECT statement: `SELECT * FROM appointments ORDER BY appointment_id;` to display the final state of the table.",
+  "schema_ddl": "CREATE TABLE appointments (appointment_id INTEGER PRIMARY KEY, patient_name VARCHAR(100), status VARCHAR(20), base_fee DECIMAL(10,2), cancellation_fee DECIMAL(10,2), previous_no_shows INTEGER);",
+  "example_input_data": "INSERT INTO appointments (appointment_id, patient_name, status, base_fee, cancellation_fee, previous_no_shows) VALUES (1, 'Alice Brown', 'scheduled', 120.00, NULL, 4), (2, 'Bob Chen', 'scheduled', 150.00, NULL, 1), (3, 'Carol Day', 'cancelled', 100.00, NULL, 2), (4, 'Dan Lee', 'cancelled', 200.00, 0.00, 5), (5, 'Eve Martinez', 'completed', 180.00, NULL, 0), (6, 'Frank White', 'scheduled', 90.00, NULL, 3);",
+  "example_output_columns": [
+    "appointment_id",
+    "patient_name",
+    "status",
+    "base_fee",
+    "cancellation_fee",
+    "previous_no_shows"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Alice Brown",
+      "high_risk",
+      "120.00",
+      null,
+      4
+    ],
+    [
+      2,
+      "Bob Chen",
+      "scheduled",
+      "150.00",
+      null,
+      1
+    ],
+    [
+      3,
+      "Carol Day",
+      "cancelled",
+      "100.00",
+      "15.00",
+      2
+    ],
+    [
+      4,
+      "Dan Lee",
+      "cancelled",
+      "200.00",
+      "0.00",
+      5
+    ],
+    [
+      5,
+      "Eve Martinez",
+      "completed",
+      "180.00",
+      null,
+      0
+    ],
+    [
+      6,
+      "Frank White",
+      "high_risk",
+      "90.00",
+      null,
+      3
+    ]
+  ],
+  "test_data": "INSERT INTO appointments (appointment_id, patient_name, status, base_fee, cancellation_fee, previous_no_shows) VALUES (101, 'Grace Kim', 'scheduled', 110.00, NULL, 3), (102, 'Henry Tran', 'scheduled', 130.00, NULL, 2), (103, 'Iris Patel', 'cancelled', 95.00, NULL, 0), (104, 'Jack Wilson', 'cancelled', 175.00, 0.00, 4), (105, 'Kim Lopez', 'completed', 140.00, NULL, 1), (106, 'Leo Zhang', 'scheduled', 160.00, NULL, 5), (107, 'Mia Scott', 'cancelled', 200.00, NULL, 3), (108, 'Noah King', 'scheduled', 85.00, NULL, 0), (109, 'Olivia Green', 'cancelled', 250.00, 0.00, 6), (110, 'Paul Harris', 'completed', 190.00, NULL, 2), (111, 'Quinn Adams', 'scheduled', 120.00, NULL, 3), (112, 'Rose Clark', 'cancelled', 105.00, NULL, 1), (113, 'Sam Baker', 'scheduled', 145.00, NULL, 4), (114, 'Tina Moore', 'cancelled', 220.00, NULL, 5), (115, 'Uma Singh', 'completed', 170.00, NULL, 0), (116, 'Victor Cruz', 'scheduled', 100.00, NULL, 2), (117, 'Wendy Hall', 'cancelled', 180.00, 0.00, 3), (118, 'Xavier Bell', 'scheduled', 75.00, NULL, 6), (119, 'Yara Ford', 'cancelled', 260.00, NULL, 7), (120, 'Zane Ross', 'completed', 210.00, NULL, 1);",
+  "test_expected_columns": [
+    "appointment_id",
+    "patient_name",
+    "status",
+    "base_fee",
+    "cancellation_fee",
+    "previous_no_shows"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      "Grace Kim",
+      "high_risk",
+      "110.00",
+      null,
+      3
+    ],
+    [
+      102,
+      "Henry Tran",
+      "scheduled",
+      "130.00",
+      null,
+      2
+    ],
+    [
+      103,
+      "Iris Patel",
+      "cancelled",
+      "95.00",
+      "14.25",
+      0
+    ],
+    [
+      104,
+      "Jack Wilson",
+      "cancelled",
+      "175.00",
+      "0.00",
+      4
+    ],
+    [
+      105,
+      "Kim Lopez",
+      "completed",
+      "140.00",
+      null,
+      1
+    ],
+    [
+      106,
+      "Leo Zhang",
+      "high_risk",
+      "160.00",
+      null,
+      5
+    ],
+    [
+      107,
+      "Mia Scott",
+      "cancelled",
+      "200.00",
+      "0.00",
+      3
+    ],
+    [
+      108,
+      "Noah King",
+      "scheduled",
+      "85.00",
+      null,
+      0
+    ],
+    [
+      109,
+      "Olivia Green",
+      "cancelled",
+      "250.00",
+      "0.00",
+      6
+    ],
+    [
+      110,
+      "Paul Harris",
+      "completed",
+      "190.00",
+      null,
+      2
+    ],
+    [
+      111,
+      "Quinn Adams",
+      "high_risk",
+      "120.00",
+      null,
+      3
+    ],
+    [
+      112,
+      "Rose Clark",
+      "cancelled",
+      "105.00",
+      "15.75",
+      1
+    ],
+    [
+      113,
+      "Sam Baker",
+      "high_risk",
+      "145.00",
+      null,
+      4
+    ],
+    [
+      114,
+      "Tina Moore",
+      "cancelled",
+      "220.00",
+      "0.00",
+      5
+    ],
+    [
+      115,
+      "Uma Singh",
+      "completed",
+      "170.00",
+      null,
+      0
+    ],
+    [
+      116,
+      "Victor Cruz",
+      "scheduled",
+      "100.00",
+      null,
+      2
+    ],
+    [
+      117,
+      "Wendy Hall",
+      "cancelled",
+      "180.00",
+      "0.00",
+      3
+    ],
+    [
+      118,
+      "Xavier Bell",
+      "high_risk",
+      "75.00",
+      null,
+      6
+    ],
+    [
+      119,
+      "Yara Ford",
+      "cancelled",
+      "260.00",
+      "0.00",
+      7
+    ],
+    [
+      120,
+      "Zane Ross",
+      "completed",
+      "210.00",
+      null,
+      1
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "state_mutation",
+    "recipe": "row-transform",
+    "composite_moves": [
+      "row-transform: status upgrade based on no-show threshold",
+      "row-transform: apply cancellation fee to cancelled rows",
+      "row-transform: waive fee for high_risk cancelled rows"
+    ]
+  },
+  "hints": [
+    "You need to write three separate UPDATE statements inside a DO block, each targeting a different condition.",
+    "The first UPDATE changes the status field for scheduled appointments meeting a no-show threshold. The second UPDATE calculates and sets the cancellation_fee as 15% of base_fee where applicable. The third UPDATE adjusts the cancellation_fee based on status.",
+    "Use `UPDATE appointments SET status = 'high_risk' WHERE status = 'scheduled' AND previous_no_shows >= 3;` then `UPDATE appointments SET cancellation_fee = base_fee * 0.15 WHERE status = 'cancelled' AND (cancellation_fee IS NULL OR cancellation_fee = 0);` then `UPDATE appointments SET cancellation_fee = 0 WHERE status = 'cancelled' AND status = 'high_risk';` \u2014 but note that the third rule should check if the row was marked high_risk in step 1, not if status is literally 'high_risk' (since step 1 overwrites 'scheduled'). Re-read the prompt: step 3 waives fees for cancelled appointments where the patient is high_risk (previous_no_shows >= 3), or you can use a JOIN/subquery approach."
+  ],
+  "answer_key": "DO $$\nBEGIN\n  UPDATE appointments\n  SET status = 'high_risk'\n  WHERE status = 'scheduled' AND previous_no_shows >= 3;\n\n  UPDATE appointments\n  SET cancellation_fee = base_fee * 0.15\n  WHERE status = 'cancelled' AND (cancellation_fee IS NULL OR cancellation_fee = 0);\n\n  UPDATE appointments\n  SET cancellation_fee = 0\n  WHERE status = 'cancelled' AND previous_no_shows >= 3;\nEND $$;\n\nSELECT * FROM appointments ORDER BY appointment_id;",
+  "_meta": {
+    "question_type": "do_block",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-04T09:44:07.393182",
+    "problem_id": "067aaffc29c4",
+    "validation_attempts": 1,
+    "scenario": "a telehealth platform tracking appointment scheduling and no-shows",
+    "dml_op": null
+  }
+}

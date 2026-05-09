@@ -1,0 +1,112 @@
+{
+  "title": "Sleep Goal Achievement Streak Ranges",
+  "prompt": "A wellness platform tracks daily sleep goal achievement in two tables: `met_goal` records dates when users met their sleep target, and `missed_goal` records dates when they did not. Every day from 2024-01-01 through 2024-01-31 appears in exactly one of these tables (no missing days). Write a query that identifies consecutive date ranges for each achievement state. The output should have columns `state` (either 'met' or 'missed'), `start_date`, and `end_date`, representing the first and last day of each consecutive streak. A single-day streak should have `start_date` equal to `end_date`. Order results by `start_date` ascending.",
+  "schema_ddl": "CREATE TABLE met_goal (goal_date DATE NOT NULL); CREATE TABLE missed_goal (goal_date DATE NOT NULL);",
+  "example_input_data": "INSERT INTO met_goal (goal_date) VALUES ('2024-01-01'), ('2024-01-02'), ('2024-01-03'), ('2024-01-06'), ('2024-01-09'), ('2024-01-10'); INSERT INTO missed_goal (goal_date) VALUES ('2024-01-04'), ('2024-01-05'), ('2024-01-07'), ('2024-01-08');",
+  "example_output_columns": [
+    "state",
+    "start_date",
+    "end_date"
+  ],
+  "example_output_rows": [
+    [
+      "met",
+      "2024-01-01",
+      "2024-01-03"
+    ],
+    [
+      "missed",
+      "2024-01-04",
+      "2024-01-05"
+    ],
+    [
+      "met",
+      "2024-01-06",
+      "2024-01-06"
+    ],
+    [
+      "missed",
+      "2024-01-07",
+      "2024-01-08"
+    ],
+    [
+      "met",
+      "2024-01-09",
+      "2024-01-10"
+    ]
+  ],
+  "test_data": "INSERT INTO met_goal (goal_date) VALUES ('2024-01-01'), ('2024-01-02'), ('2024-01-03'), ('2024-01-04'), ('2024-01-05'), ('2024-01-06'), ('2024-01-07'), ('2024-01-11'), ('2024-01-12'), ('2024-01-13'), ('2024-01-14'), ('2024-01-15'), ('2024-01-16'), ('2024-01-20'), ('2024-01-25'), ('2024-01-26'), ('2024-01-27'), ('2024-01-28'), ('2024-01-29'), ('2024-01-30'), ('2024-01-31'); INSERT INTO missed_goal (goal_date) VALUES ('2024-01-08'), ('2024-01-09'), ('2024-01-10'), ('2024-01-17'), ('2024-01-18'), ('2024-01-19'), ('2024-01-21'), ('2024-01-22'), ('2024-01-23'), ('2024-01-24');",
+  "test_expected_columns": [
+    "state",
+    "start_date",
+    "end_date"
+  ],
+  "test_expected_rows": [
+    [
+      "met",
+      "2024-01-01",
+      "2024-01-07"
+    ],
+    [
+      "missed",
+      "2024-01-08",
+      "2024-01-10"
+    ],
+    [
+      "met",
+      "2024-01-11",
+      "2024-01-16"
+    ],
+    [
+      "missed",
+      "2024-01-17",
+      "2024-01-19"
+    ],
+    [
+      "met",
+      "2024-01-20",
+      "2024-01-20"
+    ],
+    [
+      "missed",
+      "2024-01-21",
+      "2024-01-24"
+    ],
+    [
+      "met",
+      "2024-01-25",
+      "2024-01-31"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "union",
+    "output_shape": "fewer_rows",
+    "recipe": "gaps-and-islands",
+    "composite_moves": [
+      "UNION two tables tagging each with state literal",
+      "date-range filter in each branch WHERE",
+      "ROW_NUMBER() OVER (PARTITION BY state ORDER BY date)",
+      "date minus rownumber cast to integer as grp",
+      "GROUP BY state, grp",
+      "MIN(date) as start, MAX(date) as end",
+      "ORDER BY start_date ASC"
+    ]
+  },
+  "hints": [
+    "Combine both tables into one result set, tagging each row with its achievement state.",
+    "Use the row-number-minus-date trick: for consecutive dates, subtracting the row number (within each state) produces the same group identifier.",
+    "After computing the group identifier, aggregate by state and group to find the MIN and MAX date for each streak."
+  ],
+  "answer_key": "WITH combined AS (\n  SELECT 'met' AS state, goal_date AS d\n  FROM met_goal\n  WHERE goal_date BETWEEN '2024-01-01' AND '2024-01-31'\n  UNION ALL\n  SELECT 'missed' AS state, goal_date AS d\n  FROM missed_goal\n  WHERE goal_date BETWEEN '2024-01-01' AND '2024-01-31'\n),\nranked AS (\n  SELECT\n    state,\n    d,\n    d - (ROW_NUMBER() OVER (PARTITION BY state ORDER BY d))::INT AS grp\n  FROM combined\n)\nSELECT\n  state,\n  MIN(d) AS start_date,\n  MAX(d) AS end_date\nFROM ranked\nGROUP BY state, grp\nORDER BY start_date ASC;",
+  "_meta": {
+    "question_type": "union_islands",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-06T16:54:22.541944",
+    "problem_id": "24fafa69537f",
+    "validation_attempts": 1,
+    "scenario": "a wellness platform tracking sleep and activity goal achievement",
+    "dml_op": null,
+    "islands_flavor": "date_calendar",
+    "percentile_flavor": null
+  }
+}

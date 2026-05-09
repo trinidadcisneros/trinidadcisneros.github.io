@@ -1,0 +1,147 @@
+{
+  "title": "Annual PDC Calculation for Chronic Medications",
+  "prompt": "Write a query that calculates the annual Proportion of Days Covered (PDC) for each patient and drug class. PDC is the industry-standard adherence measure used by CMS for Medicare Star Ratings and is defined as: (total unique days covered within the measurement period) / (measurement period length in days), capped at 1.0. For this drill, approximate PDC using the simplified formula: LEAST(SUM(days_supply) / 365, 1.0). The measurement period is 365 days (one year). Compute PDC for each patient-drug_class combination. A patient is considered adherent if PDC >= 0.80, which is the CMS Star Ratings threshold. Return one row per (patient_id, drug_class) with columns: patient_id, drug_class, total_days_supply, pdc (rounded to 4 decimals), adherent_flag (1 if pdc >= 0.80, else 0). Order by patient_id, then drug_class.",
+  "schema_ddl": "CREATE TABLE prescriptions (\n  rx_id VARCHAR(20) PRIMARY KEY,\n  patient_id VARCHAR(20) NOT NULL,\n  drug_class VARCHAR(100) NOT NULL,\n  fill_date DATE NOT NULL,\n  days_supply INT NOT NULL\n);",
+  "example_input_data": "INSERT INTO prescriptions (rx_id, patient_id, drug_class, fill_date, days_supply)\nVALUES\n  ('RX001', 'P001', 'statins', '2023-01-15', 90),\n  ('RX002', 'P001', 'statins', '2023-04-20', 90),\n  ('RX003', 'P001', 'statins', '2023-07-25', 90),\n  ('RX004', 'P001', 'statins', '2023-10-30', 90),\n  ('RX005', 'P002', 'diabetes orals', '2023-01-10', 30),\n  ('RX006', 'P002', 'diabetes orals', '2023-03-15', 30),\n  ('RX007', 'P002', 'diabetes orals', '2023-06-20', 30),\n  ('RX008', 'P003', 'GLP-1 agonists', '2023-02-01', 90),\n  ('RX009', 'P003', 'GLP-1 agonists', '2023-05-10', 90),\n  ('RX010', 'P003', 'GLP-1 agonists', '2023-08-15', 90),\n  ('RX011', 'P003', 'GLP-1 agonists', '2023-11-20', 90);",
+  "example_output_columns": [
+    "patient_id",
+    "drug_class",
+    "total_days_supply",
+    "pdc",
+    "adherent_flag"
+  ],
+  "example_output_rows": [
+    [
+      "P001",
+      "statins",
+      360,
+      "0.9863",
+      1
+    ],
+    [
+      "P002",
+      "diabetes orals",
+      90,
+      "0.2466",
+      0
+    ],
+    [
+      "P003",
+      "GLP-1 agonists",
+      360,
+      "0.9863",
+      1
+    ]
+  ],
+  "test_data": "INSERT INTO prescriptions (rx_id, patient_id, drug_class, fill_date, days_supply)\nVALUES\n  ('RX101', 'P101', 'statins', '2023-01-05', 90),\n  ('RX102', 'P101', 'statins', '2023-04-10', 90),\n  ('RX103', 'P101', 'statins', '2023-07-15', 90),\n  ('RX104', 'P101', 'statins', '2023-10-20', 90),\n  ('RX105', 'P102', 'diabetes orals', '2023-01-08', 30),\n  ('RX106', 'P102', 'diabetes orals', '2023-02-15', 30),\n  ('RX107', 'P102', 'diabetes orals', '2023-04-10', 30),\n  ('RX108', 'P102', 'diabetes orals', '2023-06-05', 30),\n  ('RX109', 'P102', 'diabetes orals', '2023-08-20', 30),\n  ('RX110', 'P103', 'GLP-1 agonists', '2023-01-12', 90),\n  ('RX111', 'P103', 'GLP-1 agonists', '2023-04-18', 90),\n  ('RX112', 'P103', 'GLP-1 agonists', '2023-07-22', 90),\n  ('RX113', 'P103', 'GLP-1 agonists', '2023-10-28', 90),\n  ('RX114', 'P103', 'GLP-1 agonists', '2023-12-15', 30),\n  ('RX115', 'P104', 'SSRIs', '2023-02-01', 30),\n  ('RX116', 'P104', 'SSRIs', '2023-03-10', 30),\n  ('RX117', 'P105', 'oral contraceptives', '2023-01-10', 28),\n  ('RX118', 'P105', 'oral contraceptives', '2023-02-15', 28),\n  ('RX119', 'P105', 'oral contraceptives', '2023-03-20', 28),\n  ('RX120', 'P105', 'oral contraceptives', '2023-04-25', 28),\n  ('RX121', 'P105', 'oral contraceptives', '2023-05-30', 28),\n  ('RX122', 'P105', 'oral contraceptives', '2023-07-05', 28),\n  ('RX123', 'P105', 'oral contraceptives', '2023-08-10', 28),\n  ('RX124', 'P105', 'oral contraceptives', '2023-09-15', 28),\n  ('RX125', 'P105', 'oral contraceptives', '2023-10-20', 28),\n  ('RX126', 'P105', 'oral contraceptives', '2023-11-25', 28),\n  ('RX127', 'P105', 'oral contraceptives', '2023-12-30', 28),\n  ('RX128', 'P106', 'statins', '2023-01-15', 90),\n  ('RX129', 'P106', 'statins', '2023-04-20', 90),\n  ('RX130', 'P106', 'statins', '2023-07-25', 90);",
+  "test_expected_columns": [
+    "patient_id",
+    "drug_class",
+    "total_days_supply",
+    "pdc",
+    "adherent_flag"
+  ],
+  "test_expected_rows": [
+    [
+      "P101",
+      "statins",
+      360,
+      "0.9863",
+      1
+    ],
+    [
+      "P102",
+      "diabetes orals",
+      150,
+      "0.4110",
+      0
+    ],
+    [
+      "P103",
+      "GLP-1 agonists",
+      390,
+      "1.0000",
+      1
+    ],
+    [
+      "P104",
+      "SSRIs",
+      60,
+      "0.1644",
+      0
+    ],
+    [
+      "P105",
+      "oral contraceptives",
+      308,
+      "0.8438",
+      1
+    ],
+    [
+      "P106",
+      "statins",
+      270,
+      "0.7397",
+      0
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "group-aggregate",
+    "composite_moves": [
+      "group by patient_id and drug_class",
+      "sum days_supply",
+      "compute PDC with LEAST cap",
+      "compute adherent_flag with CASE",
+      "order by patient_id then drug_class"
+    ]
+  },
+  "hints": [
+    "You need to aggregate prescription fills by patient and drug class, summing the days_supply for each combination.",
+    "PDC is calculated by dividing total days supply by 365 (the measurement period), but cannot exceed 1.0. Use the LEAST function to enforce this cap.",
+    "The adherent_flag should be 1 when PDC is at least 0.80, otherwise 0. Use a CASE expression to compute this based on the calculated PDC value."
+  ],
+  "answer_key": "SELECT\n  patient_id,\n  drug_class,\n  SUM(days_supply) AS total_days_supply,\n  ROUND(LEAST(SUM(days_supply)::NUMERIC / 365, 1.0), 4) AS pdc,\n  CASE\n    WHEN LEAST(SUM(days_supply)::NUMERIC / 365, 1.0) >= 0.80 THEN 1\n    ELSE 0\n  END AS adherent_flag\nFROM prescriptions\nGROUP BY patient_id, drug_class\nORDER BY patient_id, drug_class;",
+  "glossary": [
+    {
+      "term": "PDC (Proportion of Days Covered)",
+      "definition": "The fraction of days within a measurement period that a patient has medication on hand, used by CMS as the primary adherence metric for Medicare Star Ratings."
+    },
+    {
+      "term": "adherent threshold (0.80)",
+      "definition": "The CMS-defined cutoff at which a patient is considered adherent to their medication regimen, requiring PDC of at least 80%."
+    },
+    {
+      "term": "days_supply",
+      "definition": "The number of days of medication dispensed in a single prescription fill, representing how long the medication will last if taken as directed."
+    },
+    {
+      "term": "Medicare Star Ratings",
+      "definition": "The CMS quality rating system (1 to 5 stars) that scores Medicare Advantage and Part D plans on clinical outcomes, with medication adherence PDC as a key measure."
+    },
+    {
+      "term": "measurement period",
+      "definition": "The time window over which adherence is calculated, typically 365 days for annual PDC or 90 days for quarterly PDC."
+    },
+    {
+      "term": "drug_class",
+      "definition": "A therapeutic category grouping medications by mechanism of action or clinical use, such as statins for cholesterol or GLP-1 agonists for diabetes."
+    }
+  ],
+  "calculation_explanation": "1. Group all prescription fills by patient_id and drug_class to calculate adherence separately for each patient-medication combination.\n2. Sum the days_supply column within each group to get the total days of medication the patient received during the year.\n3. Divide the total_days_supply by 365 (the annual measurement period) to get the raw PDC proportion.\n4. Cap the PDC at 1.0 using the LEAST function, since a patient cannot be covered more than 100% of the time even if they stockpile refills.\n5. Set adherent_flag to 1 when PDC is at least 0.80 (the CMS threshold), otherwise 0.\n6. Order the results by patient_id and then drug_class for consistent output.",
+  "interpretation_example": "- Patient P001 achieved 0.9863 PDC (98.63%) on statins with 360 days supply across four 90-day fills, exceeding the 0.80 adherent threshold and qualifying the plan for full Star Ratings credit on this member.\n- Patient P002 received only 90 days supply of diabetes orals over the year, producing a PDC of 0.2466 (24.66%), far below the 0.80 threshold and indicating either abandonment after initial fills or a patient who switched plans mid-year.\n- Patient P003 achieved 0.9863 PDC on GLP-1 agonists with four 90-day fills, demonstrating strong adherence to a high-cost specialty medication where typical PDC benchmarks are 60-75%.\n- The contrast between P001 and P003 (both adherent at 98.63%) versus P002 (non-adherent at 24.66%) shows the operational opportunity: a small number of non-adherent patients can significantly drag down plan Star Ratings scores, which are based on the percentage of members hitting the 0.80 threshold.",
+  "recommendation_example": "- Trigger adherence outreach (Care Coordination): for any patient with PDC < 0.80 at the 6-month mark, initiate refill reminder calls, offer medication synchronization to align all chronic meds to a single monthly pickup, and assess for barriers (cost, side effects, transportation).\n- Implement 90-day fill conversion (Pharmacy Ops): patients on 30-day fills like P002 have lower PDC than those on 90-day fills; pharmacy teams should offer 90-day transfers at every refill opportunity, targeting a 70% conversion rate among chronic medication users.\n- Add PDC monitoring dashboard (Product): create a real-time view segmented by drug_class and payer, tracking the percentage of patients at PDC >= 0.80 versus < 0.50 (the critical non-adherence band), with weekly alerts when the plan-level adherence rate drops below the Star Ratings 4-star threshold.\n- Review test_data patient P103 (Care Coordination): PDC of 1.0000 with 390 days supply means the patient refilled early or stockpiled medication, which may indicate hoarding behavior, difficulty accessing refills on schedule, or anticipation of a coverage gap \u2014 worth a clinical review call to confirm appropriate use.",
+  "_meta": {
+    "category": "pharmacy_sql",
+    "subtopic": "adherence_pdc",
+    "kind": "sql",
+    "question_type": "select_analytical",
+    "dialect": "postgresql",
+    "scenario": "a script abandonment surveillance system tracking patients who never picked up filled prescriptions",
+    "generated_at": "2026-05-04T12:31:04.892283",
+    "problem_id": "b8242f11070f",
+    "validation_attempts": 1,
+    "notebook": "nb02_fuze_interview_drills"
+  }
+}

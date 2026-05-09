@@ -1,0 +1,158 @@
+{
+  "title": "Report Contiguous Workout Streak Periods",
+  "prompt": "A fitness app tracks member workout activity through two tables: `completed_workouts` (dates when at least one workout was completed) and `skipped_days` (dates when a member was active but completed zero workouts). Write a query that combines these tables and reports contiguous date ranges for each activity state. Label rows from `completed_workouts` as 'active' and rows from `skipped_days` as 'inactive'. Include only dates within the range 2024-01-01 to 2024-03-31 (Q1 2024). For each contiguous period of the same state, output the state label, the start date, and the end date. Order results by `start_date` ascending. Output columns: `activity_state`, `period_start`, `period_end`.",
+  "schema_ddl": "CREATE TABLE completed_workouts (member_id INT NOT NULL, workout_date DATE NOT NULL); CREATE TABLE skipped_days (member_id INT NOT NULL, skip_date DATE NOT NULL);",
+  "example_input_data": "INSERT INTO completed_workouts (member_id, workout_date) VALUES (1, '2024-01-15'), (1, '2024-01-16'), (1, '2024-01-17'), (1, '2024-01-22'), (1, '2024-01-23'), (1, '2024-01-30'), (1, '2024-02-10'), (1, '2024-02-11'); INSERT INTO skipped_days (member_id, skip_date) VALUES (1, '2024-01-18'), (1, '2024-01-19'), (1, '2024-01-20'), (1, '2024-01-21'), (1, '2024-01-24'), (1, '2024-02-01'), (1, '2024-02-02'), (1, '2024-02-03');",
+  "example_output_columns": [
+    "activity_state",
+    "period_start",
+    "period_end"
+  ],
+  "example_output_rows": [
+    [
+      "active",
+      "2024-01-15",
+      "2024-01-17"
+    ],
+    [
+      "inactive",
+      "2024-01-18",
+      "2024-01-21"
+    ],
+    [
+      "active",
+      "2024-01-22",
+      "2024-01-23"
+    ],
+    [
+      "inactive",
+      "2024-01-24",
+      "2024-01-24"
+    ],
+    [
+      "active",
+      "2024-01-30",
+      "2024-01-30"
+    ],
+    [
+      "inactive",
+      "2024-02-01",
+      "2024-02-03"
+    ],
+    [
+      "active",
+      "2024-02-10",
+      "2024-02-11"
+    ]
+  ],
+  "test_data": "INSERT INTO completed_workouts (member_id, workout_date) VALUES (1, '2023-12-28'), (1, '2023-12-29'), (1, '2024-01-01'), (1, '2024-01-02'), (1, '2024-01-03'), (1, '2024-01-10'), (1, '2024-01-11'), (1, '2024-01-12'), (1, '2024-01-13'), (1, '2024-01-20'), (1, '2024-02-05'), (1, '2024-02-06'), (1, '2024-02-15'), (1, '2024-02-28'), (1, '2024-03-01'), (1, '2024-03-02'), (1, '2024-03-15'), (1, '2024-03-16'), (1, '2024-03-17'), (1, '2024-03-31'), (1, '2024-04-01'), (1, '2024-04-02'); INSERT INTO skipped_days (member_id, skip_date) VALUES (1, '2023-12-30'), (1, '2024-01-04'), (1, '2024-01-05'), (1, '2024-01-06'), (1, '2024-01-07'), (1, '2024-01-08'), (1, '2024-01-09'), (1, '2024-01-14'), (1, '2024-01-15'), (1, '2024-01-16'), (1, '2024-01-17'), (1, '2024-01-18'), (1, '2024-01-19'), (1, '2024-01-21'), (1, '2024-01-22'), (1, '2024-02-07'), (1, '2024-02-08'), (1, '2024-02-09'), (1, '2024-02-10'), (1, '2024-02-16'), (1, '2024-02-17'), (1, '2024-03-03'), (1, '2024-03-04'), (1, '2024-03-05'), (1, '2024-03-18'), (1, '2024-03-19'), (1, '2024-04-03');",
+  "test_expected_columns": [
+    "activity_state",
+    "period_start",
+    "period_end"
+  ],
+  "test_expected_rows": [
+    [
+      "active",
+      "2024-01-01",
+      "2024-01-03"
+    ],
+    [
+      "inactive",
+      "2024-01-04",
+      "2024-01-09"
+    ],
+    [
+      "active",
+      "2024-01-10",
+      "2024-01-13"
+    ],
+    [
+      "inactive",
+      "2024-01-14",
+      "2024-01-19"
+    ],
+    [
+      "active",
+      "2024-01-20",
+      "2024-01-20"
+    ],
+    [
+      "inactive",
+      "2024-01-21",
+      "2024-01-22"
+    ],
+    [
+      "active",
+      "2024-02-05",
+      "2024-02-06"
+    ],
+    [
+      "inactive",
+      "2024-02-07",
+      "2024-02-10"
+    ],
+    [
+      "active",
+      "2024-02-15",
+      "2024-02-15"
+    ],
+    [
+      "inactive",
+      "2024-02-16",
+      "2024-02-17"
+    ],
+    [
+      "active",
+      "2024-02-28",
+      "2024-03-02"
+    ],
+    [
+      "inactive",
+      "2024-03-03",
+      "2024-03-05"
+    ],
+    [
+      "active",
+      "2024-03-15",
+      "2024-03-17"
+    ],
+    [
+      "inactive",
+      "2024-03-18",
+      "2024-03-19"
+    ],
+    [
+      "active",
+      "2024-03-31",
+      "2024-03-31"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "union",
+    "output_shape": "fewer_rows",
+    "recipe": "gaps-and-islands",
+    "composite_moves": [
+      "union-all-with-state-label",
+      "date-range-filter-per-branch",
+      "row-number-difference-grp",
+      "group-aggregate-min-max",
+      "order-by-start"
+    ]
+  },
+  "hints": [
+    "Combine the two tables using UNION ALL, adding a literal state label to distinguish which table each row came from.",
+    "Use the row-number difference trick: compute ROW_NUMBER() over all dates minus ROW_NUMBER() partitioned by state to create a group identifier for consecutive same-state runs.",
+    "Group by the state label and the computed group identifier, then take MIN and MAX of the date to find the start and end of each contiguous period."
+  ],
+  "answer_key": "WITH combined AS (\n  SELECT 'active' AS activity_state, workout_date AS d\n  FROM completed_workouts\n  WHERE workout_date BETWEEN '2024-01-01' AND '2024-03-31'\n  UNION ALL\n  SELECT 'inactive' AS activity_state, skip_date AS d\n  FROM skipped_days\n  WHERE skip_date BETWEEN '2024-01-01' AND '2024-03-31'\n),\ngrouped AS (\n  SELECT\n    activity_state,\n    d,\n    ROW_NUMBER() OVER (ORDER BY d) - ROW_NUMBER() OVER (PARTITION BY activity_state ORDER BY d) AS grp\n  FROM combined\n)\nSELECT\n  activity_state,\n  MIN(d) AS period_start,\n  MAX(d) AS period_end\nFROM grouped\nGROUP BY activity_state, grp\nORDER BY period_start;",
+  "_meta": {
+    "question_type": "union_islands",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-05T20:50:57.393622",
+    "problem_id": "d1927b35b94f",
+    "validation_attempts": 1,
+    "scenario": "a fitness app tracking workout completion streaks and member retention",
+    "dml_op": null
+  }
+}

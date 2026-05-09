@@ -1,0 +1,149 @@
+{
+  "problem": {
+    "title": "Two-Layer dbt Transform: Test Kit Adherence Mart",
+    "prompt": "You are building a dbt mart for a hormone health test kit subscription service. The raw data table `raw_test_kit_orders` contains messy source data with inconsistent column names and test records that need filtering. Your task is to write a single query with TWO CTEs that implement dbt's staging and mart layers:\n\n1. **Staging CTE (`stg_test_kit_orders`)**: Clean the raw data by renaming columns to snake_case (`orderId` \u2192 `order_id`, `patientID` \u2192 `patient_id`, `testKitType` \u2192 `test_kit_type`), casting `order_date` from VARCHAR to DATE, and filtering out rows where `is_test_order = TRUE` (internal QA records).\n\n2. **Mart CTE (`mart_patient_adherence`)**: For each patient, calculate adherence metrics: `total_orders` (count of orders), `median_days_between_orders` (the median gap in days between consecutive order dates for that patient), and `adherence_flag` (set to `'adherent'` if median gap is 28-32 days inclusive, else `'non_adherent'`). Only include patients with at least 2 orders.\n\nYour final SELECT should return all columns from the mart CTE, ordered by `patient_id`. Use `PERCENTILE_CONT(0.5)` for the median calculation.",
+    "schema_ddl": "CREATE TABLE raw_test_kit_orders (orderId VARCHAR(10) PRIMARY KEY, patientID VARCHAR(10) NOT NULL, testKitType VARCHAR(50) NOT NULL, order_date VARCHAR(10) NOT NULL, is_test_order BOOLEAN DEFAULT FALSE);",
+    "example_input_data": "INSERT INTO raw_test_kit_orders (orderId, patientID, testKitType, order_date, is_test_order) VALUES ('O001', 'P1', 'estradiol panel', '2024-01-01', FALSE), ('O002', 'P1', 'estradiol panel', '2024-01-30', FALSE), ('O003', 'P1', 'estradiol panel', '2024-03-01', FALSE), ('O004', 'P2', 'progesterone', '2024-01-05', FALSE), ('O005', 'P2', 'progesterone', '2024-02-10', FALSE), ('O006', 'P3', 'testosterone', '2024-01-15', FALSE), ('O007', 'QA99', 'estradiol panel', '2024-01-01', TRUE), ('O008', 'P4', 'FSH/LH combo', '2024-01-20', FALSE);",
+    "example_output_columns": [
+      "patient_id",
+      "total_orders",
+      "median_days_between_orders",
+      "adherence_flag"
+    ],
+    "example_output_rows": [
+      [
+        "P1",
+        3,
+        30.0,
+        "adherent"
+      ],
+      [
+        "P2",
+        2,
+        36.0,
+        "non_adherent"
+      ]
+    ],
+    "test_data": "INSERT INTO raw_test_kit_orders (orderId, patientID, testKitType, order_date, is_test_order) VALUES ('T001', 'P10', 'estradiol panel', '2024-01-01', FALSE), ('T002', 'P10', 'estradiol panel', '2024-01-29', FALSE), ('T003', 'P10', 'estradiol panel', '2024-02-27', FALSE), ('T004', 'P10', 'estradiol panel', '2024-03-28', FALSE), ('T005', 'P11', 'progesterone', '2024-01-05', FALSE), ('T006', 'P11', 'progesterone', '2024-02-20', FALSE), ('T007', 'P11', 'progesterone', '2024-04-05', FALSE), ('T008', 'P12', 'testosterone', '2024-01-10', FALSE), ('T009', 'P12', 'testosterone', '2024-02-07', FALSE), ('T010', 'P12', 'testosterone', '2024-03-06', FALSE), ('T011', 'P12', 'testosterone', '2024-04-03', FALSE), ('T012', 'P13', 'FSH/LH combo', '2024-01-15', FALSE), ('T013', 'P13', 'FSH/LH combo', '2024-03-01', FALSE), ('T014', 'P14', 'estradiol panel', '2024-02-01', FALSE), ('T015', 'P14', 'estradiol panel', '2024-03-15', FALSE), ('T016', 'QA100', 'progesterone', '2024-01-01', TRUE), ('T017', 'QA101', 'testosterone', '2024-01-02', TRUE), ('T018', 'P15', 'progesterone', '2024-01-20', FALSE), ('T019', 'P15', 'progesterone', '2024-02-17', FALSE), ('T020', 'P15', 'progesterone', '2024-03-16', FALSE), ('T021', 'P15', 'progesterone', '2024-04-13', FALSE), ('T022', 'P16', 'estradiol panel', '2024-01-25', FALSE), ('T023', 'P16', 'estradiol panel', '2024-02-22', FALSE), ('T024', 'P17', 'testosterone', '2024-01-10', FALSE), ('T025', 'P17', 'testosterone', '2024-01-25', FALSE), ('T026', 'P17', 'testosterone', '2024-02-09', FALSE), ('T027', 'P18', 'FSH/LH combo', '2024-01-01', FALSE), ('T028', 'P19', 'progesterone', '2024-01-05', FALSE);",
+    "test_expected_columns": [
+      "patient_id",
+      "total_orders",
+      "median_days_between_orders",
+      "adherence_flag"
+    ],
+    "test_expected_rows": [
+      [
+        "P10",
+        4,
+        29.0,
+        "adherent"
+      ],
+      [
+        "P11",
+        3,
+        45.5,
+        "non_adherent"
+      ],
+      [
+        "P12",
+        4,
+        28.0,
+        "adherent"
+      ],
+      [
+        "P13",
+        2,
+        46.0,
+        "non_adherent"
+      ],
+      [
+        "P14",
+        2,
+        43.0,
+        "non_adherent"
+      ],
+      [
+        "P15",
+        4,
+        28.0,
+        "adherent"
+      ],
+      [
+        "P16",
+        2,
+        28.0,
+        "adherent"
+      ],
+      [
+        "P17",
+        3,
+        15.0,
+        "non_adherent"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "group-aggregate",
+      "composite_moves": [
+        "row-filter (staging: remove test orders)",
+        "row-transform (staging: rename, cast)",
+        "enrich-aggregate (mart: window LAG to compute gaps)",
+        "group-aggregate (mart: median + count per patient)",
+        "row-filter (mart: >= 2 orders)",
+        "row-transform (mart: adherence flag derivation)"
+      ]
+    },
+    "hints": [
+      "The staging CTE should rename columns to match dbt naming conventions and filter out internal test records.",
+      "Use a window function with LAG() partitioned by patient to find the days between consecutive orders, then aggregate those gaps using PERCENTILE_CONT(0.5).",
+      "The adherence flag checks whether the median gap falls in the 28-32 day range inclusive; use a CASE expression after computing the median."
+    ],
+    "answer_key": "WITH stg_test_kit_orders AS (\n  SELECT\n    orderId AS order_id,\n    patientID AS patient_id,\n    testKitType AS test_kit_type,\n    order_date::DATE AS order_date\n  FROM raw_test_kit_orders\n  WHERE is_test_order = FALSE\n),\ngaps AS (\n  SELECT\n    patient_id,\n    order_date,\n    order_date - LAG(order_date) OVER (PARTITION BY patient_id ORDER BY order_date) AS days_between\n  FROM stg_test_kit_orders\n),\nmart_patient_adherence AS (\n  SELECT\n    patient_id,\n    COUNT(*) AS total_orders,\n    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY days_between) AS median_days_between_orders,\n    CASE\n      WHEN PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY days_between) BETWEEN 28 AND 32\n      THEN 'adherent'\n      ELSE 'non_adherent'\n    END AS adherence_flag\n  FROM gaps\n  GROUP BY patient_id\n  HAVING COUNT(*) >= 2\n)\nSELECT\n  patient_id,\n  total_orders,\n  median_days_between_orders,\n  adherence_flag\nFROM mart_patient_adherence\nORDER BY patient_id;",
+    "glossary": [
+      {
+        "term": "staging (stg_)",
+        "definition": "the first dbt layer that renames raw columns to standards, casts types, and filters out invalid records without business logic"
+      },
+      {
+        "term": "marts",
+        "definition": "the final dbt layer that applies business logic (aggregations, flags, metrics) and is optimized for end-user queries"
+      },
+      {
+        "term": "adherence flag",
+        "definition": "a binary or categorical indicator showing whether a patient follows the recommended repeat-test cadence"
+      },
+      {
+        "term": "PERCENTILE_CONT",
+        "definition": "a PostgreSQL aggregate function that computes a continuous percentile (e.g., median at 0.5) by interpolating between values"
+      },
+      {
+        "term": "LAG()",
+        "definition": "a window function that accesses the value of a prior row within the same partition, used here to compute gaps between consecutive orders"
+      },
+      {
+        "term": "test kit type",
+        "definition": "the specific hormone panel ordered (estradiol, progesterone, testosterone, FSH/LH combo) which determines the clinical monitoring protocol"
+      }
+    ],
+    "calculation_explanation": "1. In the staging CTE, rename raw columns (`orderId` \u2192 `order_id`, `patientID` \u2192 `patient_id`, `testKitType` \u2192 `test_kit_type`), cast `order_date` from VARCHAR to DATE, and filter out rows where `is_test_order = TRUE`.\n2. In a gaps CTE, use `LAG()` partitioned by `patient_id` and ordered by `order_date` to compute the number of days between each order and the prior order for that patient.\n3. In the mart CTE, group by `patient_id` and count total orders, compute the median of the `days_between` values using `PERCENTILE_CONT(0.5)`, and set `adherence_flag` to `'adherent'` if the median is between 28 and 32 days inclusive.\n4. Filter the mart output to include only patients with at least 2 orders (using HAVING), then order by `patient_id`.",
+    "interpretation_example": "- P1 has 3 orders with a median 30-day gap, flagged 'adherent' \u2014 this matches the recommended 28-day menstrual cycle monitoring cadence.\n- P2 has 2 orders with a median 36-day gap, flagged 'non_adherent' \u2014 the 8-day delay beyond the 32-day upper bound suggests the patient may have missed the optimal test window or experienced a logistical barrier.\n- P3 and P4 do not appear in the output because they have fewer than 2 orders, which prevents gap calculation and adherence classification.\n- The staging layer successfully filtered out the QA99 test order, preventing it from contaminating the patient cohort metrics.",
+    "recommendation_example": "- Trigger outreach to non-adherent patients (Care Coordination): send automated reminders at day 21 post-order to patients whose prior gap exceeded 32 days; industry subscription retention improves 15-25% with timely nudges.\n- Segment adherence dashboards by test kit type (Product Analytics): FSH/LH combo may have different optimal cadence than estradiol panels; validate the 28-32 day range per panel type before flagging patients.\n- Add a grace period buffer (Engineering): consider flagging 'at risk' (33-40 days) vs 'non-adherent' (>40 days) to distinguish patients with minor delays from those who have likely churned.\n- Monitor weekly: track the percentage of patients flagged 'adherent' and set a target of 70-80% based on comparable at-home diagnostic subscription benchmarks; alert if the rolling 4-week average drops below 65%.",
+    "_meta": {
+      "category": "transformation_modeling",
+      "subtopic": "staging_vs_marts",
+      "kind": "sql",
+      "question_type": "select_analytical",
+      "dialect": "postgresql",
+      "scenario": "a hormone health test kit subscription tracking adherence to repeat-test cadence",
+      "generated_at": "2026-05-04T21:18:40.268688",
+      "problem_id": "5c5c1a36aca0",
+      "validation_attempts": 1,
+      "notebook": "nb02_fuze_interview_drills"
+    }
+  },
+  "user_solution": "WITH stg_test_kit_orders AS (\n    SELECT\n        orderId AS order_id,\n        patientID AS patient_id,\n        testKitType AS test_kit_type,\n        order_date::DATE\n    FROM raw_test_kit_orders\n    WHERE is_test_order <> TRUE\n),\ngaps_cte AS (\n    SELECT\n        order_id,\n        patient_id,\n        test_kit_type,\n        order_date,\n        order_date - LAG(order_date) OVER (PARTITION BY patient_id ORDER BY order_date ASC) AS days_between_orders\n    FROM stg_test_kit_orders\n),\npercentile_cte AS (\n    SELECT\n        patient_id,\n        COUNT(order_id) AS total_orders,\n        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY days_between_orders) AS median_days_between_orders\n    FROM gaps_cte\n    GROUP BY patient_id\n    HAVING COUNT(order_id) >= 2\n),\nmart_patient_adherence AS (\nSELECT\n    patient_id,\n    total_orders,\n    median_days_between_orders,\n    CASE \n        WHEN median_days_between_orders >= 28 AND median_days_between_orders <= 32 \n        THEN 'adherent' ELSE 'non_adherent' \n    END AS adherence_flag\n    FROM percentile_cte\n)\nSELECT *\nFROM mart_patient_adherence;\n\n",
+  "grade_result": null,
+  "solved_at": "2026-05-04T23:07:03.103465",
+  "notebook": "nb02_fuze_interview_drills"
+}

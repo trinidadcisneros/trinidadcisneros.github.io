@@ -1,0 +1,132 @@
+{
+  "title": "Fertility medication delivery time-to-first-dose fact design",
+  "scenario": "A digital pharmacy delivers injectable fertility medications (gonadotropins, progesterone, leuprolide) for IVF cycles. Patients order multi-medication bundles tied to a clinic protocol. The care team tracks time from order placement to first self-injection at home.",
+  "prompt": "STAKEHOLDER CONTEXT\n\nYou met with the fertility care operations team. The fact table you're designing will populate a daily dashboard. The dashboard needs:\n\n- Time to first dose median: median hours from order_placed_ts to first_dose_ts by clinic_id\n- Bundle completion rate: count of bundles with all_doses_completed = TRUE divided by count of bundles shipped by drug_protocol\n- Late shipment rate: count of orders with shipped_ts > order_placed_ts + 24 hours divided by count of orders placed by shipping_partner_id\n- Dose adherence per patient: count of doses taken on schedule divided by count of doses prescribed by patient_id\n\nVOLUME AND UPDATE FREQUENCY\n\n- Daily source volume: ~800 order events per day (~200 orders \u00d7 4 state changes average)\n- Dashboard freshness need: daily refresh at 6am for yesterday's complete data\n- Total fact rows after 1 year: ~70K rows (one row per order_id, ~200 orders/day)\n\nWHAT YOU HAVE IN SOURCE\n\n- Source event table: fertility_order_events at event grain (one row per state change). event_type values: order_placed, order_shipped, first_dose_taken, bundle_completed. Multiple rows per order_id.\n- dim_patient: patient_id, age_band, clinic_id, ivf_cycle_number\n- dim_drug_protocol: protocol_id, protocol_name, drug_list, total_doses_prescribed, typical_cycle_days\n- dim_clinic: clinic_id, clinic_name, region, provider_count\n- dim_shipping_partner: partner_id, partner_name, sla_hours\n- dim_date: standard date dimension with calendar attributes\n\nYOUR TASK\n\nDesign the FACT TABLE that the dashboard reads from. Dims are already built \u2014 you specify how to JOIN them and what SCD type each is. Use the response form in section 2 to record your design choices.",
+  "instructions": "Fill out each form field in section 2 (the schema design response form). Dropdowns are used where the answer set is finite (SCD types, idempotency strategies, late-arriving handling); text fields for grain, fact columns, and rationale. This is a SCHEMA DESIGN deliverable \u2014 your response should be 200 to 400 words across the structured form fields. Click Get Schema Design Feedback to grade.",
+  "expected_themes": [
+    "grain: one row per order_id",
+    "fact-dim split",
+    "SCD Type 2 for dim_drug_protocol (quarterly updates)",
+    "SCD Type 1 for dim_patient demographics",
+    "surrogate key for protocol_id",
+    "dbt staging vs marts",
+    "idempotency under late bundle_completed events",
+    "late-arriving first_dose_taken facts",
+    "dbt tests: unique order_id, not_null timestamps",
+    "incremental materialization",
+    "conformed dim_patient across adherence and order facts",
+    "derived column: all_doses_completed boolean"
+  ],
+  "reference_answer": "## Grain\n\nOne row per order_id (~70K rows after 1 year). Each fertility medication order produces exactly one fact row. The dashboard aggregates UP from order-level to clinic/protocol/partner summaries.\n\n## Fact Columns\n\n- order_id (PK)\n- patient_id, protocol_id, clinic_id, partner_id, order_date_id (FKs to dims)\n- order_placed_ts, shipped_ts, first_dose_ts, bundle_completed_ts (event timestamps)\n- hours_to_first_dose (derived: first_dose_ts - order_placed_ts in hours)\n- hours_to_ship (derived: shipped_ts - order_placed_ts in hours)\n- all_doses_completed (boolean derived from bundle_completed_ts IS NOT NULL)\n- doses_taken_on_schedule, total_doses_prescribed (counts for adherence rate)\n\n## Dim Joins & SCD Types\n\n- dim_patient: Type 1 (demographics stable within a cycle)\n- dim_drug_protocol: Type 2 (protocol definitions change quarterly; surrogate key protocol_sk)\n- dim_clinic: Type 1 (clinic attributes rarely change)\n- dim_shipping_partner: Type 1 (partner SLA is contract-locked)\n- dim_date: Type 0 (immutable calendar)\n\n## dbt Models\n\n- stg_fertility_order_events: one-to-one passthrough from raw events, renamed columns\n- int_order_lifecycle: pivots stg_fertility_order_events to one row per order_id with MIN(ts) WHERE event_type = X for each milestone\n- fct_fertility_orders: joins int_order_lifecycle to dims, adds derived columns (hours_to_first_dose, all_doses_completed)\n- Materialization: incremental on order_placed_ts (daily refresh)\n\n## Idempotency & Late Arrivals\n\nIf bundle_completed event arrives 3 days late, the incremental model re-computes that order_id row (upsert on order_id). Derived boolean all_doses_completed flips from FALSE to TRUE.\n\n## Tests\n\n- unique order_id in fct_fertility_orders\n- not_null order_placed_ts, patient_id, protocol_id\n- relationships fct_fertility_orders.protocol_id \u2192 dim_drug_protocol.protocol_sk",
+  "grading_rubric": [
+    {
+      "criterion": "Grain stated with row count justification",
+      "description": "States 'one row per order_id' and ties the ~70K row count to the 200 orders/day \u00d7 365 days math. Mentions that the dashboard aggregates UP from order-level.",
+      "weight": 20
+    },
+    {
+      "criterion": "Fact columns include derived time-to-dose measure",
+      "description": "Includes hours_to_first_dose as a derived column (first_dose_ts - order_placed_ts) and explains why storing the derived value speeds dashboard queries.",
+      "weight": 25
+    },
+    {
+      "criterion": "SCD Type 2 for dim_drug_protocol with surrogate key",
+      "description": "Classifies dim_drug_protocol as Type 2 (quarterly updates) and names a surrogate key (protocol_sk) because protocol definitions change and historical accuracy matters for adherence benchmarks.",
+      "weight": 25
+    },
+    {
+      "criterion": "dbt layer placement: int_ model pivots events to one-row-per-order",
+      "description": "Proposes an int_order_lifecycle model that pivots the event grain to fact grain (one row per order_id with MIN(ts) for each milestone). Stg_ does rename only; fct_ does the dim joins.",
+      "weight": 20
+    },
+    {
+      "criterion": "Idempotency strategy for late bundle_completed events",
+      "description": "Names upsert-on-order_id or full-refresh-window strategy so late bundle_completed events can flip all_doses_completed from FALSE to TRUE without duplicating rows.",
+      "weight": 10
+    }
+  ],
+  "hints": [
+    "The dashboard asks for median time to first dose. What grain lets you store first_dose_ts as a single column?",
+    "Three of the four metrics are rates (completion rate, late shipment rate, adherence rate). Rates require numerator and denominator columns at the fact grain.",
+    "The protocol definitions change quarterly. If you store protocol_id as the FK, how do you know which version of the protocol was active when the order was placed?"
+  ],
+  "common_mistakes": [
+    "Declaring grain without tying it to the dashboard's aggregation pattern (one row per order lets the BI tool SUM/COUNT/AVG across clinics, protocols, partners).",
+    "Forgetting to derive hours_to_first_dose as a stored column (computing it at query time for 70K rows is fine, but the prompt explicitly asks for median time-to-first-dose as a dashboard metric, hinting that pre-computing saves BI tool work).",
+    "Treating dim_drug_protocol as Type 1 (ignoring quarterly updates). If the protocol definition changes and you use a natural key, historical orders retroactively adopt the new definition.",
+    "Putting the pivot logic (events to one-row-per-order) in the staging layer. Staging models are one-to-one renames; the pivot belongs in an intermediate model.",
+    "Not naming an idempotency strategy for late bundle_completed events. Without upsert or full-refresh, a late event appends a duplicate row."
+  ],
+  "schema_ddl": "CREATE TABLE fertility_order_events (\n  event_id VARCHAR PRIMARY KEY,\n  order_id VARCHAR NOT NULL,\n  patient_id VARCHAR NOT NULL,\n  protocol_id VARCHAR NOT NULL,\n  clinic_id VARCHAR NOT NULL,\n  partner_id VARCHAR NOT NULL,\n  event_type VARCHAR NOT NULL,\n  event_ts TIMESTAMP NOT NULL,\n  doses_taken_count INT,\n  created_at TIMESTAMP NOT NULL\n);",
+  "candidate_dimensions": [
+    {
+      "name": "dim_patient",
+      "key": "patient_id",
+      "description": "patient demographics, age band, clinic assignment, IVF cycle number"
+    },
+    {
+      "name": "dim_drug_protocol",
+      "key": "protocol_id (natural key) or protocol_sk (surrogate key for Type 2)",
+      "description": "protocol name, drug list, total doses prescribed, typical cycle days"
+    },
+    {
+      "name": "dim_clinic",
+      "key": "clinic_id",
+      "description": "clinic name, region, provider count"
+    },
+    {
+      "name": "dim_shipping_partner",
+      "key": "partner_id",
+      "description": "partner name, SLA hours"
+    },
+    {
+      "name": "dim_date",
+      "key": "date_id",
+      "description": "standard calendar attributes for time-series rollups"
+    }
+  ],
+  "stakeholder_asks": [
+    "Time to first dose median: median hours from order_placed_ts to first_dose_ts by clinic_id",
+    "Bundle completion rate: count of bundles with all_doses_completed = TRUE divided by count of bundles shipped by drug_protocol",
+    "Late shipment rate: count of orders with shipped_ts > order_placed_ts + 24 hours divided by count of orders placed by shipping_partner_id",
+    "Dose adherence per patient: count of doses taken on schedule divided by count of doses prescribed by patient_id"
+  ],
+  "field_hints": {
+    "business_process": "The business process is a fertility medication order lifecycle: placed \u2192 shipped \u2192 first dose taken \u2192 bundle completed. Each fact row tracks ONE order.",
+    "grain": "The dashboard needs median time-to-first-dose, which requires one timestamp per order. That locks the grain to one row per order_id.",
+    "fact_columns": "You need four milestone timestamps (order_placed_ts, shipped_ts, first_dose_ts, bundle_completed_ts) plus derived columns for hours_to_first_dose and all_doses_completed boolean.",
+    "key_strategy": "If dim_drug_protocol is Type 2 (quarterly updates), you need a surrogate key (protocol_sk) to join the correct historical version.",
+    "dim_joins": "The asks filter by clinic_id, protocol_id, partner_id, and patient_id. You need FKs to dim_clinic, dim_drug_protocol, dim_shipping_partner, and dim_patient.",
+    "scd_per_dim": "dim_drug_protocol changes quarterly (protocol definitions evolve). That's Type 2. dim_patient demographics are stable within a cycle. That's Type 1.",
+    "conformed_dims": "dim_patient is conformed across fct_fertility_orders and any other patient-level facts (e.g., adherence facts, telehealth visit facts).",
+    "models": "Staging models rename columns one-to-one. An intermediate model pivots the event grain to order grain. The mart model joins dims and adds derived columns.",
+    "tests": "Test unique order_id, not_null on milestone timestamps, and relationships to each dim FK.",
+    "idempotency": "If a bundle_completed event arrives 3 days late, the incremental model must upsert that order_id row (not append a duplicate).",
+    "late_arriving": "Late bundle_completed events flip all_doses_completed from FALSE to TRUE. Upsert-on-order_id handles this without re-processing all history.",
+    "edge_cases": "Orders placed but never shipped (shipped_ts IS NULL). Orders shipped but first_dose_taken never fires (patient didn't start the cycle)."
+  },
+  "worked_example_per_field": {
+    "business_process": "Answer: A fertility medication order lifecycle (placed \u2192 shipped \u2192 first dose \u2192 bundle completed).\n\nWhy: The prompt explicitly names four event types and four milestone timestamps. Each fact row captures the full lifecycle of ONE order.",
+    "grain": "Answer: One row per order_id (~70K rows after 1 year).\n\nWhy: The dashboard asks for median time-to-first-dose, which requires storing first_dose_ts as a single value per order. Multiple rows per order would force a subquery to deduplicate. The 70K row count comes from 200 orders/day \u00d7 365 days.",
+    "fact_columns": "Answer: order_id (PK), patient_id/protocol_id/clinic_id/partner_id/order_date_id (FKs), order_placed_ts/shipped_ts/first_dose_ts/bundle_completed_ts (milestones), hours_to_first_dose (derived), all_doses_completed (boolean derived), doses_taken_on_schedule/total_doses_prescribed (counts).\n\nWhy: Each dashboard metric maps to these raw ingredients. Time-to-first-dose = first_dose_ts - order_placed_ts. Bundle completion rate = SUM(all_doses_completed) / COUNT(*). Storing derived columns speeds BI queries.",
+    "key_strategy": "Answer: protocol_sk (surrogate key for dim_drug_protocol Type 2).\n\nWhy: Protocol definitions change quarterly. A surrogate key lets you join the historical version active when the order was placed. Natural key protocol_id would retroactively adopt new definitions.",
+    "dim_joins": "Answer: dim_patient (for patient_id, clinic_id FK), dim_drug_protocol (for protocol_id FK), dim_clinic (for clinic_id FK), dim_shipping_partner (for partner_id FK), dim_date (for order_date_id FK).\n\nWhy: The dashboard filters by clinic, protocol, partner, and patient. Each ask names ONE of these dims. dim_date adds calendar context for time-series rollups.",
+    "scd_per_dim": "Answer: dim_drug_protocol Type 2 (quarterly updates to protocol definitions), dim_patient Type 1 (demographics stable within cycle), dim_clinic Type 1 (rare changes), dim_shipping_partner Type 1 (contract-locked SLA), dim_date Type 0 (immutable).\n\nWhy: Type 2 is needed when historical accuracy matters. Protocol definitions evolve (new drugs added, dose schedules adjusted). Type 1 is fine when the attribute rarely changes or changes don't affect historical metrics.",
+    "conformed_dims": "Answer: dim_patient is conformed across fct_fertility_orders and any future adherence or telehealth visit facts.\n\nWhy: Multiple fact tables join the same dim_patient so patient_id FK is consistent. This lets you blend fertility order data with adherence data at the patient grain.",
+    "models": "Answer: stg_fertility_order_events (one-to-one rename), int_order_lifecycle (pivot events to one row per order_id with MIN(ts) per milestone), fct_fertility_orders (join dims, add derived columns). Materialization: incremental on order_placed_ts.\n\nWhy: Staging does cleanup only. The pivot (events \u2192 fact grain) belongs in an intermediate model. The mart model adds business logic (hours_to_first_dose, all_doses_completed boolean). Incremental materialization handles daily 800-event volume efficiently.",
+    "tests": "Answer: unique order_id, not_null order_placed_ts/patient_id/protocol_id, relationships fct_fertility_orders.protocol_id \u2192 dim_drug_protocol.protocol_sk.\n\nWhy: Unique order_id enforces one-row-per-order grain. Not_null on FKs prevents orphaned fact rows. Relationships test catches broken dim joins.",
+    "idempotency": "Answer: Upsert on order_id (or full-refresh 7-day window).\n\nWhy: If a bundle_completed event arrives 3 days late, the incremental model re-processes that order_id row. Upsert flips all_doses_completed from FALSE to TRUE without duplicating the row.",
+    "late_arriving": "Answer: Upsert on order_id handles late bundle_completed events by updating the existing row. No need to re-process all history.\n\nWhy: Late arrivals are rare (< 5% of orders). Upsert is cheaper than full-refresh and preserves closed-period immutability for orders older than 7 days.",
+    "edge_cases": "Answer: Orders placed but never shipped (shipped_ts IS NULL). Orders shipped but first_dose_taken never fires (patient canceled cycle).\n\nWhy: Null milestone timestamps are valid. The dashboard's time-to-first-dose median excludes rows where first_dose_ts IS NULL. The late shipment rate denominator includes all orders placed, so NULL shipped_ts rows count as 'never shipped' (excluded from numerator and denominator)."
+  },
+  "_meta": {
+    "category": "transformation_modeling",
+    "subtopic": "schema_design",
+    "kind": "kpi",
+    "scenario": "a fertility medication delivery program tracking time to first dose for IVF cycles",
+    "generated_at": "2026-05-06T19:44:12.890583",
+    "problem_id": "a62b9d127ee8",
+    "validation_attempts": 2,
+    "notebook": "nb02_fuze_interview_drills"
+  }
+}

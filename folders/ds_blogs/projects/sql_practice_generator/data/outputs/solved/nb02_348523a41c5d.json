@@ -1,0 +1,300 @@
+{
+  "problem": {
+    "title": "Claim Event Timing with Window Frame Edge Cases",
+    "prompt": "You are analyzing claim adjudication latency for FuzeRx's pharmacy API platform. The claim_events table logs every transaction the platform sends to PBMs (submitted, rejected, recycled, paid, reversed). Each event has a timestamp. Your task is to compute the time gap in minutes between consecutive events for each claim_id, ordered by event_ts. For the first event of each claim, the gap should be NULL. Output claim_id, event_type, event_ts, and minutes_since_prior_event. Order the final result by claim_id ASC, event_ts ASC. Write a query using a window function to compute the lag. Note: this problem tests your understanding of PARTITION BY (events are grouped by claim) and ORDER BY (chronological sequence). The answer must use LAG or a similar window function; a self-join or GROUP BY approach will not work because you need row-level gaps, not aggregates.",
+    "schema_ddl": "CREATE TABLE claim_events (event_id VARCHAR(10) PRIMARY KEY, claim_id VARCHAR(10) NOT NULL, event_type VARCHAR(20) NOT NULL, event_ts TIMESTAMP NOT NULL, paid_amount DECIMAL(10,2));",
+    "example_input_data": "INSERT INTO claim_events (event_id, claim_id, event_type, event_ts, paid_amount) VALUES ('E001', 'C001', 'submitted', '2025-01-15 08:00:00', NULL), ('E002', 'C001', 'paid', '2025-01-15 08:02:30', 125.00), ('E003', 'C002', 'submitted', '2025-01-15 08:05:00', NULL), ('E004', 'C002', 'rejected', '2025-01-15 08:05:15', NULL), ('E005', 'C002', 'recycled', '2025-01-15 08:10:00', NULL), ('E006', 'C002', 'paid', '2025-01-15 08:10:45', 89.50), ('E007', 'C003', 'submitted', '2025-01-15 08:15:00', NULL), ('E008', 'C003', 'paid', '2025-01-15 08:17:00', 200.00);",
+    "example_output_columns": [
+      "claim_id",
+      "event_type",
+      "event_ts",
+      "minutes_since_prior_event"
+    ],
+    "example_output_rows": [
+      [
+        "C001",
+        "submitted",
+        "2025-01-15 08:00:00",
+        null
+      ],
+      [
+        "C001",
+        "paid",
+        "2025-01-15 08:02:30",
+        "2.50"
+      ],
+      [
+        "C002",
+        "submitted",
+        "2025-01-15 08:05:00",
+        null
+      ],
+      [
+        "C002",
+        "rejected",
+        "2025-01-15 08:05:15",
+        "0.25"
+      ],
+      [
+        "C002",
+        "recycled",
+        "2025-01-15 08:10:00",
+        "4.75"
+      ],
+      [
+        "C002",
+        "paid",
+        "2025-01-15 08:10:45",
+        "0.75"
+      ],
+      [
+        "C003",
+        "submitted",
+        "2025-01-15 08:15:00",
+        null
+      ],
+      [
+        "C003",
+        "paid",
+        "2025-01-15 08:17:00",
+        "2.00"
+      ]
+    ],
+    "test_data": "INSERT INTO claim_events (event_id, claim_id, event_type, event_ts, paid_amount) VALUES ('T001', 'C101', 'submitted', '2025-01-20 09:00:00', NULL), ('T002', 'C101', 'paid', '2025-01-20 09:01:15', 150.00), ('T003', 'C101', 'reversed', '2025-01-20 09:05:00', -150.00), ('T004', 'C102', 'submitted', '2025-01-20 09:10:00', NULL), ('T005', 'C102', 'rejected', '2025-01-20 09:10:05', NULL), ('T006', 'C102', 'recycled', '2025-01-20 09:15:00', NULL), ('T007', 'C102', 'rejected', '2025-01-20 09:15:08', NULL), ('T008', 'C102', 'recycled', '2025-01-20 09:20:00', NULL), ('T009', 'C102', 'paid', '2025-01-20 09:20:30', 75.00), ('T010', 'C103', 'submitted', '2025-01-20 09:25:00', NULL), ('T011', 'C103', 'paid', '2025-01-20 09:26:00', 99.99), ('T012', 'C104', 'submitted', '2025-01-20 09:30:00', NULL), ('T013', 'C104', 'rejected', '2025-01-20 09:30:02', NULL), ('T014', 'C105', 'submitted', '2025-01-20 09:35:00', NULL), ('T015', 'C105', 'submitted', '2025-01-20 09:35:00', NULL), ('T016', 'C105', 'paid', '2025-01-20 09:36:30', 120.00), ('T017', 'C106', 'submitted', '2025-01-20 09:40:00', NULL), ('T018', 'C106', 'paid', '2025-01-20 09:42:45', 88.00), ('T019', 'C106', 'reversed', '2025-01-20 09:50:00', -88.00), ('T020', 'C106', 'recycled', '2025-01-20 09:55:00', NULL), ('T021', 'C106', 'paid', '2025-01-20 09:56:00', 88.00), ('T022', 'C107', 'submitted', '2025-01-20 10:00:00', NULL), ('T023', 'C108', 'submitted', '2025-01-20 10:05:00', NULL), ('T024', 'C108', 'rejected', '2025-01-20 10:05:30', NULL), ('T025', 'C108', 'recycled', '2025-01-20 10:10:00', NULL), ('T026', 'C108', 'rejected', '2025-01-20 10:10:15', NULL);",
+    "test_expected_columns": [
+      "claim_id",
+      "event_type",
+      "event_ts",
+      "minutes_since_prior_event"
+    ],
+    "test_expected_rows": [
+      [
+        "C101",
+        "submitted",
+        "2025-01-20 09:00:00",
+        null
+      ],
+      [
+        "C101",
+        "paid",
+        "2025-01-20 09:01:15",
+        "1.25"
+      ],
+      [
+        "C101",
+        "reversed",
+        "2025-01-20 09:05:00",
+        "3.75"
+      ],
+      [
+        "C102",
+        "submitted",
+        "2025-01-20 09:10:00",
+        null
+      ],
+      [
+        "C102",
+        "rejected",
+        "2025-01-20 09:10:05",
+        "0.08"
+      ],
+      [
+        "C102",
+        "recycled",
+        "2025-01-20 09:15:00",
+        "4.92"
+      ],
+      [
+        "C102",
+        "rejected",
+        "2025-01-20 09:15:08",
+        "0.13"
+      ],
+      [
+        "C102",
+        "recycled",
+        "2025-01-20 09:20:00",
+        "4.87"
+      ],
+      [
+        "C102",
+        "paid",
+        "2025-01-20 09:20:30",
+        "0.50"
+      ],
+      [
+        "C103",
+        "submitted",
+        "2025-01-20 09:25:00",
+        null
+      ],
+      [
+        "C103",
+        "paid",
+        "2025-01-20 09:26:00",
+        "1.00"
+      ],
+      [
+        "C104",
+        "submitted",
+        "2025-01-20 09:30:00",
+        null
+      ],
+      [
+        "C104",
+        "rejected",
+        "2025-01-20 09:30:02",
+        "0.03"
+      ],
+      [
+        "C105",
+        "submitted",
+        "2025-01-20 09:35:00",
+        null
+      ],
+      [
+        "C105",
+        "submitted",
+        "2025-01-20 09:35:00",
+        "0.00"
+      ],
+      [
+        "C105",
+        "paid",
+        "2025-01-20 09:36:30",
+        "1.50"
+      ],
+      [
+        "C106",
+        "submitted",
+        "2025-01-20 09:40:00",
+        null
+      ],
+      [
+        "C106",
+        "paid",
+        "2025-01-20 09:42:45",
+        "2.75"
+      ],
+      [
+        "C106",
+        "reversed",
+        "2025-01-20 09:50:00",
+        "7.25"
+      ],
+      [
+        "C106",
+        "recycled",
+        "2025-01-20 09:55:00",
+        "5.00"
+      ],
+      [
+        "C106",
+        "paid",
+        "2025-01-20 09:56:00",
+        "1.00"
+      ],
+      [
+        "C107",
+        "submitted",
+        "2025-01-20 10:00:00",
+        null
+      ],
+      [
+        "C108",
+        "submitted",
+        "2025-01-20 10:05:00",
+        null
+      ],
+      [
+        "C108",
+        "rejected",
+        "2025-01-20 10:05:30",
+        "0.50"
+      ],
+      [
+        "C108",
+        "recycled",
+        "2025-01-20 10:10:00",
+        "4.50"
+      ],
+      [
+        "C108",
+        "rejected",
+        "2025-01-20 10:10:15",
+        "0.25"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "partition by claim_id",
+        "order by event_ts",
+        "compute LAG(event_ts) window",
+        "compute timestamp difference in minutes",
+        "handle NULL for first event per partition"
+      ]
+    },
+    "hints": [
+      "You need to compare each event's timestamp to the previous event's timestamp within the same claim. Think about how to access the prior row's value.",
+      "Use LAG(event_ts) OVER (PARTITION BY claim_id ORDER BY event_ts) to get the previous event's timestamp for each claim. The first event of each claim will have LAG return NULL.",
+      "Convert the timestamp difference to minutes using EXTRACT(EPOCH FROM (event_ts - lag_ts))/60. Cast to DECIMAL to get fractional minutes with two decimal places."
+    ],
+    "answer_key": "SELECT claim_id, event_type, event_ts, ROUND(EXTRACT(EPOCH FROM (event_ts - LAG(event_ts) OVER (PARTITION BY claim_id ORDER BY event_ts))) / 60.0, 2) AS minutes_since_prior_event FROM claim_events ORDER BY claim_id ASC, event_ts ASC;",
+    "glossary": [
+      {
+        "term": "submitted (event)",
+        "definition": "The moment the pharmacy API platform first transmits a claim transaction to the PBM for adjudication (NCPDP B1 code)."
+      },
+      {
+        "term": "rejected (event)",
+        "definition": "The PBM's real-time response indicating the claim cannot be paid as submitted, returning a specific reject code like PA required or refill too soon."
+      },
+      {
+        "term": "recycled (event)",
+        "definition": "Resubmitting a previously rejected claim after fixing the issue, such as adding a prior authorization number or correcting patient eligibility data (NCPDP B3 code)."
+      },
+      {
+        "term": "paid (event)",
+        "definition": "The PBM approves the claim and commits to reimburse the pharmacy the adjudicated amount (ingredient cost plus dispensing fee minus patient copay)."
+      },
+      {
+        "term": "reversed (event)",
+        "definition": "The pharmacy cancels a previously paid claim, typically within 24 hours, returning the reimbursement to the PBM (NCPDP B2 code)."
+      },
+      {
+        "term": "LAG window function",
+        "definition": "A SQL window function that accesses the value from a prior row within the same partition and order, returning NULL for the first row in each partition."
+      },
+      {
+        "term": "PARTITION BY",
+        "definition": "A window function clause that divides the result set into independent groups, applying the window calculation separately within each group."
+      },
+      {
+        "term": "EXTRACT(EPOCH FROM interval)",
+        "definition": "A PostgreSQL function that converts a time interval into total seconds as a numeric value, useful for computing elapsed time in fractional minutes."
+      }
+    ],
+    "calculation_explanation": "1. For each row in claim_events, identify the immediately preceding event for the same claim_id by ordering events chronologically with event_ts.\n2. Use LAG(event_ts) with PARTITION BY claim_id and ORDER BY event_ts to retrieve the prior event's timestamp; the first event in each partition will get NULL.\n3. Compute the time difference between the current event_ts and the lagged timestamp by subtracting them, which yields a PostgreSQL interval.\n4. Convert the interval to total minutes by extracting epoch seconds and dividing by 60, then round to two decimal places.\n5. Output claim_id, event_type, event_ts, and the computed minutes_since_prior_event, ordered by claim_id and event_ts.",
+    "interpretation_example": "- Claim C001 shows a 2.5-minute gap between submitted and paid, which is excellent (well under the 2-second industry benchmark for adjudication response time suggests a typo in the benchmark or this measures end-to-end processing, not just adjudication API latency).\n- Claim C002 demonstrates a typical reject-recycle-paid sequence: rejected 15 seconds after submit, then recycled 4.75 minutes later (likely manual PA intervention), and paid 45 seconds after recycle.\n- The 0.25-minute gap for C002's rejected event indicates near-instant PBM adjudication response, consistent with real-time API performance.\n- Claim C003's 2-minute time to paid suggests a straightforward approval with no manual intervention, within expected processing time for a clean claim.\n- The NULL values for the first event of each claim correctly indicate there is no prior event to compare against, which is the expected behavior for LAG on partition boundaries.",
+    "recommendation_example": "- Trigger latency alerting (Engineering): instrument the platform to fire a Slack alert when minutes_since_prior_event for a 'paid' event after 'recycled' exceeds 10 minutes, indicating potential PA approval delays; benchmark is 5-8 minutes with PA team triage.\n- Segment time-to-paid metrics by event path (Product Analytics): separately track submitted\u2192paid (clean claims) vs submitted\u2192rejected\u2192recycled\u2192paid (PA workflow) to avoid skewed averages; clean claims should stay under 3 minutes, recycled claims 8-15 minutes.\n- Implement recycled-to-rejected monitoring (Pharmacy Ops): when a recycled event is followed by another rejected event within 1 minute (like C102 in test data), route to PA escalation team; this pattern suggests missing documentation or incorrect PA number.\n- Review reversal-to-recycle patterns (Finance): when a claim shows paid\u2192reversed\u2192recycled (like C106 in test data), investigate whether the original rejection reason was preventable; high reversal volume impacts cash flow and PBM relationships.\n- Monitor weekly: track P50 and P95 minutes_since_prior_event for submitted\u2192paid (target P50 < 2 min, P95 < 5 min) and rejected\u2192recycled\u2192paid (target P50 < 10 min, P95 < 30 min), segmented by payer to identify outliers.",
+    "_meta": {
+      "category": "pharmacy_sql",
+      "subtopic": "window_event_log",
+      "kind": "sql",
+      "question_type": "window_edge",
+      "dialect": "postgresql",
+      "scenario": "a Truepill style API platform tracking partner integration health and claim throughput",
+      "generated_at": "2026-05-03T22:49:15.331383",
+      "problem_id": "348523a41c5d",
+      "validation_attempts": 1,
+      "notebook": "nb02_fuze_interview_drills"
+    }
+  },
+  "user_solution": "/* notes */\nWITH base AS (\nSELECT\n    claim_id,\n    event_id,\n    event_type,\n    event_ts,\n    paid_amount,\n    LAG(event_ts) OVER (PARTITION BY claim_id ORDER BY event_ts) AS prev_event_ts\nFROM claim_events\n)\nSELECT\n    claim_id,\n    event_type,\n    event_ts,\n    ROUND(EXTRACT(EPOCH FROM (event_ts - prev_event_ts))/60, 2) AS minutes_since_prior_event\nFROM base;",
+  "grade_result": null,
+  "solved_at": "2026-05-04T08:39:24.067334",
+  "notebook": "nb02_fuze_interview_drills"
+}

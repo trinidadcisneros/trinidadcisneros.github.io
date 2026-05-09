@@ -1,0 +1,133 @@
+{
+  "title": "Appointment State Periods with Missing Days",
+  "prompt": "A telehealth platform tracks appointment activity in two tables: `scheduled_appointments` records days when at least one appointment was scheduled, and `cancelled_appointments` records days when at least one appointment was cancelled. Some days may have no record at all in either table. Your task is to collapse consecutive rows into periods, where 'consecutive' means consecutive in the union of both tables, ignoring any missing days. For example, if `scheduled_appointments` has rows for Jan 1, Jan 3, Jan 4 (with Jan 2 missing from both tables), those three dates form a single consecutive period because they are consecutive in the data sequence. Write a query that returns each period with columns `state` (either 'scheduled' or 'cancelled'), `start_date`, and `end_date`. Order the output by `start_date` ascending. The date range to analyze is January 1, 2024 through January 31, 2024.",
+  "schema_ddl": "CREATE TABLE scheduled_appointments (appointment_date DATE NOT NULL); CREATE TABLE cancelled_appointments (appointment_date DATE NOT NULL);",
+  "example_input_data": "INSERT INTO scheduled_appointments (appointment_date) VALUES ('2024-01-01'), ('2024-01-03'), ('2024-01-04'), ('2024-01-07'), ('2024-01-08'); INSERT INTO cancelled_appointments (appointment_date) VALUES ('2024-01-05'), ('2024-01-06'), ('2024-01-10'), ('2024-01-11'), ('2024-01-12');",
+  "example_output_columns": [
+    "state",
+    "start_date",
+    "end_date"
+  ],
+  "example_output_rows": [
+    [
+      "scheduled",
+      "2024-01-01",
+      "2024-01-04"
+    ],
+    [
+      "cancelled",
+      "2024-01-05",
+      "2024-01-06"
+    ],
+    [
+      "scheduled",
+      "2024-01-07",
+      "2024-01-08"
+    ],
+    [
+      "cancelled",
+      "2024-01-10",
+      "2024-01-12"
+    ]
+  ],
+  "test_data": "INSERT INTO scheduled_appointments (appointment_date) VALUES ('2024-01-01'), ('2024-01-02'), ('2024-01-04'), ('2024-01-05'), ('2024-01-06'), ('2024-01-09'), ('2024-01-11'), ('2024-01-15'), ('2024-01-16'), ('2024-01-17'), ('2024-01-20'), ('2024-01-22'), ('2024-01-23'), ('2024-01-24'), ('2024-01-28'), ('2024-01-30'); INSERT INTO cancelled_appointments (appointment_date) VALUES ('2024-01-07'), ('2024-01-08'), ('2024-01-12'), ('2024-01-13'), ('2024-01-14'), ('2024-01-18'), ('2024-01-19'), ('2024-01-25'), ('2024-01-26'), ('2024-01-27'), ('2024-01-29'), ('2024-01-31');",
+  "test_expected_columns": [
+    "state",
+    "start_date",
+    "end_date"
+  ],
+  "test_expected_rows": [
+    [
+      "scheduled",
+      "2024-01-01",
+      "2024-01-06"
+    ],
+    [
+      "cancelled",
+      "2024-01-07",
+      "2024-01-08"
+    ],
+    [
+      "scheduled",
+      "2024-01-09",
+      "2024-01-11"
+    ],
+    [
+      "cancelled",
+      "2024-01-12",
+      "2024-01-14"
+    ],
+    [
+      "scheduled",
+      "2024-01-15",
+      "2024-01-17"
+    ],
+    [
+      "cancelled",
+      "2024-01-18",
+      "2024-01-19"
+    ],
+    [
+      "scheduled",
+      "2024-01-20",
+      "2024-01-24"
+    ],
+    [
+      "cancelled",
+      "2024-01-25",
+      "2024-01-27"
+    ],
+    [
+      "scheduled",
+      "2024-01-28",
+      "2024-01-28"
+    ],
+    [
+      "cancelled",
+      "2024-01-29",
+      "2024-01-29"
+    ],
+    [
+      "scheduled",
+      "2024-01-30",
+      "2024-01-30"
+    ],
+    [
+      "cancelled",
+      "2024-01-31",
+      "2024-01-31"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "union",
+    "output_shape": "fewer_rows",
+    "recipe": "gaps-and-islands",
+    "composite_moves": [
+      "UNION ALL both source tables with state label",
+      "apply date-range filter in each UNION branch",
+      "assign ROW_NUMBER() OVER (ORDER BY date) as overall position",
+      "assign ROW_NUMBER() OVER (PARTITION BY state ORDER BY date) as per-state position",
+      "compute grp = overall_rn - state_rn",
+      "GROUP BY state, grp",
+      "aggregate MIN(date) as start_date, MAX(date) as end_date",
+      "ORDER BY start_date"
+    ]
+  },
+  "hints": [
+    "You need to combine both tables and label each row with its state before finding consecutive periods.",
+    "Consecutive means consecutive in the merged data sequence, not in calendar days. Use the difference between two row-number calculations (one overall, one partitioned by state) to identify islands.",
+    "The GROUP BY should include both the state and the grouping key derived from the row-number difference, then aggregate the dates to find the start and end of each period."
+  ],
+  "answer_key": "WITH combined AS (\n  SELECT appointment_date AS d, 'scheduled' AS state\n  FROM scheduled_appointments\n  WHERE appointment_date BETWEEN '2024-01-01' AND '2024-01-31'\n  UNION ALL\n  SELECT appointment_date AS d, 'cancelled' AS state\n  FROM cancelled_appointments\n  WHERE appointment_date BETWEEN '2024-01-01' AND '2024-01-31'\n),\nwith_rn AS (\n  SELECT\n    d,\n    state,\n    ROW_NUMBER() OVER (ORDER BY d) AS rn_overall,\n    ROW_NUMBER() OVER (PARTITION BY state ORDER BY d) AS rn_per_state\n  FROM combined\n),\nwith_grp AS (\n  SELECT\n    d,\n    state,\n    rn_overall - rn_per_state AS grp\n  FROM with_rn\n)\nSELECT\n  state,\n  MIN(d) AS start_date,\n  MAX(d) AS end_date\nFROM with_grp\nGROUP BY state, grp\nORDER BY start_date;",
+  "_meta": {
+    "question_type": "union_islands",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-07T08:27:50.385890",
+    "problem_id": "4501aca7a6e6",
+    "validation_attempts": 1,
+    "scenario": "a telehealth platform tracking appointment scheduling and no-shows",
+    "dml_op": null,
+    "islands_flavor": "date_sequence",
+    "percentile_flavor": null
+  }
+}

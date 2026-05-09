@@ -1,0 +1,131 @@
+{
+  "title": "Schema Design: B2B Partner Claim Throughput Fact",
+  "scenario": "A B2B pharmacy API platform tracks partner integration health. Raw events log claim submissions, adjudications, and reversals. The ops team wants a daily dashboard showing FPAR, reversal rate, and median time-to-payment by partner and drug class.",
+  "prompt": "STAKEHOLDER CONTEXT\n\nYou met with the partner ops team. The fact table you're designing will populate a daily dashboard. The dashboard needs:\n\n- First Pass Acceptance Rate (FPAR): count of claims paid on first submit divided by count of claims submitted, by partner\n- Reversal Rate: count of claims with a reversal event divided by count of paid claims, by drug class\n- Median Time-to-Payment: median difference between paid_ts and first_submit_ts in hours, by partner\n\nVOLUME AND UPDATE FREQUENCY\n\n- Daily source volume: ~50K claim events per day (submit/paid/rejected/reversed)\n- Dashboard freshness need: daily (refreshes overnight)\n- Total fact rows after 1 year: ~15M rows (one row per unique claim_id)\n\nWHAT YOU HAVE IN SOURCE\n\n- Source event table: claim_events at event grain (one row per state change). event_type values: submitted, paid, rejected, reversed.\n- dim_partner: partner_name, integration_tier, go_live_date\n- dim_drug: ndc, drug_class, brand_generic_flag\n- dim_payer: payer_name, plan_type\n- dim_prescriber: npi, specialty\n- dim_date: calendar attributes\n\nYOUR TASK\n\nDesign the FACT TABLE that the dashboard reads from. Dims are already built \u2014 you specify how to JOIN them and what SCD type each is. Use the response form in section 2 to record your design choices.",
+  "instructions": "Fill out each form field in section 2 (the schema design response form). Dropdowns are used where the answer set is finite (SCD types, idempotency strategies, late-arriving handling); text fields for grain, fact columns, and rationale. This is a STRUCTURED DESIGN PROPOSAL (200 to 400 words across the form fields), not a terse one-sentence answer. Click Get Schema Design Feedback to grade.",
+  "expected_themes": [
+    "grain: one row per claim_id",
+    "fact-dim split",
+    "SCD Type 2 for dim_partner (integration_tier changes)",
+    "surrogate key strategy",
+    "dbt staging vs marts",
+    "conformed dim_drug across facts",
+    "idempotency under paid-then-reversed",
+    "late-arriving reversal events",
+    "dbt tests: unique claim_id, relationships to dims",
+    "incremental materialization",
+    "gross vs net paid amount columns",
+    "final_status derived column"
+  ],
+  "reference_answer": "**Business Process**: A claim moving through submission \u2192 adjudication \u2192 payment or rejection \u2192 optional reversal.\n\n**Grain**: One row per claim_id (~15M rows after 1 year). Each claim appears once in the fact, regardless of how many events it generated.\n\n**Fact Columns**: claim_id (PK), partner_id, drug_id, payer_id, prescriber_id (FKs to dims), first_submit_ts, paid_ts, reversed_ts (lifecycle timestamps), gross_paid_amount, net_paid_amount (gross minus reversal), final_status (derived: paid/rejected/reversed).\n\n**Key Strategy**: Natural key claim_id is unique. Dims use surrogate keys (partner_sk, drug_sk) because dim_partner is Type 2.\n\n**Dim Joins**: dim_partner (Type 2 for integration_tier changes), dim_drug (Type 1, NDC is stable), dim_payer (Type 1), dim_prescriber (Type 1), dim_date (Type 0).\n\n**Conformed Dims**: dim_drug is conformed across this fact and the future adherence fact.\n\n**Models**: stg_claim_events (dedupe, type cleaning), int_claim_lifecycle (pivots event rows to one row per claim with first_submit_ts, paid_ts, reversed_ts), fct_claim (joins dims, adds net_paid_amount = gross - COALESCE(reversed_amount,0), final_status logic). Materialization: incremental on claim_id.\n\n**Tests**: unique(claim_id), not_null(partner_id, drug_id, first_submit_ts), relationships(partner_id to dim_partner), check net_paid_amount <= gross_paid_amount.\n\n**Idempotency**: Paid-then-reversed claims store both gross_paid_amount (original) and net_paid_amount (0 after reversal). Re-running the same event set produces the same fact row.\n\n**Late-Arriving**: If a reversal arrives after the daily batch, re-state the claim row (update reversed_ts, net_paid_amount, final_status). No historical snapshot needed for this ops dashboard.\n\n**Edge Cases**: Multi-submit (take earliest submit_ts), partial reversal (rare, treat as full reversal for simplicity), missing payer_id (join to a 'Unknown' surrogate row in dim_payer).",
+  "grading_rubric": [
+    {
+      "criterion": "Grain correctness",
+      "description": "States 'one row per claim_id' and explains why claim-level (not event-level) fits the dashboard's need to count unique claims. References the 15M row guidance.",
+      "weight": 20
+    },
+    {
+      "criterion": "Fact/dim split",
+      "description": "Assigns lifecycle timestamps (first_submit_ts, paid_ts, reversed_ts) and amounts to fact. Assigns partner_id, drug_id, payer_id, prescriber_id as FKs to dims. Identifies dim_partner as Type 2 due to integration_tier changes.",
+      "weight": 25
+    },
+    {
+      "criterion": "Idempotency under reversals",
+      "description": "Proposes separate gross_paid_amount and net_paid_amount columns. Explains that net = gross minus reversal, allowing reversal events to update the same claim row without double-counting.",
+      "weight": 20
+    },
+    {
+      "criterion": "dbt layer placement",
+      "description": "Proposes stg_ for event deduplication, int_ for pivoting events to claim grain, fct_ for dim joins and business rules (final_status). Does not put net_paid_amount logic in staging.",
+      "weight": 20
+    },
+    {
+      "criterion": "Tests and edge cases",
+      "description": "Names at least 2 dbt tests with specific columns (unique claim_id, relationships partner_id to dim_partner). Names at least one realistic edge case (late reversal, partial reversal, missing FK).",
+      "weight": 15
+    }
+  ],
+  "hints": [
+    "The dashboard asks for counts of claims. If the fact has multiple rows per claim, your counts will be inflated.",
+    "FPAR needs first_submit_ts and paid_ts. Reversal Rate needs reversed_ts. Each is a lifecycle milestone \u2014 store all three as columns.",
+    "If a claim is paid then reversed, how do you avoid counting it twice in 'total revenue'? Two amount columns (gross and net) solve this."
+  ],
+  "common_mistakes": [
+    "Leaving fact at event grain (multiple rows per claim_id), which inflates claim counts in the dashboard",
+    "Storing only one paid_amount column, making it impossible to separate gross revenue from net revenue after reversals",
+    "Marking all dims as Type 1, ignoring that dim_partner integration_tier changes over time and affects historical analysis",
+    "Putting final_status logic in stg_claim_events instead of in the mart model where business rules belong",
+    "Omitting dbt tests entirely, or naming tests without specifying which columns they apply to"
+  ],
+  "schema_ddl": "CREATE TABLE claim_events (\n  event_id BIGINT PRIMARY KEY,\n  claim_id VARCHAR NOT NULL,\n  event_type VARCHAR NOT NULL,\n  event_ts TIMESTAMP NOT NULL,\n  partner_id VARCHAR NOT NULL,\n  drug_id VARCHAR NOT NULL,\n  payer_id VARCHAR,\n  prescriber_id VARCHAR,\n  paid_amount DECIMAL(10,2),\n  reversed_amount DECIMAL(10,2)\n);",
+  "candidate_dimensions": [
+    {
+      "name": "dim_partner",
+      "key": "partner_id",
+      "description": "Partner demographics, integration tier, go-live date (Type 2 candidate for tier changes)"
+    },
+    {
+      "name": "dim_drug",
+      "key": "drug_id",
+      "description": "NDC, drug class, brand/generic flag (Type 1, stable)"
+    },
+    {
+      "name": "dim_payer",
+      "key": "payer_id",
+      "description": "Payer name, plan type (Type 1)"
+    },
+    {
+      "name": "dim_prescriber",
+      "key": "prescriber_id",
+      "description": "NPI, specialty (Type 1)"
+    },
+    {
+      "name": "dim_date",
+      "key": "date_id",
+      "description": "Calendar attributes for time-series rollups (Type 0)"
+    }
+  ],
+  "stakeholder_asks": [
+    "FPAR by partner: count of claims paid on first submit divided by count of claims submitted",
+    "Reversal Rate by drug class: count of claims with a reversal event divided by count of paid claims",
+    "Median Time-to-Payment by partner: median difference between paid_ts and first_submit_ts in hours"
+  ],
+  "field_hints": {
+    "business_process": "The business process is a claim moving from submission through adjudication to payment or rejection, with optional reversal. Every fact column should describe one claim's lifecycle.",
+    "grain": "The prompt says '~15M rows after 1 year (one row per unique claim_id)' \u2014 that sentence locks the grain. Dashboard metrics count unique claims, so event-level would inflate counts.",
+    "fact_columns": "You need first_submit_ts, paid_ts, reversed_ts (for time-to-payment and reversal detection), gross_paid_amount, net_paid_amount (for revenue under reversals), and FKs to the 5 dims.",
+    "key_strategy": "claim_id is a natural key and unique at the fact grain. Dims use surrogate keys (partner_sk) because dim_partner is Type 2 for integration tier changes.",
+    "dim_joins": "Dashboard filters by partner (FPAR ask), drug class (Reversal Rate ask), so you need dim_partner, dim_drug. dim_payer and dim_prescriber add context. dim_date for time rollups.",
+    "scd_per_dim": "dim_partner is Type 2 because integration_tier changes affect FPAR trends. dim_drug/payer/prescriber are Type 1 (NDC and NPI are stable). dim_date is Type 0.",
+    "conformed_dims": "dim_drug will be shared with the future adherence fact (adherence is per-drug), so mark it conformed to avoid duplicate drug hierarchies.",
+    "models": "stg_claim_events cleans event_type values. int_claim_lifecycle pivots event rows to one row per claim. fct_claim joins dims and adds net_paid_amount logic. Incremental on claim_id.",
+    "tests": "Test unique(claim_id) at fact grain, not_null on FK columns, relationships(partner_id to dim_partner). Test net_paid_amount <= gross_paid_amount to catch reversal logic bugs.",
+    "idempotency": "If a claim is paid ($100) then reversed, net_paid_amount = 0 but gross_paid_amount = 100. Storing both lets you report gross revenue and net revenue without re-processing history.",
+    "late_arriving": "If a reversal event arrives after the daily batch closed, re-state the claim row (update reversed_ts, net_paid_amount, final_status). Dashboard is daily-refresh, so no intraday correction needed.",
+    "edge_cases": "Multi-submit (take earliest submit_ts), partial reversal (rare in pharmacy \u2014 treat as full reversal), missing payer_id (join to 'Unknown' surrogate in dim_payer to avoid NULL FK)."
+  },
+  "worked_example_per_field": {
+    "business_process": "Answer: A claim moving through submission \u2192 adjudication \u2192 payment or rejection \u2192 optional reversal.\n\nWhy: The dashboard asks for FPAR (submit \u2192 paid first-pass), Reversal Rate (paid \u2192 reversed), and Median Time-to-Payment (submit \u2192 paid). Each metric tracks one lifecycle transition, so the fact table must capture all state changes for a single claim.",
+    "grain": "Answer: One row per claim_id (~15M rows after 1 year).\n\nWhy: The prompt says '~15M rows after 1 year (one row per unique claim_id)' \u2014 that locks the grain. Dashboard metrics count unique claims (e.g., 'count of claims paid'), so event-level (multiple rows per claim) would inflate counts. Claim-level is the lowest grain that avoids double-counting.",
+    "fact_columns": "Answer: claim_id (PK), partner_id, drug_id, payer_id, prescriber_id (FKs), first_submit_ts, paid_ts, reversed_ts (timestamps), gross_paid_amount, net_paid_amount (measures), final_status (derived: paid/rejected/reversed).\n\nWhy: FPAR needs first_submit_ts and paid_ts. Reversal Rate needs reversed_ts. Time-to-Payment = paid_ts - first_submit_ts. Gross vs net amounts handle reversals without double-counting revenue.",
+    "key_strategy": "Answer: Natural key claim_id (unique at fact grain). Dims use surrogate keys: partner_sk (Type 2 for integration_tier changes), drug_sk, payer_sk, prescriber_sk.\n\nWhy: claim_id is unique per claim, no surrogate needed at fact level. dim_partner is Type 2 (tier changes over time), so surrogate key partner_sk tracks versioning. Other dims are Type 1, but surrogate keys keep join logic consistent.",
+    "dim_joins": "Answer: dim_partner (for FPAR by partner), dim_drug (for Reversal Rate by drug class), dim_payer (context), dim_prescriber (context), dim_date (time rollups).\n\nWhy: Dashboard asks explicitly filter by partner (FPAR ask) and drug class (Reversal Rate ask). dim_date adds calendar context for weekly/monthly rollups. dim_payer and dim_prescriber are optional context dims (not in the 3 asks, but useful for drill-down).",
+    "scd_per_dim": "Answer: dim_partner Type 2 (integration_tier changes), dim_drug Type 1 (NDC stable), dim_payer Type 1, dim_prescriber Type 1 (NPI stable), dim_date Type 0.\n\nWhy: dim_partner integration_tier changes affect historical FPAR trends (partner moved from tier 1 to tier 2), so Type 2 preserves history. dim_drug NDC is stable (no reassignments in this scenario), so Type 1. dim_date is fixed calendar, Type 0.",
+    "conformed_dims": "Answer: dim_drug is conformed (shared with future adherence fact). dim_partner, dim_payer, dim_prescriber are conformed across all pharmacy facts.\n\nWhy: Adherence metrics slice by drug class (same drug_class column from dim_drug), so dim_drug must be conformed to avoid duplicate drug hierarchies. dim_partner is the anchor for all B2B analytics, so conformed across partner-facing facts.",
+    "models": "Answer: stg_claim_events (dedupe event_id, clean event_type), int_claim_lifecycle (pivots events to one row per claim: first_submit_ts, paid_ts, reversed_ts), fct_claim (joins dims, adds net_paid_amount = gross - COALESCE(reversed_amount,0), final_status). Materialization: incremental on claim_id.\n\nWhy: stg_ does cleanup only (no business rules). int_ handles the grain shift (event \u2192 claim) and extracts lifecycle timestamps. fct_ applies business rules (net amount, final_status) and joins dims. Incremental avoids full scans on 15M rows daily.",
+    "tests": "Answer: unique(claim_id), not_null(partner_id, drug_id, first_submit_ts), relationships(partner_id to dim_partner.partner_sk), check net_paid_amount <= gross_paid_amount.\n\nWhy: unique(claim_id) enforces grain. not_null on FKs prevents orphan joins. relationships catches broken FKs. The check constraint catches reversal logic bugs (net should never exceed gross).",
+    "idempotency": "Answer: Store both gross_paid_amount (original payment) and net_paid_amount (gross minus reversal). Re-running the same event set produces the same fact row.\n\nWhy: If a claim is paid $100 then reversed, net = $0 but gross = $100. Revenue reports use net (actual cash flow), volume reports use gross (original adjudication). Separate columns let both coexist without re-processing history.",
+    "late_arriving": "Answer: Re-state the claim row (update reversed_ts, net_paid_amount, final_status) if a reversal arrives after the daily batch. No historical snapshot needed.\n\nWhy: Dashboard refreshes daily overnight, so intraday corrections aren't needed. Late reversal updates the same claim_id row (idempotent). For this ops dashboard, point-in-time history isn't required; if it were, you'd snapshot the fact daily.",
+    "edge_cases": "Answer: Multi-submit (take earliest submit_ts as first_submit_ts), partial reversal (treat as full reversal for simplicity), missing payer_id (join to 'Unknown' surrogate in dim_payer to avoid NULL FK).\n\nWhy: Multi-submit is common (auto-recycling). FPAR definition is 'paid on FIRST submit', so earliest submit_ts is correct. Partial reversals are rare in pharmacy (all-or-nothing adjudication), so treating as full keeps logic simple. NULL payer_id breaks relationships test, so 'Unknown' dim row fixes it."
+  },
+  "_meta": {
+    "category": "transformation_modeling",
+    "subtopic": "schema_design",
+    "kind": "kpi",
+    "scenario": "a B2B pharmacy API platform tracking partner integration health and claim throughput",
+    "generated_at": "2026-05-06T17:22:57.341933",
+    "problem_id": "6f104e18a750",
+    "validation_attempts": 2,
+    "notebook": "nb02_fuze_interview_drills"
+  }
+}

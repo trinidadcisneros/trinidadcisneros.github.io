@@ -1,0 +1,105 @@
+{
+  "title": "Shipment Milestone Queue Processing",
+  "prompt": "You are building a shipment tracking system for a logistics company. The `shipments` table stores the current state of each shipment: its ID, current milestone status (0=pending pickup, 1=in transit, 2=out for delivery, 3=delivered), and the timestamp of its last status change. The `milestone_events` table is a chronological log of scan events, each with a unique event_id, a shipment_id foreign key, an event_type (1=pickup scan, 2=delivery scan, 3=return-to-sender scan), and the event_timestamp. Write a DO block that processes the events in chronological order (sorted by event_id ascending). For each event, read the shipment's current milestone status, then apply the following rules: (1) A pickup scan (type 1) advances status from 0\u21921 only if the current status is 0. (2) A delivery scan (type 2) advances status from 1\u21922 if current is 1, or from 2\u21923 if current is 2. (3) A return-to-sender scan (type 3) resets status to 0 only if the current status is exactly 1. Any event that does not match a rule based on the current state is ignored. Each successful state change must also UPDATE the last_change_ts to the event's timestamp. After processing all events, output the final shipment states with a trailing SELECT * FROM shipments ORDER BY shipment_id.",
+  "schema_ddl": "CREATE TABLE shipments (shipment_id INT PRIMARY KEY, milestone_status INT NOT NULL, last_change_ts TIMESTAMP NOT NULL); CREATE TABLE milestone_events (event_id INT PRIMARY KEY, shipment_id INT NOT NULL REFERENCES shipments(shipment_id), event_type INT NOT NULL, event_timestamp TIMESTAMP NOT NULL);",
+  "example_input_data": "INSERT INTO shipments (shipment_id, milestone_status, last_change_ts) VALUES (101, 0, '2024-01-10 08:00:00'), (102, 0, '2024-01-10 08:00:00'), (103, 1, '2024-01-10 09:00:00'); INSERT INTO milestone_events (event_id, shipment_id, event_type, event_timestamp) VALUES (1, 101, 1, '2024-01-10 10:00:00'), (2, 102, 1, '2024-01-10 10:30:00'), (3, 101, 2, '2024-01-10 12:00:00'), (4, 103, 3, '2024-01-10 13:00:00'), (5, 101, 2, '2024-01-10 14:00:00'), (6, 102, 2, '2024-01-10 15:00:00');",
+  "example_output_columns": [
+    "shipment_id",
+    "milestone_status",
+    "last_change_ts"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      3,
+      "2024-01-10 14:00:00"
+    ],
+    [
+      102,
+      2,
+      "2024-01-10 15:00:00"
+    ],
+    [
+      103,
+      0,
+      "2024-01-10 13:00:00"
+    ]
+  ],
+  "test_data": "INSERT INTO shipments (shipment_id, milestone_status, last_change_ts) VALUES (201, 0, '2024-02-01 06:00:00'), (202, 0, '2024-02-01 06:00:00'), (203, 1, '2024-02-01 07:00:00'), (204, 2, '2024-02-01 07:30:00'), (205, 0, '2024-02-01 06:00:00'), (206, 1, '2024-02-01 08:00:00'), (207, 0, '2024-02-01 06:00:00'), (208, 3, '2024-02-01 09:00:00'); INSERT INTO milestone_events (event_id, shipment_id, event_type, event_timestamp) VALUES (10, 201, 1, '2024-02-01 10:00:00'), (11, 202, 1, '2024-02-01 10:15:00'), (12, 203, 3, '2024-02-01 10:30:00'), (13, 204, 2, '2024-02-01 10:45:00'), (14, 201, 2, '2024-02-01 11:00:00'), (15, 205, 2, '2024-02-01 11:15:00'), (16, 201, 2, '2024-02-01 11:30:00'), (17, 202, 2, '2024-02-01 11:45:00'), (18, 206, 3, '2024-02-01 12:00:00'), (19, 207, 1, '2024-02-01 12:15:00'), (20, 207, 2, '2024-02-01 12:30:00'), (21, 203, 1, '2024-02-01 12:45:00'), (22, 202, 2, '2024-02-01 13:00:00'), (23, 206, 1, '2024-02-01 13:15:00'), (24, 201, 3, '2024-02-01 13:30:00'), (25, 204, 3, '2024-02-01 13:45:00'), (26, 208, 2, '2024-02-01 14:00:00'), (27, 207, 2, '2024-02-01 14:15:00');",
+  "test_expected_columns": [
+    "shipment_id",
+    "milestone_status",
+    "last_change_ts"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      3,
+      "2024-02-01 11:30:00"
+    ],
+    [
+      202,
+      3,
+      "2024-02-01 13:00:00"
+    ],
+    [
+      203,
+      1,
+      "2024-02-01 12:45:00"
+    ],
+    [
+      204,
+      3,
+      "2024-02-01 10:45:00"
+    ],
+    [
+      205,
+      0,
+      "2024-02-01 06:00:00"
+    ],
+    [
+      206,
+      1,
+      "2024-02-01 13:15:00"
+    ],
+    [
+      207,
+      3,
+      "2024-02-01 14:15:00"
+    ],
+    [
+      208,
+      3,
+      "2024-02-01 09:00:00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "procedural",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "declare record variable for milestone_events row",
+      "declare scalar variables for current milestone_status",
+      "FOR loop over milestone_events ordered by event_id",
+      "per-iteration SELECT INTO to read current shipment state",
+      "nested IF-ELSIF branches on event_type AND current milestone_status",
+      "conditional UPDATE shipments inside matching branches",
+      "trailing SELECT * FROM shipments ORDER BY shipment_id"
+    ]
+  },
+  "hints": [
+    "You need to iterate the milestone_events table in event_id order and apply rules conditionally based on each shipment's current state.",
+    "Use a FOR loop with a RECORD variable to process events sequentially. Inside the loop, read the shipment's current milestone_status with SELECT INTO before deciding which rule to apply.",
+    "Branch with IF-ELSIF on both the event_type and the current milestone_status. Update the shipment only when the combination matches one of the three rules: pickup (type 1) from status 0, delivery (type 2) from status 1 or 2, return-to-sender (type 3) from status 1."
+  ],
+  "answer_key": "DO $$\nDECLARE\n  rec RECORD;\n  cur_status INT;\nBEGIN\n  FOR rec IN SELECT * FROM milestone_events ORDER BY event_id LOOP\n    SELECT milestone_status INTO cur_status FROM shipments WHERE shipment_id = rec.shipment_id;\n    IF rec.event_type = 1 AND cur_status = 0 THEN\n      UPDATE shipments SET milestone_status = 1, last_change_ts = rec.event_timestamp WHERE shipment_id = rec.shipment_id;\n    ELSIF rec.event_type = 2 AND cur_status = 1 THEN\n      UPDATE shipments SET milestone_status = 2, last_change_ts = rec.event_timestamp WHERE shipment_id = rec.shipment_id;\n    ELSIF rec.event_type = 2 AND cur_status = 2 THEN\n      UPDATE shipments SET milestone_status = 3, last_change_ts = rec.event_timestamp WHERE shipment_id = rec.shipment_id;\n    ELSIF rec.event_type = 3 AND cur_status = 1 THEN\n      UPDATE shipments SET milestone_status = 0, last_change_ts = rec.event_timestamp WHERE shipment_id = rec.shipment_id;\n    END IF;\n  END LOOP;\nEND $$;\n\nSELECT * FROM shipments ORDER BY shipment_id;",
+  "_meta": {
+    "question_type": "do_block_queue",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-02T10:57:41.031519",
+    "problem_id": "704aec6f3337",
+    "validation_attempts": 1,
+    "scenario": "a logistics company tracking shipment milestones and on-time delivery",
+    "dml_op": null
+  }
+}

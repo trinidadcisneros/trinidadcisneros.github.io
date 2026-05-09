@@ -1,0 +1,54 @@
+{
+  "problem": {
+    "title": "Failed Job Retry Analysis Function",
+    "prompt": "You are building a monitoring dashboard for a workflow automation platform. Write a function named `get_retry_candidates` that accepts two parameters: `p_min_failures INTEGER` and `p_hours_lookback INTEGER`. The function should return jobs that have failed at least `p_min_failures` times in the last `p_hours_lookback` hours and are currently in 'failed' status. Your function signature must be: `CREATE OR REPLACE FUNCTION get_retry_candidates(p_min_failures INTEGER, p_hours_lookback INTEGER) RETURNS TABLE (job_id INTEGER, job_name VARCHAR(100), total_failures BIGINT, last_failed_at TIMESTAMP) AS $$ ... $$ LANGUAGE plpgsql;`. For each qualifying job, return its `job_id`, `job_name`, the count of failures in the lookback window as `total_failures`, and the timestamp of its most recent failure as `last_failed_at`. Order results by `total_failures` descending, then by `last_failed_at` descending. Test your function by calling: `SELECT * FROM get_retry_candidates(3, 24);`",
+    "schema_ddl": "CREATE TABLE jobs (job_id INTEGER PRIMARY KEY, job_name VARCHAR(100) NOT NULL, current_status VARCHAR(20) NOT NULL, created_at TIMESTAMP NOT NULL); CREATE TABLE job_runs (run_id INTEGER PRIMARY KEY, job_id INTEGER NOT NULL, run_status VARCHAR(20) NOT NULL, started_at TIMESTAMP NOT NULL, completed_at TIMESTAMP, FOREIGN KEY (job_id) REFERENCES jobs(job_id));",
+    "example_input_data": "INSERT INTO jobs (job_id, job_name, current_status, created_at) VALUES (1, 'data_sync_pipeline', 'failed', '2024-01-10 08:00:00'), (2, 'report_generator', 'running', '2024-01-10 09:00:00'), (3, 'backup_service', 'failed', '2024-01-10 10:00:00'), (4, 'email_dispatcher', 'failed', '2024-01-10 11:00:00'); INSERT INTO job_runs (run_id, job_id, run_status, started_at, completed_at) VALUES (101, 1, 'failed', '2024-01-15 14:00:00', '2024-01-15 14:05:00'), (102, 1, 'failed', '2024-01-15 16:00:00', '2024-01-15 16:03:00'), (103, 1, 'failed', '2024-01-15 18:00:00', '2024-01-15 18:02:00'), (104, 1, 'failed', '2024-01-15 20:00:00', '2024-01-15 20:01:00'), (105, 2, 'failed', '2024-01-15 15:00:00', '2024-01-15 15:10:00'), (106, 3, 'failed', '2024-01-15 17:00:00', '2024-01-15 17:05:00'), (107, 3, 'failed', '2024-01-15 19:00:00', '2024-01-15 19:03:00'), (108, 4, 'failed', '2024-01-15 21:00:00', '2024-01-15 21:02:00');",
+    "example_output_columns": [
+      "job_id",
+      "job_name",
+      "total_failures",
+      "last_failed_at"
+    ],
+    "example_output_rows": [],
+    "test_data": "INSERT INTO jobs (job_id, job_name, current_status, created_at) VALUES (1, 'data_sync_pipeline', 'failed', '2024-01-10 08:00:00'), (2, 'report_generator', 'running', '2024-01-10 09:00:00'), (3, 'backup_service', 'failed', '2024-01-10 10:00:00'), (4, 'email_dispatcher', 'failed', '2024-01-10 11:00:00'), (5, 'audit_logger', 'failed', '2024-01-10 12:00:00'), (6, 'cache_warmer', 'success', '2024-01-10 13:00:00'), (7, 'notification_worker', 'failed', '2024-01-10 14:00:00'), (8, 'analytics_aggregator', 'failed', '2024-01-10 15:00:00'); INSERT INTO job_runs (run_id, job_id, run_status, started_at, completed_at) VALUES (201, 1, 'failed', '2024-01-15 10:00:00', '2024-01-15 10:05:00'), (202, 1, 'failed', '2024-01-15 12:00:00', '2024-01-15 12:03:00'), (203, 1, 'failed', '2024-01-15 14:00:00', '2024-01-15 14:02:00'), (204, 1, 'failed', '2024-01-15 16:00:00', '2024-01-15 16:01:00'), (205, 1, 'failed', '2024-01-15 18:00:00', '2024-01-15 18:04:00'), (206, 1, 'success', '2024-01-14 08:00:00', '2024-01-14 08:10:00'), (207, 2, 'failed', '2024-01-15 11:00:00', '2024-01-15 11:05:00'), (208, 2, 'failed', '2024-01-15 13:00:00', '2024-01-15 13:03:00'), (209, 3, 'failed', '2024-01-15 09:00:00', '2024-01-15 09:05:00'), (210, 3, 'failed', '2024-01-15 11:30:00', '2024-01-15 11:35:00'), (211, 3, 'failed', '2024-01-15 15:00:00', '2024-01-15 15:02:00'), (212, 3, 'failed', '2024-01-15 17:00:00', '2024-01-15 17:03:00'), (213, 4, 'failed', '2024-01-15 10:30:00', '2024-01-15 10:35:00'), (214, 4, 'failed', '2024-01-15 12:30:00', '2024-01-15 12:33:00'), (215, 5, 'failed', '2024-01-15 08:00:00', '2024-01-15 08:05:00'), (216, 5, 'failed', '2024-01-15 10:00:00', '2024-01-15 10:03:00'), (217, 5, 'failed', '2024-01-15 12:00:00', '2024-01-15 12:02:00'), (218, 5, 'failed', '2024-01-15 14:00:00', '2024-01-15 14:01:00'), (219, 5, 'failed', '2024-01-15 16:00:00', '2024-01-15 16:04:00'), (220, 5, 'failed', '2024-01-15 18:00:00', '2024-01-15 18:02:00'), (221, 6, 'failed', '2024-01-15 09:00:00', '2024-01-15 09:05:00'), (222, 6, 'failed', '2024-01-15 11:00:00', '2024-01-15 11:03:00'), (223, 7, 'failed', '2024-01-15 13:00:00', '2024-01-15 13:05:00'), (224, 7, 'failed', '2024-01-15 15:00:00', '2024-01-15 15:03:00'), (225, 7, 'failed', '2024-01-15 17:00:00', '2024-01-15 17:02:00'), (226, 8, 'failed', '2024-01-15 14:00:00', '2024-01-15 14:05:00'), (227, 8, 'failed', '2024-01-15 16:00:00', '2024-01-15 16:03:00'), (228, 8, 'failed', '2024-01-15 18:00:00', '2024-01-15 18:02:00'), (229, 8, 'failed', '2024-01-15 20:00:00', '2024-01-15 20:01:00');",
+    "test_expected_columns": [
+      "job_id",
+      "job_name",
+      "total_failures",
+      "last_failed_at"
+    ],
+    "test_expected_rows": [],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "function-wrapped",
+      "composite_moves": [
+        "join jobs and job_runs on job_id",
+        "row-filter: current_status = 'failed' AND run_status = 'failed' AND completed_at within lookback window",
+        "group-aggregate: group by job_id, job_name, aggregate COUNT and MAX(completed_at)",
+        "row-filter: COUNT >= p_min_failures",
+        "rank-partition: order by total_failures DESC, last_failed_at DESC"
+      ]
+    },
+    "hints": [
+      "You need to join the jobs table with job_runs, then filter for jobs with 'failed' status and count their failed runs within the time window.",
+      "Use a WHERE clause with NOW() - INTERVAL to filter runs in the lookback period, and GROUP BY to count failures per job. Remember to filter by current_status = 'failed' as well.",
+      "The complete solution: JOIN jobs j with job_runs jr on job_id, WHERE j.current_status = 'failed' AND jr.run_status = 'failed' AND jr.completed_at >= NOW() - INTERVAL '1 hour' * p_hours_lookback, GROUP BY j.job_id, j.job_name, HAVING COUNT(*) >= p_min_failures, ORDER BY COUNT(*) DESC, MAX(jr.completed_at) DESC."
+    ],
+    "answer_key": "CREATE OR REPLACE FUNCTION get_retry_candidates(p_min_failures INTEGER, p_hours_lookback INTEGER)\nRETURNS TABLE (job_id INTEGER, job_name VARCHAR(100), total_failures BIGINT, last_failed_at TIMESTAMP)\nAS $$\nBEGIN\n  RETURN QUERY (\n    SELECT\n      j.job_id,\n      j.job_name,\n      COUNT(*)::BIGINT AS total_failures,\n      MAX(jr.completed_at) AS last_failed_at\n    FROM jobs j\n    INNER JOIN job_runs jr ON j.job_id = jr.job_id\n    WHERE j.current_status = 'failed'\n      AND jr.run_status = 'failed'\n      AND jr.completed_at >= NOW() - INTERVAL '1 hour' * p_hours_lookback\n    GROUP BY j.job_id, j.job_name\n    HAVING COUNT(*) >= p_min_failures\n    ORDER BY total_failures DESC, last_failed_at DESC\n  );\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT * FROM get_retry_candidates(3, 24);",
+    "_meta": {
+      "question_type": "returns_table",
+      "dialect": "postgresql",
+      "generated_at": "2026-05-07T09:49:27.544917",
+      "problem_id": "8c22ac6e831a",
+      "validation_attempts": 1,
+      "scenario": "a workflow automation tool tracking job runs, retries, and failures",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "CREATE OR REPLACE FUNCTION get_retry_candidates(p_min_failures INTEGER, p_hours_lookback INTEGER)\nRETURNS TABLE (job_id INTEGER, job_name VARCHAR(100), total_failures BIGINT, last_failed_at TIMESTAMP) AS $$\nBEGIN\nRETURN QUERY (\n    WITH base AS (\n        SELECT \n            j.job_id,\n            j.job_name,\n            r.run_status,\n            r.completed_at\n        FROM jobs AS j\n        JOIN job_runs AS r\n        USING(job_id)\n        WHERE r.run_status = 'failed'\n  AND r.completed_at >= CURRENT_TIMESTAMP - (p_hours_lookback || ' hours')::INTERVAL\n      )\n     SELECT\n        b.job_id,\n        b.job_name,\n        COUNT(*) AS total_failures,\n        MAX(b.completed_at) AS last_failed_at\n     FROM base AS b\n     GROUP BY 1, 2\n    );\n\nEND;\n$$ LANGUAGE PLPGSQL;\n\n\nSELECT * FROM get_retry_candidates(3, 24);",
+  "solved_at": "2026-05-07T10:06:33.214509"
+}

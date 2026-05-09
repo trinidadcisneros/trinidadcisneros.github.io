@@ -1,0 +1,51 @@
+{
+  "title": "Calculate Trial Enrollment Success Rate",
+  "prompt": "Write a PostgreSQL function named `calculate_enrollment_rate` that accepts two parameters: `trial_id` (INT) and `target_date` (DATE). The function should return a NUMERIC value representing the enrollment success rate as a percentage (rounded to 2 decimal places) for the specified trial on or before the target date. The enrollment success rate is calculated as: `(enrolled_count / screened_count) * 100`, where `enrolled_count` is the number of participants with `enrollment_status = 'enrolled'` and `screened_count` is the total number of participants screened (any `enrollment_status`). If no participants were screened by the target date, return `0.00`. Only include participants whose `screening_date` is on or before the `target_date`. Test your function by calling: `SELECT calculate_enrollment_rate(101, '2024-01-15') AS result;`",
+  "schema_ddl": "CREATE TABLE trial_participants (participant_id INT PRIMARY KEY, trial_id INT NOT NULL, screening_date DATE NOT NULL, enrollment_status VARCHAR(20) NOT NULL, enrollment_date DATE);",
+  "example_input_data": "INSERT INTO trial_participants (participant_id, trial_id, screening_date, enrollment_status, enrollment_date) VALUES (1, 101, '2024-01-05', 'enrolled', '2024-01-06'), (2, 101, '2024-01-07', 'enrolled', '2024-01-08'), (3, 101, '2024-01-10', 'screening_failed', NULL), (4, 101, '2024-01-12', 'enrolled', '2024-01-13'), (5, 101, '2024-01-20', 'enrolled', '2024-01-21'), (6, 102, '2024-01-08', 'enrolled', '2024-01-09'), (7, 101, '2024-01-14', 'withdrew', NULL), (8, 101, '2024-01-15', 'screening_failed', NULL);",
+  "example_output_columns": [
+    "result"
+  ],
+  "example_output_rows": [
+    [
+      "50.00"
+    ]
+  ],
+  "test_data": "INSERT INTO trial_participants (participant_id, trial_id, screening_date, enrollment_status, enrollment_date) VALUES (101, 201, '2024-02-01', 'enrolled', '2024-02-02'), (102, 201, '2024-02-03', 'enrolled', '2024-02-04'), (103, 201, '2024-02-05', 'screening_failed', NULL), (104, 201, '2024-02-07', 'withdrew', NULL), (105, 201, '2024-02-08', 'enrolled', '2024-02-09'), (106, 201, '2024-02-10', 'enrolled', '2024-02-11'), (107, 201, '2024-02-12', 'screening_failed', NULL), (108, 201, '2024-02-14', 'enrolled', '2024-02-15'), (109, 201, '2024-02-16', 'withdrew', NULL), (110, 201, '2024-02-18', 'enrolled', '2024-02-19'), (111, 201, '2024-02-20', 'screening_failed', NULL), (112, 201, '2024-02-22', 'enrolled', '2024-02-23'), (113, 201, '2024-02-25', 'enrolled', '2024-02-26'), (114, 202, '2024-02-10', 'enrolled', '2024-02-11'), (115, 201, '2024-02-28', 'withdrew', NULL), (116, 201, '2024-03-01', 'enrolled', '2024-03-02'), (117, 201, '2024-03-03', 'screening_failed', NULL), (118, 201, '2024-03-05', 'enrolled', '2024-03-06'), (119, 201, '2024-03-07', 'enrolled', '2024-03-08'), (120, 201, '2024-03-10', 'withdrew', NULL), (121, 203, '2024-02-15', 'enrolled', '2024-02-16'), (122, 201, '2024-03-12', 'enrolled', '2024-03-13'), (123, 201, '2024-03-15', 'screening_failed', NULL), (124, 201, '2024-03-18', 'enrolled', '2024-03-19'), (125, 201, '2024-03-20', 'enrolled', '2024-03-21');",
+  "test_expected_columns": [
+    "result"
+  ],
+  "test_expected_rows": [
+    [
+      "0.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "scalar_return",
+    "recipe": "function-wrapped",
+    "composite_moves": [
+      "row-filter by trial_id and screening_date <= target_date",
+      "group-aggregate COUNT with CASE for enrolled vs total",
+      "scalar-extract percentage calculation",
+      "function-wrapped with parameters"
+    ]
+  },
+  "hints": [
+    "Filter participants by the trial_id parameter and screening_date on or before the target_date parameter.",
+    "Use COUNT with CASE WHEN to separately count participants with enrollment_status = 'enrolled' and all screened participants.",
+    "Calculate the percentage as (enrolled_count::NUMERIC / screened_count) * 100, handling the zero-screened case explicitly, and use ROUND(..., 2) for two decimal places."
+  ],
+  "answer_key": "CREATE OR REPLACE FUNCTION calculate_enrollment_rate(trial_id INT, target_date DATE)\nRETURNS NUMERIC AS $$\nDECLARE\n  screened_count INT;\n  enrolled_count INT;\n  rate NUMERIC;\nBEGIN\n  SELECT \n    COUNT(*),\n    COUNT(CASE WHEN enrollment_status = 'enrolled' THEN 1 END)\n  INTO screened_count, enrolled_count\n  FROM trial_participants\n  WHERE trial_participants.trial_id = calculate_enrollment_rate.trial_id\n    AND screening_date <= target_date;\n  \n  IF screened_count = 0 THEN\n    RETURN 0.00;\n  END IF;\n  \n  rate := ROUND((enrolled_count::NUMERIC / screened_count) * 100, 2);\n  RETURN rate;\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT calculate_enrollment_rate(101, '2024-01-15') AS result;",
+  "_meta": {
+    "question_type": "returns_scalar",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-07T10:07:29.575898",
+    "problem_id": "852580691c23",
+    "validation_attempts": 1,
+    "scenario": "a clinical research platform tracking trial enrollment and adverse events",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

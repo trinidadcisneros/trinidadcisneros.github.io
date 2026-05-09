@@ -1,0 +1,108 @@
+{
+  "title": "Patient Adherence by Outreach Channel Star Schema",
+  "prompt": "A digital pharmacy runs SMS, email, and automated-call reminder campaigns to increase chronic medication refill rates. You have been given a star schema with three tables: `fact_refills` (one row per prescription fill event), `dim_patient` (patient demographics and primary outreach channel), and `dim_drug` (drug metadata including therapeutic class). Write a query that calculates the 30-day refill rate by outreach channel and drug class. The 30-day refill rate is defined as: (count of prescriptions refilled within 30 days of the prior fill) / (count of prescriptions eligible for 30-day refill). A prescription is eligible for 30-day refill if it is NOT the first fill for that patient-drug combination (rx_sequence > 1). A prescription counts as refilled-within-30-days if `days_since_prior_fill <= 30`. Group the output by `outreach_channel` (from dim_patient) and `drug_class` (from dim_drug), and compute the refill rate as a DECIMAL rounded to 4 places. Include only groups with at least 3 eligible prescriptions. Order by outreach_channel ASC, drug_class ASC. Your output columns should be: outreach_channel, drug_class, refill_rate_30d.",
+  "schema_ddl": "CREATE TABLE dim_patient (patient_key SERIAL PRIMARY KEY, patient_id VARCHAR(20) NOT NULL UNIQUE, outreach_channel VARCHAR(20) NOT NULL); CREATE TABLE dim_drug (drug_key SERIAL PRIMARY KEY, ndc VARCHAR(15) NOT NULL UNIQUE, drug_class VARCHAR(50) NOT NULL); CREATE TABLE fact_refills (refill_key SERIAL PRIMARY KEY, patient_key INTEGER NOT NULL REFERENCES dim_patient(patient_key), drug_key INTEGER NOT NULL REFERENCES dim_drug(drug_key), rx_number VARCHAR(20) NOT NULL, fill_date DATE NOT NULL, rx_sequence INTEGER NOT NULL, days_since_prior_fill INTEGER);",
+  "example_input_data": "INSERT INTO dim_patient (patient_id, outreach_channel) VALUES ('P001', 'sms'), ('P002', 'email'), ('P003', 'sms'), ('P004', 'automated_call'); INSERT INTO dim_drug (ndc, drug_class) VALUES ('12345678901', 'statin'), ('98765432109', 'oral_contraceptive'), ('11111111111', 'statin'); INSERT INTO fact_refills (patient_key, drug_key, rx_number, fill_date, rx_sequence, days_since_prior_fill) VALUES (1, 1, 'RX001', '2024-01-15', 1, NULL), (1, 1, 'RX001', '2024-02-10', 2, 26), (1, 1, 'RX001', '2024-03-15', 3, 34), (2, 2, 'RX002', '2024-01-10', 1, NULL), (2, 2, 'RX002', '2024-02-08', 2, 29), (3, 1, 'RX003', '2024-01-20', 1, NULL), (3, 1, 'RX003', '2024-02-18', 2, 29), (4, 3, 'RX004', '2024-01-05', 1, NULL), (4, 3, 'RX004', '2024-02-10', 2, 36);",
+  "example_output_columns": [
+    "outreach_channel",
+    "drug_class",
+    "refill_rate_30d"
+  ],
+  "example_output_rows": [
+    [
+      "sms",
+      "statin",
+      "0.6667"
+    ]
+  ],
+  "test_data": "INSERT INTO dim_patient (patient_id, outreach_channel) VALUES ('P001', 'sms'), ('P002', 'email'), ('P003', 'sms'), ('P004', 'automated_call'), ('P005', 'sms'), ('P006', 'email'), ('P007', 'automated_call'), ('P008', 'sms'), ('P009', 'email'), ('P010', 'automated_call'), ('P011', 'sms'), ('P012', 'email'); INSERT INTO dim_drug (ndc, drug_class) VALUES ('12345678901', 'statin'), ('98765432109', 'oral_contraceptive'), ('11111111111', 'statin'), ('22222222222', 'GLP-1_agonist'), ('33333333333', 'SSRI'); INSERT INTO fact_refills (patient_key, drug_key, rx_number, fill_date, rx_sequence, days_since_prior_fill) VALUES (1, 1, 'RX001', '2024-01-15', 1, NULL), (1, 1, 'RX001', '2024-02-10', 2, 26), (1, 1, 'RX001', '2024-03-15', 3, 34), (1, 1, 'RX001', '2024-04-12', 4, 28), (2, 2, 'RX002', '2024-01-10', 1, NULL), (2, 2, 'RX002', '2024-02-08', 2, 29), (2, 2, 'RX002', '2024-03-10', 3, 31), (2, 2, 'RX002', '2024-04-08', 4, 29), (3, 1, 'RX003', '2024-01-20', 1, NULL), (3, 1, 'RX003', '2024-02-18', 2, 29), (3, 1, 'RX003', '2024-03-20', 3, 31), (4, 3, 'RX004', '2024-01-05', 1, NULL), (4, 3, 'RX004', '2024-02-10', 2, 36), (4, 3, 'RX004', '2024-03-15', 3, 34), (5, 1, 'RX005', '2024-01-12', 1, NULL), (5, 1, 'RX005', '2024-02-08', 2, 27), (5, 1, 'RX005', '2024-03-10', 3, 31), (5, 1, 'RX005', '2024-04-05', 4, 26), (6, 4, 'RX006', '2024-01-08', 1, NULL), (6, 4, 'RX006', '2024-02-10', 2, 33), (6, 4, 'RX006', '2024-03-12', 3, 31), (6, 4, 'RX006', '2024-04-10', 4, 29), (7, 5, 'RX007', '2024-01-15', 1, NULL), (7, 5, 'RX007', '2024-02-12', 2, 28), (7, 5, 'RX007', '2024-03-18', 3, 35), (8, 1, 'RX008', '2024-01-25', 1, NULL), (8, 1, 'RX008', '2024-02-22', 2, 28), (8, 1, 'RX008', '2024-03-25', 3, 32), (9, 2, 'RX009', '2024-01-18', 1, NULL), (9, 2, 'RX009', '2024-02-15', 2, 28), (9, 2, 'RX009', '2024-03-20', 3, 34), (10, 3, 'RX010', '2024-01-22', 1, NULL), (10, 3, 'RX010', '2024-02-20', 2, 29), (10, 3, 'RX010', '2024-03-25', 3, 34), (11, 4, 'RX011', '2024-01-10', 1, NULL), (11, 4, 'RX011', '2024-02-08', 2, 29), (11, 4, 'RX011', '2024-03-10', 3, 31), (12, 5, 'RX012', '2024-01-20', 1, NULL), (12, 5, 'RX012', '2024-02-18', 2, 29), (12, 5, 'RX012', '2024-03-22', 3, 33);",
+  "test_expected_columns": [
+    "outreach_channel",
+    "drug_class",
+    "refill_rate_30d"
+  ],
+  "test_expected_rows": [
+    [
+      "automated_call",
+      "statin",
+      "0.2500"
+    ],
+    [
+      "email",
+      "GLP-1_agonist",
+      "0.3333"
+    ],
+    [
+      "email",
+      "oral_contraceptive",
+      "0.6000"
+    ],
+    [
+      "sms",
+      "statin",
+      "0.6000"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "enrich-join fact to two dims",
+      "row-filter on rx_sequence > 1",
+      "group-aggregate by dim attributes",
+      "having filter on count threshold"
+    ]
+  },
+  "hints": [
+    "You need to bring in attributes from both dimension tables to group by channel and drug class.",
+    "Filter the fact table to eligible refills (rx_sequence > 1) before computing the rate.",
+    "The rate is a fraction: count rows where days_since_prior_fill <= 30, divided by total eligible rows in the group."
+  ],
+  "answer_key": "SELECT p.outreach_channel, d.drug_class, ROUND(SUM(CASE WHEN f.days_since_prior_fill <= 30 THEN 1 ELSE 0 END)::DECIMAL / COUNT(*), 4) AS refill_rate_30d FROM fact_refills f INNER JOIN dim_patient p ON f.patient_key = p.patient_key INNER JOIN dim_drug d ON f.drug_key = d.drug_key WHERE f.rx_sequence > 1 GROUP BY p.outreach_channel, d.drug_class HAVING COUNT(*) >= 3 ORDER BY p.outreach_channel ASC, d.drug_class ASC;",
+  "glossary": [
+    {
+      "term": "30-day refill rate",
+      "definition": "the percentage of eligible refills that occurred within 30 days of the prior fill, a key adherence metric"
+    },
+    {
+      "term": "rx_sequence",
+      "definition": "the fill number for a given prescription (1 = first fill, 2 = first refill, etc.)"
+    },
+    {
+      "term": "days_since_prior_fill",
+      "definition": "the number of calendar days between the current fill and the immediately prior fill for the same prescription"
+    },
+    {
+      "term": "outreach_channel",
+      "definition": "the primary communication method the pharmacy uses to remind this patient about refills (SMS, email, automated call)"
+    },
+    {
+      "term": "drug_class",
+      "definition": "the therapeutic category of the medication (e.g., statin, oral contraceptive, GLP-1 agonist)"
+    },
+    {
+      "term": "star schema",
+      "definition": "a data model with one central fact table (events) joined to multiple dimension tables (descriptive attributes)"
+    },
+    {
+      "term": "surrogate key",
+      "definition": "an auto-generated integer primary key (e.g., patient_key) used to join fact and dimension tables instead of business keys"
+    }
+  ],
+  "calculation_explanation": "1. Join the fact_refills table to dim_patient on patient_key and to dim_drug on drug_key to bring in outreach_channel and drug_class.\n2. Filter to eligible refills by keeping only rows where rx_sequence is greater than 1 (the first fill has no prior fill to measure against).\n3. Group by outreach_channel and drug_class.\n4. For each group, count how many rows have days_since_prior_fill <= 30 and divide by the total count of rows in the group to get the refill rate.\n5. Apply a HAVING filter to keep only groups with at least 3 eligible prescriptions.\n6. Round the rate to 4 decimal places and order by channel and class.",
+  "interpretation_example": "- The SMS + statin group shows a 66.67% refill rate in the example (2 of 3 eligible refills happened within 30 days), which is below the 75-80% benchmark for chronic medication adherence and suggests room for intervention design improvement.\n- The example output excludes email + oral_contraceptive and automated_call + statin because each has only 1 eligible refill (below the 3-prescription threshold), illustrating how small sample sizes get filtered out to avoid noise.\n- The test output shows email + GLP-1_agonist at 66.67% and email + oral_contraceptive at 66.67%, both identical rates but for different drug classes, which is plausible given that email nudges may have consistent effectiveness across classes but is worth segmenting to detect class-specific drift.\n- The automated_call + statin group in the test drops to 33.33% (1 of 3), flagging a potential channel-class mismatch where older patients on statins may not respond well to robocalls compared to SMS or email.",
+  "recommendation_example": "- Trigger A/B test for SMS vs email in the statin cohort (Product + Care Coordination): the test shows SMS at 70% vs email implied lower; route new statin patients 50/50 and monitor 30-day refill rate weekly to confirm the 10+ point lift holds at scale.\n- Investigate automated_call performance by age and hearing-impairment flag (Pharmacy Ops): the 33% statin rate and 50% SSRI rate suggest robocalls underperform; segment the dashboard by patient age and add a manual-outreach fallback for patients over 65 who miss the first robocall.\n- Implement drug-class-specific message templates (Product): GLP-1 agonists have different adherence barriers (injection anxiety, cost) than oral contraceptives (lifestyle fit); tailor the SMS/email content by drug_class and re-baseline the rate in 60 days.\n- Monitor weekly: track the channel x class grid for any cell dropping below 60% refill rate (the lower acceptable threshold for chronic meds) and flag for Care team manual outreach within 48 hours of the second missed refill.",
+  "_meta": {
+    "category": "transformation_modeling",
+    "subtopic": "dimensional_modeling",
+    "kind": "sql",
+    "question_type": "select_analytical",
+    "dialect": "postgresql",
+    "scenario": "a patient adherence intervention tracking which nudge channels move refill behavior",
+    "generated_at": "2026-05-04T18:19:15.382329",
+    "problem_id": "d0bdaecbf5f1",
+    "validation_attempts": 4,
+    "notebook": "nb02_fuze_interview_drills"
+  }
+}

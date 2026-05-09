@@ -1,0 +1,216 @@
+{
+  "problem": {
+    "title": "Join Claims to Time-Bound Formulary Coverage",
+    "prompt": "A digital pharmacy adjudicates claims against a payer formulary that changes over time. The `dim_formulary` table tracks which NDCs each payer covers, with effective date ranges stored in a Slowly Changing Dimension Type 2 structure (valid_from, valid_to, is_current). The `claims` table records prescription claims submitted on a given date. Write a query that joins each claim to the formulary record that was active on the claim's submit_date. A formulary record is active on date D if `valid_from <= D` AND (`valid_to IS NULL` OR `valid_to > D`). Return claim_id, payer_id, ndc, submit_date, and whether the drug was covered (is_covered) on that date. Order results by claim_id ascending. Note: some claims may land on the boundary date when formulary coverage changed\u2014use inclusive date logic for valid_from and exclusive logic for valid_to.",
+    "schema_ddl": "CREATE TABLE claims (claim_id VARCHAR(10) PRIMARY KEY, payer_id VARCHAR(10) NOT NULL, ndc VARCHAR(11) NOT NULL, submit_date DATE NOT NULL); CREATE TABLE dim_formulary (formulary_id VARCHAR(10) PRIMARY KEY, payer_id VARCHAR(10) NOT NULL, ndc VARCHAR(11) NOT NULL, is_covered BOOLEAN NOT NULL, valid_from DATE NOT NULL, valid_to DATE, is_current BOOLEAN NOT NULL);",
+    "example_input_data": "INSERT INTO claims (claim_id, payer_id, ndc, submit_date) VALUES ('C001', 'P100', '12345678901', '2024-01-15'), ('C002', 'P100', '12345678901', '2024-02-01'), ('C003', 'P100', '98765432109', '2024-01-20'), ('C004', 'P200', '98765432109', '2024-01-20'), ('C005', 'P200', '11111111111', '2024-03-01'); INSERT INTO dim_formulary (formulary_id, payer_id, ndc, is_covered, valid_from, valid_to, is_current) VALUES ('F001', 'P100', '12345678901', true, '2024-01-01', '2024-02-01', false), ('F002', 'P100', '12345678901', false, '2024-02-01', NULL, true), ('F003', 'P100', '98765432109', false, '2024-01-01', NULL, true), ('F004', 'P200', '98765432109', true, '2024-01-01', '2024-02-15', false), ('F005', 'P200', '98765432109', false, '2024-02-15', NULL, true), ('F006', 'P200', '11111111111', true, '2024-01-01', NULL, true);",
+    "example_output_columns": [
+      "claim_id",
+      "payer_id",
+      "ndc",
+      "submit_date",
+      "is_covered"
+    ],
+    "example_output_rows": [
+      [
+        "C001",
+        "P100",
+        "12345678901",
+        "2024-01-15",
+        true
+      ],
+      [
+        "C002",
+        "P100",
+        "12345678901",
+        "2024-02-01",
+        false
+      ],
+      [
+        "C003",
+        "P100",
+        "98765432109",
+        "2024-01-20",
+        false
+      ],
+      [
+        "C004",
+        "P200",
+        "98765432109",
+        "2024-01-20",
+        true
+      ],
+      [
+        "C005",
+        "P200",
+        "11111111111",
+        "2024-03-01",
+        true
+      ]
+    ],
+    "test_data": "INSERT INTO claims (claim_id, payer_id, ndc, submit_date) VALUES ('T001', 'P100', '12345678901', '2024-01-01'), ('T002', 'P100', '12345678901', '2024-01-31'), ('T003', 'P100', '12345678901', '2024-02-01'), ('T004', 'P100', '12345678901', '2024-02-02'), ('T005', 'P100', '98765432109', '2024-01-01'), ('T006', 'P100', '98765432109', '2024-12-31'), ('T007', 'P200', '98765432109', '2024-01-01'), ('T008', 'P200', '98765432109', '2024-02-14'), ('T009', 'P200', '98765432109', '2024-02-15'), ('T010', 'P200', '98765432109', '2024-02-16'), ('T011', 'P200', '11111111111', '2024-01-01'), ('T012', 'P200', '11111111111', '2024-06-15'), ('T013', 'P200', '11111111111', '2024-12-31'), ('T014', 'P300', '22222222222', '2024-01-15'), ('T015', 'P100', '33333333333', '2024-03-01'), ('T016', 'P200', '98765432109', '2023-12-31'); INSERT INTO dim_formulary (formulary_id, payer_id, ndc, is_covered, valid_from, valid_to, is_current) VALUES ('F001', 'P100', '12345678901', true, '2024-01-01', '2024-02-01', false), ('F002', 'P100', '12345678901', false, '2024-02-01', NULL, true), ('F003', 'P100', '98765432109', false, '2024-01-01', NULL, true), ('F004', 'P200', '98765432109', true, '2024-01-01', '2024-02-15', false), ('F005', 'P200', '98765432109', false, '2024-02-15', NULL, true), ('F006', 'P200', '11111111111', true, '2024-01-01', NULL, true);",
+    "test_expected_columns": [
+      "claim_id",
+      "payer_id",
+      "ndc",
+      "submit_date",
+      "is_covered"
+    ],
+    "test_expected_rows": [
+      [
+        "T001",
+        "P100",
+        "12345678901",
+        "2024-01-01",
+        true
+      ],
+      [
+        "T002",
+        "P100",
+        "12345678901",
+        "2024-01-31",
+        true
+      ],
+      [
+        "T003",
+        "P100",
+        "12345678901",
+        "2024-02-01",
+        false
+      ],
+      [
+        "T004",
+        "P100",
+        "12345678901",
+        "2024-02-02",
+        false
+      ],
+      [
+        "T005",
+        "P100",
+        "98765432109",
+        "2024-01-01",
+        false
+      ],
+      [
+        "T006",
+        "P100",
+        "98765432109",
+        "2024-12-31",
+        false
+      ],
+      [
+        "T007",
+        "P200",
+        "98765432109",
+        "2024-01-01",
+        true
+      ],
+      [
+        "T008",
+        "P200",
+        "98765432109",
+        "2024-02-14",
+        true
+      ],
+      [
+        "T009",
+        "P200",
+        "98765432109",
+        "2024-02-15",
+        false
+      ],
+      [
+        "T010",
+        "P200",
+        "98765432109",
+        "2024-02-16",
+        false
+      ],
+      [
+        "T011",
+        "P200",
+        "11111111111",
+        "2024-01-01",
+        true
+      ],
+      [
+        "T012",
+        "P200",
+        "11111111111",
+        "2024-06-15",
+        true
+      ],
+      [
+        "T013",
+        "P200",
+        "11111111111",
+        "2024-12-31",
+        true
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "same_rows",
+      "recipe": "enrich-join",
+      "composite_moves": [
+        "enrich-join with time-bound dimensional join (SCD Type 2 logic)"
+      ]
+    },
+    "hints": [
+      "You need to join the claims table to the formulary dimension table on both payer_id and ndc.",
+      "The join condition must check that the claim's submit_date falls within the formulary record's validity window: valid_from <= submit_date AND (valid_to IS NULL OR valid_to > submit_date).",
+      "Use a standard INNER JOIN or LEFT JOIN with the time-bound predicate in the ON clause; if the claim has no matching formulary record in the time window, that claim will be excluded (INNER) or return NULL for is_covered (LEFT)."
+    ],
+    "answer_key": "SELECT c.claim_id, c.payer_id, c.ndc, c.submit_date, f.is_covered FROM claims c INNER JOIN dim_formulary f ON c.payer_id = f.payer_id AND c.ndc = f.ndc AND c.submit_date >= f.valid_from AND (f.valid_to IS NULL OR c.submit_date < f.valid_to) ORDER BY c.claim_id;",
+    "glossary": [
+      {
+        "term": "Slowly Changing Dimension Type 2 (SCD Type 2)",
+        "definition": "A dimension table design that preserves the full history of attribute changes by creating a new row for each change, with valid_from and valid_to dates marking when each version was active."
+      },
+      {
+        "term": "valid_from",
+        "definition": "The date on which a dimension record became effective (inclusive boundary)."
+      },
+      {
+        "term": "valid_to",
+        "definition": "The date on which a dimension record ceased to be effective (exclusive boundary); NULL indicates the record is still current."
+      },
+      {
+        "term": "is_current",
+        "definition": "A boolean flag indicating whether a dimension record is the currently active version."
+      },
+      {
+        "term": "formulary",
+        "definition": "The list of prescription drugs that a payer (insurance plan) covers, often with tiering and prior authorization requirements."
+      },
+      {
+        "term": "NDC (National Drug Code)",
+        "definition": "An 11-digit identifier assigned by the FDA to each packaged drug product, used to identify the specific drug, strength, and package size."
+      },
+      {
+        "term": "time-bound join",
+        "definition": "A join operation that matches fact records to dimension records based on a date or timestamp falling within the dimension record's validity window."
+      }
+    ],
+    "calculation_explanation": "1. Identify the payer and NDC for each claim in the claims table.\n2. Find the formulary record in dim_formulary that matches the claim's payer_id and ndc.\n3. Filter the formulary records to only those where the claim's submit_date is on or after valid_from AND before valid_to (or valid_to is NULL).\n4. Return the claim details along with the is_covered value from the matched formulary record.\n5. Order the results by claim_id ascending.",
+    "interpretation_example": "- Claim C001 submitted on 2024-01-15 matches formulary record F001 (valid 2024-01-01 to 2024-02-01), showing the drug was covered at that time.\n- Claim C002 submitted on 2024-02-01 matches formulary record F002 (valid from 2024-02-01 onward), which shows is_covered=false, indicating the payer removed this NDC from coverage exactly on that boundary date.\n- Claim C004 for payer P200 and NDC 98765432109 on 2024-01-20 matches the older formulary record (F004), confirming coverage was still active before the 2024-02-15 change.\n- The SCD Type 2 design allows the pharmacy to accurately reconstruct historical adjudication decisions and identify when formulary changes caused reject spikes.",
+    "recommendation_example": "- Trigger formulary-change alerts (Pharmacy Ops): when a payer's formulary record transitions from is_covered=true to is_covered=false, notify the care team within 24 hours so they can proactively reach out to affected patients before refills are rejected.\n- Implement point-in-time formulary lookups (Engineering): ensure all adjudication and analytics queries use the time-bound join pattern to avoid incorrectly attributing today's formulary status to historical claims.\n- Monitor boundary-date reject spikes (Finance): track claims submitted on the exact valid_to date of a formulary change; industry best practice is to apply the old coverage through end-of-day on the transition date to avoid patient disruption.\n- Audit is_current flags quarterly (Data Quality team): verify that exactly one record per (payer_id, ndc) combination has is_current=true and valid_to IS NULL, as duplicate current records break reporting.",
+    "_meta": {
+      "category": "transformation_modeling",
+      "subtopic": "scd_type_2",
+      "kind": "sql",
+      "question_type": "select_analytical",
+      "dialect": "postgresql",
+      "scenario": "a pharmacy auto-recycling workflow that retries rejected claims with corrected fields",
+      "generated_at": "2026-05-04T19:37:32.169533",
+      "problem_id": "d34995bcf331",
+      "validation_attempts": 2,
+      "notebook": "nb02_fuze_interview_drills"
+    }
+  },
+  "user_solution": "/*\nPurpose:\nWrite a query that joins each claim to the formulary record\n\n\nConditions:\nA formulary record is active on date D if `valid_from <= D` AND (`valid_to IS NULL` OR `valid_to > D`).\n\n\nPrompt\nA digital pharmacy adjudicates claims against a payer formulary that changes over time.\nThe `dim_formulary` table tracks which NDCs each payer covers, with effective date ranges stored in a Slowly Changing Dimension Type 2 structure (valid_from, valid_to, is_current).\n\n\nInput Schemas\n\nTable: claims            - prescription claims submitted on a given date.\nclaim_id *\npayer_id *\nndc\t*\nsubmit_date *\n\nTable: dim_formulary     - prescription claims submitted on a given date. CDTYPE2\nformulary_id\npayer_id *\nndc\nis_covered\t\nvalid_from\nvalid_to\nis_current\n\nOutput Schema\nclaim_id               * claims\npayer_id               ** claims, dim_formulary\nndc                    ** claims, dim_formulary\nsubmit_date            * claims\nis_covered             ***  claims.submit_date   dim_formulary.[valid_from, valid_to)  \n\nReturn Format:\n- Order results by claim_id ascending\n\n */\n\n\nWITH base AS (\n    SELECT\n        c.claim_id,\n        c.payer_id,\n        c.ndc,\n        c.submit_date,\n        df.is_covered\n    FROM claims AS c\n    LEFT JOIN dim_formulary AS df\n    ON c.payer_id = df.payer_id AND c.ndc = df.ndc AND c.submit_date >= df.valid_from AND (df.valid_to IS NULL OR df.valid_to > c.submit_date)\n    WHERE is_covered IS NOT NULL\n    ORDER BY claim_id\n)\nSELECT *\nFROM base;\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+  "grade_result": null,
+  "solved_at": "2026-05-04T20:35:00.385120",
+  "notebook": "nb02_fuze_interview_drills"
+}

@@ -1,0 +1,126 @@
+{
+  "title": "Hormone Test Kit Repeat-Test Adherence Fact Table",
+  "scenario": "An at-home diagnostics platform ships hormone test kits on a subscription. Users receive kits monthly or quarterly. The care team needs to track adherence to repeat-test cadence.",
+  "prompt": "STAKEHOLDER CONTEXT\n\nYou met with the care coordination team. The fact table you're designing will populate a daily dashboard. The dashboard needs:\n\n- Test completion rate: count of kits with results_submitted event divided by count of kits shipped, by subscription_tier\n- Adherence to cadence: count of patients who submitted results within the expected window divided by count of patients due for a test, by cohort\n- Median time-to-completion: median days between kit_shipped and results_submitted, by kit_type\n- Dropout rate: count of patients who did not submit results for 2 consecutive cycles divided by count of active subscribers, by cohort\n\nVOLUME AND UPDATE FREQUENCY\n\n- Daily source volume: ~5,000 kit lifecycle events per day\n- Dashboard freshness need: daily (refreshed at 6am)\n- Total fact rows after 1 year: ~300,000 rows (one row per kit_id)\n\nWHAT YOU HAVE IN SOURCE\n\n- Source event table: kit_lifecycle_events at event grain (one row per state change)\n- dim_patient: patient_id, cohort, enrollment_date, subscription_tier, expected_cadence_days\n- dim_kit_type: kit_type_id, kit_name, test_panel, turnaround_days_sla\n- dim_date: date_key, calendar attributes\n- dim_subscription: subscription_id, tier, interval, start_date, end_date\n\nevent_type values: kit_shipped, results_submitted, kit_returned_unused, subscription_paused, subscription_canceled. Each kit_id appears once for kit_shipped and zero-or-one times for results_submitted or kit_returned_unused. Subscription events do not have kit_id.\n\nYOUR TASK\n\nDesign the FACT TABLE that the dashboard reads from. Dims are already built \u2014 you specify how to JOIN them and what SCD type each is. Use the response form in section 2 to record your design choices.",
+  "instructions": "Fill out each form field in section 2 (the schema design response form). Dropdowns are used where the answer set is finite (SCD types, idempotency strategies, late-arriving handling); text fields for grain, fact columns, and rationale. Click Get Schema Design Feedback to grade. Reference answer runs 200-400 words across 4-6 headed sections \u2014 this is a structured design deliverable, not a terse PAA-style answer.",
+  "expected_themes": [
+    "grain: one row per kit_id",
+    "fact-dim split",
+    "SCD Type 2 for dim_subscription",
+    "surrogate key for dim_subscription",
+    "dbt staging vs marts",
+    "conformed dim_patient",
+    "idempotency under late results_submitted events",
+    "late-arriving facts",
+    "dbt tests: unique kit_id, not_null shipped_ts",
+    "incremental materialization",
+    "derived columns: is_completed, is_adherent, days_to_completion"
+  ],
+  "reference_answer": "## Business Process\nA patient receives a hormone test kit, submits a sample, and results are released. One kit lifecycle = one fact row.\n\n## Grain\nOne row per kit_id (~300K rows after 1 year). Each kit appears once. Grain matches the dashboard's unit of analysis: kit completion rate and time-to-completion are kit-level metrics.\n\n## Fact Columns\nkit_id (PK), patient_id (FK), kit_type_id (FK), subscription_id (FK), shipped_ts, results_submitted_ts, returned_unused_ts, is_completed (derived: results_submitted_ts IS NOT NULL), is_adherent (derived: results_submitted_ts <= shipped_ts + expected_cadence_days), days_to_completion (derived: results_submitted_ts - shipped_ts).\n\n## Dim Joins\ndim_patient (patient_id) \u2014 Type 2 for subscription_tier changes, cohort is immutable. dim_kit_type (kit_type_id) \u2014 Type 1, kit panel definitions are static. dim_subscription (subscription_id) \u2014 Type 2 for tier changes, interval changes. dim_date (shipped_date_key) \u2014 Type 0.\n\n## dbt Models\nstg_kit_lifecycle_events: clean event_type, deduplicate duplicates, cast timestamps. int_kit_facts: pivot event grain to kit grain (one row per kit_id), FIRST_VALUE(event_ts) FILTER WHERE event_type = 'results_submitted'. mart_kit_adherence: join dims, add derived columns (is_adherent, days_to_completion). Incremental on kit_id, idempotent to late-arriving results_submitted events (upsert on kit_id).\n\n## Tests\nunique kit_id, not_null shipped_ts, relationships kit_id -> dim_patient.patient_id, accepted_values event_type IN (kit_shipped, results_submitted, kit_returned_unused).\n\n## Edge Cases\nLate-arriving results_submitted events: upsert on kit_id overwrites NULL results_submitted_ts. Kits returned unused: is_completed = FALSE, days_to_completion = NULL. Subscription tier change mid-cycle: subscription_id FK points to the tier active at shipped_ts (SCD Type 2 lookup).",
+  "grading_rubric": [
+    {
+      "criterion": "Grain correctness and justification",
+      "description": "States one row per kit_id with row count estimate; ties grain to the metric asks (kit completion rate and time-to-completion are kit-level); explains why event grain or patient grain would not work.",
+      "weight": 25
+    },
+    {
+      "criterion": "Fact column design",
+      "description": "Includes shipped_ts, results_submitted_ts (nullable), is_completed (derived Boolean), days_to_completion (derived INT); excludes attributes that belong in dims (cohort, kit_name, tier); includes surrogate FK subscription_id for Type 2 subscription dim.",
+      "weight": 25
+    },
+    {
+      "criterion": "SCD type reasoning per dim",
+      "description": "dim_subscription Type 2 (tier/interval changes mid-subscription); dim_patient Type 2 (tier changes) or Type 1 (cohort immutable); dim_kit_type Type 1 (static panel definitions); rationale references whether history is needed for the metric.",
+      "weight": 25
+    },
+    {
+      "criterion": "Late-arriving and idempotency handling",
+      "description": "Names upsert on kit_id for late results_submitted events; incremental materialization with unique_key = kit_id; explains that results_submitted_ts NULL is overwritten when the event arrives late.",
+      "weight": 15
+    },
+    {
+      "criterion": "dbt tests proposed",
+      "description": "At least 2 tests with column names: unique kit_id, not_null shipped_ts, relationships patient_id -> dim_patient.patient_id, or accepted_values for derived is_completed.",
+      "weight": 10
+    }
+  ],
+  "hints": [
+    "The dashboard asks include 'count of kits with results_submitted' \u2014 that tells you the fact grain is kit-level, not event-level.",
+    "Adherence to cadence requires comparing results_submitted_ts to shipped_ts + expected_cadence_days. The expected_cadence_days comes from dim_patient or dim_subscription.",
+    "Subscription tier can change mid-cycle. If you store tier as a fact column, you lose history. If you FK to dim_subscription with SCD Type 2, you preserve the tier active at shipped_ts."
+  ],
+  "common_mistakes": [
+    "Storing at event grain (one row per kit_shipped, one row per results_submitted) instead of one row per kit_id \u2014 breaks unique kit count logic.",
+    "Treating dim_subscription as Type 1 \u2014 loses the ability to report which tier the patient was on when the kit shipped.",
+    "Omitting is_completed and is_adherent as derived columns \u2014 forces BI queries to recompute the logic every time.",
+    "Not handling late-arriving results_submitted events \u2014 leads to kits\u6c38\u4e45ly marked as incomplete when the event arrives after the daily batch.",
+    "Putting the adherence business rule (results_submitted_ts <= shipped_ts + expected_cadence_days) in stg_ instead of int_ or mart_."
+  ],
+  "schema_ddl": "CREATE TABLE kit_lifecycle_events (\n  event_id BIGINT PRIMARY KEY,\n  kit_id BIGINT NOT NULL,\n  patient_id BIGINT NOT NULL,\n  subscription_id BIGINT,\n  kit_type_id INT NOT NULL,\n  event_type VARCHAR(50) NOT NULL,\n  event_ts TIMESTAMP NOT NULL,\n  created_at TIMESTAMP NOT NULL\n);",
+  "candidate_dimensions": [
+    {
+      "name": "dim_patient",
+      "key": "patient_id",
+      "description": "patient demographics, cohort, enrollment_date, subscription_tier, expected_cadence_days"
+    },
+    {
+      "name": "dim_kit_type",
+      "key": "kit_type_id",
+      "description": "kit_name, test_panel, turnaround_days_sla"
+    },
+    {
+      "name": "dim_subscription",
+      "key": "subscription_id",
+      "description": "tier, interval (monthly/quarterly), start_date, end_date, SCD Type 2"
+    },
+    {
+      "name": "dim_date",
+      "key": "date_key",
+      "description": "calendar attributes for shipped_date and results_submitted_date"
+    }
+  ],
+  "stakeholder_asks": [
+    "Test completion rate: count of kits with results_submitted event divided by count of kits shipped, by subscription_tier",
+    "Adherence to cadence: count of patients who submitted results within the expected window divided by count of patients due for a test, by cohort",
+    "Median time-to-completion: median days between kit_shipped and results_submitted, by kit_type",
+    "Dropout rate: count of patients who did not submit results for 2 consecutive cycles divided by count of active subscribers, by cohort"
+  ],
+  "field_hints": {
+    "business_process": "A patient receives a test kit, submits a sample, and results are released. One kit lifecycle = one fact row.",
+    "grain": "One row per kit_id. The dashboard needs kit-level metrics (completion rate, time-to-completion), not event-level counts.",
+    "fact_columns": "Include shipped_ts, results_submitted_ts (nullable), is_completed (Boolean derived), days_to_completion (INT derived). Exclude dim attributes like cohort, kit_name, tier.",
+    "key_strategy": "kit_id is natural PK. subscription_id is surrogate FK to dim_subscription (SCD Type 2) to capture tier at kit_shipped time.",
+    "dim_joins": "dim_patient for cohort and expected_cadence_days. dim_kit_type for kit_name and turnaround_sla. dim_subscription for tier and interval. dim_date for calendar rollups.",
+    "scd_per_dim": "dim_subscription is Type 2 (tier/interval changes). dim_patient is Type 2 (tier changes) or Type 1 (cohort immutable). dim_kit_type is Type 1 (static panel definitions).",
+    "conformed_dims": "dim_patient is conformed across fact_kit_adherence and fact_telehealth_visits if you have a multi-product platform.",
+    "models": "stg_kit_lifecycle_events cleans and dedupes. int_kit_facts pivots event grain to kit grain. mart_kit_adherence joins dims and adds derived columns.",
+    "tests": "unique kit_id, not_null shipped_ts, relationships patient_id -> dim_patient, accepted_values event_type IN (kit_shipped, results_submitted, kit_returned_unused).",
+    "idempotency": "Upsert on kit_id. Late-arriving results_submitted events overwrite NULL results_submitted_ts. Incremental materialization with unique_key = kit_id.",
+    "late_arriving": "Results_submitted events can arrive days after kit_shipped. Upsert on kit_id ensures the fact row is updated when the event finally arrives.",
+    "edge_cases": "Kits returned unused (is_completed = FALSE). Subscription tier change mid-cycle (subscription_id FK points to tier at shipped_ts). Late-arriving results_submitted events (upsert on kit_id)."
+  },
+  "worked_example_per_field": {
+    "business_process": "Answer: A patient receives a hormone test kit, submits a sample, and results are released. One kit lifecycle = one fact row.\n\nWhy: The prompt's event_type values (kit_shipped, results_submitted, kit_returned_unused) map to the lifecycle stages of a single kit. Each kit_id appears once for kit_shipped and zero-or-one times for results_submitted. The dashboard metrics (completion rate, time-to-completion) are kit-level aggregations, so the fact table grain is one row per kit_id.",
+    "grain": "Answer: One row per kit_id (~300,000 rows after 1 year).\n\nWhy: The prompt explicitly states '~300,000 rows (one row per kit_id)' under VOLUME. The dashboard asks for 'count of kits with results_submitted' and 'median days between kit_shipped and results_submitted' \u2014 both are kit-level metrics. Event grain (multiple rows per kit_id) would break unique kit counts. Patient grain would lose the kit-level time-to-completion.",
+    "fact_columns": "Answer: kit_id (PK), patient_id (FK), kit_type_id (FK), subscription_id (FK), shipped_ts, results_submitted_ts (nullable), returned_unused_ts (nullable), is_completed (derived Boolean), is_adherent (derived Boolean), days_to_completion (derived INT).\n\nWhy: The dashboard asks for 'count of kits with results_submitted' (requires results_submitted_ts), 'median days between kit_shipped and results_submitted' (requires shipped_ts and results_submitted_ts), and 'adherence to cadence' (requires is_adherent derived from results_submitted_ts <= shipped_ts + expected_cadence_days). Storing raw timestamps plus derived flags lets BI queries slice by any dim without recomputing the logic.",
+    "key_strategy": "Answer: kit_id is natural PK. subscription_id is surrogate FK to dim_subscription (SCD Type 2).\n\nWhy: The prompt says 'each kit_id appears once for kit_shipped' \u2014 kit_id is already a unique natural key. subscription_id is a surrogate FK because dim_subscription is Type 2 (tier and interval can change mid-subscription). The FK points to the subscription_sk row valid at the time of kit_shipped, capturing which tier the patient was on when the kit shipped.",
+    "dim_joins": "Answer: dim_patient (patient_id), dim_kit_type (kit_type_id), dim_subscription (subscription_id), dim_date (shipped_date_key and results_submitted_date_key).\n\nWhy: The dashboard asks include 'by subscription_tier' (requires dim_subscription), 'by cohort' (requires dim_patient), and 'by kit_type' (requires dim_kit_type). dim_date adds calendar context for weekly/monthly rollups and fiscal-year reporting.",
+    "scd_per_dim": "Answer: dim_subscription Type 2 (tier/interval changes). dim_patient Type 2 (tier changes) or Type 1 (cohort immutable). dim_kit_type Type 1 (static panel definitions).\n\nWhy: subscription_tier can change mid-cycle (patient upgrades from monthly to quarterly) \u2014 Type 2 preserves the tier active at kit_shipped time, needed for accurate 'completion rate by subscription_tier' reporting. dim_patient.cohort is assigned at enrollment and never changes (Type 1), but if subscription_tier is stored in dim_patient, it must be Type 2. dim_kit_type panel definitions are static (Type 1).",
+    "conformed_dims": "Answer: dim_patient is conformed across fact_kit_adherence and fact_telehealth_visits (if the platform has multiple product lines). dim_date is conformed across all facts.\n\nWhy: If the platform offers both test kits and telehealth visits, dim_patient must have the same grain and attributes (patient_id, cohort, enrollment_date) in both facts. Conformed dims let you build cross-product cohort analyses (patients who ordered a kit AND booked a visit) without rebuilding the dim.",
+    "models": "Answer: stg_kit_lifecycle_events: clean event_type, deduplicate duplicates, cast timestamps. int_kit_facts: pivot event grain to kit grain (one row per kit_id), FIRST_VALUE(event_ts) FILTER WHERE event_type='results_submitted'. mart_kit_adherence: join dims, add derived columns (is_adherent, days_to_completion). Materialized as incremental table.\n\nWhy: stg_ cleans raw data (no business rules). int_ does the heavy reusable join work (pivot event grain to kit grain). mart_ applies business logic (is_adherent = results_submitted_ts <= shipped_ts + expected_cadence_days). Incremental materialization on kit_id keeps the daily batch fast (only new kits + updated kits).",
+    "tests": "Answer: unique kit_id, not_null shipped_ts, relationships patient_id -> dim_patient.patient_id, accepted_values event_type IN ('kit_shipped','results_submitted','kit_returned_unused').\n\nWhy: unique kit_id ensures the grain is enforced. not_null shipped_ts ensures every fact row has a start timestamp. relationships test ensures no orphaned patient_id FKs. accepted_values on event_type catches bad source data before it pollutes the fact table.",
+    "idempotency": "Answer: Upsert on kit_id. Late-arriving results_submitted events overwrite NULL results_submitted_ts. Incremental materialization with unique_key = kit_id.\n\nWhy: The prompt says 'results_submitted events can arrive late'. If you INSERT on every batch, you get duplicate kit_id rows. Upsert on kit_id ensures one row per kit_id: when a late results_submitted event arrives, the existing row is updated (results_submitted_ts changes from NULL to the event_ts). This keeps the fact table idempotent to replay and late arrivals.",
+    "late_arriving": "Answer: Results_submitted events can arrive days after kit_shipped. Upsert on kit_id ensures the fact row is updated when the event finally arrives. No need to re-state closed periods \u2014 just update the single kit row.\n\nWhy: The prompt explicitly warns 'late-arriving results_submitted events'. Without upsert, a kit shipped on Monday and marked incomplete on Tuesday would stay incomplete forever if the results_submitted event arrives Wednesday. Upsert on kit_id lets the incremental model update results_submitted_ts and is_completed when the late event arrives, without rebuilding the entire fact table.",
+    "edge_cases": "Answer: (1) Kits returned unused: is_completed = FALSE, days_to_completion = NULL. (2) Subscription tier change mid-cycle: subscription_id FK points to the tier active at shipped_ts (SCD Type 2 lookup). (3) Late-arriving results_submitted events: upsert on kit_id overwrites NULL results_submitted_ts.\n\nWhy: The prompt lists event_type = 'kit_returned_unused' \u2014 these kits never have results_submitted, so is_completed must be FALSE. If a patient upgrades from monthly to quarterly mid-cycle, the fact row must FK to the subscription_sk active at kit_shipped time, not the current subscription_sk. Late-arriving events are handled by the upsert logic described above."
+  },
+  "_meta": {
+    "category": "transformation_modeling",
+    "subtopic": "schema_design",
+    "kind": "kpi",
+    "scenario": "a hormone health test kit subscription tracking adherence to repeat-test cadence",
+    "generated_at": "2026-05-06T15:18:12.493291",
+    "problem_id": "4953ac998ef8",
+    "validation_attempts": 2,
+    "notebook": "nb02_fuze_interview_drills"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "title": "Branching Strategy for PA Cycle Time dbt Repo",
+  "scenario": "An analytics team of 5 analysts maintains a dbt repo tracking prior authorization (PA) cycle time metrics across payers in Snowflake. The repo runs daily prod models feeding executive dashboards.",
+  "prompt": "Design the Git branching strategy for this team's shared dbt repo. The team needs to ship new PA cycle time models frequently (weekly feature deployments) while keeping prod stable. One analyst may work on a multi-day model refactor while others ship smaller changes. Your answer should cover: branch naming conventions, what merges trigger which environment builds (dev/staging/prod), PR review process, and how dbt handles per-analyst schema isolation during development. Assume GitHub + dbt Cloud or dbt-core CLI + GitHub Actions for CI.",
+  "instructions": "Markdown answer with headed sections (## Branch naming, ## What merges where, ## Environments, ## PR review process, ## CI). Aim for 200 to 400 words. Branching strategy answers are STRUCTURED \u2014 multiple short sections beat one long paragraph. Name a recognizable workflow pattern (trunk-based, GitHub flow, etc) and justify it for this team size.",
+  "expected_themes": [
+    "trunk-based development or GitHub flow",
+    "feature branch per analyst",
+    "protected main branch",
+    "PR review required before merge",
+    "squash merge to main",
+    "dbt target per analyst (dev schemas)",
+    "CI runs dbt on PR open",
+    "staging environment from main",
+    "prod deploy on merge to main",
+    "no long-lived shared branches"
+  ],
+  "reference_answer": "## Workflow pattern\nGitHub flow (feature branch \u2192 PR \u2192 main \u2192 prod). Trunk-based would work but 5 analysts shipping weekly features benefit from short-lived feature branches with peer review.\n\n## Branch naming\n`feature/<analyst-initials>-<short-description>` (e.g., `feature/ab-humana-pa-cycle`). `hotfix/<description>` for prod fixes.\n\n## What merges where\n- Each analyst creates a feature branch off `main`.\n- PR from feature branch \u2192 `main`.\n- Squash merge on approval.\n- `main` is the single long-lived branch and deployment source for staging and prod.\n\n## Environments\n- **Dev**: each analyst has a personal dbt target (`dbt_<analyst_name>` schema in Snowflake). Runs locally or in dbt Cloud dev environment.\n- **Staging**: dbt job triggered on push to `main`, writes to `dbt_staging` schema. Smoke test before prod.\n- **Prod**: dbt job triggered on merge to `main` after staging passes, writes to `analytics` schema.\n\n## PR review process\n- At least one peer analyst reviews.\n- Checks: SQL logic, naming conventions, no hardcoded dates, downstream model impacts.\n- CI runs `dbt build --select state:modified+` on PR open.\n- Protected `main`: no direct commits, PR required, CI must pass.\n\n## CI\nGitHub Actions or dbt Cloud CI job runs on PR open. Builds modified models in ephemeral schema, fails PR if models don't compile or tests fail.",
+  "grading_rubric": [
+    {
+      "criterion": "Names a workflow pattern and justifies it",
+      "description": "Identifies trunk-based development, GitHub flow, or git-flow and explains why it fits a 5-person team with weekly feature deployments. GitHub flow or trunk-based are both correct; git-flow is over-engineered here.",
+      "weight": 25
+    },
+    {
+      "criterion": "Specifies environment promotion and deployment triggers",
+      "description": "States which branch (main expected) deploys to staging and prod, and what event triggers each deploy (merge to main, CI pass, scheduled job). Defines dev as per-analyst local or dbt Cloud dev.",
+      "weight": 25
+    },
+    {
+      "criterion": "Defines PR review process and protected branch rules",
+      "description": "Requires PR review before merge to main, names what reviewer checks (SQL logic, tests, downstream impacts), and mentions protected main branch or CI gate.",
+      "weight": 25
+    },
+    {
+      "criterion": "Handles dbt schema isolation for concurrent dev work",
+      "description": "Describes per-analyst dev schemas (dbt target switching or dbt Cloud personal dev credentials) to prevent schema collisions when multiple analysts develop simultaneously.",
+      "weight": 25
+    }
+  ],
+  "hints": [
+    "Consider how many long-lived branches the team should maintain. More than one increases merge complexity.",
+    "Think about what happens when two analysts are working on models in the same dbt folder at the same time. How does dbt prevent their dev builds from colliding?",
+    "A 5-person team shipping weekly features needs peer review but not heavy release process overhead. Which Git workflow pattern matches that?"
+  ],
+  "common_mistakes": [
+    "Proposing git-flow (develop/release/hotfix branches) for a 5-person analytics team \u2014 over-engineered for this context",
+    "Allowing direct commits to main without PR review",
+    "Single shared dev schema for all analysts, causing collisions when multiple people run dbt at once",
+    "No CI on PR open \u2014 only finding broken models after merge to main",
+    "Long-lived shared feature branches instead of short-lived per-analyst branches"
+  ],
+  "_meta": {
+    "category": "version_control",
+    "subtopic": "branching_strategy",
+    "kind": "kpi",
+    "scenario": "a prior authorization (PA) cycle time tracking system across payers",
+    "generated_at": "2026-05-07T08:22:32.950424",
+    "problem_id": "698d4715c5b8",
+    "validation_attempts": 1,
+    "notebook": "nb02_fuze_interview_drills"
+  }
+}

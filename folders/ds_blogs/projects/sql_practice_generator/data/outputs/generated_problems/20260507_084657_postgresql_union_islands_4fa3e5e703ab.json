@@ -1,0 +1,125 @@
+{
+  "title": "Collapse Review Status Periods by State",
+  "prompt": "A clinical documentation tool tracks diagnosis code reviews in two tables: `approved_reviews` records dates when reviews were approved, and `denied_reviews` records dates when reviews were denied. Each table contains a `review_date` column. Some days may have no records at all in either table. Your task is to identify consecutive date sequences for each review state (approved or denied), where 'consecutive' means consecutive among the dates that exist in the union of both tables, ignoring any missing days. For each unbroken sequence, output the state ('approved' or 'denied'), the start date, and the end date. Return columns named `state`, `start_date`, `end_date`, ordered by `start_date` ascending.",
+  "schema_ddl": "CREATE TABLE approved_reviews (review_date DATE NOT NULL); CREATE TABLE denied_reviews (review_date DATE NOT NULL);",
+  "example_input_data": "INSERT INTO approved_reviews (review_date) VALUES ('2024-01-02'), ('2024-01-03'), ('2024-01-05'), ('2024-01-09'), ('2024-01-10'); INSERT INTO denied_reviews (review_date) VALUES ('2024-01-01'), ('2024-01-06'), ('2024-01-07'), ('2024-01-11');",
+  "example_output_columns": [
+    "state",
+    "start_date",
+    "end_date"
+  ],
+  "example_output_rows": [
+    [
+      "denied",
+      "2024-01-01",
+      "2024-01-01"
+    ],
+    [
+      "approved",
+      "2024-01-02",
+      "2024-01-05"
+    ],
+    [
+      "denied",
+      "2024-01-06",
+      "2024-01-07"
+    ],
+    [
+      "approved",
+      "2024-01-09",
+      "2024-01-10"
+    ],
+    [
+      "denied",
+      "2024-01-11",
+      "2024-01-11"
+    ]
+  ],
+  "test_data": "INSERT INTO approved_reviews (review_date) VALUES ('2024-02-01'), ('2024-02-02'), ('2024-02-03'), ('2024-02-06'), ('2024-02-07'), ('2024-02-10'), ('2024-02-11'), ('2024-02-12'), ('2024-02-15'), ('2024-02-20'), ('2024-02-21'), ('2024-02-22'), ('2024-02-23'); INSERT INTO denied_reviews (review_date) VALUES ('2024-02-04'), ('2024-02-05'), ('2024-02-08'), ('2024-02-09'), ('2024-02-13'), ('2024-02-14'), ('2024-02-16'), ('2024-02-17'), ('2024-02-18'), ('2024-02-19'), ('2024-02-24'), ('2024-02-25'), ('2024-02-26'), ('2024-02-27'), ('2024-02-28');",
+  "test_expected_columns": [
+    "state",
+    "start_date",
+    "end_date"
+  ],
+  "test_expected_rows": [
+    [
+      "approved",
+      "2024-02-01",
+      "2024-02-03"
+    ],
+    [
+      "denied",
+      "2024-02-04",
+      "2024-02-05"
+    ],
+    [
+      "approved",
+      "2024-02-06",
+      "2024-02-07"
+    ],
+    [
+      "denied",
+      "2024-02-08",
+      "2024-02-09"
+    ],
+    [
+      "approved",
+      "2024-02-10",
+      "2024-02-12"
+    ],
+    [
+      "denied",
+      "2024-02-13",
+      "2024-02-14"
+    ],
+    [
+      "approved",
+      "2024-02-15",
+      "2024-02-15"
+    ],
+    [
+      "denied",
+      "2024-02-16",
+      "2024-02-19"
+    ],
+    [
+      "approved",
+      "2024-02-20",
+      "2024-02-23"
+    ],
+    [
+      "denied",
+      "2024-02-24",
+      "2024-02-28"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "union",
+    "output_shape": "fewer_rows",
+    "recipe": "gaps-and-islands",
+    "composite_moves": [
+      "UNION two source tables with state labels",
+      "apply two-rownumber-difference formula to handle missing days",
+      "GROUP BY state and island identifier",
+      "aggregate MIN and MAX dates per island",
+      "ORDER BY start_date"
+    ]
+  },
+  "hints": [
+    "Combine both tables into a single dataset with a state label, then look for sequences.",
+    "Use two ROW_NUMBER() functions: one ordered by date globally, one partitioned by state and ordered by date. Their difference identifies islands even when days are missing.",
+    "Group by state and the difference value, then take MIN and MAX of the date within each group to form the ranges."
+  ],
+  "answer_key": "WITH combined AS (\n  SELECT 'approved' AS state, review_date AS d\n  FROM approved_reviews\n  UNION ALL\n  SELECT 'denied' AS state, review_date AS d\n  FROM denied_reviews\n),\nwith_rn AS (\n  SELECT\n    state,\n    d,\n    ROW_NUMBER() OVER (ORDER BY d) - ROW_NUMBER() OVER (PARTITION BY state ORDER BY d) AS grp\n  FROM combined\n)\nSELECT\n  state,\n  MIN(d) AS start_date,\n  MAX(d) AS end_date\nFROM with_rn\nGROUP BY state, grp\nORDER BY start_date;",
+  "_meta": {
+    "question_type": "union_islands",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-07T08:46:57.244241",
+    "problem_id": "4fa3e5e703ab",
+    "validation_attempts": 1,
+    "scenario": "a clinical documentation tool tracking diagnosis code reviews and denials",
+    "dml_op": null,
+    "islands_flavor": "date_sequence",
+    "percentile_flavor": null
+  }
+}

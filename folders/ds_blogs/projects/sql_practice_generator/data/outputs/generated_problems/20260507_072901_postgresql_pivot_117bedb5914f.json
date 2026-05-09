@@ -1,0 +1,133 @@
+{
+  "title": "Pivot Seat Usage by License Tier",
+  "prompt": "Your enterprise software vendor tracks seat utilization across customer accounts in a long-format table. Each row records how many seats of a particular license tier (Basic, Pro, Enterprise) were actively used by a given customer account during the quarter. Some accounts may have usage data for only one or two tiers (not all three), and some accounts may have multiple usage records for the same tier that need to be summed. Your task is to pivot this data into wide format: one row per customer showing the total used seats for each tier. Produce columns `account_id`, `basic_used`, `pro_used`, `enterprise_used` containing the SUM of seats used for each tier. If an account has no records for a tier, the corresponding column should display 0 (not NULL). Order the final result by `account_id` ascending. Write a single SELECT query that produces this wide-format report.",
+  "schema_ddl": "CREATE TABLE seat_usage_log (account_id INT NOT NULL, license_tier VARCHAR(20) NOT NULL, seats_used INT NOT NULL); CREATE TABLE accounts (account_id INT PRIMARY KEY, account_name VARCHAR(100) NOT NULL);",
+  "example_input_data": "INSERT INTO accounts (account_id, account_name) VALUES (101, 'Acme Corp'), (102, 'Beta Ltd'), (103, 'Gamma Inc'), (104, 'Delta Systems'); INSERT INTO seat_usage_log (account_id, license_tier, seats_used) VALUES (101, 'Basic', 5), (101, 'Pro', 12), (101, 'Enterprise', 3), (102, 'Basic', 8), (102, 'Pro', 4), (103, 'Enterprise', 20), (104, 'Basic', 2), (104, 'Basic', 3);",
+  "example_output_columns": [
+    "account_id",
+    "basic_used",
+    "pro_used",
+    "enterprise_used"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      5,
+      12,
+      3
+    ],
+    [
+      102,
+      8,
+      4,
+      0
+    ],
+    [
+      103,
+      0,
+      0,
+      20
+    ],
+    [
+      104,
+      5,
+      0,
+      0
+    ]
+  ],
+  "test_data": "INSERT INTO accounts (account_id, account_name) VALUES (201, 'Alpha Solutions'), (202, 'Bravo Enterprises'), (203, 'Charlie Technologies'), (204, 'Delta Innovations'), (205, 'Echo Partners'), (206, 'Foxtrot Group'), (207, 'Golf Analytics'), (208, 'Hotel Systems'), (209, 'India Software'), (210, 'Juliet Consulting'); INSERT INTO seat_usage_log (account_id, license_tier, seats_used) VALUES (201, 'Basic', 10), (201, 'Basic', 5), (201, 'Pro', 20), (201, 'Pro', 15), (201, 'Enterprise', 8), (202, 'Pro', 30), (202, 'Enterprise', 12), (203, 'Basic', 7), (203, 'Enterprise', 25), (203, 'Enterprise', 5), (204, 'Basic', 0), (204, 'Pro', 0), (204, 'Enterprise', 0), (205, 'Enterprise', 50), (206, 'Basic', 12), (206, 'Pro', 8), (206, 'Pro', 7), (207, 'Basic', 3), (207, 'Basic', 2), (207, 'Basic', 1), (208, 'Pro', 18), (208, 'Pro', 2), (209, 'Enterprise', 40), (209, 'Enterprise', 10), (210, 'Basic', 1), (210, 'Pro', 1), (210, 'Enterprise', 1);",
+  "test_expected_columns": [
+    "account_id",
+    "basic_used",
+    "pro_used",
+    "enterprise_used"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      15,
+      35,
+      8
+    ],
+    [
+      202,
+      0,
+      30,
+      12
+    ],
+    [
+      203,
+      7,
+      0,
+      30
+    ],
+    [
+      204,
+      0,
+      0,
+      0
+    ],
+    [
+      205,
+      0,
+      0,
+      50
+    ],
+    [
+      206,
+      12,
+      15,
+      0
+    ],
+    [
+      207,
+      6,
+      0,
+      0
+    ],
+    [
+      208,
+      0,
+      20,
+      0
+    ],
+    [
+      209,
+      0,
+      0,
+      50
+    ],
+    [
+      210,
+      1,
+      1,
+      1
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "reshape",
+    "composite_moves": [
+      "pivot: long\u2192wide using CASE+SUM+GROUP BY",
+      "coalesce: replace NULL with 0 for missing categories"
+    ]
+  },
+  "hints": [
+    "Think about using CASE WHEN inside an aggregation function to conditionally sum values for each license tier.",
+    "Group by the account_id and use SUM(CASE WHEN license_tier = 'Basic' THEN seats_used END) to create the basic_used column. Repeat for Pro and Enterprise.",
+    "Wrap each SUM(CASE ...) with COALESCE(..., 0) to ensure accounts with no records for a tier show 0 instead of NULL. Your GROUP BY should be on account_id, and your ORDER BY should be on account_id ascending."
+  ],
+  "answer_key": "SELECT account_id, COALESCE(SUM(CASE WHEN license_tier = 'Basic' THEN seats_used END), 0) AS basic_used, COALESCE(SUM(CASE WHEN license_tier = 'Pro' THEN seats_used END), 0) AS pro_used, COALESCE(SUM(CASE WHEN license_tier = 'Enterprise' THEN seats_used END), 0) AS enterprise_used FROM seat_usage_log GROUP BY account_id ORDER BY account_id;",
+  "_meta": {
+    "question_type": "pivot",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-07T07:29:01.450005",
+    "problem_id": "117bedb5914f",
+    "validation_attempts": 1,
+    "scenario": "an enterprise software vendor monitoring seat utilization across customers",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

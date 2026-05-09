@@ -1,0 +1,100 @@
+{
+  "problem": {
+    "title": "Top 10% Trial Sites by Enrollment Rate",
+    "prompt": "You are analyzing clinical trial site performance. Write a query to identify the top 10% of trial sites by their enrollment rate (enrolled_participants divided by target_enrollment). The enrollment rate should be calculated as a decimal (e.g., 0.85 for 85% enrollment). Return only sites whose enrollment rate falls in the top 10% across all sites. If multiple sites are tied exactly at the 10% cutoff boundary, include all tied sites. Output columns: site_id, site_name, enrolled_participants, target_enrollment, enrollment_rate (rounded to 4 decimal places). Order results by enrollment_rate descending, then by site_id ascending.",
+    "schema_ddl": "CREATE TABLE trial_sites (site_id INTEGER PRIMARY KEY, site_name VARCHAR(100) NOT NULL, trial_phase VARCHAR(20) NOT NULL, enrolled_participants INTEGER NOT NULL, target_enrollment INTEGER NOT NULL, principal_investigator VARCHAR(100) NOT NULL);",
+    "example_input_data": "INSERT INTO trial_sites (site_id, site_name, trial_phase, enrolled_participants, target_enrollment, principal_investigator) VALUES (101, 'Metro General Hospital', 'Phase III', 45, 50, 'Dr. Sarah Chen'), (102, 'Regional Medical Center', 'Phase II', 38, 40, 'Dr. James Wilson'), (103, 'University Research Institute', 'Phase III', 72, 80, 'Dr. Maria Garcia'), (104, 'Community Health Clinic', 'Phase II', 28, 35, 'Dr. Robert Lee'), (105, 'Academic Medical Center', 'Phase III', 54, 60, 'Dr. Emily Johnson'), (106, 'City Hospital Network', 'Phase II', 42, 50, 'Dr. Michael Brown'), (107, 'Specialty Care Facility', 'Phase III', 33, 40, 'Dr. Linda Martinez'), (108, 'Veterans Health System', 'Phase II', 25, 30, 'Dr. David Taylor');",
+    "example_output_columns": [
+      "site_id",
+      "site_name",
+      "enrolled_participants",
+      "target_enrollment",
+      "enrollment_rate"
+    ],
+    "example_output_rows": [
+      [
+        102,
+        "Regional Medical Center",
+        38,
+        40,
+        "0.9500"
+      ]
+    ],
+    "test_data": "INSERT INTO trial_sites (site_id, site_name, trial_phase, enrolled_participants, target_enrollment, principal_investigator) VALUES (201, 'Northern District Hospital', 'Phase III', 88, 100, 'Dr. Alexandra Price'), (202, 'Southern Medical Plaza', 'Phase II', 76, 80, 'Dr. Benjamin Cole'), (203, 'Eastern Health Network', 'Phase III', 95, 100, 'Dr. Catherine White'), (204, 'Western Care Center', 'Phase II', 57, 60, 'Dr. Daniel Green'), (205, 'Central Research Hub', 'Phase III', 114, 120, 'Dr. Elizabeth Moore'), (206, 'Lakeside Medical Group', 'Phase II', 85, 90, 'Dr. Frank Anderson'), (207, 'Mountain View Clinic', 'Phase III', 68, 75, 'Dr. Grace Thomas'), (208, 'Riverside Hospital', 'Phase II', 91, 100, 'Dr. Henry Jackson'), (209, 'Oceanfront Medical', 'Phase III', 103, 110, 'Dr. Irene Harris'), (210, 'Prairie Regional Center', 'Phase II', 79, 85, 'Dr. Jacob Martin'), (211, 'Forest Health Institute', 'Phase III', 95, 105, 'Dr. Karen Thompson'), (212, 'Desert Research Site', 'Phase II', 48, 55, 'Dr. Leonard Garcia'), (213, 'Harbor Medical Complex', 'Phase III', 82, 90, 'Dr. Monica Robinson'), (214, 'Valley Care Facility', 'Phase II', 65, 70, 'Dr. Nathan Clark'), (215, 'Highland Hospital', 'Phase III', 89, 95, 'Dr. Olivia Rodriguez'), (216, 'Coastal Health Center', 'Phase II', 72, 80, 'Dr. Patrick Lewis'), (217, 'Metro North Branch', 'Phase III', 54, 60, 'Dr. Rachel Walker'), (218, 'Suburban Clinic Group', 'Phase II', 41, 45, 'Dr. Samuel Hall'), (219, 'Downtown Medical Tower', 'Phase III', 98, 105, 'Dr. Teresa Allen'), (220, 'Uptown Research Lab', 'Phase II', 63, 70, 'Dr. Victor Young'), (221, 'Midtown Health Plaza', 'Phase III', 75, 80, 'Dr. Wendy King'), (222, 'East End Hospital', 'Phase II', 84, 90, 'Dr. Xavier Wright'), (223, 'West Side Medical', 'Phase III', 57, 65, 'Dr. Yolanda Lopez'), (224, 'North Shore Clinic', 'Phase II', 69, 75, 'Dr. Zachary Hill'), (225, 'South Bay Hospital', 'Phase III', 92, 100, 'Dr. Amanda Scott'), (226, 'Bay Area Research', 'Phase II', 95, 100, 'Dr. Brian Green');",
+    "test_expected_columns": [
+      "site_id",
+      "site_name",
+      "enrolled_participants",
+      "target_enrollment",
+      "enrollment_rate"
+    ],
+    "test_expected_rows": [
+      [
+        202,
+        "Southern Medical Plaza",
+        76,
+        80,
+        "0.9500"
+      ],
+      [
+        203,
+        "Eastern Health Network",
+        95,
+        100,
+        "0.9500"
+      ],
+      [
+        204,
+        "Western Care Center",
+        57,
+        60,
+        "0.9500"
+      ],
+      [
+        205,
+        "Central Research Hub",
+        114,
+        120,
+        "0.9500"
+      ],
+      [
+        226,
+        "Bay Area Research",
+        95,
+        100,
+        "0.9500"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "rank-partition",
+      "composite_moves": [
+        "row-transform: calculate enrollment_rate = enrolled_participants / target_enrollment",
+        "rank-partition: compute PERCENT_RANK() OVER (ORDER BY enrollment_rate DESC)",
+        "row-filter: keep rows where percent_rank <= 0.10",
+        "row-transform: round enrollment_rate to 4 decimal places",
+        "sort: ORDER BY enrollment_rate DESC, site_id ASC"
+      ]
+    },
+    "hints": [
+      "You need to calculate a rate by dividing two columns, then identify which rows fall in the top 10% of that rate.",
+      "Use PERCENT_RANK() with a window ordered by your calculated rate in descending order. PERCENT_RANK returns 0 for the highest value and approaches 1 for lower values when ordered DESC.",
+      "Filter for rows where PERCENT_RANK() OVER (ORDER BY enrollment_rate DESC) <= 0.10. Use a CTE to calculate the rate first, then apply PERCENT_RANK in a second CTE, and filter in the final SELECT."
+    ],
+    "answer_key": "WITH enrollment_rates AS (\n  SELECT \n    site_id,\n    site_name,\n    enrolled_participants,\n    target_enrollment,\n    enrolled_participants::NUMERIC / target_enrollment AS enrollment_rate\n  FROM trial_sites\n),\nranked_sites AS (\n  SELECT \n    site_id,\n    site_name,\n    enrolled_participants,\n    target_enrollment,\n    enrollment_rate,\n    PERCENT_RANK() OVER (ORDER BY enrollment_rate DESC) AS pct_rank\n  FROM enrollment_rates\n)\nSELECT \n  site_id,\n  site_name,\n  enrolled_participants,\n  target_enrollment,\n  ROUND(enrollment_rate, 4) AS enrollment_rate\nFROM ranked_sites\nWHERE pct_rank <= 0.10\nORDER BY enrollment_rate DESC, site_id ASC;",
+    "_meta": {
+      "question_type": "percentile_metrics",
+      "dialect": "postgresql",
+      "generated_at": "2026-05-07T11:27:50.306026",
+      "problem_id": "70088907ab36",
+      "validation_attempts": 1,
+      "scenario": "a clinical research platform tracking trial enrollment and adverse events",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": "top_n_percent"
+    }
+  },
+  "user_solution": "WITH base AS (\n    SELECT\n        site_id,\n        site_name,\n        enrolled_participants,\n        target_enrollment,\n        enrolled_participants::NUMERIC / NULLIF(target_enrollment, 0) AS enrollment_rate\n    FROM trial_sites\n),\nranked AS (\n    SELECT *,\n        PERCENT_RANK() OVER (ORDER BY enrollment_rate DESC) AS pr\n    FROM base\n)\nSELECT\n    site_id,\n    site_name,\n    enrolled_participants,\n    target_enrollment,\n    ROUND(enrollment_rate, 4) AS enrollment_rate\nFROM ranked\nWHERE pr <= 0.10\nORDER BY enrollment_rate DESC, site_id;",
+  "solved_at": "2026-05-07T11:43:31.726132"
+}

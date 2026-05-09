@@ -1,0 +1,136 @@
+{
+  "title": "PA Cycle Time Fact Table Design",
+  "scenario": "The care coordination team tracks prior authorization turnaround time across payers to identify bottlenecks and negotiate better terms with slow payers.",
+  "prompt": "STAKEHOLDER CONTEXT\n\nYou met with the care coordination ops team. The fact table you're designing will populate a daily dashboard. The dashboard needs:\n\n- PA approval rate: count of approved PAs divided by count of submitted PAs, by payer\n- Median cycle time: median of (approval_ts minus submitted_ts) in hours, by drug class\n- Reversal rate: count of approved-then-reversed PAs divided by count of approved PAs, by payer\n- Manual touch rate: count of PAs with at least one outreach event divided by count of submitted PAs, by care team user\n\nVOLUME AND UPDATE FREQUENCY\n\n- Daily source volume: ~8000 PA events per day\n- Dashboard freshness need: hourly\n- Total fact rows after 1 year: ~600K rows (one row per unique pa_id)\n\nWHAT YOU HAVE IN SOURCE\n\n- Source event table: `pa_events` at event grain (one row per state change). Event types: submitted, approved, denied, reversed, outreach_sent.\n- dim_patient: patient_id, age_band, plan_type, cohort\n- dim_drug: ndc, drug_class, therapeutic_area, brand_generic_flag\n- dim_payer: payer_id, payer_name, plan_year_effective_date, tier_structure\n- dim_prescriber: prescriber_id, npi, specialty, location_state\n- dim_care_team_user: user_id, user_name, team, hire_date\n- dim_date: date, week_start_date, month, quarter, fiscal_year\n\nYOUR TASK\n\nDesign the FACT TABLE that the dashboard reads from. Dims are already built \u2014 you specify how to JOIN them and what SCD type each is. Use the response form in section 2 to record your design choices.",
+  "instructions": "Fill out each form field in section 2 (the schema design response form). Dropdowns are used where the answer set is finite (SCD types, idempotency strategies, late-arriving handling); text fields for grain, fact columns, and rationale. Reference answer runs 200 to 400 words across multiple headed sections \u2014 this is a structured design doc, NOT a terse one-liner. Click Get Schema Design Feedback to grade.",
+  "expected_themes": [
+    "grain: one row per pa_id",
+    "fact-dim split",
+    "SCD Type 2 for dim_payer plan-year changes",
+    "surrogate key strategy",
+    "dbt staging vs marts",
+    "conformed dim_date",
+    "idempotency under reversals",
+    "late-arriving reversal events",
+    "dbt tests: unique, not_null, relationships",
+    "incremental materialization for hourly refresh",
+    "junk dim for event_type flags"
+  ],
+  "reference_answer": "## Grain\n\nOne row per pa_id (~600K rows after 1 year). Input is event grain (multiple rows per PA); output collapses to one row per PA lifecycle.\n\n## Fact Columns\n\n- pa_id (PK)\n- patient_id, drug_id, payer_id, prescriber_id, care_team_user_id (FKs to dims)\n- submitted_ts, approved_ts, denied_ts, reversed_ts (timestamps)\n- had_manual_outreach (boolean flag: TRUE if any outreach_sent event)\n- gross_approved (boolean: approved_ts IS NOT NULL)\n- net_approved (boolean: approved AND NOT reversed)\n- cycle_time_hours (approved_ts - submitted_ts, NULL if denied)\n\n## Dim Joins and SCD Types\n\n- dim_patient: Type 1 (plan_type changes rare, no history needed)\n- dim_drug: Type 1 (NDC is stable)\n- dim_payer: Type 2 (plan_year changes Jan 1, tier structure matters for approval rate trends)\n- dim_prescriber: Type 1 (NPI stable)\n- dim_care_team_user: Type 2 (team reassignments tracked for workload analysis)\n- dim_date: conformed Type 0\n\n## dbt Models\n\n- stg_pa_events: rename columns, cast types, no aggregation\n- int_pa_lifecycle: one row per pa_id, QUALIFY ROW_NUMBER() to pick latest event per type\n- mart_pa_fact: add derived columns (net_approved, cycle_time_hours), join surrogate keys\n- Materialization: incremental on pa_id, hourly refresh\n\n## Edge Cases and Tests\n\n- Approved-then-reversed: gross_approved = TRUE, net_approved = FALSE\n- Late-arriving reversal: re-state closed date partitions (idempotent merge)\n- Tests: unique(pa_id), not_null(submitted_ts), relationships(payer_id to dim_payer)",
+  "grading_rubric": [
+    {
+      "criterion": "Grain declaration",
+      "description": "States output grain as one row per pa_id with justification tied to dashboard aggregation needs; acknowledges input is event grain",
+      "weight": 20
+    },
+    {
+      "criterion": "Fact column selection",
+      "description": "Includes timestamps for each lifecycle state, gross vs net approved flags, had_manual_outreach boolean, and cycle_time_hours derived measure",
+      "weight": 25
+    },
+    {
+      "criterion": "SCD type reasoning",
+      "description": "Assigns Type 2 to dim_payer (plan-year changes) and dim_care_team_user (team reassignments), Type 1 to others; rationale references whether history is needed for the metric",
+      "weight": 20
+    },
+    {
+      "criterion": "dbt layer placement",
+      "description": "Staging does cleanup only, intermediate collapses event grain to PA grain, mart adds business logic (net_approved, cycle_time_hours); names incremental materialization for hourly refresh",
+      "weight": 20
+    },
+    {
+      "criterion": "Edge cases and tests",
+      "description": "Names approved-then-reversed idempotency (gross vs net) and late-arriving reversals; proposes at least 2 dbt tests with specific columns (unique pa_id, not_null submitted_ts, relationships to dims)",
+      "weight": 15
+    }
+  ],
+  "hints": [
+    "The dashboard asks include approval rate and reversal rate \u2014 you need boolean flags (approved, reversed) plus timestamps to compute those rates correctly.",
+    "The payer's plan-year boundary changes formulary rules, so you need SCD Type 2 for dim_payer to track which plan version was in effect when the PA was submitted.",
+    "Approved-then-reversed PAs should count toward gross approval rate but not net approval rate \u2014 your fact table needs two boolean columns to handle this."
+  ],
+  "common_mistakes": [
+    "Declaring grain without justifying why one-row-per-PA fits the dashboard aggregation needs better than event grain.",
+    "Ignoring the approved-then-reversed edge case (storing only final_status loses the fact that it was approved before reversal).",
+    "Assigning all dims as Type 1 to avoid SCD complexity, missing that dim_payer plan-year changes are material for trend analysis.",
+    "Putting cycle_time_hours calculation in staging instead of mart layer.",
+    "Omitting dbt tests or listing generic test names without specifying which columns they apply to."
+  ],
+  "schema_ddl": "CREATE TABLE pa_events (\n  event_id BIGINT PRIMARY KEY,\n  pa_id BIGINT NOT NULL,\n  patient_id BIGINT NOT NULL,\n  prescriber_id BIGINT NOT NULL,\n  payer_id BIGINT NOT NULL,\n  ndc VARCHAR(11) NOT NULL,\n  care_team_user_id BIGINT,\n  event_type VARCHAR(20) NOT NULL,\n  event_ts TIMESTAMP NOT NULL,\n  notes TEXT\n);",
+  "candidate_dimensions": [
+    {
+      "name": "dim_patient",
+      "key": "patient_id",
+      "description": "patient demographics, age band, plan type, cohort assignment"
+    },
+    {
+      "name": "dim_drug",
+      "key": "drug_id",
+      "description": "NDC, drug class, therapeutic area, brand vs generic flag"
+    },
+    {
+      "name": "dim_payer",
+      "key": "payer_id",
+      "description": "payer name, plan year effective date, tier structure, formulary version"
+    },
+    {
+      "name": "dim_prescriber",
+      "key": "prescriber_id",
+      "description": "NPI, specialty, practice location state"
+    },
+    {
+      "name": "dim_care_team_user",
+      "key": "user_id",
+      "description": "care team member name, team assignment, hire date"
+    },
+    {
+      "name": "dim_date",
+      "key": "date_id",
+      "description": "calendar date, week start, month, quarter, fiscal year"
+    }
+  ],
+  "stakeholder_asks": [
+    "PA approval rate: count of approved PAs divided by count of submitted PAs, by payer",
+    "Median cycle time: median of (approval_ts minus submitted_ts) in hours, by drug class",
+    "Reversal rate: count of approved-then-reversed PAs divided by count of approved PAs, by payer",
+    "Manual touch rate: count of PAs with at least one outreach event divided by count of submitted PAs, by care team user"
+  ],
+  "field_hints": {
+    "business_process": "The business process is a PA request lifecycle: submitted, optionally approved or denied, optionally reversed, optionally touched by a care team user. Every fact column describes ONE PA request's journey.",
+    "grain": "The dashboard aggregates counts and medians BY payer and BY drug class, so you need one row per PA (not per event) to avoid double-counting PAs that have multiple events.",
+    "fact_columns": "You need timestamps for each lifecycle state (submitted, approved, denied, reversed), boolean flags (gross_approved, net_approved, had_manual_outreach), and a derived cycle_time_hours measure.",
+    "key_strategy": "pa_id is the natural PK; each dim FK joins to a surrogate key in the dim table (patient_sk, payer_sk, etc) to handle SCD Type 2 lookups at event_ts.",
+    "dim_joins": "The asks filter by payer, drug class, and care team user, so you need dim_payer, dim_drug, dim_care_team_user. dim_date adds calendar context for weekly rollups.",
+    "scd_per_dim": "dim_payer must be Type 2 because plan-year changes affect approval rate trends; dim_care_team_user is Type 2 for team reassignments; others are Type 1 (stable attributes).",
+    "conformed_dims": "dim_date is conformed across all pharmacy marts (claims, PAs, refills). dim_patient and dim_drug are also conformed if you have a claims fact table.",
+    "models": "Staging renames and casts; intermediate collapses event grain to PA grain using QUALIFY ROW_NUMBER(); mart adds business logic (net_approved = approved AND NOT reversed, cycle_time_hours).",
+    "tests": "At minimum: unique(pa_id), not_null(submitted_ts), relationships(payer_id, dim_payer). Add accepted_values(event_type) in staging if you validate enums there.",
+    "idempotency": "Approved-then-reversed PAs net to zero approved in net_approved column but still count in gross_approved. Late-arriving reversal events re-state the closed date partition via merge.",
+    "late_arriving": "If a reversal event arrives 3 days after the PA was approved, the incremental model must UPDATE the existing pa_id row (set reversed_ts, flip net_approved to FALSE) rather than INSERT a duplicate.",
+    "edge_cases": "Approved-then-reversed (gross vs net), late-arriving reversals (idempotent merge), PAs with multiple outreach events (had_manual_outreach is boolean, not count), denied PAs (cycle_time_hours is NULL)."
+  },
+  "worked_example_per_field": {
+    "business_process": "Answer: PA request lifecycle (submitted \u2192 approved/denied \u2192 optionally reversed \u2192 optionally touched by care team).\n\nWhy: Every metric the dashboard asks for can be expressed as a ratio or median over PAs, not over events. Storing one row per event would force the BI query to deduplicate pa_id before counting.",
+    "grain": "Answer: one row per pa_id (~600K rows after 1 year).\n\nWhy: The prompt explicitly states 'one row per unique pa_id' in the volume section. The dashboard aggregates UP from PA-level (approval rate by payer, cycle time by drug class), so storing event-level rows would require complex deduplication in every query. The input is event grain; the output collapses to PA grain.",
+    "fact_columns": "Answer: pa_id (PK), patient_id, drug_id, payer_id, prescriber_id, care_team_user_id (FKs), submitted_ts, approved_ts, denied_ts, reversed_ts (timestamps), had_manual_outreach (boolean), gross_approved (boolean), net_approved (boolean), cycle_time_hours (derived measure).\n\nWhy: Every dashboard metric requires these raw ingredients. Approval rate = SUM(gross_approved) / COUNT(*). Reversal rate = SUM(reversed_ts IS NOT NULL) / SUM(gross_approved). Cycle time = MEDIAN(cycle_time_hours WHERE approved_ts IS NOT NULL). Storing pre-aggregated rates would lock the slicing dimensions.",
+    "key_strategy": "Answer: pa_id is the natural PK. Each dim FK (patient_id, payer_id, drug_id, prescriber_id, care_team_user_id) joins to a surrogate key in the dim table using submitted_ts as the SCD Type 2 lookup timestamp.\n\nWhy: Surrogate keys let you join to the correct version of the dim row (e.g., which payer plan was in effect when the PA was submitted). Natural keys (patient_id, payer_id) are business keys, not PKs in Type 2 dims.",
+    "dim_joins": "Answer: dim_patient, dim_drug, dim_payer, dim_prescriber, dim_care_team_user, dim_date.\n\nWhy: The dashboard asks filter by payer (approval rate by payer), by drug class (cycle time by drug class), and by care team user (manual touch rate by user). dim_date adds calendar rollup capability (weekly, monthly). dim_prescriber and dim_patient add optional drill-down context.",
+    "scd_per_dim": "Answer: dim_payer = Type 2 (plan-year changes Jan 1, tier structure affects approval rate trends). dim_care_team_user = Type 2 (team reassignments matter for workload analysis). dim_patient = Type 1 (plan changes rare, no history needed for PA metrics). dim_drug = Type 1 (NDC is stable). dim_prescriber = Type 1 (NPI stable). dim_date = Type 0 (conformed, no history).\n\nWhy: Type 2 is needed when the metric requires historical context (which plan version was in effect when the PA was submitted). Type 1 is sufficient when the attribute rarely changes or history isn't material to the metric.",
+    "conformed_dims": "Answer: dim_date is conformed across all pharmacy marts (claims, PAs, refills). dim_patient and dim_drug are conformed if you have a claims fact table.\n\nWhy: Conformed dims let you join multiple facts together (e.g., correlate PA approval rate with fill rate from the claims fact). Using the same patient_id and drug_id grain across facts avoids fan-out joins.",
+    "models": "Answer: stg_pa_events (rename columns, cast types), int_pa_lifecycle (collapse event grain to PA grain using QUALIFY ROW_NUMBER() OVER (PARTITION BY pa_id, event_type ORDER BY event_ts DESC)), mart_pa_fact (add derived columns: net_approved = approved AND NOT reversed, cycle_time_hours = DATEDIFF(hour, submitted_ts, approved_ts), join surrogate keys). Materialization: incremental on pa_id, hourly refresh.\n\nWhy: Staging does cleanup only (no business rules). Intermediate reusable transformation (collapsing grain). Mart applies business logic (gross vs net approved, cycle time calculation). Incremental materialization meets the hourly freshness need without full table scans.",
+    "tests": "Answer: unique(pa_id), not_null(submitted_ts), not_null(patient_id), relationships(payer_id, dim_payer.payer_id), relationships(drug_id, dim_drug.drug_id), accepted_values(event_type, ['submitted', 'approved', 'denied', 'reversed', 'outreach_sent']) in stg_pa_events.\n\nWhy: unique(pa_id) catches duplicate PAs. not_null(submitted_ts) catches missing lifecycle anchors. relationships() catches orphaned FKs (PAs referencing deleted payers). accepted_values() validates event_type enums at the source layer.",
+    "idempotency": "Answer: Approved-then-reversed PAs have gross_approved = TRUE, net_approved = FALSE. Late-arriving reversal events trigger an UPDATE (not INSERT) on the existing pa_id row, flipping net_approved to FALSE and setting reversed_ts.\n\nWhy: Storing only final_status would lose the fact that the PA was approved before reversal (gross approval rate would be wrong). Idempotent merge (UPDATE on conflict) prevents duplicate pa_id rows when a reversal event arrives 3 days late.",
+    "late_arriving": "Answer: Re-state closed date partitions via incremental merge. If a reversal event arrives after the date partition is closed, the incremental model UPDATEs the existing pa_id row rather than inserting a duplicate.\n\nWhy: The alternative (ignore late arrivals) breaks the reversal rate metric. The alternative (append-only log with effective_date versioning) requires complex BI queries to pick the latest version. Merge on pa_id keeps the fact table at one-row-per-PA grain.",
+    "edge_cases": "Answer: (1) Approved-then-reversed PAs: gross_approved = TRUE, net_approved = FALSE. (2) Late-arriving reversal: idempotent UPDATE on pa_id. (3) Multiple outreach events: had_manual_outreach is boolean (TRUE if any outreach_sent event), not a count. (4) Denied PAs: cycle_time_hours is NULL (no approved_ts).\n\nWhy: Each edge case breaks a naive implementation. Ignoring reversals overstates net approval rate. Storing outreach count instead of boolean makes the manual touch rate formula ambiguous (do you count PAs with 1+ outreach or sum all outreach events?). NULL cycle_time for denied PAs prevents median calculations from failing."
+  },
+  "_meta": {
+    "category": "transformation_modeling",
+    "subtopic": "schema_design",
+    "kind": "kpi",
+    "scenario": "a prior authorization (PA) cycle time tracking system across payers",
+    "generated_at": "2026-05-06T16:02:05.042789",
+    "problem_id": "7b307a8f8e63",
+    "validation_attempts": 2,
+    "notebook": "nb02_fuze_interview_drills"
+  }
+}

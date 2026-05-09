@@ -1,0 +1,119 @@
+{
+  "problem": {
+    "title": "Pivot Appointment Types by Provider",
+    "prompt": "The telehealth platform stores appointment data in long format: each row in `appointment_counts` records one provider, one appointment type, and a count. Write a query that pivots this data into wide format with one row per provider. For each provider, create three columns: `initial_consult_count` (SUM of counts where appointment_type = 'initial_consult'), `follow_up_count` (SUM of counts where appointment_type = 'follow_up'), and `urgent_care_count` (SUM of counts where appointment_type = 'urgent_care'). If a provider has no appointments of a certain type, display 0 instead of NULL. Join to the `providers` table to include `provider_name` in the output. Return columns: provider_id, provider_name, initial_consult_count, follow_up_count, urgent_care_count. Order the result by provider_id ascending.",
+    "schema_ddl": "CREATE TABLE providers (provider_id INT PRIMARY KEY, provider_name VARCHAR(100)); CREATE TABLE appointment_counts (provider_id INT, appointment_type VARCHAR(50), count_value INT);",
+    "example_input_data": "INSERT INTO providers (provider_id, provider_name) VALUES (101, 'Dr. Alice Chen'), (102, 'Dr. Bob Martinez'), (103, 'Dr. Carol Singh'); INSERT INTO appointment_counts (provider_id, appointment_type, count_value) VALUES (101, 'initial_consult', 5), (101, 'follow_up', 12), (101, 'urgent_care', 3), (102, 'initial_consult', 8), (102, 'follow_up', 6), (103, 'urgent_care', 2), (103, 'urgent_care', 1);",
+    "example_output_columns": [
+      "provider_id",
+      "provider_name",
+      "initial_consult_count",
+      "follow_up_count",
+      "urgent_care_count"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "Dr. Alice Chen",
+        5,
+        12,
+        3
+      ],
+      [
+        102,
+        "Dr. Bob Martinez",
+        8,
+        6,
+        0
+      ],
+      [
+        103,
+        "Dr. Carol Singh",
+        0,
+        0,
+        3
+      ]
+    ],
+    "test_data": "INSERT INTO providers (provider_id, provider_name) VALUES (201, 'Dr. Emma Wilson'), (202, 'Dr. Frank Lee'), (203, 'Dr. Grace Patel'), (204, 'Dr. Henry Kim'), (205, 'Dr. Iris Johnson'), (206, 'Dr. Jack Brown'); INSERT INTO appointment_counts (provider_id, appointment_type, count_value) VALUES (201, 'initial_consult', 10), (201, 'initial_consult', 5), (201, 'follow_up', 8), (201, 'urgent_care', 4), (202, 'follow_up', 15), (202, 'follow_up', 3), (202, 'urgent_care', 7), (203, 'initial_consult', 12), (203, 'initial_consult', 6), (203, 'initial_consult', 2), (204, 'urgent_care', 9), (204, 'urgent_care', 1), (205, 'initial_consult', 7), (205, 'follow_up', 11), (205, 'follow_up', 4), (205, 'urgent_care', 5), (205, 'urgent_care', 3), (206, 'follow_up', 20);",
+    "test_expected_columns": [
+      "provider_id",
+      "provider_name",
+      "initial_consult_count",
+      "follow_up_count",
+      "urgent_care_count"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "Dr. Emma Wilson",
+        15,
+        8,
+        4
+      ],
+      [
+        202,
+        "Dr. Frank Lee",
+        0,
+        18,
+        7
+      ],
+      [
+        203,
+        "Dr. Grace Patel",
+        20,
+        0,
+        0
+      ],
+      [
+        204,
+        "Dr. Henry Kim",
+        0,
+        0,
+        10
+      ],
+      [
+        205,
+        "Dr. Iris Johnson",
+        7,
+        15,
+        8
+      ],
+      [
+        206,
+        "Dr. Jack Brown",
+        0,
+        20,
+        0
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "reshape",
+      "composite_moves": [
+        "join providers and appointment_counts on provider_id",
+        "group by provider_id and provider_name",
+        "pivot appointment_type into columns using SUM(CASE WHEN ...) with COALESCE for zero-fill"
+      ]
+    },
+    "hints": [
+      "You need to transform rows into columns by pivoting the appointment_type field.",
+      "Use COALESCE(SUM(CASE WHEN appointment_type = 'X' THEN count_value END), 0) AS x_count for each appointment type.",
+      "Join providers to appointment_counts, GROUP BY provider_id and provider_name, then create three pivoted columns with SUM(CASE WHEN ...) wrapped in COALESCE."
+    ],
+    "answer_key": "SELECT p.provider_id, p.provider_name, COALESCE(SUM(CASE WHEN ac.appointment_type = 'initial_consult' THEN ac.count_value END), 0) AS initial_consult_count, COALESCE(SUM(CASE WHEN ac.appointment_type = 'follow_up' THEN ac.count_value END), 0) AS follow_up_count, COALESCE(SUM(CASE WHEN ac.appointment_type = 'urgent_care' THEN ac.count_value END), 0) AS urgent_care_count FROM providers p LEFT JOIN appointment_counts ac ON p.provider_id = ac.provider_id GROUP BY p.provider_id, p.provider_name ORDER BY p.provider_id;",
+    "_meta": {
+      "question_type": "pivot",
+      "dialect": "postgresql",
+      "generated_at": "2026-05-06T21:57:11.391918",
+      "problem_id": "59363c6a2888",
+      "validation_attempts": 1,
+      "scenario": "a telehealth platform tracking appointment scheduling and no-shows",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "WITH base AS (\n    SELECT\n        p.provider_id,\n        p.provider_name,\n\t    a.appointment_type,\n        a.count_value\n    FROM providers AS p\n    LEFT JOIN appointment_counts AS a\n    USING (provider_id)\n)\nSELECT \n    provider_id,\n    provider_name,\n    COALESCE(SUM(CASE WHEN appointment_type = 'initial_consult' THEN count_value END), 0) AS initial_consult_count,\n    COALESCE(SUM(CASE WHEN appointment_type = 'follow_up' THEN count_value END), 0) AS follow_up_count,\n    COALESCE(SUM(CASE WHEN appointment_type = 'urgent_care' THEN count_value END), 0) AS urgent_care_count\nFROM base\nGROUP BY 1, 2\nORDER BY 1;",
+  "solved_at": "2026-05-07T07:28:06.799863"
+}

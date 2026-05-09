@@ -1,0 +1,126 @@
+{
+  "problem": {
+    "title": "Pharmacy Claim Adjudication Funnel Conversion",
+    "prompt": "You are analyzing claim adjudication flow for a pharmacy API platform. The `claim_events` table logs every state change for each claim: submitted, rejected, recycled, paid, reversed, dispensed. A claim may be rejected multiple times before being recycled successfully, and some claims are paid on first submit. Build a funnel showing: (1) how many claims reached each stage (submitted, rejected, recycled, paid), and (2) the step-to-step conversion rate from each stage to the next. For each claim, use the FIRST occurrence of each event type (e.g., if a claim has two 'rejected' events, count only the first). Output columns: stage (text), claims_at_stage (count), conversion_from_prior (decimal, NULL for the first stage). Order by funnel sequence: submitted, rejected, recycled, paid. The conversion_from_prior for 'rejected' is rejected_count / submitted_count, for 'recycled' is recycled_count / rejected_count, etc.",
+    "schema_ddl": "CREATE TABLE claim_events (claim_id VARCHAR(20) NOT NULL, event_type VARCHAR(20) NOT NULL, event_ts TIMESTAMP NOT NULL, reject_code VARCHAR(50), paid_amount DECIMAL(10,2));",
+    "example_input_data": "INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C001', 'submitted', '2024-01-10 09:00:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C001', 'paid', '2024-01-10 09:00:02', NULL, 85.00); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C002', 'submitted', '2024-01-10 10:00:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C002', 'rejected', '2024-01-10 10:00:01', '75 - Prior Authorization Required', NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C002', 'recycled', '2024-01-10 14:00:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C002', 'paid', '2024-01-10 14:00:02', NULL, 120.00); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C003', 'submitted', '2024-01-10 11:00:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C003', 'rejected', '2024-01-10 11:00:01', '70 - Product/Service Not Covered', NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C004', 'submitted', '2024-01-10 12:00:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C004', 'rejected', '2024-01-10 12:00:01', '79 - Refill Too Soon', NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C004', 'rejected', '2024-01-10 13:00:00', '79 - Refill Too Soon', NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C004', 'recycled', '2024-01-10 15:00:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C004', 'rejected', '2024-01-10 15:00:01', '76 - Plan Limitations Exceeded', NULL);",
+    "example_output_columns": [
+      "stage",
+      "claims_at_stage",
+      "conversion_from_prior"
+    ],
+    "example_output_rows": [
+      [
+        "submitted",
+        "4",
+        null
+      ],
+      [
+        "rejected",
+        "3",
+        "0.75"
+      ],
+      [
+        "recycled",
+        "2",
+        "0.67"
+      ],
+      [
+        "paid",
+        "2",
+        "1.00"
+      ]
+    ],
+    "test_data": "INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C101', 'submitted', '2024-01-15 08:00:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C101', 'paid', '2024-01-15 08:00:02', NULL, 95.00); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C102', 'submitted', '2024-01-15 08:10:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C102', 'rejected', '2024-01-15 08:10:01', '75 - Prior Authorization Required', NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C102', 'recycled', '2024-01-15 10:00:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C102', 'paid', '2024-01-15 10:00:02', NULL, 150.00); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C103', 'submitted', '2024-01-15 08:20:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C103', 'rejected', '2024-01-15 08:20:01', '70 - Product/Service Not Covered', NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C104', 'submitted', '2024-01-15 08:30:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C104', 'rejected', '2024-01-15 08:30:01', '79 - Refill Too Soon', NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C105', 'submitted', '2024-01-15 08:40:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C105', 'paid', '2024-01-15 08:40:02', NULL, 45.00); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C106', 'submitted', '2024-01-15 08:50:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C106', 'rejected', '2024-01-15 08:50:01', '88 - DUR Reject', NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C106', 'rejected', '2024-01-15 09:00:00', '88 - DUR Reject', NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C106', 'recycled', '2024-01-15 11:00:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C106', 'paid', '2024-01-15 11:00:02', NULL, 200.00); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C107', 'submitted', '2024-01-15 09:00:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C107', 'rejected', '2024-01-15 09:00:01', '65 - Patient Not Covered', NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C107', 'recycled', '2024-01-15 12:00:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C107', 'rejected', '2024-01-15 12:00:01', '65 - Patient Not Covered', NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C108', 'submitted', '2024-01-15 09:10:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C108', 'rejected', '2024-01-15 09:10:01', '76 - Plan Limitations Exceeded', NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C108', 'recycled', '2024-01-15 13:00:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C108', 'paid', '2024-01-15 13:00:02', NULL, 110.00); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C109', 'submitted', '2024-01-15 09:20:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C109', 'paid', '2024-01-15 09:20:02', NULL, 75.00); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C109', 'reversed', '2024-01-15 14:00:00', NULL, -75.00); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C110', 'submitted', '2024-01-15 09:30:00', NULL, NULL); INSERT INTO claim_events (claim_id, event_type, event_ts, reject_code, paid_amount) VALUES ('C110', 'rejected', '2024-01-15 09:30:01', '41 - Submit Bill To Other Processor', NULL);",
+    "test_expected_columns": [
+      "stage",
+      "claims_at_stage",
+      "conversion_from_prior"
+    ],
+    "test_expected_rows": [
+      [
+        "submitted",
+        "10",
+        null
+      ],
+      [
+        "rejected",
+        "7",
+        "0.70"
+      ],
+      [
+        "recycled",
+        "4",
+        "0.57"
+      ],
+      [
+        "paid",
+        "6",
+        "1.50"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "group-aggregate",
+      "composite_moves": [
+        "row-filter (first event per claim per event_type via window MIN(event_ts) PARTITION BY claim_id, event_type)",
+        "group-aggregate (COUNT DISTINCT claim_id per stage)",
+        "scalar-extract (LAG to compute conversion from prior stage)"
+      ]
+    },
+    "hints": [
+      "A claim may have multiple events of the same type; you need only the FIRST occurrence of each event type for each claim.",
+      "Use a window function to identify the first timestamp of each event_type for each claim_id, then count how many distinct claims have at least one event of each stage.",
+      "Compute conversion_from_prior by dividing the current stage's count by the previous stage's count using LAG() over the ordered funnel stages."
+    ],
+    "answer_key": "WITH first_events AS (\n  SELECT DISTINCT\n    claim_id,\n    event_type,\n    MIN(event_ts) OVER (PARTITION BY claim_id, event_type) AS first_ts\n  FROM claim_events\n),\nstage_counts AS (\n  SELECT 'submitted' AS stage, 1 AS seq, COUNT(DISTINCT claim_id) AS claims_at_stage\n  FROM first_events WHERE event_type = 'submitted'\n  UNION ALL\n  SELECT 'rejected', 2, COUNT(DISTINCT claim_id)\n  FROM first_events WHERE event_type = 'rejected'\n  UNION ALL\n  SELECT 'recycled', 3, COUNT(DISTINCT claim_id)\n  FROM first_events WHERE event_type = 'recycled'\n  UNION ALL\n  SELECT 'paid', 4, COUNT(DISTINCT claim_id)\n  FROM first_events WHERE event_type = 'paid'\n)\nSELECT\n  stage,\n  claims_at_stage::TEXT,\n  CASE\n    WHEN LAG(claims_at_stage) OVER (ORDER BY seq) IS NULL THEN NULL\n    ELSE ROUND(claims_at_stage::NUMERIC / LAG(claims_at_stage) OVER (ORDER BY seq), 2)::TEXT\n  END AS conversion_from_prior\nFROM stage_counts\nORDER BY seq;",
+    "glossary": [
+      {
+        "term": "adjudication",
+        "definition": "The real-time decision the PBM makes on whether to pay a submitted prescription claim and how much."
+      },
+      {
+        "term": "submitted",
+        "definition": "The moment the pharmacy first transmits the claim to the PBM (NCPDP transaction code B1)."
+      },
+      {
+        "term": "rejected",
+        "definition": "The PBM declined to pay the claim, returning a reject code indicating the reason (e.g., prior authorization required, refill too soon)."
+      },
+      {
+        "term": "recycled",
+        "definition": "Resubmitting a previously rejected claim after fixing the issue (NCPDP transaction code B3), such as adding a prior authorization or changing the days supply."
+      },
+      {
+        "term": "paid",
+        "definition": "The PBM approved the claim and committed to reimburse the pharmacy; this is the successful end state for adjudication."
+      },
+      {
+        "term": "reversed",
+        "definition": "A cancellation of a previously paid claim (NCPDP transaction code B2), often due to patient return or billing correction."
+      },
+      {
+        "term": "funnel conversion",
+        "definition": "The percentage of entities (here, claims) that progress from one sequential stage to the next, used to identify drop-off points in a multi-step process."
+      }
+    ],
+    "calculation_explanation": "1. For each claim, identify the FIRST timestamp when each event_type occurred (submitted, rejected, recycled, paid) using a window function partitioned by claim_id and event_type. 2. Count how many distinct claims have at least one event of each type to get the number of claims reaching each funnel stage. 3. Order the stages in funnel sequence (submitted, rejected, recycled, paid). 4. For each stage after the first, divide its claim count by the previous stage's claim count using LAG() to compute the step-to-step conversion rate. 5. Format the output with stage name, claims at stage, and conversion from prior (NULL for the first stage).",
+    "_meta": {
+      "category": "pharmacy_sql",
+      "subtopic": "adjudication_funnel",
+      "kind": "sql",
+      "question_type": "select_analytical",
+      "dialect": "postgresql",
+      "scenario": "a Truepill style API platform tracking partner integration health and claim throughput",
+      "generated_at": "2026-05-03T20:18:45.043105",
+      "problem_id": "a45f7652e58c",
+      "validation_attempts": 4,
+      "notebook": "nb02_fuze_interview_drills"
+    }
+  },
+  "user_solution": "/*\n1. prepare base claims\n- filter for first instance for each event type and claim id\n- also add column to assign event type a row order number\n2. group by and calculate count of claims\n3. lag window method to prepare for conversion rate\n4. conversion rate \n */\n\nWITH base_claims AS (\n    SELECT\n        event_type AS stage,\n        event_ts,\n        claim_id,\n        CASE\n            WHEN event_type = 'submitted' THEN 1\n            WHEN event_type = 'rejected' THEN 2\n            WHEN event_type = 'recycled' THEN 3\n            WHEN event_type = 'paid' THEN 4\n        END AS event_order,\n        reject_code,\n        paid_amount,\n        ROW_NUMBER() OVER (PARTITION BY claim_id, event_type ORDER BY event_ts) AS claim_event_rn\n    FROM claim_events\n    WHERE event_type IN ('submitted', 'rejected', 'recycled', 'paid') \n    ORDER BY event_order\n),\ngrouped_claims AS (\nSELECT\n    stage,\n    event_order,\n    COUNT(claim_id) AS claims_at_stage\nFROM base_claims\nWHERE claim_event_rn = 1\nGROUP BY stage, event_order\nORDER BY event_order\n)\nSELECT \n    stage,\n    claims_at_stage,\n    ROUND(\n        claims_at_stage/(LAG(claims_at_stage) OVER (ORDER BY event_order))::numeric\n    , 2)AS conversion_from_prior\nFROM grouped_claims\nORDER BY event_order;\n\n\n\n\n",
+  "grade_result": null,
+  "solved_at": "2026-05-03T20:54:52.132924",
+  "notebook": "nb02_fuze_interview_drills"
+}

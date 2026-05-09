@@ -1,0 +1,107 @@
+{
+  "problem": {
+    "title": "Net Acceptance Rate by Drug Class",
+    "prompt": "You are analyzing adjudication outcomes for a care coordination platform. The `claim_events` table logs every NCPDP transaction for each prescription claim: submission (B1), payment, and reversal (B2). Your task is to compute the **Net Acceptance Rate** by drug class, which is the financially-honest metric Finance uses for revenue forecasting. The formula is: `Net Acceptance Rate = (count of distinct claims with a paid event - count of distinct claims with a reversed event) / count of distinct submitted claims`. Unlike First Pass Acceptance Rate (FPAR), this metric accounts for paid claims that were later voided (reversed). A claim that was paid and then reversed should net to 0 in the numerator. Compute the rate for each drug class, round to 4 decimal places, and order the output by drug class ascending. Use DISTINCT claim_id counts for each event type, not raw event counts.",
+    "schema_ddl": "CREATE TABLE claim_events (\n  event_id VARCHAR(10) PRIMARY KEY,\n  claim_id VARCHAR(10) NOT NULL,\n  event_type VARCHAR(20) NOT NULL,\n  event_ts TIMESTAMP NOT NULL,\n  drug_class VARCHAR(50) NOT NULL\n);",
+    "example_input_data": "INSERT INTO claim_events (event_id, claim_id, event_type, event_ts, drug_class)\nVALUES\n  ('E001', 'C001', 'submitted', '2024-01-10 08:00:00', 'GLP-1 agonists'),\n  ('E002', 'C001', 'paid', '2024-01-10 08:01:00', 'GLP-1 agonists'),\n  ('E003', 'C002', 'submitted', '2024-01-10 09:00:00', 'GLP-1 agonists'),\n  ('E004', 'C002', 'paid', '2024-01-10 09:02:00', 'GLP-1 agonists'),\n  ('E005', 'C002', 'reversed', '2024-01-12 10:00:00', 'GLP-1 agonists'),\n  ('E006', 'C003', 'submitted', '2024-01-11 10:00:00', 'statins'),\n  ('E007', 'C003', 'paid', '2024-01-11 10:01:00', 'statins'),\n  ('E008', 'C004', 'submitted', '2024-01-11 11:00:00', 'statins'),\n  ('E009', 'C004', 'rejected', '2024-01-11 11:01:00', 'statins');",
+    "example_output_columns": [
+      "drug_class",
+      "net_acceptance_rate"
+    ],
+    "example_output_rows": [
+      [
+        "GLP-1 agonists",
+        "0.5000"
+      ],
+      [
+        "statins",
+        "0.5000"
+      ]
+    ],
+    "test_data": "INSERT INTO claim_events (event_id, claim_id, event_type, event_ts, drug_class)\nVALUES\n  ('E101', 'C101', 'submitted', '2024-02-01 08:00:00', 'GLP-1 agonists'),\n  ('E102', 'C101', 'paid', '2024-02-01 08:01:00', 'GLP-1 agonists'),\n  ('E103', 'C102', 'submitted', '2024-02-01 09:00:00', 'GLP-1 agonists'),\n  ('E104', 'C102', 'paid', '2024-02-01 09:01:00', 'GLP-1 agonists'),\n  ('E105', 'C102', 'reversed', '2024-02-03 10:00:00', 'GLP-1 agonists'),\n  ('E106', 'C103', 'submitted', '2024-02-01 10:00:00', 'GLP-1 agonists'),\n  ('E107', 'C103', 'rejected', '2024-02-01 10:01:00', 'GLP-1 agonists'),\n  ('E108', 'C104', 'submitted', '2024-02-01 11:00:00', 'GLP-1 agonists'),\n  ('E109', 'C104', 'paid', '2024-02-01 11:01:00', 'GLP-1 agonists'),\n  ('E110', 'C104', 'reversed', '2024-02-02 12:00:00', 'GLP-1 agonists'),\n  ('E111', 'C104', 'reversed', '2024-02-02 12:05:00', 'GLP-1 agonists'),\n  ('E112', 'C105', 'submitted', '2024-02-02 08:00:00', 'statins'),\n  ('E113', 'C105', 'paid', '2024-02-02 08:01:00', 'statins'),\n  ('E114', 'C106', 'submitted', '2024-02-02 09:00:00', 'statins'),\n  ('E115', 'C106', 'paid', '2024-02-02 09:01:00', 'statins'),\n  ('E116', 'C107', 'submitted', '2024-02-02 10:00:00', 'statins'),\n  ('E117', 'C107', 'paid', '2024-02-02 10:01:00', 'statins'),\n  ('E118', 'C108', 'submitted', '2024-02-02 11:00:00', 'statins'),\n  ('E119', 'C108', 'rejected', '2024-02-02 11:01:00', 'statins'),\n  ('E120', 'C109', 'submitted', '2024-02-02 12:00:00', 'SSRIs'),\n  ('E121', 'C109', 'paid', '2024-02-02 12:01:00', 'SSRIs'),\n  ('E122', 'C109', 'reversed', '2024-02-04 13:00:00', 'SSRIs'),\n  ('E123', 'C110', 'submitted', '2024-02-03 08:00:00', 'SSRIs'),\n  ('E124', 'C110', 'paid', '2024-02-03 08:01:00', 'SSRIs'),\n  ('E125', 'C111', 'submitted', '2024-02-03 09:00:00', 'SSRIs'),\n  ('E126', 'C111', 'rejected', '2024-02-03 09:01:00', 'SSRIs');",
+    "test_expected_columns": [
+      "drug_class",
+      "net_acceptance_rate"
+    ],
+    "test_expected_rows": [
+      [
+        "GLP-1 agonists",
+        "0.2500"
+      ],
+      [
+        "SSRIs",
+        "0.3333"
+      ],
+      [
+        "statins",
+        "0.7500"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "group-aggregate",
+      "composite_moves": [
+        "CTE: count distinct claim_id where event_type='submitted', group by drug_class",
+        "CTE: count distinct claim_id where event_type='paid', group by drug_class",
+        "CTE: count distinct claim_id where event_type='reversed', group by drug_class",
+        "row-transform: compute (paid - reversed) / submitted per drug_class, round to 4 decimals"
+      ]
+    },
+    "hints": [
+      "You will need separate aggregations for submitted, paid, and reversed claims before computing the final rate.",
+      "Use COUNT(DISTINCT claim_id) with WHERE event_type filters in CTEs, then join the three CTEs on drug_class.",
+      "The formula is (paid_count - reversed_count)::NUMERIC / submitted_count; cast to numeric before dividing to avoid integer division, then ROUND to 4 decimal places."
+    ],
+    "answer_key": "WITH submitted AS (\n  SELECT drug_class, COUNT(DISTINCT claim_id) AS submitted_count\n  FROM claim_events\n  WHERE event_type = 'submitted'\n  GROUP BY drug_class\n),\npaid AS (\n  SELECT drug_class, COUNT(DISTINCT claim_id) AS paid_count\n  FROM claim_events\n  WHERE event_type = 'paid'\n  GROUP BY drug_class\n),\nreversed AS (\n  SELECT drug_class, COUNT(DISTINCT claim_id) AS reversed_count\n  FROM claim_events\n  WHERE event_type = 'reversed'\n  GROUP BY drug_class\n)\nSELECT\n  s.drug_class,\n  ROUND((COALESCE(p.paid_count, 0) - COALESCE(r.reversed_count, 0))::NUMERIC / s.submitted_count, 4) AS net_acceptance_rate\nFROM submitted s\nLEFT JOIN paid p ON s.drug_class = p.drug_class\nLEFT JOIN reversed r ON s.drug_class = r.drug_class\nORDER BY s.drug_class;",
+    "glossary": [
+      {
+        "term": "Net Acceptance Rate",
+        "definition": "The percentage of submitted claims that result in net revenue after accounting for reversals; calculated as (paid claims - reversed claims) / submitted claims."
+      },
+      {
+        "term": "FPAR (First Pass Acceptance Rate)",
+        "definition": "The percentage of claims paid on the first submission without rejection, which overstates revenue when reversals are common."
+      },
+      {
+        "term": "submitted (event)",
+        "definition": "The initial B1 transaction when the pharmacy transmits a claim to the PBM for adjudication."
+      },
+      {
+        "term": "paid (event)",
+        "definition": "The adjudication decision by the PBM to approve payment for a claim, recorded after a submitted or recycled event."
+      },
+      {
+        "term": "reversed (event)",
+        "definition": "A B2 transaction that voids a previously paid claim, typically because the patient did not pick up the prescription or the claim was billed in error."
+      },
+      {
+        "term": "drug class",
+        "definition": "A therapeutic category grouping medications by mechanism of action or treatment purpose, such as GLP-1 agonists or statins."
+      },
+      {
+        "term": "NCPDP transaction code",
+        "definition": "The standard field in pharmacy claims that identifies the transaction type: B1 for billing/submit, B2 for reversal, B3 for rebill/recycle."
+      }
+    ],
+    "calculation_explanation": "1. For each drug class, count the number of distinct claim_ids that have at least one 'submitted' event.\n2. For each drug class, count the number of distinct claim_ids that have at least one 'paid' event.\n3. For each drug class, count the number of distinct claim_ids that have at least one 'reversed' event.\n4. For each drug class, compute the Net Acceptance Rate as (paid_count - reversed_count) divided by submitted_count.\n5. Round the result to 4 decimal places and order by drug class ascending.",
+    "interpretation_example": "- GLP-1 agonists: 1 of 4 submitted claims (25%) resulted in net revenue after reversals \u2014 well below the 80-90% specialty benchmark, signaling a revenue leakage issue.\n- SSRIs: 1 of 3 claims (33.33%) netted to paid, also far below benchmark; the single reversal consumed half the paid volume.\n- Statins: 3 of 4 claims (75%) netted to paid, closer to the 90-95% retail benchmark but still below target.\n- The difference between paid count and net acceptance exposes the reversal burden: GLP-1 had 2 reversals on 4 submits (50% reversal rate among paid claims), which is a red flag for non-pickup in specialty.\n- If these are actual fills that patients didn't collect, the platform needs proactive outreach before dispense to reduce wasted adjudication and inventory cost.",
+    "recommendation_example": "- Trigger pre-dispense patient confirmation (Care Coordination): for specialty drug classes with net acceptance <80%, require a phone/text confirmation of pickup intent before dispensing; benchmark is 70-85% confirmation response rate.\n- Implement reversal root-cause tagging (Pharmacy Ops + Finance): add a reversal_reason column to claim_events and route high-reversal drug classes to expedited pick-up or delivery within 24 hours of paid event.\n- Segment Net Acceptance Rate reporting by channel (Product): if GLP-1 reversals are concentrated in mail-order vs retail pickup, the platform can steer patients to the higher-success channel.\n- Monitor weekly: track net acceptance rate by drug class and payer; flag any class that drops below 85% specialty / 90% retail for 2 consecutive weeks and escalate to ops leadership.",
+    "_meta": {
+      "category": "pharmacy_sql",
+      "subtopic": "net_acceptance_rate",
+      "kind": "sql",
+      "question_type": "select_analytical",
+      "dialect": "postgresql",
+      "scenario": "a care coordination platform tracking handoffs between provider, pharmacy, and patient",
+      "generated_at": "2026-05-04T11:21:36.853087",
+      "problem_id": "df2e322f9833",
+      "validation_attempts": 1,
+      "notebook": "nb02_fuze_interview_drills"
+    }
+  },
+  "user_solution": "/*\n\nGoal:\nCompute the **Net Acceptance Rate** by drug class, \nWhy? This is a financially-honest metric Finance uses for revenue forecasting.\n\n`Net Acceptance Rate = (count of distinct claims with a paid event - count of distinct claims with a reversed event) / count of distinct submitted claims`.\n\nUnlike First Pass Acceptance Rate (FPAR), this metric accounts for paid claims that were later voided (reversed).\n\nConditions:\n- A claim that was paid and then reversed should net to 0 in the numerator.\n\nOutput format:\n- Compute the rate for each drug class, round to 4 decimal places\n- order the output by drug class ascending.\n\n\nSteps\n1. For each drug class, count the number of distinct claim_ids that have at least one 'submitted' event.\n2. For each drug class, count the number of distinct claim_ids that have at least one 'paid' event.\n3. For each drug class, count the number of distinct claim_ids that have at least one 'reversed' event.\n4. For each drug class, compute the Net Acceptance Rate as (paid_count - reversed_count) divided by submitted_count.\n5. Round the result to 4 decimal places and order by drug class ascending.\n\n */\n\n-- drug_class level with \nWITH base AS (\n    SELECT \n          drug_class,\n          COUNT(DISTINCT CASE WHEN event_type = 'submitted' THEN claim_id END) AS submitted,\n          COUNT(DISTINCT CASE WHEN event_type = 'paid' THEN claim_id END) AS paid,\n          COUNT(DISTINCT CASE WHEN event_type = 'reversed' THEN claim_id END)  AS reversed\n    FROM claim_events\n    GROUP BY drug_class\n)\nSELECT\n    drug_class,\n    ROUND(((paid - reversed)::numeric/submitted), 4) AS net_acceptance_rate\nFROM base;\n\n\n\n\n\n",
+  "grade_result": null,
+  "solved_at": "2026-05-04T11:59:31.151034",
+  "notebook": "nb02_fuze_interview_drills"
+}

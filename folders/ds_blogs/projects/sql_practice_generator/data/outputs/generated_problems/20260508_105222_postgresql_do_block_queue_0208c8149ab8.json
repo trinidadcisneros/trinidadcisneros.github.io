@@ -1,0 +1,168 @@
+{
+  "title": "Clinical Diagnosis Code Review Event Queue",
+  "prompt": "A hospital's clinical documentation improvement (CDI) system tracks diagnosis code reviews through a `code_reviews` state table and processes review events via an `review_events` log. Each diagnosis code under review has a current `status` ('pending', 'under_review', 'approved', 'denied') and an assigned `reviewer_id`. The events table records chronological actions: type `1` = 'claim_review' (a clinician starts reviewing a pending code, changing status to 'under_review' and setting their ID), type `2` = 'approve_code' (the assigned reviewer approves their code, changing status to 'approved'), type `3` = 'deny_code' (the assigned reviewer denies their code, changing status to 'denied'), type `4` = 'reassign_review' (admin reassigns a code under_review to a different reviewer). Write a DO block that processes the events in chronological order (ascending `event_id`). Each event must read the code's current `status` and `reviewer_id` before deciding whether to apply the state change. A 'claim_review' event only fires if status is currently 'pending'. An 'approve_code' or 'deny_code' event only fires if status is 'under_review' AND the event's `clinician_id` matches the code's current `reviewer_id`. A 'reassign_review' event only fires if status is 'under_review'. Events that do not meet their preconditions are no-ops. After the DO block, include a trailing `SELECT * FROM code_reviews ORDER BY code_id;` to show the final state.",
+  "schema_ddl": "CREATE TABLE code_reviews (code_id INT PRIMARY KEY, icd_code VARCHAR(10) NOT NULL, status VARCHAR(20) NOT NULL, reviewer_id INT); CREATE TABLE review_events (event_id INT PRIMARY KEY, event_type INT NOT NULL, code_id INT NOT NULL, clinician_id INT, new_reviewer_id INT, FOREIGN KEY (code_id) REFERENCES code_reviews(code_id));",
+  "example_input_data": "INSERT INTO code_reviews (code_id, icd_code, status, reviewer_id) VALUES (101, 'E11.9', 'pending', NULL), (102, 'I10', 'pending', NULL), (103, 'J44.1', 'under_review', 5), (104, 'N18.3', 'pending', NULL); INSERT INTO review_events (event_id, event_type, code_id, clinician_id, new_reviewer_id) VALUES (1, 1, 101, 3, NULL), (2, 1, 102, 4, NULL), (3, 2, 101, 3, NULL), (4, 3, 102, 99, NULL), (5, 1, 104, 6, NULL), (6, 4, 103, NULL, 7), (7, 2, 103, 7, NULL);",
+  "example_output_columns": [
+    "code_id",
+    "icd_code",
+    "status",
+    "reviewer_id"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "E11.9",
+      "approved",
+      3
+    ],
+    [
+      102,
+      "I10",
+      "under_review",
+      4
+    ],
+    [
+      103,
+      "J44.1",
+      "approved",
+      7
+    ],
+    [
+      104,
+      "N18.3",
+      "under_review",
+      6
+    ]
+  ],
+  "test_data": "INSERT INTO code_reviews (code_id, icd_code, status, reviewer_id) VALUES (201, 'A01.0', 'pending', NULL), (202, 'B20', 'pending', NULL), (203, 'C50.9', 'under_review', 10), (204, 'D50.0', 'pending', NULL), (205, 'E66.9', 'under_review', 11), (206, 'F10.20', 'pending', NULL), (207, 'G40.9', 'pending', NULL), (208, 'H25.9', 'under_review', 12), (209, 'I21.9', 'pending', NULL), (210, 'J18.9', 'pending', NULL), (211, 'K21.9', 'under_review', 13), (212, 'L03.90', 'pending', NULL), (213, 'M25.50', 'pending', NULL), (214, 'N39.0', 'under_review', 14), (215, 'O80', 'pending', NULL); INSERT INTO review_events (event_id, event_type, code_id, clinician_id, new_reviewer_id) VALUES (1, 1, 201, 20, NULL), (2, 1, 202, 21, NULL), (3, 2, 201, 20, NULL), (4, 1, 201, 22, NULL), (5, 3, 202, 21, NULL), (6, 1, 204, 23, NULL), (7, 4, 203, NULL, 24), (8, 2, 203, 10, NULL), (9, 2, 203, 24, NULL), (10, 3, 205, 11, NULL), (11, 1, 206, 25, NULL), (12, 4, 206, NULL, 26), (13, 3, 206, 26, NULL), (14, 1, 207, 27, NULL), (15, 2, 208, 12, NULL), (16, 1, 209, 28, NULL), (17, 2, 209, 28, NULL), (18, 1, 210, 29, NULL), (19, 3, 210, 99, NULL), (20, 3, 210, 29, NULL), (21, 4, 211, NULL, 30), (22, 2, 211, 30, NULL), (23, 1, 212, 31, NULL), (24, 2, 212, 32, NULL), (25, 1, 213, 33, NULL), (26, 3, 214, 14, NULL), (27, 1, 215, 34, NULL), (28, 4, 215, NULL, 35), (29, 2, 215, 35, NULL);",
+  "test_expected_columns": [
+    "code_id",
+    "icd_code",
+    "status",
+    "reviewer_id"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "A01.0",
+      "approved",
+      20
+    ],
+    [
+      202,
+      "B20",
+      "denied",
+      21
+    ],
+    [
+      203,
+      "C50.9",
+      "approved",
+      24
+    ],
+    [
+      204,
+      "D50.0",
+      "under_review",
+      23
+    ],
+    [
+      205,
+      "E66.9",
+      "denied",
+      11
+    ],
+    [
+      206,
+      "F10.20",
+      "denied",
+      26
+    ],
+    [
+      207,
+      "G40.9",
+      "under_review",
+      27
+    ],
+    [
+      208,
+      "H25.9",
+      "approved",
+      12
+    ],
+    [
+      209,
+      "I21.9",
+      "approved",
+      28
+    ],
+    [
+      210,
+      "J18.9",
+      "denied",
+      29
+    ],
+    [
+      211,
+      "K21.9",
+      "approved",
+      30
+    ],
+    [
+      212,
+      "L03.90",
+      "under_review",
+      31
+    ],
+    [
+      213,
+      "M25.50",
+      "under_review",
+      33
+    ],
+    [
+      214,
+      "N39.0",
+      "denied",
+      14
+    ],
+    [
+      215,
+      "O80",
+      "approved",
+      35
+    ]
+  ],
+  "classification": {
+    "input_arrival": "procedural",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "declare RECORD variable for event rows",
+      "declare scalar variables for current status and reviewer_id",
+      "FOR loop over review_events ORDER BY event_id",
+      "per-iteration SELECT INTO to read current state from code_reviews",
+      "branch on event_type AND current state (status, reviewer_id match)",
+      "conditionally UPDATE code_reviews within matching branch",
+      "trailing SELECT to expose final state"
+    ]
+  },
+  "hints": [
+    "You need a FOR loop that walks the events table in event_id order, and for each event you must SELECT the code's current status and reviewer_id before deciding what to do.",
+    "Use IF/ELSIF to branch on event_type. Type 1 only mutates if status='pending'. Types 2 and 3 only mutate if status='under_review' AND the event's clinician_id equals the code's current reviewer_id. Type 4 only mutates if status='under_review'.",
+    "Declare a RECORD variable for the event row and two scalar variables (one for status, one for reviewer_id). Inside the loop: SELECT status, reviewer_id INTO your variables FROM code_reviews WHERE code_id = rec.code_id; then your IF branches check those variables and conditionally UPDATE code_reviews. End with SELECT * FROM code_reviews ORDER BY code_id;"
+  ],
+  "answer_key": "DO $$\nDECLARE\n  rec RECORD;\n  cur_status VARCHAR(20);\n  cur_reviewer INT;\nBEGIN\n  FOR rec IN SELECT * FROM review_events ORDER BY event_id LOOP\n    SELECT status, reviewer_id INTO cur_status, cur_reviewer FROM code_reviews WHERE code_id = rec.code_id;\n    IF rec.event_type = 1 AND cur_status = 'pending' THEN\n      UPDATE code_reviews SET status = 'under_review', reviewer_id = rec.clinician_id WHERE code_id = rec.code_id;\n    ELSIF rec.event_type = 2 AND cur_status = 'under_review' AND cur_reviewer = rec.clinician_id THEN\n      UPDATE code_reviews SET status = 'approved' WHERE code_id = rec.code_id;\n    ELSIF rec.event_type = 3 AND cur_status = 'under_review' AND cur_reviewer = rec.clinician_id THEN\n      UPDATE code_reviews SET status = 'denied' WHERE code_id = rec.code_id;\n    ELSIF rec.event_type = 4 AND cur_status = 'under_review' THEN\n      UPDATE code_reviews SET reviewer_id = rec.new_reviewer_id WHERE code_id = rec.code_id;\n    END IF;\n  END LOOP;\nEND $$;\n\nSELECT * FROM code_reviews ORDER BY code_id;",
+  "_meta": {
+    "question_type": "do_block_queue",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-08T10:52:22.237098",
+    "problem_id": "0208c8149ab8",
+    "validation_attempts": 1,
+    "scenario": "a clinical documentation tool tracking diagnosis code reviews and denials",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

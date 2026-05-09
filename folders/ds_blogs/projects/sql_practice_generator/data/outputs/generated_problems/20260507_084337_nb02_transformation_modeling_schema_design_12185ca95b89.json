@@ -1,0 +1,134 @@
+{
+  "title": "Fact Table for Eligibility Check Latency",
+  "scenario": "A digital pharmacy's real-time eligibility check service pings payer systems to confirm coverage before filling. The ops team wants a dashboard showing response latency by payer and channel.",
+  "prompt": "STAKEHOLDER CONTEXT\n\nYou met with the pharmacy operations team. The fact table you're designing will populate a daily dashboard. The dashboard needs:\n\n- Response rate: count of checks with eligibility_confirmed event divided by count of checks_requested by payer\n- Median response latency: MEDIAN(confirmed_ts - requested_ts) by payer\n- Timeout rate: count of checks with timeout_reached event divided by count of checks_requested by channel\n- P95 response latency: 95th percentile of (confirmed_ts - requested_ts) by payer\n\nVOLUME AND UPDATE FREQUENCY\n\n- Daily source volume: ~50K eligibility check events per day (requested, confirmed, timeout_reached, error_returned)\n- Dashboard freshness need: every 15 minutes (ops team monitors payer outages in near real-time)\n- Total fact rows after 1 year: ~4M rows (one row per unique check_id)\n\nWHAT YOU HAVE IN SOURCE\n\n- Source event table: `eligibility_events` at event grain (one row per state change). See schema below.\n- dim_payer: payer_name, payer_type (commercial, medicaid, medicare), region\n- dim_channel: channel_name (web, mobile, provider_portal, auto_recycle)\n- dim_patient: patient_id, age_bucket, plan_type\n- dim_date: date, week_start, month_start, is_weekday\n- dim_time: time_key (15-minute buckets for intraday patterns)\n\nYOUR TASK\n\nDesign the FACT TABLE that the dashboard reads from. Dims are already built \u2014 you specify how to JOIN them and what SCD type each is. Use the response form in section 2 to record your design choices.\n\nNOTE: event_type values are 'requested', 'confirmed', 'timeout_reached', 'error_returned'. A check_id can have multiple events (requested \u2192 confirmed OR requested \u2192 timeout_reached). The fact table must dedupe to one row per check_id.",
+  "instructions": "Fill out each form field in section 2 (the schema design response form). Dropdowns are used where the answer set is finite (SCD types, idempotency strategies, late-arriving handling); text fields for grain, fact columns, and rationale. This is a structured design exercise \u2014 reference answers run 200 to 400 words across 4 to 6 sections. Click Get Schema Design Feedback to grade.",
+  "expected_themes": [
+    "grain: one row per check_id",
+    "fact-dim split",
+    "SCD Type 1 for payer (stable within plan year)",
+    "surrogate key for payer and channel",
+    "dbt staging (dedup events) vs mart (business metrics)",
+    "incremental materialization (15-minute freshness)",
+    "idempotency under late confirmations",
+    "dbt tests: unique check_id, not_null timestamps",
+    "response_latency_seconds as derived measure",
+    "timeout handling (NULL confirmed_ts)",
+    "conformed dim_payer across claims and eligibility",
+    "junk dim for error_code"
+  ],
+  "reference_answer": "## Grain\n\nOne row per `check_id` (~4M rows after 1 year). Input is event-level (multiple rows per check_id); output collapses to one row with first_requested_ts, confirmed_ts (nullable), timeout_ts (nullable), error_code (nullable).\n\n## Fact Columns\n\n- check_id (PK)\n- patient_id, payer_id, channel_id, date_key, time_key (FKs)\n- requested_ts (timestamp)\n- confirmed_ts, timeout_ts, error_ts (nullable timestamps)\n- response_latency_seconds (derived: confirmed_ts - requested_ts)\n- final_status (derived: 'confirmed' | 'timeout' | 'error')\n\n## Dim Joins and SCD Types\n\n- dim_payer: Type 1 (payer metadata stable within plan year; no history needed for latency metrics)\n- dim_channel: Type 1 (channel config is static)\n- dim_patient: Type 1 (age_bucket updates monthly but metrics don't require history)\n- dim_date, dim_time: Type 0 (immutable calendar dims)\n\nConformed dim: dim_payer is also used in fact_claim.\n\n## dbt Models\n\n- stg_eligibility_events: dedupe events to latest per check_id, pivot event_type to columns\n- int_eligibility_checks: add derived columns (response_latency_seconds, final_status)\n- mart_eligibility_checks: fact table with all FK joins, incremental on requested_ts\n\n## Tests\n\n- unique(check_id)\n- not_null(requested_ts, payer_id, channel_id)\n- relationships(payer_id \u2192 dim_payer.payer_id)\n\n## Edge Cases\n\n- Late confirmations (confirmed_ts arrives 2 hours after requested_ts): incremental model re-processes open checks in lookback window (6 hours)\n- Duplicate requested events: stg_ layer takes MIN(requested_ts) per check_id",
+  "grading_rubric": [
+    {
+      "criterion": "Grain declaration",
+      "description": "States 'one row per check_id' and explains the grain shift from event-level input to check-level fact. Justifies grain choice by referencing the dashboard's need for check-level aggregations (response rate, median latency).",
+      "weight": 20
+    },
+    {
+      "criterion": "Fact/dim split and surrogate keys",
+      "description": "Assigns check_id, timestamps, latency_seconds to fact; payer metadata, channel metadata to dims. Names surrogate keys (payer_id, channel_id) for FK joins. Identifies conformed dim_payer across fact_claim and fact_eligibility_checks.",
+      "weight": 25
+    },
+    {
+      "criterion": "SCD type reasoning for dims",
+      "description": "Classifies dim_payer and dim_channel as Type 1 with rationale (no history needed; latency metrics use current payer attributes). Correctly identifies dim_date and dim_time as Type 0.",
+      "weight": 20
+    },
+    {
+      "criterion": "dbt layer placement",
+      "description": "Proposes stg_ for event deduplication, int_ for derived columns (response_latency_seconds, final_status), mart_ for FK joins and incremental logic. Avoids business rules in staging.",
+      "weight": 20
+    },
+    {
+      "criterion": "Edge cases and tests",
+      "description": "Names at least one edge case (late confirmations, duplicate requested events, timeout vs error handling). Proposes at least 2 dbt tests with specific columns (unique check_id, not_null requested_ts, relationships payer_id).",
+      "weight": 15
+    }
+  ],
+  "hints": [
+    "The dashboard asks for response rate and latency by payer. What grain lets you compute both without pre-aggregating?",
+    "The source is event-level (requested, confirmed, timeout). How do you collapse multiple events per check_id into one fact row?",
+    "The ops team needs 15-minute freshness. What dbt materialization strategy supports incremental updates without full table scans?"
+  ],
+  "common_mistakes": [
+    "Leaving grain at event-level (multiple rows per check_id) \u2014 breaks unique counts and median calculations",
+    "Treating all dims as Type 2 to 'preserve history' \u2014 latency metrics don't need payer history, Type 1 is correct",
+    "Putting business logic (response_latency_seconds, final_status) in stg_ layer \u2014 those are derived measures, belong in int_ or mart_",
+    "Omitting dbt tests \u2014 unique(check_id) and not_null(requested_ts) are critical for dashboard correctness",
+    "Ignoring late confirmations \u2014 without a lookback window, confirmed_ts arriving 2 hours late is dropped",
+    "Not identifying conformed dim_payer \u2014 payer metadata is used across claims and eligibility, should be one dim table"
+  ],
+  "schema_ddl": "CREATE TABLE eligibility_events (\n  event_id VARCHAR PRIMARY KEY,\n  check_id VARCHAR NOT NULL,\n  event_type VARCHAR NOT NULL,\n  event_ts TIMESTAMP NOT NULL,\n  patient_id VARCHAR NOT NULL,\n  payer_id VARCHAR NOT NULL,\n  channel_id VARCHAR NOT NULL,\n  error_code VARCHAR\n);",
+  "candidate_dimensions": [
+    {
+      "name": "dim_payer",
+      "key": "payer_id",
+      "description": "payer_name, payer_type (commercial, medicaid, medicare), region"
+    },
+    {
+      "name": "dim_channel",
+      "key": "channel_id",
+      "description": "channel_name (web, mobile, provider_portal, auto_recycle)"
+    },
+    {
+      "name": "dim_patient",
+      "key": "patient_id",
+      "description": "age_bucket, plan_type"
+    },
+    {
+      "name": "dim_date",
+      "key": "date_key",
+      "description": "date, week_start, month_start, is_weekday"
+    },
+    {
+      "name": "dim_time",
+      "key": "time_key",
+      "description": "15-minute buckets for intraday patterns (00:00, 00:15, 00:30, ...)"
+    }
+  ],
+  "stakeholder_asks": [
+    "Response rate: count of checks with eligibility_confirmed event divided by count of checks_requested, filterable by payer",
+    "Median response latency: MEDIAN(confirmed_ts minus requested_ts) in seconds, filterable by payer",
+    "Timeout rate: count of checks with timeout_reached event divided by count of checks_requested, filterable by channel",
+    "P95 response latency: 95th percentile of (confirmed_ts minus requested_ts) in seconds, filterable by payer",
+    "Daily check volume trend by channel over the past 90 days"
+  ],
+  "field_hints": {
+    "business_process": "For this problem, the business process is a single eligibility check request sent to a payer system. Every fact column should describe the lifecycle of ONE check (requested \u2192 confirmed OR timeout OR error).",
+    "grain": "The dashboard asks for response rate and median latency PER CHECK. What grain ensures you can count unique checks and compute latency without double-counting? The source is event-level (multiple rows per check_id), so you need to collapse.",
+    "fact_columns": "You need: check_id (PK), FKs to dims (payer_id, channel_id, patient_id, date_key, time_key), timestamps for each event type (requested_ts always populated, confirmed_ts/timeout_ts/error_ts nullable), and a derived measure for latency (confirmed_ts minus requested_ts in seconds). Final_status ('confirmed' | 'timeout' | 'error') helps dashboard filters.",
+    "key_strategy": "Surrogate keys are already assigned in the source (payer_id, channel_id, patient_id). Natural key is check_id (generated by the eligibility service). No composite key needed \u2014 check_id alone is unique.",
+    "dim_joins": "The asks filter by payer and by channel, so you need dim_payer and dim_channel. dim_date adds calendar context for the 90-day trend. dim_time supports intraday pattern analysis (P95 latency by hour of day). dim_patient enables patient cohort slicing if needed.",
+    "scd_per_dim": "Ask: do the dashboard metrics need historical versions of payer or channel metadata? Response latency is computed from timestamps \u2014 current payer_name is fine. Payer metadata is stable within a plan year, no history needed \u2192 Type 1. Channel config is static \u2192 Type 1. dim_date and dim_time are immutable \u2192 Type 0.",
+    "conformed_dims": "dim_payer is used across fact_claim (paid amounts by payer) and fact_eligibility_checks (latency by payer). If payer_name changes mid-year, both facts should see the same updated name \u2192 conformed dim. dim_channel and dim_date are also conformed.",
+    "models": "The dashboard needs 15-minute freshness. Source is event-level, fact is check-level. Propose: stg_eligibility_events (dedupe events per check_id, pivot event_type to columns), int_eligibility_checks (add derived columns like response_latency_seconds), mart_eligibility_checks (FK joins, incremental on requested_ts). Business rules go in int_ or mart_, NOT stg_.",
+    "tests": "Critical tests: unique(check_id) ensures one row per check. not_null(requested_ts) ensures every check has a start time. relationships(payer_id \u2192 dim_payer.payer_id) catches orphaned FKs. What else would break the dashboard if violated?",
+    "idempotency": "If a confirmed event arrives twice (reprocessing bug), the fact row should not duplicate. The stg_ layer takes MAX(confirmed_ts) per check_id. If a late confirmation overwrites a prior timeout, the mart incremental model re-processes open checks in a 6-hour lookback window.",
+    "late_arriving": "A confirmation can arrive 2 hours after the request. If the mart runs every 15 minutes, how do you ensure late confirmations update the fact row? Incremental model with a lookback window (6 hours) re-processes checks where confirmed_ts is NULL but now has a value.",
+    "edge_cases": "Realistic edge cases for eligibility checks: duplicate requested events (take MIN requested_ts), late confirmations (lookback window), simultaneous timeout and error (business rule: timeout wins), null payer_id (reject at stg_ layer with a not_null test)."
+  },
+  "worked_example_per_field": {
+    "business_process": "Answer: A single eligibility check request sent to a payer system and its outcome (confirmed, timeout, or error).\n\nWhy: The prompt states the ops team wants to track response latency and timeout rate. Each fact row represents one check's full lifecycle. If you modeled at event grain, you'd have 2 to 4 rows per check (requested, then confirmed OR timeout OR error), and computing median latency would require a complex JOIN back to the requested event. One row per check keeps the dashboard queries simple.",
+    "grain": "Answer: One row per check_id (~4M rows after 1 year).\n\nWhy: The prompt explicitly says '~4M rows after 1 year (one row per unique check_id)'. The dashboard needs to compute response rate (checks confirmed divided by checks requested) and median latency. If the fact stayed at event-level, you'd have multiple rows per check_id and unique counts would break. The grain shift happens in the stg_ layer (collapse events to one row per check_id).",
+    "fact_columns": "Answer: check_id (PK), patient_id, payer_id, channel_id, date_key, time_key (FKs), requested_ts (timestamp), confirmed_ts, timeout_ts, error_ts (nullable timestamps), response_latency_seconds (derived: confirmed_ts minus requested_ts), final_status (derived: 'confirmed' | 'timeout' | 'error').\n\nWhy: Every metric the dashboard asked for can be computed from these raw ingredients. Response rate = COUNT(confirmed_ts IS NOT NULL) divided by COUNT(*). Median latency = MEDIAN(response_latency_seconds WHERE confirmed_ts IS NOT NULL). Timeout rate = COUNT(timeout_ts IS NOT NULL) divided by COUNT(*). Storing the rates as columns would freeze the filter dimensions; storing raw timestamps and counts lets any BI query slice by payer, channel, date at query time.",
+    "key_strategy": "Answer: Natural key is check_id (VARCHAR, generated by the eligibility service). Surrogate keys for dims: payer_id, channel_id, patient_id (already in source), date_key (derived from requested_ts), time_key (derived from requested_ts, 15-minute buckets).\n\nWhy: check_id is already unique and stable across events (the eligibility service assigns it when the check is requested). No need for a composite key or a new surrogate. Payer_id and channel_id are also assigned in the source \u2014 they act as surrogate keys linking to dim_payer and dim_channel.",
+    "dim_joins": "Answer: Join dim_payer (on payer_id), dim_channel (on channel_id), dim_patient (on patient_id), dim_date (on date_key derived from requested_ts), dim_time (on time_key derived from requested_ts).\n\nWhy: The dashboard asks filter by payer (response rate, median latency, P95 latency by payer) and filter by channel (timeout rate by channel). dim_date adds calendar context for the 90-day trend ask. dim_time supports intraday pattern analysis (e.g., P95 latency spikes at 8am when provider portals open). dim_patient enables patient cohort slicing if the ops team wants to drill into age_bucket or plan_type.",
+    "scd_per_dim": "Answer: dim_payer Type 1 (payer metadata stable within plan year, no history needed), dim_channel Type 1 (channel config is static), dim_patient Type 1 (age_bucket updates monthly but latency metrics don't require patient history), dim_date Type 0 (immutable calendar), dim_time Type 0 (immutable clock).\n\nWhy: The dashboard computes latency from timestamps \u2014 it doesn't care if a payer's region attribute changed last month. Latency is an operational metric tied to the check's moment in time, not the payer's history. Type 1 updates (overwrite) are sufficient. If the product team later wants to analyze 'did latency improve after payer X changed their API endpoint?' they can backfill a Type 2 payer dim, but the current asks don't require it.",
+    "conformed_dims": "Answer: dim_payer is conformed across fact_claim (paid amounts by payer) and fact_eligibility_checks (latency by payer). dim_channel is conformed across fact_eligibility_checks and fact_prescription_transfers. dim_date and dim_time are conformed across all facts.\n\nWhy: If payer_name changes mid-year (e.g., 'Aetna CA' rebrands to 'CVS Health CA'), both the claims dashboard and the eligibility dashboard should show the updated name. Storing payer metadata in two separate dims would create inconsistency. One dim_payer table, joined by both facts via payer_id, ensures the name change propagates everywhere.",
+    "models": "Answer: (1) stg_eligibility_events: dedupe events to latest per check_id, pivot event_type to columns (requested_ts, confirmed_ts, timeout_ts, error_ts). (2) int_eligibility_checks: add derived columns (response_latency_seconds = confirmed_ts minus requested_ts, final_status = CASE WHEN confirmed_ts IS NOT NULL THEN 'confirmed' ...). (3) mart_eligibility_checks: FK joins to dims, incremental on requested_ts with 6-hour lookback window for late confirmations.\n\nWhy: The prompt says the dashboard needs 15-minute freshness. Incremental materialization in the mart layer avoids full table scans. The stg_ layer handles event deduplication (operational cleanup), the int_ layer adds business logic (latency calculation), the mart_ layer does FK joins and serves the dashboard. Business rules don't belong in stg_ because stg_ should be a thin pass-through from source to clean events.",
+    "tests": "Answer: unique(check_id), not_null(check_id, requested_ts, payer_id, channel_id), relationships(payer_id \u2192 dim_payer.payer_id, channel_id \u2192 dim_channel.channel_id), accepted_values(final_status IN ('confirmed', 'timeout', 'error')).\n\nWhy: unique(check_id) ensures the grain holds (one row per check). not_null(requested_ts) ensures every check has a start time (required for latency). relationships tests catch orphaned FKs (e.g., a payer_id in the fact that doesn't exist in dim_payer \u2014 this breaks dashboard filters). accepted_values(final_status) prevents typos in the derived column logic.",
+    "idempotency": "Answer: If a confirmed event arrives twice (reprocessing bug), the stg_ layer takes MAX(confirmed_ts) per check_id to dedupe. If a late confirmation overwrites a prior timeout, the mart incremental model re-processes open checks in a 6-hour lookback window (WHERE requested_ts > CURRENT_TIMESTAMP - INTERVAL 6 HOURS OR confirmed_ts IS NULL).\n\nWhy: The eligibility service can emit duplicate events if the API retries. Taking MAX(confirmed_ts) ensures the fact row doesn't flip-flop between two timestamps. The lookback window ensures late confirmations (confirmed_ts arrives 2 hours after requested_ts) update the fact row instead of being dropped. Without the lookback, a check that timed out at 10:00am and got a late confirmation at 12:00pm would stay 'timeout' forever.",
+    "late_arriving": "Answer: Incremental model re-processes open checks in a 6-hour lookback window. If confirmed_ts was NULL in the prior run and now has a value, the row updates.\n\nWhy: The prompt says the dashboard runs every 15 minutes. If a confirmation arrives 2 hours late, it would miss the incremental run that processed the requested event. The lookback window (6 hours is 24 incremental runs) ensures late confirmations are caught. Trade-off: larger lookback = more rows re-processed = higher compute cost, but 6 hours is a reasonable balance for 50K events/day.",
+    "edge_cases": "Answer: (1) Duplicate requested events: stg_ takes MIN(requested_ts) per check_id. (2) Late confirmations: mart incremental uses 6-hour lookback. (3) Simultaneous timeout and error: business rule is timeout wins (final_status = 'timeout' if both timeout_ts and error_ts are NOT NULL). (4) Null payer_id: reject at stg_ layer with not_null test.\n\nWhy: These are realistic operational issues. Duplicate requested events happen when the web app retries. Late confirmations happen when payer APIs are slow. Simultaneous timeout and error happens when the eligibility service hits its 30-second timeout AND the payer returns an error in the same request (the service records both events). Null payer_id breaks FK joins, so it's better to reject at stg_ than let garbage rows reach the mart."
+  },
+  "_meta": {
+    "category": "transformation_modeling",
+    "subtopic": "schema_design",
+    "kind": "kpi",
+    "scenario": "a payer integration eligibility check service tracking real-time eligibility latency",
+    "generated_at": "2026-05-07T08:43:37.775668",
+    "problem_id": "12185ca95b89",
+    "validation_attempts": 1,
+    "notebook": "nb02_fuze_interview_drills"
+  }
+}

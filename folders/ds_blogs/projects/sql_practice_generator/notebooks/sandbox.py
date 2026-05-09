@@ -127,8 +127,13 @@ def reset(dialect: str):
 
 def _split_pg_statements(script: str) -> List[str]:
     """
-    Split a Postgres script into statements while preserving DO blocks
-    and dollar-quoted bodies. Returns a list of trimmed statement strings.
+    Split a Postgres script into statements while preserving DO blocks,
+    dollar-quoted bodies, line comments (-- ...), block comments (/* ... */),
+    and single-quoted string literals. Returns a list of trimmed statement strings.
+
+    A statement is considered empty (and skipped) if it contains no tokens
+    other than whitespace and comments — psycopg2 raises "can't execute an
+    empty query" otherwise.
     """
     if not script.strip():
         return []
@@ -138,10 +143,69 @@ def _split_pg_statements(script: str) -> List[str]:
     n = len(script)
     in_dollar = False
     dollar_tag = ""
+
+    def _strip_comments_and_ws(s: str) -> str:
+        """Return s with -- line comments and /* */ block comments removed,
+        then stripped. Used to decide if a chunk is effectively empty."""
+        out = []
+        j = 0
+        m = len(s)
+        while j < m:
+            if s[j:j+2] == "--":
+                # skip to end of line
+                nl = s.find("\n", j)
+                if nl == -1:
+                    break
+                j = nl + 1
+                continue
+            if s[j:j+2] == "/*":
+                end = s.find("*/", j + 2)
+                if end == -1:
+                    break
+                j = end + 2
+                continue
+            out.append(s[j])
+            j += 1
+        return "".join(out).strip()
+
     while i < n:
-        ch = script[i]
         if not in_dollar:
-            # detect start of dollar-quoted body, e.g., $$ or $tag$
+            # -- line comment: copy through end of line as part of buf
+            if script[i:i+2] == "--":
+                nl = script.find("\n", i)
+                if nl == -1:
+                    buf.append(script[i:])
+                    i = n
+                else:
+                    buf.append(script[i:nl+1])
+                    i = nl + 1
+                continue
+            # /* block comment */
+            if script[i:i+2] == "/*":
+                end = script.find("*/", i + 2)
+                if end == -1:
+                    buf.append(script[i:])
+                    i = n
+                else:
+                    buf.append(script[i:end+2])
+                    i = end + 2
+                continue
+            # single-quoted string literal (handles '' escape)
+            if script[i] == "'":
+                buf.append("'")
+                i += 1
+                while i < n:
+                    if script[i] == "'" and i + 1 < n and script[i+1] == "'":
+                        buf.append("''")
+                        i += 2
+                        continue
+                    buf.append(script[i])
+                    if script[i] == "'":
+                        i += 1
+                        break
+                    i += 1
+                continue
+            # dollar-quoted body, e.g., $$ or $tag$
             m = re.match(r"\$([A-Za-z_][A-Za-z0-9_]*)?\$", script[i:])
             if m:
                 dollar_tag = m.group(0)
@@ -149,14 +213,14 @@ def _split_pg_statements(script: str) -> List[str]:
                 buf.append(dollar_tag)
                 i += len(dollar_tag)
                 continue
-            if ch == ";":
-                stmt = "".join(buf).strip()
-                if stmt:
-                    statements.append(stmt)
+            if script[i] == ";":
+                raw = "".join(buf)
+                if _strip_comments_and_ws(raw):
+                    statements.append(raw.strip())
                 buf = []
                 i += 1
                 continue
-            buf.append(ch)
+            buf.append(script[i])
             i += 1
         else:
             # inside dollar-quoted; look for matching close tag
@@ -166,11 +230,11 @@ def _split_pg_statements(script: str) -> List[str]:
                 in_dollar = False
                 dollar_tag = ""
                 continue
-            buf.append(ch)
+            buf.append(script[i])
             i += 1
-    tail = "".join(buf).strip()
-    if tail:
-        statements.append(tail)
+    raw_tail = "".join(buf)
+    if _strip_comments_and_ws(raw_tail):
+        statements.append(raw_tail.strip())
     return statements
 
 
