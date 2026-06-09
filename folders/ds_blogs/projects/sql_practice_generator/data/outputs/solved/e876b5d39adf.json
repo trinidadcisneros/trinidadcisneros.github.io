@@ -1,0 +1,55 @@
+{
+  "problem": {
+    "title": "Calculate Retry Success Rate Function",
+    "prompt": "You are building a monitoring dashboard for a workflow automation platform. Create a PostgreSQL function named `calculate_retry_success_rate` that accepts a `job_type` parameter (VARCHAR) and returns the retry success rate as a NUMERIC value rounded to 2 decimal places. The retry success rate is defined as: (number of jobs that succeeded after at least one retry) / (total number of jobs that had at least one retry) * 100. A job succeeded after retry if its `final_status` is 'success' AND its `retry_count` is greater than 0. Only count jobs where `retry_count > 0` in both numerator and denominator. If no jobs with retries exist for the given job_type, return 0.00. Test your function by calling: `SELECT calculate_retry_success_rate('data_sync') AS result;`",
+    "schema_ddl": "CREATE TABLE job_executions (job_id INT PRIMARY KEY, job_type VARCHAR(50) NOT NULL, job_name VARCHAR(100) NOT NULL, retry_count INT NOT NULL DEFAULT 0, final_status VARCHAR(20) NOT NULL, execution_time_seconds INT NOT NULL, created_at TIMESTAMP NOT NULL);",
+    "example_input_data": "INSERT INTO job_executions (job_id, job_type, job_name, retry_count, final_status, execution_time_seconds, created_at) VALUES (1, 'data_sync', 'sync_customers', 2, 'success', 45, '2024-01-15 10:00:00'), (2, 'data_sync', 'sync_orders', 1, 'success', 30, '2024-01-15 10:15:00'), (3, 'data_sync', 'sync_products', 3, 'failed', 60, '2024-01-15 10:30:00'), (4, 'data_sync', 'sync_inventory', 1, 'failed', 20, '2024-01-15 10:45:00'), (5, 'data_sync', 'sync_payments', 0, 'success', 15, '2024-01-15 11:00:00'), (6, 'notification', 'send_email', 2, 'success', 10, '2024-01-15 11:15:00'), (7, 'notification', 'send_sms', 0, 'success', 5, '2024-01-15 11:30:00');",
+    "example_output_columns": [
+      "result"
+    ],
+    "example_output_rows": [
+      [
+        "50.00"
+      ]
+    ],
+    "test_data": "INSERT INTO job_executions (job_id, job_type, job_name, retry_count, final_status, execution_time_seconds, created_at) VALUES (101, 'data_sync', 'sync_customers_bulk', 3, 'success', 120, '2024-01-20 08:00:00'), (102, 'data_sync', 'sync_orders_daily', 1, 'success', 45, '2024-01-20 08:15:00'), (103, 'data_sync', 'sync_products_catalog', 2, 'success', 90, '2024-01-20 08:30:00'), (104, 'data_sync', 'sync_inventory_check', 4, 'failed', 180, '2024-01-20 08:45:00'), (105, 'data_sync', 'sync_payments_batch', 1, 'failed', 30, '2024-01-20 09:00:00'), (106, 'data_sync', 'sync_shipping', 2, 'failed', 60, '2024-01-20 09:15:00'), (107, 'data_sync', 'sync_returns', 1, 'success', 25, '2024-01-20 09:30:00'), (108, 'data_sync', 'sync_refunds', 3, 'success', 75, '2024-01-20 09:45:00'), (109, 'data_sync', 'sync_analytics', 0, 'success', 10, '2024-01-20 10:00:00'), (110, 'data_sync', 'sync_logs', 0, 'failed', 5, '2024-01-20 10:15:00'), (111, 'notification', 'send_push', 2, 'success', 8, '2024-01-20 10:30:00'), (112, 'notification', 'send_webhook', 1, 'failed', 12, '2024-01-20 10:45:00'), (113, 'notification', 'send_slack', 3, 'success', 15, '2024-01-20 11:00:00'), (114, 'etl_pipeline', 'transform_data', 2, 'success', 200, '2024-01-20 11:15:00'), (115, 'etl_pipeline', 'load_warehouse', 1, 'success', 150, '2024-01-20 11:30:00'), (116, 'etl_pipeline', 'validate_schema', 0, 'success', 20, '2024-01-20 11:45:00'), (117, 'data_sync', 'sync_archives', 5, 'failed', 300, '2024-01-20 12:00:00'), (118, 'data_sync', 'sync_metadata', 1, 'success', 35, '2024-01-20 12:15:00'), (119, 'data_sync', 'sync_cache', 2, 'success', 50, '2024-01-20 12:30:00'), (120, 'data_sync', 'sync_sessions', 1, 'failed', 40, '2024-01-20 12:45:00');",
+    "test_expected_columns": [
+      "result"
+    ],
+    "test_expected_rows": [
+      [
+        "58.33"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "scalar_return",
+      "recipe": "function-wrapped",
+      "composite_moves": [
+        "row-filter by job_type parameter",
+        "row-filter by retry_count > 0",
+        "group-aggregate to count success and total retries",
+        "scalar-extract computed percentage rounded to 2 decimals"
+      ]
+    },
+    "hints": [
+      "Focus on jobs that had at least one retry attempt (retry_count > 0) for the given job_type.",
+      "You need to count how many retried jobs ended with final_status = 'success' versus the total count of all retried jobs.",
+      "Use ROUND() with 2 decimal places and handle the case where no retried jobs exist (division by zero) by returning 0.00. The formula is: (COUNT of retried successes / COUNT of all retried jobs) * 100."
+    ],
+    "answer_key": "CREATE OR REPLACE FUNCTION calculate_retry_success_rate(p_job_type VARCHAR)\nRETURNS NUMERIC AS $$\nDECLARE\n  success_count INT;\n  total_retry_count INT;\n  success_rate NUMERIC;\nBEGIN\n  SELECT COUNT(*) INTO success_count\n  FROM job_executions\n  WHERE job_type = p_job_type\n    AND retry_count > 0\n    AND final_status = 'success';\n  \n  SELECT COUNT(*) INTO total_retry_count\n  FROM job_executions\n  WHERE job_type = p_job_type\n    AND retry_count > 0;\n  \n  IF total_retry_count = 0 THEN\n    RETURN 0.00;\n  END IF;\n  \n  success_rate := ROUND((success_count::NUMERIC / total_retry_count::NUMERIC) * 100, 2);\n  \n  RETURN success_rate;\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT calculate_retry_success_rate('data_sync') AS result;",
+    "_meta": {
+      "question_type": "returns_scalar",
+      "dialect": "postgresql",
+      "generated_at": "2026-05-16T18:53:57.121737",
+      "problem_id": "e876b5d39adf",
+      "validation_attempts": 1,
+      "scenario": "a workflow automation tool tracking job runs, retries, and failures",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* \n\n\n\n- 2 decimal places\n\nThe retry success rate is defined as: (number of jobs that succeeded after at least one retry) / (total number of jobs that had at least one retry) * 100.\n\nA job succeeded after retry if its `final_status` is 'success' AND its `retry_count` is greater than 0.\nOnly count jobs where `retry_count > 0` in both numerator and denominator.\nIf no jobs with retries exist for the given job_type, return 0.00.\nTest your function by calling: `SELECT calculate_retry_success_rate('data_sync') AS result;`\n\n */\n\nCREATE OR REPLACE FUNCTION calculate_retry_success_rate(p_job_type VARCHAR(50))\nRETURNS NUMERIC AS $$\nBEGIN\n    RETURN (\n\n        WITH base AS (\n            SELECT *,\n                   CASE WHEN final_status = 'success' and retry_count > 0 THEN 1.0 ELSE 0.0 END AS n_success\n            FROM job_executions\n            WHERE job_type = p_job_type AND retry_count <> 0\n        )\n        SELECT \n            COALESCE(ROUND(AVG(n_success)::numeric * 100,2), 0.00) AS result\n        FROM base\n        );\nEND;\n$$ LANGUAGE PLPGSQL;\n\n\n\n\nSELECT calculate_retry_success_rate('data_sync') AS result;\n\n",
+  "solved_at": "2026-05-16T19:26:01.573076"
+}

@@ -1,0 +1,244 @@
+{
+  "problem": {
+    "title": "Squad Invite Trailing Window Analysis",
+    "prompt": "You are analyzing a battle royale game's squad invite system. The `squad_invites` table records every invite a player sends, with a timestamp and whether the invite was accepted. For each invite, compute a 'recent_acceptance_rate': the percentage of invites accepted in the trailing window consisting of the current invite and the previous 2 invites sent by that player (ordered by `sent_at` ascending). If a player has sent fewer than 3 invites so far, use only the available rows up to the current one. Return columns: `player_id`, `sent_at`, `accepted`, `recent_acceptance_rate` (rounded to 2 decimal places, e.g. 66.67 for 2 out of 3). Order the result by `player_id` ASC, `sent_at` ASC. The window must include the current row and look back exactly 2 preceding rows (not 3 total preceding rows); a learner who uses ROWS BETWEEN 2 PRECEDING AND 1 PRECEDING will exclude the current invite and get the wrong rate.",
+    "schema_ddl": "CREATE TABLE squad_invites (\n  invite_id SERIAL PRIMARY KEY,\n  player_id INT NOT NULL,\n  sent_at TIMESTAMP NOT NULL,\n  accepted BOOLEAN NOT NULL\n);",
+    "example_input_data": "INSERT INTO squad_invites (player_id, sent_at, accepted) VALUES\n(101, '2024-06-01 10:00:00', TRUE),\n(101, '2024-06-01 11:30:00', FALSE),\n(101, '2024-06-01 14:00:00', TRUE),\n(101, '2024-06-02 09:00:00', TRUE),\n(102, '2024-06-01 12:00:00', FALSE),\n(102, '2024-06-01 15:00:00', FALSE),\n(102, '2024-06-02 10:00:00', TRUE);",
+    "example_output_columns": [
+      "player_id",
+      "sent_at",
+      "accepted",
+      "recent_acceptance_rate"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "2024-06-01 10:00:00",
+        true,
+        "100.00"
+      ],
+      [
+        101,
+        "2024-06-01 11:30:00",
+        false,
+        "50.00"
+      ],
+      [
+        101,
+        "2024-06-01 14:00:00",
+        true,
+        "66.67"
+      ],
+      [
+        101,
+        "2024-06-02 09:00:00",
+        true,
+        "66.67"
+      ],
+      [
+        102,
+        "2024-06-01 12:00:00",
+        false,
+        "0.00"
+      ],
+      [
+        102,
+        "2024-06-01 15:00:00",
+        false,
+        "0.00"
+      ],
+      [
+        102,
+        "2024-06-02 10:00:00",
+        true,
+        "33.33"
+      ]
+    ],
+    "test_data": "INSERT INTO squad_invites (player_id, sent_at, accepted) VALUES\n(201, '2024-05-15 08:00:00', TRUE),\n(201, '2024-05-15 09:00:00', TRUE),\n(201, '2024-05-15 10:00:00', TRUE),\n(201, '2024-05-15 11:00:00', FALSE),\n(201, '2024-05-15 12:00:00', FALSE),\n(201, '2024-05-15 13:00:00', TRUE),\n(201, '2024-05-15 14:00:00', FALSE),\n(201, '2024-05-15 15:00:00', FALSE),\n(202, '2024-05-15 08:30:00', FALSE),\n(202, '2024-05-15 10:30:00', TRUE),\n(202, '2024-05-15 12:30:00', FALSE),\n(202, '2024-05-15 14:30:00', FALSE),\n(202, '2024-05-15 16:30:00', TRUE),\n(203, '2024-05-16 09:00:00', TRUE),\n(203, '2024-05-16 10:00:00', FALSE),\n(204, '2024-05-16 11:00:00', FALSE),\n(205, '2024-05-17 08:00:00', TRUE),\n(205, '2024-05-17 09:00:00', TRUE),\n(205, '2024-05-17 10:00:00', TRUE),\n(205, '2024-05-17 11:00:00', TRUE),\n(205, '2024-05-17 12:00:00', FALSE),\n(205, '2024-05-17 13:00:00', FALSE),\n(205, '2024-05-17 14:00:00', FALSE),\n(205, '2024-05-17 15:00:00', TRUE);",
+    "test_expected_columns": [
+      "player_id",
+      "sent_at",
+      "accepted",
+      "recent_acceptance_rate"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "2024-05-15 08:00:00",
+        true,
+        "100.00"
+      ],
+      [
+        201,
+        "2024-05-15 09:00:00",
+        true,
+        "100.00"
+      ],
+      [
+        201,
+        "2024-05-15 10:00:00",
+        true,
+        "100.00"
+      ],
+      [
+        201,
+        "2024-05-15 11:00:00",
+        false,
+        "66.67"
+      ],
+      [
+        201,
+        "2024-05-15 12:00:00",
+        false,
+        "33.33"
+      ],
+      [
+        201,
+        "2024-05-15 13:00:00",
+        true,
+        "33.33"
+      ],
+      [
+        201,
+        "2024-05-15 14:00:00",
+        false,
+        "33.33"
+      ],
+      [
+        201,
+        "2024-05-15 15:00:00",
+        false,
+        "33.33"
+      ],
+      [
+        202,
+        "2024-05-15 08:30:00",
+        false,
+        "0.00"
+      ],
+      [
+        202,
+        "2024-05-15 10:30:00",
+        true,
+        "50.00"
+      ],
+      [
+        202,
+        "2024-05-15 12:30:00",
+        false,
+        "33.33"
+      ],
+      [
+        202,
+        "2024-05-15 14:30:00",
+        false,
+        "33.33"
+      ],
+      [
+        202,
+        "2024-05-15 16:30:00",
+        true,
+        "33.33"
+      ],
+      [
+        203,
+        "2024-05-16 09:00:00",
+        true,
+        "100.00"
+      ],
+      [
+        203,
+        "2024-05-16 10:00:00",
+        false,
+        "50.00"
+      ],
+      [
+        204,
+        "2024-05-16 11:00:00",
+        false,
+        "0.00"
+      ],
+      [
+        205,
+        "2024-05-17 08:00:00",
+        true,
+        "100.00"
+      ],
+      [
+        205,
+        "2024-05-17 09:00:00",
+        true,
+        "100.00"
+      ],
+      [
+        205,
+        "2024-05-17 10:00:00",
+        true,
+        "100.00"
+      ],
+      [
+        205,
+        "2024-05-17 11:00:00",
+        true,
+        "100.00"
+      ],
+      [
+        205,
+        "2024-05-17 12:00:00",
+        false,
+        "66.67"
+      ],
+      [
+        205,
+        "2024-05-17 13:00:00",
+        false,
+        "33.33"
+      ],
+      [
+        205,
+        "2024-05-17 14:00:00",
+        false,
+        "0.00"
+      ],
+      [
+        205,
+        "2024-05-17 15:00:00",
+        true,
+        "33.33"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "partition by player_id, order by sent_at",
+        "explicit trailing frame: ROWS BETWEEN 2 PRECEDING AND CURRENT ROW",
+        "count accepted within frame, divide by count all within frame",
+        "round to 2 decimals"
+      ]
+    },
+    "hints": [
+      "You need to compute acceptance rate over a sliding window for each player's invite sequence.",
+      "Use a window function with PARTITION BY player_id ORDER BY sent_at and an explicit frame clause specifying the trailing 3-row window (current row plus the previous 2 rows).",
+      "The frame clause is ROWS BETWEEN 2 PRECEDING AND CURRENT ROW; compute acceptance rate as ROUND(100.0 * SUM(CASE WHEN accepted THEN 1 ELSE 0 END) / COUNT(*), 2) over that frame."
+    ],
+    "answer_key": "SELECT\n  player_id,\n  sent_at,\n  accepted,\n  ROUND(\n    100.0 * SUM(CASE WHEN accepted THEN 1 ELSE 0 END) OVER (\n      PARTITION BY player_id\n      ORDER BY sent_at\n      ROWS BETWEEN 2 PRECEDING AND CURRENT ROW\n    ) / COUNT(*) OVER (\n      PARTITION BY player_id\n      ORDER BY sent_at\n      ROWS BETWEEN 2 PRECEDING AND CURRENT ROW\n    ),\n    2\n  ) AS recent_acceptance_rate\nFROM squad_invites\nORDER BY player_id ASC, sent_at ASC;",
+    "_meta": {
+      "question_type": "window_frames",
+      "original_qtype": "window_frames",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-29T21:01:50.770015",
+      "problem_id": "6987721df83f",
+      "validation_attempts": 1,
+      "scenario": "a battle royale mobile game tracking match completion and squad invites",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\nSquad Invite Trailing Window Analysis\nPrompt\n- You are analyzing a battle royale game's squad invite system.\n- The `squad_invites` table records every invite a player sends, with a timestamp and whether the invite was accepted.\n\n\nPURPOSE:\n- recent_acceptance_rate: accepted = true  current / (current + prior 2)\nthe percentage of invites accepted in the trailing window consisting of the current invite and the previous 2 invites sent by that player (ordered by `sent_at` ascending).\n\nORDER BY sent_at;\n\nIf a player has sent fewer than 3 invites so far, use only the available rows up to the current one.\n\nOrder the result by `player_id` ASC, `sent_at` ASC.\n\nThe window must include the current row and look back exactly 2 preceding rows (not 3 total preceding rows); a learner who uses ROWS BETWEEN 2 PRECEDING AND 1 PRECEDING will exclude the current invite and get the wrong rate.\n\nSchema\nTable: squad_invites    records every invite a player sends\ninvite_id\t            SERIAL PRIMARY KEY\nplayer_id\t            INT NOT NULL\nsent_at\t                TIMESTAMP NOT NULL\naccepted\t            BOOLEAN NOT NULL\n\n\nOUTPUT\nplayer_id, \nsent_at, \naccepted, \nrecent_acceptance_rate\n\n*/\n\n\nSELECT\n    player_id, \n    sent_at, \n    accepted, \n    ROUND(AVG(CASE WHEN accepted = 'true' THEN 1.0 ELSE 0 END) OVER \n        (PARTITION BY player_id ORDER BY sent_at\n        ROWS BETWEEN 2 PRECEDING AND CURRENT ROW\n        ) * 100, 2) AS recent_acceptance_rate\nFROM squad_invites\nORDER BY player_id, sent_at;\n\n\n\n\n\n",
+  "solved_at": "2026-05-30T10:25:06.294841"
+}

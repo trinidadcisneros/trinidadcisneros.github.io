@@ -1,0 +1,74 @@
+{
+  "title": "Top 10% Articles by Comment Engagement",
+  "prompt": "A publishing platform wants to identify its most engaging articles based on comment activity. Write a query that returns the **top 10% of articles** by total comment count. Articles with the same comment count at the 10% boundary should ALL be included (ties are included). Your output should have columns `article_id`, `title`, `total_comments`, and `engagement_rank` (the PERCENT_RANK value rounded to 4 decimals). Order the results by `total_comments` descending, then by `article_id` ascending for ties. Use the `articles` table which contains `article_id`, `title`, `author_id`, `total_comments`, and `approval_status`.",
+  "schema_ddl": "CREATE TABLE articles (article_id INT PRIMARY KEY, title VARCHAR(200), author_id INT, total_comments INT, approval_status VARCHAR(20));",
+  "example_input_data": "INSERT INTO articles (article_id, title, author_id, total_comments, approval_status) VALUES (101, 'Introduction to PostgreSQL', 5, 450, 'approved'), (102, 'Advanced SQL Techniques', 3, 420, 'approved'), (103, 'Data Modeling Best Practices', 7, 380, 'approved'), (104, 'Query Optimization Tips', 5, 350, 'approved'), (105, 'Database Security Fundamentals', 2, 280, 'approved'), (106, 'NoSQL vs SQL Debate', 8, 240, 'approved'), (107, 'Indexing Strategies', 3, 200, 'approved'), (108, 'Backup and Recovery Guide', 6, 150, 'approved');",
+  "example_output_columns": [
+    "article_id",
+    "title",
+    "total_comments",
+    "engagement_rank"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Introduction to PostgreSQL",
+      450,
+      "0.0000"
+    ]
+  ],
+  "test_data": "INSERT INTO articles (article_id, title, author_id, total_comments, approval_status) VALUES (201, 'Postgres Internals Deep Dive', 12, 890, 'approved'), (202, 'Window Functions Explained', 15, 875, 'approved'), (203, 'JSON Data in Postgres', 18, 840, 'approved'), (204, 'Recursive Queries Guide', 12, 810, 'approved'), (205, 'CTEs for Beginners', 20, 780, 'approved'), (206, 'Partitioning Strategies', 15, 720, 'approved'), (207, 'Replication Setup', 22, 680, 'approved'), (208, 'Performance Tuning', 18, 640, 'approved'), (209, 'Materialized Views', 25, 600, 'approved'), (210, 'Foreign Data Wrappers', 12, 560, 'approved'), (211, 'Full Text Search', 30, 520, 'approved'), (212, 'Triggers and Rules', 15, 480, 'approved'), (213, 'ACID Properties', 18, 440, 'approved'), (214, 'Transaction Isolation', 22, 400, 'approved'), (215, 'Locking Mechanisms', 25, 360, 'approved'), (216, 'Vacuum and Autovacuum', 30, 320, 'approved'), (217, 'Connection Pooling', 12, 280, 'approved'), (218, 'Extension Development', 15, 240, 'approved'), (219, 'Monitoring Tools', 18, 200, 'approved'), (220, 'Backup Strategies', 22, 160, 'approved'), (221, 'Migration Guide', 25, 120, 'approved'), (222, 'Schema Design', 30, 80, 'approved'), (223, 'Data Types Overview', 12, 40, 'approved'), (224, 'Getting Started', 15, 40, 'approved'), (225, 'Installation Guide', 18, 40, 'approved');",
+  "test_expected_columns": [
+    "article_id",
+    "title",
+    "total_comments",
+    "engagement_rank"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Postgres Internals Deep Dive",
+      890,
+      "0.0000"
+    ],
+    [
+      202,
+      "Window Functions Explained",
+      875,
+      "0.0417"
+    ],
+    [
+      203,
+      "JSON Data in Postgres",
+      840,
+      "0.0833"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "rank-partition",
+    "composite_moves": [
+      "compute PERCENT_RANK window function over total_comments DESC",
+      "filter rows where PERCENT_RANK <= 0.10",
+      "output article_id, title, total_comments, engagement_rank ordered by total_comments DESC then article_id ASC"
+    ]
+  },
+  "hints": [
+    "You need to compute a ranking metric that gives a value between 0 and 1 based on position in the sorted list.",
+    "PERCENT_RANK() OVER (ORDER BY metric DESC) assigns 0 to the highest value and increases toward 1 for lower values. Filter for ranks <= 0.10.",
+    "Use a CTE to compute PERCENT_RANK() OVER (ORDER BY total_comments DESC) as engagement_rank, then filter WHERE engagement_rank <= 0.10 in the outer query. Round engagement_rank to 4 decimals for output."
+  ],
+  "answer_key": "WITH ranked_articles AS (\n  SELECT\n    article_id,\n    title,\n    total_comments,\n    PERCENT_RANK() OVER (ORDER BY total_comments DESC) AS engagement_rank\n  FROM articles\n)\nSELECT\n  article_id,\n  title,\n  total_comments,\n  ROUND(engagement_rank::NUMERIC, 4)::TEXT AS engagement_rank\nFROM ranked_articles\nWHERE engagement_rank <= 0.10\nORDER BY total_comments DESC, article_id ASC;",
+  "_meta": {
+    "question_type": "percentile_metrics",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-12T18:37:57.265049",
+    "problem_id": "86d642322f22",
+    "validation_attempts": 1,
+    "scenario": "a publishing platform tracking article views, comments, and editor approvals",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": "top_n_percent"
+  }
+}

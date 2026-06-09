@@ -1,0 +1,92 @@
+{
+  "title": "Top 10% Gig Workers by Completion Rate",
+  "prompt": "A gig labor marketplace tracks worker performance. Write a query to identify the top 10% of workers by their job completion rate. The completion rate is defined as `completed_jobs / total_jobs_accepted` (both columns are provided). Return the worker's ID, name, and completion rate. Workers with completion rates in the top 10% should be included; if multiple workers are tied at the boundary of the top 10%, include all tied workers. Order the result by completion_rate descending, then by worker_id ascending. Output columns: worker_id, worker_name, completion_rate.",
+  "schema_ddl": "CREATE TABLE gig_workers (worker_id INTEGER PRIMARY KEY, worker_name VARCHAR(100) NOT NULL, total_jobs_accepted INTEGER NOT NULL, completed_jobs INTEGER NOT NULL, signup_date DATE NOT NULL);",
+  "example_input_data": "INSERT INTO gig_workers (worker_id, worker_name, total_jobs_accepted, completed_jobs, signup_date) VALUES (1, 'Alice Chen', 50, 48, '2023-01-15'), (2, 'Bob Martinez', 40, 36, '2023-02-20'), (3, 'Carol Singh', 60, 54, '2023-03-10'), (4, 'David Kim', 100, 95, '2023-01-05'), (5, 'Eva Torres', 30, 27, '2023-04-12'), (6, 'Frank Wilson', 80, 72, '2023-02-28'), (7, 'Grace Lee', 45, 43, '2023-03-22'), (8, 'Henry Brown', 70, 66, '2023-01-30');",
+  "example_output_columns": [
+    "worker_id",
+    "worker_name",
+    "completion_rate"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Alice Chen",
+      "0.96000000000000000000"
+    ]
+  ],
+  "test_data": "INSERT INTO gig_workers (worker_id, worker_name, total_jobs_accepted, completed_jobs, signup_date) VALUES (101, 'Zara Adams', 200, 194, '2023-01-10'), (102, 'Yuki Tanaka', 150, 145, '2023-02-15'), (103, 'Xander Cole', 180, 171, '2023-03-20'), (104, 'Wendy Park', 220, 209, '2023-01-25'), (105, 'Victor Lin', 90, 85, '2023-04-05'), (106, 'Uma Patel', 170, 161, '2023-02-18'), (107, 'Tina Morris', 130, 123, '2023-03-12'), (108, 'Sam Rivera', 210, 199, '2023-01-08'), (109, 'Rita Khan', 160, 152, '2023-02-22'), (110, 'Quinn Foster', 140, 133, '2023-03-28'), (111, 'Paula Green', 190, 180, '2023-01-18'), (112, 'Omar Hayes', 110, 104, '2023-04-14'), (113, 'Nina Scott', 175, 166, '2023-02-10'), (114, 'Mike Torres', 155, 147, '2023-03-15'), (115, 'Liam Cooper', 125, 118, '2023-01-22'), (116, 'Kate Morgan', 195, 185, '2023-02-25'), (117, 'Jack Bell', 135, 128, '2023-03-30'), (118, 'Ivy Nelson', 205, 194, '2023-01-12'), (119, 'Hank Reed', 145, 137, '2023-04-08'), (120, 'Gina Ward', 165, 156, '2023-02-20'), (121, 'Finn Ross', 185, 175, '2023-03-18'), (122, 'Emma Price', 120, 113, '2023-01-28'), (123, 'Dan Foster', 0, 0, '2023-04-20'), (124, 'Carl White', 100, 95, '2023-02-12'), (125, 'Beth Young', 115, 109, '2023-03-25');",
+  "test_expected_columns": [
+    "worker_id",
+    "worker_name",
+    "completion_rate"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      "Zara Adams",
+      "0.97000000000000000000"
+    ],
+    [
+      102,
+      "Yuki Tanaka",
+      "0.96666666666666666667"
+    ],
+    [
+      103,
+      "Xander Cole",
+      "0.95000000000000000000"
+    ],
+    [
+      104,
+      "Wendy Park",
+      "0.95000000000000000000"
+    ],
+    [
+      109,
+      "Rita Khan",
+      "0.95000000000000000000"
+    ],
+    [
+      110,
+      "Quinn Foster",
+      "0.95000000000000000000"
+    ],
+    [
+      124,
+      "Carl White",
+      "0.95000000000000000000"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "rank-partition",
+    "composite_moves": [
+      "calculate derived metric (completion_rate = completed_jobs / total_jobs_accepted)",
+      "apply PERCENT_RANK() window function over completion_rate DESC",
+      "filter rows where PERCENT_RANK <= 0.10",
+      "order by completion_rate DESC, worker_id ASC"
+    ]
+  },
+  "hints": [
+    "You need to calculate a completion rate from two existing columns, then determine which workers fall in the top 10%.",
+    "Use a window function to assign a percentile rank to each worker based on their completion rate. PERCENT_RANK() returns 0 for the highest value and 1 for the lowest when ordering descending.",
+    "In a CTE, compute completion_rate and PERCENT_RANK() OVER (ORDER BY (completed_jobs::NUMERIC / total_jobs_accepted) DESC). Then filter where the rank is <= 0.10 to get the top 10%."
+  ],
+  "answer_key": "WITH ranked_workers AS (\n  SELECT \n    worker_id,\n    worker_name,\n    completed_jobs::NUMERIC / NULLIF(total_jobs_accepted, 0) AS completion_rate,\n    PERCENT_RANK() OVER (ORDER BY (completed_jobs::NUMERIC / NULLIF(total_jobs_accepted, 0)) DESC) AS pct_rank\n  FROM gig_workers\n  WHERE total_jobs_accepted > 0\n)\nSELECT \n  worker_id,\n  worker_name,\n  completion_rate\nFROM ranked_workers\nWHERE pct_rank <= 0.10\nORDER BY completion_rate DESC, worker_id ASC;",
+  "_meta": {
+    "question_type": "percentile_metrics",
+    "original_qtype": "percentile_metrics",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-23T21:28:36.367594",
+    "problem_id": "759a153c1603",
+    "validation_attempts": 1,
+    "scenario": "a gig labor marketplace tracking job acceptance and completion rates",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": "top_n_percent"
+  }
+}

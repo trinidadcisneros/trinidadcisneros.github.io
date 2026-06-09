@@ -1,0 +1,88 @@
+{
+  "problem": {
+    "title": "Onboarding Completion Time by Cohort Month",
+    "prompt": "Your HR platform tracks employee onboarding milestones. Each employee has a hire date and a date when they completed their onboarding checklist. Management wants to see average onboarding duration (in days, inclusive of both hire_date and completion_date) grouped by hire month cohort, but only for employees who completed onboarding BEFORE March 1, 2024. An inclusive day count means if someone was hired Jan 10 and completed Jan 12, that's 3 days (10, 11, 12). Return columns `hire_month` (the first day of the hire month, formatted as a DATE), `cohort_size` (count of employees in that cohort who meet the cutoff), and `avg_days_to_complete` (rounded to 1 decimal place). Order by `hire_month` ascending. Employees who have not yet completed onboarding (completion_date IS NULL) should be excluded entirely.",
+    "schema_ddl": "CREATE TABLE employees (employee_id INT PRIMARY KEY, employee_name VARCHAR(100), hire_date DATE, completion_date DATE);",
+    "example_input_data": "INSERT INTO employees (employee_id, employee_name, hire_date, completion_date) VALUES (1, 'Alice Chen', '2024-01-05', '2024-01-12'), (2, 'Bob Smith', '2024-01-15', '2024-01-20'), (3, 'Carol White', '2024-02-01', '2024-02-10'), (4, 'David Lee', '2024-02-14', '2024-02-28'), (5, 'Eve Torres', '2024-03-01', '2024-03-15'), (6, 'Frank Zhang', '2024-01-20', NULL), (7, 'Grace Kim', '2024-02-05', '2024-02-08');",
+    "example_output_columns": [
+      "hire_month",
+      "cohort_size",
+      "avg_days_to_complete"
+    ],
+    "example_output_rows": [
+      [
+        "2024-01-01",
+        "2",
+        "7.0"
+      ],
+      [
+        "2024-02-01",
+        "3",
+        "9.7"
+      ]
+    ],
+    "test_data": "INSERT INTO employees (employee_id, employee_name, hire_date, completion_date) VALUES (101, 'Test A', '2023-11-10', '2023-11-15'), (102, 'Test B', '2023-11-25', '2023-12-01'), (103, 'Test C', '2023-12-01', '2023-12-10'), (104, 'Test D', '2023-12-15', '2023-12-20'), (105, 'Test E', '2023-12-28', '2024-01-05'), (106, 'Test F', '2024-01-01', '2024-01-08'), (107, 'Test G', '2024-01-10', '2024-01-25'), (108, 'Test H', '2024-01-31', '2024-02-10'), (109, 'Test I', '2024-02-01', '2024-02-15'), (110, 'Test J', '2024-02-10', '2024-02-20'), (111, 'Test K', '2024-02-15', '2024-02-28'), (112, 'Test L', '2024-02-28', '2024-03-05'), (113, 'Test M', '2024-02-29', '2024-03-10'), (114, 'Test N', '2024-03-01', '2024-03-20'), (115, 'Test O', '2024-03-05', NULL), (116, 'Test P', '2024-01-15', NULL), (117, 'Test Q', '2023-12-31', '2024-01-10'), (118, 'Test R', '2024-02-14', '2024-02-25'), (119, 'Test S', '2024-01-05', '2024-01-10'), (120, 'Test T', '2023-11-01', '2023-11-20');",
+    "test_expected_columns": [
+      "hire_month",
+      "cohort_size",
+      "avg_days_to_complete"
+    ],
+    "test_expected_rows": [
+      [
+        "2023-11-01",
+        "3",
+        "11.0"
+      ],
+      [
+        "2023-12-01",
+        "4",
+        "9.0"
+      ],
+      [
+        "2024-01-01",
+        "4",
+        "10.3"
+      ],
+      [
+        "2024-02-01",
+        "4",
+        "13.0"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "filter rows where completion_date IS NOT NULL and completion_date < literal cutoff DATE '2024-03-01'",
+        "compute inclusive day count: (completion_date - hire_date) + 1",
+        "DATE_TRUNC('month', hire_date) to bucket into cohort",
+        "GROUP BY cohort month",
+        "aggregate: COUNT(*) for cohort_size, AVG(day_count) rounded to 1 decimal",
+        "ORDER BY hire_month ASC"
+      ]
+    },
+    "hints": [
+      "You need to bucket employees by the month they were hired. PostgreSQL has a function that truncates timestamps to a specific unit like month or week.",
+      "To count inclusive days between two dates, remember that subtracting two DATEs gives you an integer representing the number of days between them, but you need to add 1 to make it inclusive (e.g., Jan 1 to Jan 3 is 3 days, not 2).",
+      "Use DATE_TRUNC('month', hire_date)::date to get the first day of each hire month, filter WHERE completion_date IS NOT NULL AND completion_date < DATE '2024-03-01', compute (completion_date - hire_date) + 1 as the duration, then GROUP BY the truncated month and calculate COUNT(*) and ROUND(AVG(duration), 1). Order by the truncated month ascending."
+    ],
+    "answer_key": "SELECT\n  DATE_TRUNC('month', hire_date)::date AS hire_month,\n  COUNT(*)::text AS cohort_size,\n  ROUND(AVG((completion_date - hire_date) + 1), 1)::text AS avg_days_to_complete\nFROM employees\nWHERE completion_date IS NOT NULL\n  AND completion_date < DATE '2024-03-01'\nGROUP BY DATE_TRUNC('month', hire_date)\nORDER BY hire_month ASC;",
+    "_meta": {
+      "question_type": "date_operations",
+      "original_qtype": "date_operations",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-04T20:58:48.782500",
+      "problem_id": "f5f1b5ceb508",
+      "validation_attempts": 1,
+      "scenario": "an HR platform tracking onboarding completion and benefits enrollment",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\nOnboarding Completion Time by Cohort Month\n\nPrompt\n- employee has a hire and onboarding date\n- Need average onboarding duration in days, hire_date - completion_date\n- group by hire month cohort, WHERE onboarding BEFORE March 1, 2024.\n\nRETURN\nhire_month (the first day of the hire month, formatted as a DATE)\ncohort_size (count of employees in that cohort who meet the cutoff)\navg_days_to_complete (rounded to 1 decimal place).\n\nORDER BY hire_month\n\nWHERE completion_date IS NOT NULL\n\nSchema\nTable: employees\nemployee_id\t            INT PRIMARY KEY\nemployee_name\t        VARCHAR(100)\nhire_date\t            DATE\ncompletion_date\t        DATE\n\n\n\n1. CREATE COHORT month\n2. group by\n\n*/\nSELECT\n    hire_month,\n    COALESCE(COUNT(employee_id),0)::int AS cohort_size,\n    ROUND(AVG(days_to_complete), 1) AS avg_days_to_complete\nFROM (\nSELECT\n    DATE_TRUNC('month', hire_date)::date AS hire_month,\n    employee_id,\n    employee_name,\n    hire_date,\n    completion_date,\n    (completion_date - hire_date) + 1 AS days_to_complete\nFROM employees\nWHERE completion_date IS NOT NULL AND completion_date <= DATE '2024-03-01'\n)\nGROUP BY hire_month\nORDER BY hire_month;\n\n",
+  "solved_at": "2026-06-04T21:32:02.419681"
+}

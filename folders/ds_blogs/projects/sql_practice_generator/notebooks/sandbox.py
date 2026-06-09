@@ -5,6 +5,7 @@ load schema and seed data per problem, run user SQL, capture results.
 
 import os
 import re
+from datetime import datetime
 from typing import Optional, Tuple, List, Dict, Any
 
 import pandas as pd
@@ -341,12 +342,54 @@ def run_query(dialect: str, sql: str) -> Tuple[Optional[pd.DataFrame], Optional[
 # Compare result to expected (order-insensitive by default)
 # ============================================================
 
+# Match ISO-style timestamps like "2026-05-14 03:42:19.205133" or with 'T'.
+# Used to detect CURRENT_TIMESTAMP columns that drift between expected-output
+# generation and user-query execution.
+_ISO_TS_RE = re.compile(r'^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?$')
+
+# Allowed drift between two CURRENT_TIMESTAMP captures. Practice tests
+# typically run within minutes of generation; 1 hour is conservative.
+_TIMESTAMP_TOLERANCE_SECONDS = 3600
+
+
+def _parse_iso_ts(s: str) -> Optional[datetime]:
+    """Parse an ISO-format timestamp string. Returns None if it can't parse."""
+    if not isinstance(s, str) or not _ISO_TS_RE.match(s):
+        return None
+    try:
+        return datetime.fromisoformat(s.replace('T', ' '))
+    except Exception:
+        return None
+
+
+def _values_equivalent(av: str, ev: str) -> bool:
+    """True if the two stringified cell values match exactly, OR if both look
+    like ISO timestamps within ``_TIMESTAMP_TOLERANCE_SECONDS`` of each other.
+    The tolerance handles the CURRENT_TIMESTAMP drift pattern: the test
+    harness captures NOW() when generating expected output, and the user
+    captures NOW() a few minutes later when running their query — same SQL,
+    different wall-clock moment.
+    """
+    if av == ev:
+        return True
+    ta = _parse_iso_ts(av)
+    te = _parse_iso_ts(ev)
+    if ta is None or te is None:
+        return False
+    return abs((ta - te).total_seconds()) <= _TIMESTAMP_TOLERANCE_SECONDS
+
+
 def compare_results(
     actual: pd.DataFrame,
     expected: pd.DataFrame,
     order_matters: bool = False,
 ) -> Tuple[bool, str]:
-    """Compare actual vs expected. Returns (match, diff_message)."""
+    """Compare actual vs expected. Returns (match, diff_message).
+
+    Timestamp columns get a tolerance window (default 1 hour) so that
+    ``CURRENT_TIMESTAMP`` captures in expected vs actual don't cause false
+    failures on archive-style problems.
+    """
     if actual is None:
         return False, "Actual result is None."
     if list(actual.columns) != list(expected.columns):
@@ -372,14 +415,35 @@ def compare_results(
     e_str = e.astype(str)
     if a_str.equals(e_str):
         return True, "Match."
-    # Build a quick diff
+
+    # Tolerant pass: walk each row/column. ISO timestamps within
+    # _TIMESTAMP_TOLERANCE_SECONDS of each other count as equivalent.
     diff_rows = []
+    timestamp_tolerated = False
     for i in range(len(a_str)):
-        if not a_str.iloc[i].equals(e_str.iloc[i]):
-            diff_rows.append((i, a_str.iloc[i].to_dict(), e_str.iloc[i].to_dict()))
+        row_diff = {}
+        for col in a_str.columns:
+            av = a_str.iloc[i][col]
+            ev = e_str.iloc[i][col]
+            if av == ev:
+                continue
+            if _values_equivalent(av, ev):
+                timestamp_tolerated = True
+                continue
+            row_diff[col] = (av, ev)
+        if row_diff:
+            diff_rows.append((i, row_diff))
             if len(diff_rows) >= 5:
                 break
+
+    if not diff_rows:
+        suffix = " (timestamp columns matched within tolerance)" if timestamp_tolerated else ""
+        return True, f"Match{suffix}."
+
     msg = "Result does not match expected output. First differences:\n"
-    for i, got, exp in diff_rows:
-        msg += f"  Row {i}: got {got}, expected {exp}\n"
+    for i, row_diff in diff_rows:
+        cells = ", ".join(
+            f"{col}: got {got!r}, expected {exp!r}" for col, (got, exp) in row_diff.items()
+        )
+        msg += f"  Row {i}: {cells}\n"
     return False, msg

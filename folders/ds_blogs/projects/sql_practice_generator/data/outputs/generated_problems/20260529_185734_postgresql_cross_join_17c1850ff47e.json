@@ -1,0 +1,248 @@
+{
+  "title": "Weekly Job Completion Report with Zero-Fill",
+  "prompt": "You are building a weekly completion report for a gig labor marketplace. The platform wants to track how many jobs each worker completed per week, but weeks with zero completions must still appear in the output (showing 0, not NULL or missing rows). Given a `workers` table and a `job_completions` table (which records the `completion_date` for each finished job), generate a report covering all weeks from '2024-01-01' through '2024-01-28' (exactly 4 weeks). For each (worker, week_start_date) combination, count the number of job completions that occurred during that week (Monday through Sunday). Output columns must be `worker_id`, `worker_name`, `week_start`, `completions_count` (use 0 when no jobs were completed that week, NOT NULL). Order the results by `worker_id` ASC, then `week_start` ASC.",
+  "schema_ddl": "CREATE TABLE workers (worker_id INT PRIMARY KEY, worker_name VARCHAR(100) NOT NULL); CREATE TABLE job_completions (completion_id INT PRIMARY KEY, worker_id INT NOT NULL, completion_date DATE NOT NULL, FOREIGN KEY (worker_id) REFERENCES workers(worker_id));",
+  "example_input_data": "INSERT INTO workers (worker_id, worker_name) VALUES (101, 'Alice'), (102, 'Bob'), (103, 'Carol'); INSERT INTO job_completions (completion_id, worker_id, completion_date) VALUES (1, 101, '2024-01-02'), (2, 101, '2024-01-03'), (3, 102, '2024-01-15'), (4, 101, '2024-01-16'), (5, 103, '2024-01-22'), (6, 102, '2024-01-23');",
+  "example_output_columns": [
+    "worker_id",
+    "worker_name",
+    "week_start",
+    "completions_count"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Alice",
+      "2024-01-01",
+      2
+    ],
+    [
+      101,
+      "Alice",
+      "2024-01-08",
+      0
+    ],
+    [
+      101,
+      "Alice",
+      "2024-01-15",
+      1
+    ],
+    [
+      101,
+      "Alice",
+      "2024-01-22",
+      0
+    ],
+    [
+      102,
+      "Bob",
+      "2024-01-01",
+      0
+    ],
+    [
+      102,
+      "Bob",
+      "2024-01-08",
+      0
+    ],
+    [
+      102,
+      "Bob",
+      "2024-01-15",
+      1
+    ],
+    [
+      102,
+      "Bob",
+      "2024-01-22",
+      1
+    ],
+    [
+      103,
+      "Carol",
+      "2024-01-01",
+      0
+    ],
+    [
+      103,
+      "Carol",
+      "2024-01-08",
+      0
+    ],
+    [
+      103,
+      "Carol",
+      "2024-01-15",
+      0
+    ],
+    [
+      103,
+      "Carol",
+      "2024-01-22",
+      1
+    ]
+  ],
+  "test_data": "INSERT INTO workers (worker_id, worker_name) VALUES (201, 'Dave'), (202, 'Emma'), (203, 'Frank'), (204, 'Grace'), (205, 'Henry'); INSERT INTO job_completions (completion_id, worker_id, completion_date) VALUES (101, 201, '2024-01-01'), (102, 201, '2024-01-01'), (103, 201, '2024-01-07'), (104, 202, '2024-01-08'), (105, 202, '2024-01-09'), (106, 203, '2024-01-10'), (107, 203, '2024-01-14'), (108, 204, '2024-01-15'), (109, 204, '2024-01-16'), (110, 204, '2024-01-21'), (111, 201, '2024-01-22'), (112, 201, '2024-01-28'), (113, 202, '2024-01-28'), (114, 203, '2024-01-28'), (115, 203, '2024-01-28');",
+  "test_expected_columns": [
+    "worker_id",
+    "worker_name",
+    "week_start",
+    "completions_count"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Dave",
+      "2024-01-01",
+      3
+    ],
+    [
+      201,
+      "Dave",
+      "2024-01-08",
+      0
+    ],
+    [
+      201,
+      "Dave",
+      "2024-01-15",
+      0
+    ],
+    [
+      201,
+      "Dave",
+      "2024-01-22",
+      2
+    ],
+    [
+      202,
+      "Emma",
+      "2024-01-01",
+      0
+    ],
+    [
+      202,
+      "Emma",
+      "2024-01-08",
+      2
+    ],
+    [
+      202,
+      "Emma",
+      "2024-01-15",
+      0
+    ],
+    [
+      202,
+      "Emma",
+      "2024-01-22",
+      1
+    ],
+    [
+      203,
+      "Frank",
+      "2024-01-01",
+      0
+    ],
+    [
+      203,
+      "Frank",
+      "2024-01-08",
+      2
+    ],
+    [
+      203,
+      "Frank",
+      "2024-01-15",
+      0
+    ],
+    [
+      203,
+      "Frank",
+      "2024-01-22",
+      2
+    ],
+    [
+      204,
+      "Grace",
+      "2024-01-01",
+      0
+    ],
+    [
+      204,
+      "Grace",
+      "2024-01-08",
+      0
+    ],
+    [
+      204,
+      "Grace",
+      "2024-01-15",
+      3
+    ],
+    [
+      204,
+      "Grace",
+      "2024-01-22",
+      0
+    ],
+    [
+      205,
+      "Henry",
+      "2024-01-01",
+      0
+    ],
+    [
+      205,
+      "Henry",
+      "2024-01-08",
+      0
+    ],
+    [
+      205,
+      "Henry",
+      "2024-01-15",
+      0
+    ],
+    [
+      205,
+      "Henry",
+      "2024-01-22",
+      0
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "same_rows",
+    "recipe": "reshape",
+    "composite_moves": [
+      "generate date skeleton using generate_series for week boundaries",
+      "CROSS JOIN skeleton with workers to produce all (worker, week) combinations",
+      "LEFT JOIN to job_completions matching worker_id and completion_date within the week range",
+      "GROUP BY worker_id, worker_name, week_start",
+      "COALESCE count to 0 for weeks with no completions",
+      "ORDER BY worker_id, week_start"
+    ]
+  },
+  "hints": [
+    "You need every worker to appear for every week in the range, even if they completed zero jobs that week.",
+    "Build a skeleton of all week start dates using generate_series with a 7-day interval, then combine it with all workers using a cross join so every (worker, week) pair exists before counting actuals.",
+    "Use generate_series(DATE '2024-01-01', DATE '2024-01-22', INTERVAL '7 days')::date to generate the four week start dates (2024-01-01, 2024-01-08, 2024-01-15, 2024-01-22). Cross join this with the workers table, then LEFT JOIN to job_completions WHERE completion_date >= week_start AND completion_date < week_start + INTERVAL '7 days', and use COALESCE(COUNT(completion_id), 0) to turn NULLs into 0."
+  ],
+  "answer_key": "WITH week_skeleton AS (\n  SELECT generate_series(DATE '2024-01-01', DATE '2024-01-22', INTERVAL '7 days')::date AS week_start\n),\nall_combinations AS (\n  SELECT w.worker_id, w.worker_name, ws.week_start\n  FROM workers w\n  CROSS JOIN week_skeleton ws\n)\nSELECT\n  ac.worker_id,\n  ac.worker_name,\n  ac.week_start,\n  COALESCE(COUNT(jc.completion_id), 0) AS completions_count\nFROM all_combinations ac\nLEFT JOIN job_completions jc\n  ON ac.worker_id = jc.worker_id\n  AND jc.completion_date >= ac.week_start\n  AND jc.completion_date < ac.week_start + INTERVAL '7 days'\nGROUP BY ac.worker_id, ac.worker_name, ac.week_start\nORDER BY ac.worker_id ASC, ac.week_start ASC;",
+  "_meta": {
+    "question_type": "cross_join",
+    "original_qtype": "cross_join",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-29T18:57:33.990555",
+    "problem_id": "17c1850ff47e",
+    "validation_attempts": 1,
+    "scenario": "a gig labor marketplace tracking job acceptance and completion rates",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

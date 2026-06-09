@@ -1,0 +1,247 @@
+{
+  "problem": {
+    "title": "Remove Duplicate Refund Requests Keeping Latest",
+    "prompt": "Your e-commerce platform's `refund_requests` table has accumulated duplicates when customers accidentally submitted the same refund request multiple times for the same order line item. Business rules require keeping only the most recent request (highest `request_id`) for each unique combination of `order_id` and `line_item_id`, and deleting all earlier duplicates. Write a single DELETE statement that removes these duplicate refund requests, preserving only the latest one per order line item. After the deletion, return all remaining rows ordered by `request_id` ascending to confirm the cleanup.",
+    "schema_ddl": "CREATE TABLE refund_requests (request_id INTEGER PRIMARY KEY, order_id INTEGER NOT NULL, line_item_id INTEGER NOT NULL, customer_id INTEGER NOT NULL, request_date DATE NOT NULL, reason TEXT, amount DECIMAL(10,2) NOT NULL);",
+    "example_input_data": "INSERT INTO refund_requests (request_id, order_id, line_item_id, customer_id, request_date, reason, amount) VALUES (101, 5001, 1, 2001, '2024-01-10', 'Defective item', 49.99), (102, 5001, 1, 2001, '2024-01-10', 'Defective item', 49.99), (103, 5001, 1, 2001, '2024-01-11', 'Item arrived damaged', 49.99), (104, 5002, 2, 2002, '2024-01-12', 'Wrong size', 89.50), (105, 5003, 1, 2003, '2024-01-13', 'Not as described', 120.00), (106, 5003, 1, 2003, '2024-01-13', 'Not as described', 120.00), (107, 5004, 3, 2004, '2024-01-14', 'Changed mind', 35.75);",
+    "example_output_columns": [
+      "request_id",
+      "order_id",
+      "line_item_id",
+      "customer_id",
+      "request_date",
+      "reason",
+      "amount"
+    ],
+    "example_output_rows": [
+      [
+        103,
+        5001,
+        1,
+        2001,
+        "2024-01-11",
+        "Item arrived damaged",
+        "49.99"
+      ],
+      [
+        104,
+        5002,
+        2,
+        2002,
+        "2024-01-12",
+        "Wrong size",
+        "89.50"
+      ],
+      [
+        106,
+        5003,
+        1,
+        2003,
+        "2024-01-13",
+        "Not as described",
+        "120.00"
+      ],
+      [
+        107,
+        5004,
+        3,
+        2004,
+        "2024-01-14",
+        "Changed mind",
+        "35.75"
+      ]
+    ],
+    "test_data": "INSERT INTO refund_requests (request_id, order_id, line_item_id, customer_id, request_date, reason, amount) VALUES (201, 6001, 1, 3001, '2024-02-01', 'Defective', 25.00), (202, 6001, 1, 3001, '2024-02-01', 'Defective', 25.00), (203, 6001, 1, 3001, '2024-02-02', 'Defective', 25.00), (204, 6001, 1, 3001, '2024-02-03', 'Defective', 25.00), (205, 6002, 2, 3002, '2024-02-04', 'Wrong item', 50.00), (206, 6003, 1, 3003, '2024-02-05', 'Late delivery', 75.00), (207, 6003, 1, 3003, '2024-02-05', 'Late delivery', 75.00), (208, 6004, 3, 3004, '2024-02-06', 'Not needed', 100.00), (209, 6005, 1, 3005, '2024-02-07', 'Poor quality', 40.00), (210, 6005, 1, 3005, '2024-02-07', 'Poor quality', 40.00), (211, 6005, 1, 3005, '2024-02-08', 'Poor quality', 40.00), (212, 6006, 2, 3006, '2024-02-09', 'Changed mind', 60.00), (213, 6007, 1, 3007, '2024-02-10', 'Size issue', 80.00), (214, 6008, 4, 3008, '2024-02-11', 'Color mismatch', 90.00), (215, 6008, 4, 3008, '2024-02-11', 'Color mismatch', 90.00), (216, 6008, 4, 3008, '2024-02-12', 'Color mismatch', 90.00), (217, 6009, 1, 3009, '2024-02-13', 'Damaged packaging', 110.00), (218, 6010, 2, 3010, '2024-02-14', 'Missing parts', 130.00), (219, 6010, 2, 3010, '2024-02-14', 'Missing parts', 130.00), (220, 6011, 1, 3011, '2024-02-15', 'Incorrect product', 150.00), (221, 6012, 3, 3012, '2024-02-16', 'Allergic reaction', 170.00), (222, 6012, 3, 3012, '2024-02-16', 'Allergic reaction', 170.00), (223, 6012, 3, 3012, '2024-02-17', 'Allergic reaction', 170.00), (224, 6013, 1, 3013, '2024-02-18', 'Faulty mechanism', 200.00), (225, 6014, 2, 3014, '2024-02-19', 'Overcharged', 220.00), (226, 6015, 1, 3015, '2024-02-20', 'Duplicate order', 240.00), (227, 6015, 1, 3015, '2024-02-20', 'Duplicate order', 240.00), (228, 6016, 3, 3016, '2024-02-21', 'Item too small', 260.00), (229, 6017, 1, 3017, '2024-02-22', 'Expired product', 280.00), (230, 6017, 1, 3017, '2024-02-22', 'Expired product', 280.00);",
+    "test_expected_columns": [
+      "request_id",
+      "order_id",
+      "line_item_id",
+      "customer_id",
+      "request_date",
+      "reason",
+      "amount"
+    ],
+    "test_expected_rows": [
+      [
+        204,
+        6001,
+        1,
+        3001,
+        "2024-02-03",
+        "Defective",
+        "25.00"
+      ],
+      [
+        205,
+        6002,
+        2,
+        3002,
+        "2024-02-04",
+        "Wrong item",
+        "50.00"
+      ],
+      [
+        207,
+        6003,
+        1,
+        3003,
+        "2024-02-05",
+        "Late delivery",
+        "75.00"
+      ],
+      [
+        208,
+        6004,
+        3,
+        3004,
+        "2024-02-06",
+        "Not needed",
+        "100.00"
+      ],
+      [
+        211,
+        6005,
+        1,
+        3005,
+        "2024-02-08",
+        "Poor quality",
+        "40.00"
+      ],
+      [
+        212,
+        6006,
+        2,
+        3006,
+        "2024-02-09",
+        "Changed mind",
+        "60.00"
+      ],
+      [
+        213,
+        6007,
+        1,
+        3007,
+        "2024-02-10",
+        "Size issue",
+        "80.00"
+      ],
+      [
+        216,
+        6008,
+        4,
+        3008,
+        "2024-02-12",
+        "Color mismatch",
+        "90.00"
+      ],
+      [
+        217,
+        6009,
+        1,
+        3009,
+        "2024-02-13",
+        "Damaged packaging",
+        "110.00"
+      ],
+      [
+        219,
+        6010,
+        2,
+        3010,
+        "2024-02-14",
+        "Missing parts",
+        "130.00"
+      ],
+      [
+        220,
+        6011,
+        1,
+        3011,
+        "2024-02-15",
+        "Incorrect product",
+        "150.00"
+      ],
+      [
+        223,
+        6012,
+        3,
+        3012,
+        "2024-02-17",
+        "Allergic reaction",
+        "170.00"
+      ],
+      [
+        224,
+        6013,
+        1,
+        3013,
+        "2024-02-18",
+        "Faulty mechanism",
+        "200.00"
+      ],
+      [
+        225,
+        6014,
+        2,
+        3014,
+        "2024-02-19",
+        "Overcharged",
+        "220.00"
+      ],
+      [
+        227,
+        6015,
+        1,
+        3015,
+        "2024-02-20",
+        "Duplicate order",
+        "240.00"
+      ],
+      [
+        228,
+        6016,
+        3,
+        3016,
+        "2024-02-21",
+        "Item too small",
+        "260.00"
+      ],
+      [
+        230,
+        6017,
+        1,
+        3017,
+        "2024-02-22",
+        "Expired product",
+        "280.00"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "state_mutation",
+      "recipe": "delete-duplicates",
+      "composite_moves": [
+        "delete-duplicates: correlated subquery to identify non-max request_id per (order_id, line_item_id) group"
+      ]
+    },
+    "hints": [
+      "You need to identify which refund requests are duplicates for the same order line item.",
+      "For each (order_id, line_item_id) pair, keep only the row with the maximum request_id and delete all others.",
+      "Use a correlated subquery in the WHERE clause that compares each row's request_id against the MAX(request_id) for its group: DELETE FROM refund_requests WHERE request_id < (SELECT MAX(...) WHERE order_id = ... AND line_item_id = ...)."
+    ],
+    "answer_key": "DELETE FROM refund_requests WHERE request_id < (SELECT MAX(r2.request_id) FROM refund_requests r2 WHERE r2.order_id = refund_requests.order_id AND r2.line_item_id = refund_requests.line_item_id);\nSELECT * FROM refund_requests ORDER BY request_id;",
+    "_meta": {
+      "question_type": "dml",
+      "dialect": "postgresql",
+      "generated_at": "2026-05-16T19:31:23.667850",
+      "problem_id": "3e592accca16",
+      "validation_attempts": 1,
+      "scenario": "an e-commerce platform tracking customer orders, returns, and refunds",
+      "dml_op": "DELETE",
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\n\nDELETE FROM refund_requests\nWHERE request_id NOT IN (SELECT MAX(request_id)\n                     FROM refund_requests\n                     GROUP BY order_id, line_item_id);\n\nSELECT * FROM refund_requests ORDER BY request_id;",
+  "solved_at": "2026-05-16T19:37:48.247377"
+}

@@ -1,0 +1,123 @@
+{
+  "title": "BooedUp Match Request Queue Processor",
+  "prompt": "The BooedUp dating app processes match requests sequentially through a request queue. Each match slot has a current status and assigned user. You must process the `match_requests` table in `request_id` order, reading the slot's current state on each iteration, branching on the request type, and conditionally updating the slot. Subsequent requests in the queue must see the state changes from earlier requests. The rules are:\n\n\u2022 When `request_type` = 1 ('reserve') applies:\n  - Preconditions:\n    + current `status` must be 'available'.\n  - Actions:\n    + set `status` to 'reserved'.\n    + set `reserved_by` to the event's `user_id`.\n    + set `reserved_at` to the event's `requested_at`.\n\n\u2022 When `request_type` = 2 ('confirm') applies:\n  - Preconditions:\n    + current `status` must be 'reserved'.\n    + the event's `user_id` must equal the current `reserved_by`.\n  - Actions:\n    + set `status` to 'confirmed'.\n\n\u2022 When `request_type` = 3 ('cancel') applies:\n  - Preconditions:\n    + current `status` must be 'reserved'.\n    + the event's `user_id` must equal the current `reserved_by`.\n  - Actions:\n    + set `status` to 'available'.\n    + set `reserved_by` to NULL.\n    + set `reserved_at` to NULL.\n\n\u2022 Events that fail their preconditions are no-ops (the state row is unchanged).\n\nWrite a DO block that iterates the queue in event order, reads the current slot state on each iteration, branches on both `request_type` and the current state, and conditionally updates the slot. After the DO block, include a trailing `SELECT * FROM match_slots ORDER BY slot_id;` to display the final state.",
+  "schema_ddl": "CREATE TABLE match_slots (slot_id INT PRIMARY KEY, status VARCHAR(20) NOT NULL, reserved_by INT, reserved_at TIMESTAMP); CREATE TABLE match_requests (request_id INT PRIMARY KEY, slot_id INT NOT NULL, request_type INT NOT NULL, user_id INT NOT NULL, requested_at TIMESTAMP NOT NULL, FOREIGN KEY (slot_id) REFERENCES match_slots(slot_id));",
+  "example_input_data": "INSERT INTO match_slots (slot_id, status, reserved_by, reserved_at) VALUES (1, 'available', NULL, NULL), (2, 'available', NULL, NULL), (3, 'reserved', 101, '2024-01-15 10:00:00'); INSERT INTO match_requests (request_id, slot_id, request_type, user_id, requested_at) VALUES (1, 1, 1, 101, '2024-01-15 10:05:00'), (2, 1, 2, 101, '2024-01-15 10:10:00'), (3, 2, 1, 102, '2024-01-15 10:15:00'), (4, 2, 3, 102, '2024-01-15 10:20:00'), (5, 3, 2, 101, '2024-01-15 10:25:00'), (6, 3, 3, 101, '2024-01-15 10:30:00');",
+  "example_output_columns": [
+    "slot_id",
+    "status",
+    "reserved_by",
+    "reserved_at"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "confirmed",
+      101.0,
+      "2024-01-15 10:05:00"
+    ],
+    [
+      2,
+      "available",
+      null,
+      null
+    ],
+    [
+      3,
+      "confirmed",
+      101.0,
+      "2024-01-15 10:00:00"
+    ]
+  ],
+  "test_data": "INSERT INTO match_slots (slot_id, status, reserved_by, reserved_at) VALUES (1, 'available', NULL, NULL), (2, 'available', NULL, NULL), (3, 'reserved', 201, '2024-02-01 09:00:00'), (4, 'available', NULL, NULL), (5, 'reserved', 202, '2024-02-01 09:10:00'), (6, 'available', NULL, NULL), (7, 'confirmed', 203, '2024-02-01 09:20:00'), (8, 'available', NULL, NULL); INSERT INTO match_requests (request_id, slot_id, request_type, user_id, requested_at) VALUES (1, 1, 1, 201, '2024-02-01 10:00:00'), (2, 1, 1, 202, '2024-02-01 10:01:00'), (3, 1, 2, 201, '2024-02-01 10:02:00'), (4, 2, 1, 202, '2024-02-01 10:03:00'), (5, 2, 2, 203, '2024-02-01 10:04:00'), (6, 3, 3, 202, '2024-02-01 10:05:00'), (7, 3, 1, 202, '2024-02-01 10:06:00'), (8, 4, 1, 203, '2024-02-01 10:07:00'), (9, 4, 3, 203, '2024-02-01 10:08:00'), (10, 5, 3, 202, '2024-02-01 10:09:00'), (11, 5, 1, 203, '2024-02-01 10:10:00'), (12, 6, 1, 204, '2024-02-01 10:11:00'), (13, 6, 2, 204, '2024-02-01 10:12:00'), (14, 7, 3, 203, '2024-02-01 10:13:00'), (15, 8, 1, 205, '2024-02-01 10:14:00'), (16, 8, 3, 206, '2024-02-01 10:15:00'), (17, 1, 3, 201, '2024-02-01 10:16:00'), (18, 2, 3, 202, '2024-02-01 10:17:00'), (19, 3, 2, 202, '2024-02-01 10:18:00'), (20, 5, 2, 203, '2024-02-01 10:19:00');",
+  "test_expected_columns": [
+    "slot_id",
+    "status",
+    "reserved_by",
+    "reserved_at"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "confirmed",
+      201.0,
+      "2024-02-01 10:00:00"
+    ],
+    [
+      2,
+      "available",
+      null,
+      null
+    ],
+    [
+      3,
+      "reserved",
+      201.0,
+      "2024-02-01 09:00:00"
+    ],
+    [
+      4,
+      "available",
+      null,
+      null
+    ],
+    [
+      5,
+      "confirmed",
+      203.0,
+      "2024-02-01 10:10:00"
+    ],
+    [
+      6,
+      "confirmed",
+      204.0,
+      "2024-02-01 10:11:00"
+    ],
+    [
+      7,
+      "confirmed",
+      203.0,
+      "2024-02-01 09:20:00"
+    ],
+    [
+      8,
+      "reserved",
+      205.0,
+      "2024-02-01 10:14:00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "procedural",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "declare record variable for request row",
+      "declare scalar variables for state columns",
+      "FOR-loop requests in request_id order",
+      "per-iteration SELECT INTO to read current state",
+      "branch on request_type AND current state",
+      "conditionally UPDATE state table",
+      "trailing SELECT to show final state"
+    ]
+  },
+  "hints": [
+    "You need a DO block with a FOR loop iterating match_requests in request_id order, plus a SELECT at the end to display the final state.",
+    "Inside the loop, use SELECT INTO to read the current status, reserved_by, and reserved_at for the slot referenced by the request. Then use IF/ELSIF to branch on request_type combined with state conditions.",
+    "For request_type=1, check current status='available' before updating. For request_type=2, check status='reserved' AND user_id matches reserved_by. For request_type=3, check status='reserved' AND user_id matches reserved_by. If conditions fail, do nothing for that request."
+  ],
+  "answer_key": "DO $$\nDECLARE\n  rec RECORD;\n  cur_status VARCHAR(20);\n  cur_reserved_by INT;\n  cur_reserved_at TIMESTAMP;\nBEGIN\n  FOR rec IN SELECT * FROM match_requests ORDER BY request_id LOOP\n    SELECT status, reserved_by, reserved_at INTO cur_status, cur_reserved_by, cur_reserved_at\n    FROM match_slots WHERE slot_id = rec.slot_id;\n    \n    IF rec.request_type = 1 AND cur_status = 'available' THEN\n      UPDATE match_slots\n      SET status = 'reserved',\n          reserved_by = rec.user_id,\n          reserved_at = rec.requested_at\n      WHERE slot_id = rec.slot_id;\n    ELSIF rec.request_type = 2 AND cur_status = 'reserved' AND cur_reserved_by = rec.user_id THEN\n      UPDATE match_slots\n      SET status = 'confirmed'\n      WHERE slot_id = rec.slot_id;\n    ELSIF rec.request_type = 3 AND cur_status = 'reserved' AND cur_reserved_by = rec.user_id THEN\n      UPDATE match_slots\n      SET status = 'available',\n          reserved_by = NULL,\n          reserved_at = NULL\n      WHERE slot_id = rec.slot_id;\n    END IF;\n  END LOOP;\nEND $$;\n\nSELECT * FROM match_slots ORDER BY slot_id;",
+  "_meta": {
+    "question_type": "do_block_queue",
+    "original_qtype": "do_block_queue",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "booedup",
+    "generated_at": "2026-05-19T19:27:07.042917",
+    "problem_id": "63e402d566ef",
+    "validation_attempts": 1,
+    "scenario": "the BooedUp dating app",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

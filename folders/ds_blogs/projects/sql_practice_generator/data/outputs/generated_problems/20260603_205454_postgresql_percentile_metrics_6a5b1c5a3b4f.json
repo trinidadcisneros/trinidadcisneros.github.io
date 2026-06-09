@@ -1,0 +1,73 @@
+{
+  "title": "Top 10% Players by Match Acceptance Rate",
+  "prompt": "You are analyzing player engagement in a console multiplayer matchmaking system. The `player_stats` table tracks how often each player accepts or declines match invitations. Write a query to find the top 10% of players by their acceptance rate (calculated as `accepted_matches / total_invites`). Players with acceptance rates in the top 10% should be included in the output. At the boundary, if multiple players share the same acceptance rate that qualifies as the 10th percentile cutoff, include ALL tied players. Return columns `player_id`, `player_name`, `acceptance_rate` (rounded to 4 decimal places), ordered by `acceptance_rate` DESC, then by `player_id` ASC for ties.",
+  "schema_ddl": "CREATE TABLE player_stats (player_id INTEGER PRIMARY KEY, player_name VARCHAR(100) NOT NULL, accepted_matches INTEGER NOT NULL, declined_matches INTEGER NOT NULL, total_invites INTEGER NOT NULL);",
+  "example_input_data": "INSERT INTO player_stats (player_id, player_name, accepted_matches, declined_matches, total_invites) VALUES (101, 'ShadowKnight', 95, 5, 100), (102, 'IronFist', 80, 20, 100), (103, 'ThunderBolt', 72, 28, 100), (104, 'FrostByte', 68, 32, 100), (105, 'BlazeFury', 50, 50, 100), (106, 'StormRider', 40, 60, 100), (107, 'NightWolf', 30, 70, 100), (108, 'SilverArrow', 20, 80, 100);",
+  "example_output_columns": [
+    "player_id",
+    "player_name",
+    "acceptance_rate"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "ShadowKnight",
+      "0.9500"
+    ]
+  ],
+  "test_data": "INSERT INTO player_stats (player_id, player_name, accepted_matches, declined_matches, total_invites) VALUES (201, 'Alpha', 98, 2, 100), (202, 'Beta', 96, 4, 100), (203, 'Gamma', 94, 6, 100), (204, 'Delta', 92, 8, 100), (205, 'Epsilon', 90, 10, 100), (206, 'Zeta', 88, 12, 100), (207, 'Eta', 86, 14, 100), (208, 'Theta', 84, 16, 100), (209, 'Iota', 82, 18, 100), (210, 'Kappa', 80, 20, 100), (211, 'Lambda', 78, 22, 100), (212, 'Mu', 76, 24, 100), (213, 'Nu', 74, 26, 100), (214, 'Xi', 72, 28, 100), (215, 'Omicron', 70, 30, 100), (216, 'Pi', 68, 32, 100), (217, 'Rho', 66, 34, 100), (218, 'Sigma', 64, 36, 100), (219, 'Tau', 62, 38, 100), (220, 'Upsilon', 60, 40, 100), (221, 'Phi', 58, 42, 100), (222, 'Chi', 56, 44, 100), (223, 'Psi', 54, 46, 100), (224, 'Omega', 52, 48, 100), (225, 'AlphaPrime', 90, 10, 100), (226, 'BetaPrime', 90, 10, 100);",
+  "test_expected_columns": [
+    "player_id",
+    "player_name",
+    "acceptance_rate"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Alpha",
+      "0.9800"
+    ],
+    [
+      202,
+      "Beta",
+      "0.9600"
+    ],
+    [
+      203,
+      "Gamma",
+      "0.9400"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "rank-partition",
+    "composite_moves": [
+      "calculate acceptance_rate as accepted_matches / total_invites",
+      "compute PERCENT_RANK over acceptance_rate DESC",
+      "filter rows where PERCENT_RANK <= 0.10",
+      "format acceptance_rate to 4 decimals",
+      "order by acceptance_rate DESC, player_id ASC"
+    ]
+  },
+  "hints": [
+    "You need to calculate a percentage for each player and then find those in the top 10%.",
+    "Use a window function like PERCENT_RANK() OVER (ORDER BY ...) to determine percentile ranks. Remember PERCENT_RANK ranges from 0 to 1.",
+    "Calculate acceptance_rate as accepted_matches / total_invites::NUMERIC, apply PERCENT_RANK() OVER (ORDER BY acceptance_rate DESC), filter where percent_rank <= 0.10, and round the acceptance_rate to 4 decimal places."
+  ],
+  "answer_key": "WITH ranked_players AS (\n  SELECT \n    player_id,\n    player_name,\n    accepted_matches::NUMERIC / total_invites AS acceptance_rate,\n    PERCENT_RANK() OVER (ORDER BY accepted_matches::NUMERIC / total_invites DESC) AS pct_rank\n  FROM player_stats\n)\nSELECT \n  player_id,\n  player_name,\n  ROUND(acceptance_rate, 4)::TEXT AS acceptance_rate\nFROM ranked_players\nWHERE pct_rank <= 0.10\nORDER BY acceptance_rate DESC, player_id ASC;",
+  "_meta": {
+    "question_type": "percentile_metrics",
+    "original_qtype": "percentile_metrics",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-03T20:54:53.796460",
+    "problem_id": "6a5b1c5a3b4f",
+    "validation_attempts": 1,
+    "scenario": "a console online service tracking multiplayer match acceptance",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": "top_n_percent"
+  }
+}

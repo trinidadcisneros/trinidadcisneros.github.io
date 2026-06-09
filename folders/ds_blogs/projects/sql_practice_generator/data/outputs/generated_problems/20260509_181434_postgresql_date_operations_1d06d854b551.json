@@ -1,0 +1,165 @@
+{
+  "title": "Find Articles With Longest Edit Cycle",
+  "prompt": "You are analyzing editor workflows on a publishing platform. Each article record contains `submitted_at` (when the author submitted the draft) and `approved_at` (when the editor approved it). Write a query that finds all articles whose edit cycle duration was 15 days or longer, inclusive of both the submission day and the approval day. For example, an article submitted on January 1 and approved on January 15 has an edit cycle of 15 days (both endpoints count). Return `article_id`, `submitted_at`, `approved_at`, and `edit_cycle_days` (the inclusive day count). Order results by `edit_cycle_days` descending, then by `article_id` ascending. Note: the inclusive day count formula is `(approved_at - submitted_at) + 1` because a same-day approval (0 day difference) counts as 1 day.",
+  "schema_ddl": "CREATE TABLE articles (article_id INT PRIMARY KEY, title VARCHAR(200), submitted_at DATE, approved_at DATE, views INT);",
+  "example_input_data": "INSERT INTO articles (article_id, title, submitted_at, approved_at, views) VALUES (1, 'Intro to SQL', '2024-01-01', '2024-01-15', 120), (2, 'Advanced Joins', '2024-01-10', '2024-01-20', 340), (3, 'Window Functions', '2024-01-05', '2024-01-18', 200), (4, 'CTEs Explained', '2024-01-12', '2024-01-22', 150), (5, 'Quick Tip: Indexes', '2024-01-08', '2024-01-10', 80), (6, 'Subquery Patterns', '2024-02-01', '2024-02-25', 410);",
+  "example_output_columns": [
+    "article_id",
+    "submitted_at",
+    "approved_at",
+    "edit_cycle_days"
+  ],
+  "example_output_rows": [
+    [
+      6,
+      "2024-02-01",
+      "2024-02-25",
+      25
+    ],
+    [
+      1,
+      "2024-01-01",
+      "2024-01-15",
+      15
+    ]
+  ],
+  "test_data": "INSERT INTO articles (article_id, title, submitted_at, approved_at, views) VALUES (101, 'Test A', '2024-01-01', '2024-01-15', 50), (102, 'Test B', '2024-01-15', '2024-02-01', 60), (103, 'Test C', '2024-02-28', '2024-03-15', 70), (104, 'Test D', '2024-03-01', '2024-03-15', 80), (105, 'Test E', '2024-01-20', '2024-02-05', 90), (106, 'Test F', '2024-12-20', '2025-01-10', 100), (107, 'Test G', '2024-01-01', '2024-01-14', 110), (108, 'Test H', '2024-02-01', '2024-02-15', 120), (109, 'Test I', '2024-06-01', '2024-06-01', 130), (110, 'Test J', '2024-03-15', '2024-04-01', 140), (111, 'Test K', '2024-05-01', '2024-05-20', 150), (112, 'Test L', '2024-07-01', '2024-07-31', 160), (113, 'Test M', '2024-08-10', '2024-08-25', 170), (114, 'Test N', '2024-09-01', '2024-09-14', 180), (115, 'Test O', '2024-10-15', '2024-11-01', 190), (116, 'Test P', '2024-11-01', '2024-11-30', 200), (117, 'Test Q', '2024-12-01', '2024-12-31', 210), (118, 'Test R', '2024-02-29', '2024-03-15', 220), (119, 'Test S', '2024-04-01', '2024-04-15', 230), (120, 'Test T', '2024-05-15', '2024-06-01', 240);",
+  "test_expected_columns": [
+    "article_id",
+    "submitted_at",
+    "approved_at",
+    "edit_cycle_days"
+  ],
+  "test_expected_rows": [
+    [
+      112,
+      "2024-07-01",
+      "2024-07-31",
+      31
+    ],
+    [
+      117,
+      "2024-12-01",
+      "2024-12-31",
+      31
+    ],
+    [
+      116,
+      "2024-11-01",
+      "2024-11-30",
+      30
+    ],
+    [
+      106,
+      "2024-12-20",
+      "2025-01-10",
+      22
+    ],
+    [
+      111,
+      "2024-05-01",
+      "2024-05-20",
+      20
+    ],
+    [
+      102,
+      "2024-01-15",
+      "2024-02-01",
+      18
+    ],
+    [
+      110,
+      "2024-03-15",
+      "2024-04-01",
+      18
+    ],
+    [
+      115,
+      "2024-10-15",
+      "2024-11-01",
+      18
+    ],
+    [
+      120,
+      "2024-05-15",
+      "2024-06-01",
+      18
+    ],
+    [
+      103,
+      "2024-02-28",
+      "2024-03-15",
+      17
+    ],
+    [
+      105,
+      "2024-01-20",
+      "2024-02-05",
+      17
+    ],
+    [
+      113,
+      "2024-08-10",
+      "2024-08-25",
+      16
+    ],
+    [
+      118,
+      "2024-02-29",
+      "2024-03-15",
+      16
+    ],
+    [
+      101,
+      "2024-01-01",
+      "2024-01-15",
+      15
+    ],
+    [
+      104,
+      "2024-03-01",
+      "2024-03-15",
+      15
+    ],
+    [
+      108,
+      "2024-02-01",
+      "2024-02-15",
+      15
+    ],
+    [
+      119,
+      "2024-04-01",
+      "2024-04-15",
+      15
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "date subtraction to compute duration",
+      "inclusive day count adjustment (+1)",
+      "filter by duration threshold",
+      "order by duration descending"
+    ]
+  },
+  "hints": [
+    "You need to compute the number of days between two dates, but remember that the endpoints are inclusive.",
+    "In PostgreSQL, subtracting two DATE values gives an integer representing the number of days between them. For inclusive count, add 1.",
+    "Use `(approved_at - submitted_at) + 1` to get the inclusive day count, then filter where this value is >= 15."
+  ],
+  "answer_key": "SELECT article_id, submitted_at, approved_at, (approved_at - submitted_at) + 1 AS edit_cycle_days FROM articles WHERE (approved_at - submitted_at) + 1 >= 15 ORDER BY edit_cycle_days DESC, article_id ASC;",
+  "_meta": {
+    "question_type": "date_operations",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-09T18:14:34.397526",
+    "problem_id": "1d06d854b551",
+    "validation_attempts": 1,
+    "scenario": "a publishing platform tracking article views, comments, and editor approvals",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

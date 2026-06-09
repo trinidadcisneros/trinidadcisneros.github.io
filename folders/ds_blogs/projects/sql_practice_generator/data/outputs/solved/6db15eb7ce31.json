@@ -1,0 +1,191 @@
+{
+  "problem": {
+    "title": "Cumulative Acceptance Rate by Driver per Day",
+    "prompt": "A ride-share platform wants to monitor each driver's cumulative acceptance performance over time. Write a query that computes each driver's cumulative acceptance rate up to and including each date. The acceptance rate for a given date is calculated as the total number of accepted requests divided by the total number of requests received. Your output should show each driver's daily cumulative acceptance rate (as a decimal rounded to 4 decimal places). Return columns `driver_id`, `request_date`, `cumulative_accepted`, `cumulative_total`, and `cumulative_acceptance_rate`, ordered by `driver_id` and `request_date`. Handle cases where a driver may have dates with zero accepted requests.",
+    "schema_ddl": "CREATE TABLE driver_requests (request_id SERIAL PRIMARY KEY, driver_id INT NOT NULL, request_date DATE NOT NULL, accepted BOOLEAN NOT NULL); CREATE TABLE drivers (driver_id INT PRIMARY KEY, driver_name VARCHAR(100) NOT NULL);",
+    "example_input_data": "INSERT INTO drivers (driver_id, driver_name) VALUES (101, 'Alice Chen'), (102, 'Bob Martinez'), (103, 'Carol Singh'); INSERT INTO driver_requests (driver_id, request_date, accepted) VALUES (101, '2024-01-15', true), (101, '2024-01-15', false), (101, '2024-01-16', true), (101, '2024-01-16', true), (102, '2024-01-15', true), (102, '2024-01-16', false), (103, '2024-01-15', false), (103, '2024-01-15', false);",
+    "example_output_columns": [
+      "driver_id",
+      "request_date",
+      "cumulative_accepted",
+      "cumulative_total",
+      "cumulative_acceptance_rate"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "2024-01-15",
+        "1",
+        "2",
+        "0.5000"
+      ],
+      [
+        101,
+        "2024-01-16",
+        "3",
+        "4",
+        "0.7500"
+      ],
+      [
+        102,
+        "2024-01-15",
+        "1",
+        "1",
+        "1.0000"
+      ],
+      [
+        102,
+        "2024-01-16",
+        "1",
+        "2",
+        "0.5000"
+      ],
+      [
+        103,
+        "2024-01-15",
+        "0",
+        "2",
+        "0.0000"
+      ]
+    ],
+    "test_data": "INSERT INTO drivers (driver_id, driver_name) VALUES (201, 'David Kim'), (202, 'Elena Popov'), (203, 'Frank Wu'), (204, 'Grace Liu'); INSERT INTO driver_requests (driver_id, request_date, accepted) VALUES (201, '2024-02-01', true), (201, '2024-02-01', true), (201, '2024-02-01', false), (201, '2024-02-02', true), (201, '2024-02-02', true), (201, '2024-02-03', false), (201, '2024-02-03', true), (201, '2024-02-04', true), (202, '2024-02-01', false), (202, '2024-02-01', false), (202, '2024-02-02', true), (202, '2024-02-02', false), (202, '2024-02-03', true), (202, '2024-02-03', true), (202, '2024-02-03', false), (203, '2024-02-01', true), (203, '2024-02-02', true), (203, '2024-02-02', true), (203, '2024-02-02', true), (203, '2024-02-03', true), (203, '2024-02-03', true), (204, '2024-02-01', false), (204, '2024-02-01', false), (204, '2024-02-01', false), (204, '2024-02-02', false), (204, '2024-02-03', false), (204, '2024-02-04', false), (204, '2024-02-04', false);",
+    "test_expected_columns": [
+      "driver_id",
+      "request_date",
+      "cumulative_accepted",
+      "cumulative_total",
+      "cumulative_acceptance_rate"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "2024-02-01",
+        "2",
+        "3",
+        "0.6667"
+      ],
+      [
+        201,
+        "2024-02-02",
+        "4",
+        "5",
+        "0.8000"
+      ],
+      [
+        201,
+        "2024-02-03",
+        "5",
+        "7",
+        "0.7143"
+      ],
+      [
+        201,
+        "2024-02-04",
+        "6",
+        "8",
+        "0.7500"
+      ],
+      [
+        202,
+        "2024-02-01",
+        "0",
+        "2",
+        "0.0000"
+      ],
+      [
+        202,
+        "2024-02-02",
+        "1",
+        "4",
+        "0.2500"
+      ],
+      [
+        202,
+        "2024-02-03",
+        "3",
+        "7",
+        "0.4286"
+      ],
+      [
+        203,
+        "2024-02-01",
+        "1",
+        "1",
+        "1.0000"
+      ],
+      [
+        203,
+        "2024-02-02",
+        "4",
+        "4",
+        "1.0000"
+      ],
+      [
+        203,
+        "2024-02-03",
+        "6",
+        "6",
+        "1.0000"
+      ],
+      [
+        204,
+        "2024-02-01",
+        "0",
+        "3",
+        "0.0000"
+      ],
+      [
+        204,
+        "2024-02-02",
+        "0",
+        "4",
+        "0.0000"
+      ],
+      [
+        204,
+        "2024-02-03",
+        "0",
+        "5",
+        "0.0000"
+      ],
+      [
+        204,
+        "2024-02-04",
+        "0",
+        "7",
+        "0.0000"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "row-transform: aggregate request counts per driver per date",
+        "time-window: compute cumulative sums with SUM OVER partitioned by driver_id ordered by request_date"
+      ]
+    },
+    "hints": [
+      "You need to aggregate the raw requests into daily counts per driver first, then apply a cumulative sum.",
+      "Use a CTE to group by driver_id and request_date, counting total requests and accepted requests, then apply a window function to compute running totals.",
+      "First GROUP BY driver_id, request_date to get COUNT(*) as daily_total and SUM(CASE WHEN accepted THEN 1 ELSE 0 END) as daily_accepted. Then use SUM(daily_accepted) OVER (PARTITION BY driver_id ORDER BY request_date) and SUM(daily_total) OVER (PARTITION BY driver_id ORDER BY request_date) to compute cumulative values, and divide them for the rate."
+    ],
+    "answer_key": "WITH daily_stats AS (SELECT driver_id, request_date, COUNT(*) AS daily_total, SUM(CASE WHEN accepted THEN 1 ELSE 0 END) AS daily_accepted FROM driver_requests GROUP BY driver_id, request_date) SELECT driver_id, request_date, SUM(daily_accepted) OVER (PARTITION BY driver_id ORDER BY request_date) AS cumulative_accepted, SUM(daily_total) OVER (PARTITION BY driver_id ORDER BY request_date) AS cumulative_total, ROUND(SUM(daily_accepted) OVER (PARTITION BY driver_id ORDER BY request_date)::NUMERIC / SUM(daily_total) OVER (PARTITION BY driver_id ORDER BY request_date), 4) AS cumulative_acceptance_rate FROM daily_stats ORDER BY driver_id, request_date;",
+    "_meta": {
+      "question_type": "window_running_total",
+      "original_qtype": "window_running_total",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-22T19:36:42.443599",
+      "problem_id": "6db15eb7ce31",
+      "validation_attempts": 1,
+      "scenario": "a ride share app tracking match rate from request to driver acceptance",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\n1. add case when for accepted\n2. cumulative accepted and totals\n3. calculate acceptance rate\n    driver_id,\n    request_date,\n    was_accepted,\n    SUM(was_accepted) OVER (PARTITION BY driver_id ORDER BY request_date) AS cumulative_accepted\n\n\n*/\n\nWITH base AS (\nSELECT\n    driver_id,\n    request_date,\n    CASE WHEN accepted = true THEN 1 else 0 END as was_accepted\nFROM driver_requests\n),\ngrouped_base AS (\nSELECT\n    driver_id, \n    request_date,\n    SUM(was_accepted) as was_accepted,\n    COUNT(*) AS total_requests\nFROM base\nGROUP BY driver_id, request_date\nORDER BY 1, 2\n),\ncumulative_step AS (\nSELECT\n    driver_id, \n    request_date,\n    was_accepted,\n    SUM(was_accepted) OVER (PARTITION BY driver_id ORDER BY request_date) AS cumulative_accepted,\n    SUM(total_requests) OVER (PARTITION BY driver_id ORDER BY request_date) AS cumulative_total\nFROM grouped_base\n)\nSELECT\n    driver_id, \n    request_date,\n    COALESCE(cumulative_accepted, 0) AS cumulative_accepted,\n    COALESCE(cumulative_total, 0) AS cumulative_total,\n    ROUND(cumulative_accepted::numeric/cumulative_total, 4) AS cumulative_acceptance_rate\nFROM cumulative_step\nORDER BY 1, 2;\n\n\n\n",
+  "solved_at": "2026-05-22T19:59:41.864081"
+}

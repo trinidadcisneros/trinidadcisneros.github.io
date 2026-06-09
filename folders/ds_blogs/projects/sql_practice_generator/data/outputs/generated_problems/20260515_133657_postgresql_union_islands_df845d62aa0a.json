@@ -1,0 +1,183 @@
+{
+  "title": "Trial Status Islands with Missing Days",
+  "prompt": "A B2B SaaS platform tracks trial account activity in two separate tables: `trial_active_days` logs each day a trial account was actively used, and `trial_paused_days` logs each day the trial was paused by the account owner. Some days may have no record at all (neither active nor paused). Your task is to identify consecutive periods of the same status, where 'consecutive' means consecutive in the union of both tables, ignoring any missing days. For example, if an account is active on Jan 1, Jan 3, and Jan 5, and Jan 2 and Jan 4 have no records, treat Jan 1, 3, and 5 as a single consecutive active period. Write a query that produces one row per consecutive status period for trial account ID 1001 between '2024-01-01' and '2024-01-31' (inclusive). Output columns must be `status` (either 'active' or 'paused'), `start_date`, and `end_date`. Order results by `start_date` ascending.",
+  "schema_ddl": "CREATE TABLE trial_active_days (account_id INT, activity_date DATE); CREATE TABLE trial_paused_days (account_id INT, pause_date DATE);",
+  "example_input_data": "INSERT INTO trial_active_days (account_id, activity_date) VALUES (1001, '2024-01-01'), (1001, '2024-01-03'), (1001, '2024-01-05'), (1001, '2024-01-10'), (1001, '2024-01-11'); INSERT INTO trial_paused_days (account_id, pause_date) VALUES (1001, '2024-01-06'), (1001, '2024-01-07'), (1001, '2024-01-08'), (1001, '2024-01-15'), (1001, '2024-01-17');",
+  "example_output_columns": [
+    "status",
+    "start_date",
+    "end_date"
+  ],
+  "example_output_rows": [
+    [
+      "active",
+      "2024-01-01",
+      "2024-01-05"
+    ],
+    [
+      "paused",
+      "2024-01-06",
+      "2024-01-08"
+    ],
+    [
+      "active",
+      "2024-01-10",
+      "2024-01-11"
+    ],
+    [
+      "paused",
+      "2024-01-15",
+      "2024-01-17"
+    ]
+  ],
+  "test_data": "INSERT INTO trial_active_days (account_id, activity_date) VALUES (1001, '2024-01-01'), (1001, '2024-01-02'), (1001, '2024-01-04'), (1001, '2024-01-06'), (1001, '2024-01-07'), (1001, '2024-01-09'), (1001, '2024-01-12'), (1001, '2024-01-14'), (1001, '2024-01-16'), (1001, '2024-01-17'), (1001, '2024-01-18'), (1001, '2024-01-22'), (1001, '2024-01-25'), (1001, '2024-01-27'), (1001, '2024-01-29'), (1001, '2024-01-30'); INSERT INTO trial_paused_days (account_id, pause_date) VALUES (1001, '2024-01-03'), (1001, '2024-01-05'), (1001, '2024-01-08'), (1001, '2024-01-10'), (1001, '2024-01-11'), (1001, '2024-01-13'), (1001, '2024-01-15'), (1001, '2024-01-19'), (1001, '2024-01-20'), (1001, '2024-01-21'), (1001, '2024-01-23'), (1001, '2024-01-24'), (1001, '2024-01-26'), (1001, '2024-01-28'), (1001, '2024-01-31');",
+  "test_expected_columns": [
+    "status",
+    "start_date",
+    "end_date"
+  ],
+  "test_expected_rows": [
+    [
+      "active",
+      "2024-01-01",
+      "2024-01-02"
+    ],
+    [
+      "paused",
+      "2024-01-03",
+      "2024-01-03"
+    ],
+    [
+      "active",
+      "2024-01-04",
+      "2024-01-04"
+    ],
+    [
+      "paused",
+      "2024-01-05",
+      "2024-01-05"
+    ],
+    [
+      "active",
+      "2024-01-06",
+      "2024-01-07"
+    ],
+    [
+      "paused",
+      "2024-01-08",
+      "2024-01-08"
+    ],
+    [
+      "active",
+      "2024-01-09",
+      "2024-01-09"
+    ],
+    [
+      "paused",
+      "2024-01-10",
+      "2024-01-11"
+    ],
+    [
+      "active",
+      "2024-01-12",
+      "2024-01-12"
+    ],
+    [
+      "paused",
+      "2024-01-13",
+      "2024-01-13"
+    ],
+    [
+      "active",
+      "2024-01-14",
+      "2024-01-14"
+    ],
+    [
+      "paused",
+      "2024-01-15",
+      "2024-01-15"
+    ],
+    [
+      "active",
+      "2024-01-16",
+      "2024-01-18"
+    ],
+    [
+      "paused",
+      "2024-01-19",
+      "2024-01-21"
+    ],
+    [
+      "active",
+      "2024-01-22",
+      "2024-01-22"
+    ],
+    [
+      "paused",
+      "2024-01-23",
+      "2024-01-24"
+    ],
+    [
+      "active",
+      "2024-01-25",
+      "2024-01-25"
+    ],
+    [
+      "paused",
+      "2024-01-26",
+      "2024-01-26"
+    ],
+    [
+      "active",
+      "2024-01-27",
+      "2024-01-27"
+    ],
+    [
+      "paused",
+      "2024-01-28",
+      "2024-01-28"
+    ],
+    [
+      "active",
+      "2024-01-29",
+      "2024-01-30"
+    ],
+    [
+      "paused",
+      "2024-01-31",
+      "2024-01-31"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "union",
+    "output_shape": "fewer_rows",
+    "recipe": "gaps-and-islands",
+    "composite_moves": [
+      "union two source tables with status labels",
+      "filter each branch by account_id and date range",
+      "assign ROW_NUMBER() OVER (ORDER BY date) as overall sequence",
+      "assign ROW_NUMBER() OVER (PARTITION BY status ORDER BY date) as per-status sequence",
+      "compute grp = overall_rn - per_status_rn",
+      "group by status and grp",
+      "select MIN(date) as start_date, MAX(date) as end_date",
+      "order by start_date"
+    ]
+  },
+  "hints": [
+    "You need to combine both tables into a single stream of (date, status) pairs, then identify where consecutive dates with the same status form islands.",
+    "Use UNION ALL to merge the two tables, labeling each row with its status. Apply the account and date filters in each branch's WHERE clause.",
+    "The classic date - row_number() trick won't work here because of missing days. Instead, compute two row numbers: one ordered by date (overall sequence) and one partitioned by status and ordered by date (per-status sequence). Their difference identifies islands that ignore gaps."
+  ],
+  "answer_key": "WITH combined AS (\n  SELECT account_id, activity_date AS d, 'active' AS status\n  FROM trial_active_days\n  WHERE account_id = 1001 AND activity_date BETWEEN '2024-01-01' AND '2024-01-31'\n  UNION ALL\n  SELECT account_id, pause_date AS d, 'paused' AS status\n  FROM trial_paused_days\n  WHERE account_id = 1001 AND pause_date BETWEEN '2024-01-01' AND '2024-01-31'\n),\nrnums AS (\n  SELECT\n    d,\n    status,\n    ROW_NUMBER() OVER (ORDER BY d) - ROW_NUMBER() OVER (PARTITION BY status ORDER BY d) AS grp\n  FROM combined\n)\nSELECT\n  status,\n  MIN(d) AS start_date,\n  MAX(d) AS end_date\nFROM rnums\nGROUP BY status, grp\nORDER BY start_date;",
+  "_meta": {
+    "question_type": "union_islands",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-15T13:36:56.895475",
+    "problem_id": "df845d62aa0a",
+    "validation_attempts": 1,
+    "scenario": "a B2B SaaS company tracking trial signups and conversion to paid plans",
+    "dml_op": null,
+    "islands_flavor": "date_sequence",
+    "percentile_flavor": null
+  }
+}

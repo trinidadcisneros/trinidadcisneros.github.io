@@ -1,0 +1,298 @@
+{
+  "problem": {
+    "title": "Archive Approved Prior Auth Records",
+    "prompt": "You are maintaining a prior authorization cycle time tracking system. The `prior_auths` table holds all authorization requests with their status and timestamps. Management wants to establish a historical archive of all approved authorizations from Q1 2024 (January 1 through March 31, 2024) that have been fully closed. Write a single INSERT statement that copies qualifying records from `prior_auths` into the `prior_auths_archive` table. A record qualifies if: (1) its `status` is 'approved', (2) its `approval_date` falls within Q1 2024 (on or after '2024-01-01' and on or before '2024-03-31'), and (3) its `closed_date` is NOT NULL. When inserting into the archive, populate all columns from the source table and additionally compute a `cycle_days` column defined as the number of days between `submission_date` and `approval_date` (use `approval_date - submission_date` to get the integer difference). After the INSERT completes, write a trailing SELECT to confirm the archived records, ordered by `auth_id` ascending.",
+    "schema_ddl": "CREATE TABLE prior_auths (auth_id INT PRIMARY KEY, patient_id INT NOT NULL, payer_name VARCHAR(100) NOT NULL, procedure_code VARCHAR(20) NOT NULL, submission_date DATE NOT NULL, approval_date DATE, closed_date DATE, status VARCHAR(20) NOT NULL); CREATE TABLE prior_auths_archive (auth_id INT PRIMARY KEY, patient_id INT NOT NULL, payer_name VARCHAR(100) NOT NULL, procedure_code VARCHAR(20) NOT NULL, submission_date DATE NOT NULL, approval_date DATE, closed_date DATE, status VARCHAR(20) NOT NULL, cycle_days INT NOT NULL);",
+    "example_input_data": "INSERT INTO prior_auths (auth_id, patient_id, payer_name, procedure_code, submission_date, approval_date, closed_date, status) VALUES (101, 5001, 'BlueCross Regional', 'MRI-BRAIN', '2024-01-10', '2024-01-15', '2024-01-20', 'approved'), (102, 5002, 'Aetna PPO', 'CT-CHEST', '2024-02-05', '2024-02-12', '2024-02-18', 'approved'), (103, 5003, 'UnitedHealth', 'PET-SCAN', '2024-03-20', '2024-03-25', '2024-03-30', 'approved'), (104, 5004, 'Cigna HMO', 'XRAY-SPINE', '2024-01-22', '2024-01-28', NULL, 'approved'), (105, 5005, 'Humana', 'MRI-KNEE', '2024-04-02', '2024-04-08', '2024-04-12', 'approved'), (106, 5006, 'BlueCross Regional', 'CT-ABDOMEN', '2023-12-28', '2024-01-03', '2024-01-10', 'approved'), (107, 5007, 'Aetna PPO', 'ULTRASOUND', '2024-02-14', NULL, NULL, 'pending'), (108, 5008, 'UnitedHealth', 'MRI-SHOULDER', '2024-03-10', '2024-03-18', '2024-03-22', 'denied');",
+    "example_output_columns": [
+      "auth_id",
+      "patient_id",
+      "payer_name",
+      "procedure_code",
+      "submission_date",
+      "approval_date",
+      "closed_date",
+      "status",
+      "cycle_days"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        5001,
+        "BlueCross Regional",
+        "MRI-BRAIN",
+        "2024-01-10",
+        "2024-01-15",
+        "2024-01-20",
+        "approved",
+        5
+      ],
+      [
+        102,
+        5002,
+        "Aetna PPO",
+        "CT-CHEST",
+        "2024-02-05",
+        "2024-02-12",
+        "2024-02-18",
+        "approved",
+        7
+      ],
+      [
+        103,
+        5003,
+        "UnitedHealth",
+        "PET-SCAN",
+        "2024-03-20",
+        "2024-03-25",
+        "2024-03-30",
+        "approved",
+        5
+      ],
+      [
+        106,
+        5006,
+        "BlueCross Regional",
+        "CT-ABDOMEN",
+        "2023-12-28",
+        "2024-01-03",
+        "2024-01-10",
+        "approved",
+        6
+      ]
+    ],
+    "test_data": "INSERT INTO prior_auths (auth_id, patient_id, payer_name, procedure_code, submission_date, approval_date, closed_date, status) VALUES (201, 6001, 'BlueCross Regional', 'MRI-BRAIN', '2024-01-05', '2024-01-08', '2024-01-15', 'approved'), (202, 6002, 'Aetna PPO', 'CT-CHEST', '2024-01-12', '2024-01-20', '2024-01-25', 'approved'), (203, 6003, 'UnitedHealth', 'PET-SCAN', '2024-02-01', '2024-02-10', '2024-02-15', 'approved'), (204, 6004, 'Cigna HMO', 'XRAY-SPINE', '2024-02-18', '2024-02-25', '2024-03-01', 'approved'), (205, 6005, 'Humana', 'MRI-KNEE', '2024-03-01', '2024-03-05', '2024-03-10', 'approved'), (206, 6006, 'BlueCross Regional', 'CT-ABDOMEN', '2024-03-15', '2024-03-22', '2024-03-28', 'approved'), (207, 6007, 'Aetna PPO', 'ULTRASOUND', '2024-03-28', '2024-03-31', '2024-04-05', 'approved'), (208, 6008, 'UnitedHealth', 'MRI-SHOULDER', '2024-01-10', '2024-01-18', NULL, 'approved'), (209, 6009, 'Cigna HMO', 'PET-SCAN', '2024-02-22', '2024-03-02', '2024-03-08', 'approved'), (210, 6010, 'Humana', 'CT-BRAIN', '2024-03-25', '2024-03-30', NULL, 'approved'), (211, 6011, 'BlueCross Regional', 'XRAY-CHEST', '2024-04-01', '2024-04-05', '2024-04-10', 'approved'), (212, 6012, 'Aetna PPO', 'MRI-SPINE', '2023-12-20', '2023-12-28', '2024-01-05', 'approved'), (213, 6013, 'UnitedHealth', 'CT-PELVIS', '2024-01-15', '2024-01-25', '2024-02-01', 'approved'), (214, 6014, 'Cigna HMO', 'ULTRASOUND', '2024-02-10', NULL, NULL, 'pending'), (215, 6015, 'Humana', 'PET-SCAN', '2024-03-05', '2024-03-12', '2024-03-18', 'denied'), (216, 6016, 'BlueCross Regional', 'MRI-ANKLE', '2024-01-20', '2024-01-28', '2024-02-02', 'approved'), (217, 6017, 'Aetna PPO', 'CT-NECK', '2024-02-28', '2024-03-08', '2024-03-15', 'approved'), (218, 6018, 'UnitedHealth', 'XRAY-HAND', '2024-03-18', '2024-03-24', '2024-03-29', 'approved'), (219, 6019, 'Cigna HMO', 'MRI-WRIST', '2024-01-08', '2024-01-15', '2024-01-22', 'approved'), (220, 6020, 'Humana', 'CT-SINUS', '2024-03-20', '2024-03-28', '2024-04-02', 'approved'), (221, 6021, 'BlueCross Regional', 'PET-SCAN', '2024-01-25', '2024-02-01', NULL, 'approved'), (222, 6022, 'Aetna PPO', 'ULTRASOUND', '2024-03-10', '2024-03-17', '2024-03-23', 'approved'), (223, 6023, 'UnitedHealth', 'MRI-HIP', '2024-02-15', '2024-02-22', '2024-02-28', 'approved'), (224, 6024, 'Cigna HMO', 'CT-LUNG', '2024-03-29', '2024-04-02', '2024-04-08', 'approved'), (225, 6025, 'Humana', 'XRAY-FOOT', '2024-01-18', '2024-01-26', '2024-02-01', 'approved');",
+    "test_expected_columns": [
+      "auth_id",
+      "patient_id",
+      "payer_name",
+      "procedure_code",
+      "submission_date",
+      "approval_date",
+      "closed_date",
+      "status",
+      "cycle_days"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        6001,
+        "BlueCross Regional",
+        "MRI-BRAIN",
+        "2024-01-05",
+        "2024-01-08",
+        "2024-01-15",
+        "approved",
+        3
+      ],
+      [
+        202,
+        6002,
+        "Aetna PPO",
+        "CT-CHEST",
+        "2024-01-12",
+        "2024-01-20",
+        "2024-01-25",
+        "approved",
+        8
+      ],
+      [
+        203,
+        6003,
+        "UnitedHealth",
+        "PET-SCAN",
+        "2024-02-01",
+        "2024-02-10",
+        "2024-02-15",
+        "approved",
+        9
+      ],
+      [
+        204,
+        6004,
+        "Cigna HMO",
+        "XRAY-SPINE",
+        "2024-02-18",
+        "2024-02-25",
+        "2024-03-01",
+        "approved",
+        7
+      ],
+      [
+        205,
+        6005,
+        "Humana",
+        "MRI-KNEE",
+        "2024-03-01",
+        "2024-03-05",
+        "2024-03-10",
+        "approved",
+        4
+      ],
+      [
+        206,
+        6006,
+        "BlueCross Regional",
+        "CT-ABDOMEN",
+        "2024-03-15",
+        "2024-03-22",
+        "2024-03-28",
+        "approved",
+        7
+      ],
+      [
+        207,
+        6007,
+        "Aetna PPO",
+        "ULTRASOUND",
+        "2024-03-28",
+        "2024-03-31",
+        "2024-04-05",
+        "approved",
+        3
+      ],
+      [
+        209,
+        6009,
+        "Cigna HMO",
+        "PET-SCAN",
+        "2024-02-22",
+        "2024-03-02",
+        "2024-03-08",
+        "approved",
+        9
+      ],
+      [
+        213,
+        6013,
+        "UnitedHealth",
+        "CT-PELVIS",
+        "2024-01-15",
+        "2024-01-25",
+        "2024-02-01",
+        "approved",
+        10
+      ],
+      [
+        216,
+        6016,
+        "BlueCross Regional",
+        "MRI-ANKLE",
+        "2024-01-20",
+        "2024-01-28",
+        "2024-02-02",
+        "approved",
+        8
+      ],
+      [
+        217,
+        6017,
+        "Aetna PPO",
+        "CT-NECK",
+        "2024-02-28",
+        "2024-03-08",
+        "2024-03-15",
+        "approved",
+        9
+      ],
+      [
+        218,
+        6018,
+        "UnitedHealth",
+        "XRAY-HAND",
+        "2024-03-18",
+        "2024-03-24",
+        "2024-03-29",
+        "approved",
+        6
+      ],
+      [
+        219,
+        6019,
+        "Cigna HMO",
+        "MRI-WRIST",
+        "2024-01-08",
+        "2024-01-15",
+        "2024-01-22",
+        "approved",
+        7
+      ],
+      [
+        220,
+        6020,
+        "Humana",
+        "CT-SINUS",
+        "2024-03-20",
+        "2024-03-28",
+        "2024-04-02",
+        "approved",
+        8
+      ],
+      [
+        222,
+        6022,
+        "Aetna PPO",
+        "ULTRASOUND",
+        "2024-03-10",
+        "2024-03-17",
+        "2024-03-23",
+        "approved",
+        7
+      ],
+      [
+        223,
+        6023,
+        "UnitedHealth",
+        "MRI-HIP",
+        "2024-02-15",
+        "2024-02-22",
+        "2024-02-28",
+        "approved",
+        7
+      ],
+      [
+        225,
+        6025,
+        "Humana",
+        "XRAY-FOOT",
+        "2024-01-18",
+        "2024-01-26",
+        "2024-02-01",
+        "approved",
+        8
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "state_mutation",
+      "recipe": "row-filter",
+      "composite_moves": [
+        "row-filter: filter source rows by status='approved' AND approval_date in Q1 2024 AND closed_date IS NOT NULL",
+        "row-transform: compute cycle_days = approval_date - submission_date",
+        "INSERT filtered and transformed rows into archive table"
+      ]
+    },
+    "hints": [
+      "The INSERT ... SELECT pattern lets you filter source rows and compute new columns in one statement.",
+      "Use a WHERE clause to enforce all three conditions: status, date range for approval_date, and NULL check for closed_date. The cycle_days column can be computed directly in the SELECT list using date subtraction.",
+      "Your INSERT statement should look like: INSERT INTO prior_auths_archive SELECT auth_id, patient_id, payer_name, procedure_code, submission_date, approval_date, closed_date, status, (approval_date - submission_date) AS cycle_days FROM prior_auths WHERE status = 'approved' AND approval_date BETWEEN '2024-01-01' AND '2024-03-31' AND closed_date IS NOT NULL. Follow with SELECT * FROM prior_auths_archive ORDER BY auth_id."
+    ],
+    "answer_key": "INSERT INTO prior_auths_archive (auth_id, patient_id, payer_name, procedure_code, submission_date, approval_date, closed_date, status, cycle_days) SELECT auth_id, patient_id, payer_name, procedure_code, submission_date, approval_date, closed_date, status, (approval_date - submission_date) AS cycle_days FROM prior_auths WHERE status = 'approved' AND approval_date >= DATE '2024-01-01' AND approval_date <= DATE '2024-03-31' AND closed_date IS NOT NULL; SELECT * FROM prior_auths_archive ORDER BY auth_id;",
+    "_meta": {
+      "question_type": "dml_insert",
+      "original_qtype": "dml_insert",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-23T19:49:55.341870",
+      "problem_id": "1197bf72c44a",
+      "validation_attempts": 1,
+      "scenario": "a prior authorization cycle time tracking system across payers",
+      "dml_op": "INSERT",
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\n\nWrite a single INSERT statement that copies qualifying records from `prior_auths` into the `prior_auths_archive` table.\nA record qualifies if:\nits `status` is 'approved',\nits `approval_date` falls within Q1 2024 (on or after '2024-01-01' and on or before '2024-03-31'), and\nits `closed_date` is NOT NULL\n\n*/\n\nINSERT INTO prior_auths_archive (auth_id, patient_id, payer_name, procedure_code, \n                    submission_date, approval_date,\tclosed_date, status, cycle_days)\nSELECT auth_id,\n        patient_id, \n        payer_name, \n        procedure_code, \n        submission_date, \n        approval_date,\t\n        closed_date, \n        status, \n        (approval_date - submission_date)::int AS cycle_days\nFROM prior_auths\nWHERE status = 'approved' AND (approval_date >= '2024-01-01' AND approval_date <= '2024-03-31') AND closed_date IS NOT NULL;\n\nSELECT * FROM prior_auths_archive ORDER BY auth_id;",
+  "solved_at": "2026-05-23T20:03:48.617571"
+}

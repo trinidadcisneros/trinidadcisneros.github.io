@@ -5,12 +5,11 @@ nb02 Pharmacy Interview Drill Utilities
 Claude powered drill generator for Staff Product Analyst interview prep in the
 pharmacy / digital health space. Built on top of nb01 SQL practice infrastructure.
 
-Four categories with nested subtopics:
+Three categories with nested subtopics (pharmacy_sql moved to nb01):
 
-  1. Pharmacy Claims Analytical SQL  (executable in Postgres sandbox)
-  2. Data Transformation Modeling    (executable in Postgres sandbox)
-  3. Critical Reasoning SQL          (executable in Postgres sandbox)
-  4. Understanding Product Metrics & KPIs  (markdown graded, no SQL exec)
+  1. Data Transformation Modeling    (executable in Postgres sandbox)
+  2. Critical Reasoning SQL          (executable in Postgres sandbox)
+  3. Understanding Product Metrics & KPIs  (markdown graded, no SQL exec)
 
 Reuses sql_practice_utils (sandbox connection, validation harness, save/load)
 and adds pharmacy/care domain bias to every generated problem.
@@ -56,51 +55,8 @@ def _extract_json(text: str) -> Optional[Dict[str, Any]]:
 # the validation harness shape. KPI category is markdown only (no SQL exec).
 
 CATEGORIES = {
-    "pharmacy_sql": {
-        "label": "1. Pharmacy Claims Analytical SQL",
-        "description": "SQL on pharmacy claim, event, patient, prescriber, payer data.",
-        "kind": "sql",
-        "subtopics": {
-            "adjudication_funnel": {
-                "label": "Adjudication funnel (submit -> reject -> recycle -> pay)",
-                "base_qtype": "select_analytical",
-            },
-            "cohort_retention": {
-                "label": "Cohort retention (refill rate at 30/60/90 days)",
-                "base_qtype": "select_analytical",
-            },
-            "window_event_log": {
-                "label": "Window functions on event logs",
-                "base_qtype": "window_edge",
-            },
-            "reject_pareto": {
-                "label": "Reject taxonomy pareto (top N reject codes)",
-                "base_qtype": "select_analytical",
-            },
-            "segment_performance": {
-                "label": "Segment performance (drug class, payer, channel)",
-                "base_qtype": "select_analytical",
-            },
-            "time_to_fill": {
-                "label": "Time to fill aggregation (median, percentile)",
-                "base_qtype": "select_analytical",
-            },
-            "net_acceptance_rate": {
-                "label": "Net Acceptance Rate ((paid - reversed) / submitted)",
-                "base_qtype": "select_analytical",
-            },
-            "reversal_rate": {
-                "label": "Reversal rate analysis (reversed / paid, by reason)",
-                "base_qtype": "select_analytical",
-            },
-            "adherence_pdc": {
-                "label": "Patient adherence via PDC (Proportion of Days Covered)",
-                "base_qtype": "select_analytical",
-            },
-        },
-    },
     "transformation_modeling": {
-        "label": "2. Data Transformation Modeling",
+        "label": "1. Data Transformation Modeling",
         "description": "Schema design, dimensional modeling, SCD Type 2, dbt tests + macros.",
         "kind": "sql",
         "subtopics": {
@@ -116,14 +72,14 @@ CATEGORIES = {
                 "label": "SCD Type 2 (formulary changes over time)",
                 "base_qtype": "select_analytical",
             },
-            "dbt_tests_macros": {
-                "label": "dbt tests + ref/source macros (markdown)",
-                "kind": "kpi",  # per-subtopic override — uses markdown grading instead of SQL exec
+            "multiple_choice": {
+                "label": "Multiple choice drills (terminology + concepts)",
+                "kind": "multiple_choice",  # MCQ + True/False + order questions, graded against an answer key
             },
         },
     },
     "critical_reasoning": {
-        "label": "3. Critical Reasoning SQL",
+        "label": "2. Critical Reasoning SQL",
         "description": "Ambiguous metric definitions, missing data, clarify-then-query, broken-query critique.",
         "kind": "sql",
         "subtopics": {
@@ -155,7 +111,7 @@ CATEGORIES = {
         },
     },
     "product_kpis": {
-        "label": "4. Understanding Product Metrics & KPIs",
+        "label": "3. Understanding Product Metrics & KPIs",
         "description": "Markdown answers graded against a rubric. Mirrors Product Analytics Academy exercise types.",
         "kind": "kpi",
         "subtopics": {
@@ -199,10 +155,14 @@ CATEGORIES = {
                 "label": "PRD impact measurement section (full write up)",
                 "academy_section": "Section 4 Tracking Plans",
             },
+            "multiple_choice": {
+                "label": "Multiple choice drills (terminology + concepts)",
+                "kind": "multiple_choice",
+            },
         },
     },
     "version_control": {
-        "label": "5. Version Control (Git workflows for analytics)",
+        "label": "4. Version Control (Git workflows for analytics)",
         "description": "Branching strategy, merge conflict resolution, rebase vs merge, PR critique, commit hygiene, revert strategy.",
         "kind": "kpi",
         "subtopics": {
@@ -226,6 +186,10 @@ CATEGORIES = {
             },
             "git_state_diagnose": {
                 "label": "Diagnose a stuck Git state (what command gets you out?)",
+            },
+            "multiple_choice": {
+                "label": "Multiple choice drills (terminology + concepts)",
+                "kind": "multiple_choice",
             },
         },
     },
@@ -264,40 +228,101 @@ def base_qtype(category: str, subtopic: str) -> Optional[str]:
 # All generated problems anchor on one of these
 # ============================================================
 
-PHARMACY_SCENARIOS = [
-    # Pharmacy operations
-    "a digital pharmacy tracking prescription submissions through PBM adjudication",
-    "a same day medication delivery service tracking on-time delivery performance",
-    "a pharmacy auto-recycling workflow that retries rejected claims with corrected fields",
-    "a prescription refill adherence program tracking 30/60/90 day refill rates",
-    "a prior authorization (PA) cycle time tracking system across payers",
-    "a formulary substitution program suggesting covered alternatives at point of fill",
-    "a pharmacy fulfillment economics tracker for revenue per dispensed script",
-    "a pharmacy manual touch volume tracker measuring care team intervention rate",
-    "a script abandonment surveillance system tracking patients who never picked up filled prescriptions",
-    "a fertility medication delivery program tracking time to first dose for IVF cycles",
-    # At-home diagnostics
-    "an at-home diagnostic test kit ordering platform tracking kit shipped, returned, results released",
-    "a genomics sequencing service tracking sample receipt to results turnaround time",
-    "a hormone health test kit subscription tracking adherence to repeat-test cadence",
-    # Telehealth and care coordination
-    "a telehealth visit completion funnel from booking to provider sign-off",
-    "a clinical engagement program tracking patient outreach response rates by channel",
-    "a care coordination platform tracking handoffs between provider, pharmacy, and patient",
-    # B2B platform / API
-    "a B2B pharmacy API platform tracking partner integration health and claim throughput",
-    "an enterprise wellness contract tracking covered employee utilization across services",
-    "a payer integration eligibility check service tracking real-time eligibility latency",
-    # Patient experience
-    "a patient app onboarding funnel tracking signup to first prescription transferred",
-    "a patient adherence intervention tracking which nudge channels move refill behavior",
-    # Supply chain (cross-cutting)
-    "a pharmacy inventory and fill rate tracker by drug class and warehouse",
-    "a NADAC vs paid amount spread tracker by drug, payer, and channel",
-]
+# Industry scenarios — replaces the old PHARMACY_SCENARIOS list with a dict
+# keyed by industry slug. _pick_scenario(industry) picks from one slug, or
+# flattens across all slugs when called with no arg / "random".
+INDUSTRY_SCENARIOS = {
+    "consumer_social": [
+        "a dating app tracking mutual matches and messaging engagement",
+        "a photo sharing app tracking story creation and view rates",
+        "a short video platform tracking watch time and completion rates",
+        "a community forum tracking thread participation and member retention",
+        "a podcast app tracking listening sessions and episode completion",
+    ],
+    "marketplace": [
+        "a ride share app tracking match rate from request to driver acceptance",
+        "a food delivery service tracking order completion and delivery time",
+        "a gig labor marketplace tracking job acceptance and completion rates",
+        "a P2P resale marketplace tracking listing-to-sale conversion",
+        "a real estate listing platform tracking saved searches and inquiry rates",
+    ],
+    "ecommerce": [
+        "a D2C subscription box service tracking renewal and churn",
+        "a fashion ecommerce site tracking add-to-cart and conversion",
+        "an online grocery service tracking basket size and reorder rates",
+        "a beauty retailer tracking loyalty program redemption rates",
+    ],
+    "fintech": [
+        "a neobank tracking debit card swipes and deposit funnel",
+        "a buy-now-pay-later service tracking installment payment compliance",
+        "a robo advisor tracking portfolio rebalancing and AUM growth",
+        "a crypto exchange tracking trading volume and on-ramp deposits",
+        "an expense management app tracking receipt capture and policy compliance",
+    ],
+    "b2b_saas": [
+        "a CRM tracking pipeline coverage and won opportunity rates",
+        "a project management tool tracking sprint completion and task throughput",
+        "an HR platform tracking onboarding completion and benefits enrollment",
+        "an observability platform tracking alert acknowledge time and MTTR",
+        "a developer tools company tracking trial-to-paid conversion and seat expansion",
+    ],
+    "productivity_media": [
+        "a note-taking app tracking notebook creation and daily writing streaks",
+        "a streaming video service tracking watch time and binge depth",
+        "a music streaming service tracking saved tracks and playlist creation",
+        "a news app tracking article completion and subscription conversion",
+    ],
+    "health_wellness": [
+        "a telehealth platform tracking visit completion and follow-up scheduling",
+        "a mental health app tracking session completion and journal entries",
+        "a fitness app tracking workout completion and active days per week",
+        "a sleep tracking app tracking sleep score and goal achievement",
+    ],
+    "gaming": [
+        "a free-to-play mobile game tracking session length and ad impressions",
+        "a console online service tracking multiplayer match acceptance",
+        "a battle royale mobile game tracking match completion and squad invites",
+    ],
+    "education": [
+        "an online course platform tracking course completion and certification",
+        "a language learning app tracking daily streaks and lesson completion",
+        "a tutoring marketplace tracking session booking and tutor ratings",
+        "a K-12 homework app tracking assignment turn-in and grade improvement",
+    ],
+    "pharmacy_care": [
+        "a digital pharmacy tracking prescription submissions through PBM adjudication",
+        "a same day medication delivery service tracking on-time delivery performance",
+        "a prescription refill adherence program tracking 30/60/90 day refill rates",
+        "a prior authorization cycle time tracking system across payers",
+        "a telehealth visit completion funnel from booking to provider sign-off",
+        "an at-home diagnostic test kit platform tracking kit shipped and results released",
+        "a clinical engagement program tracking patient outreach response rates by channel",
+    ],
+}
 
-def _pick_scenario() -> str:
-    return random.choice(PHARMACY_SCENARIOS)
+# Backward compat: PHARMACY_SCENARIOS still exists for code paths that
+# imported it directly, but it now aliases the pharmacy_care slice.
+PHARMACY_SCENARIOS = INDUSTRY_SCENARIOS["pharmacy_care"]
+
+
+def _pick_scenario(industry: Optional[str] = None) -> str:
+    """Pick a generic industry-scoped scenario anchor for problem generation.
+
+    industry can be:
+      - None or "random" / "" — pick across all industries
+      - "booedup" — returns the BooedUp anchor (the rich app context is
+        injected separately via apply_scenario_anchor)
+      - an INDUSTRY_SCENARIOS key — pick within that vertical only
+    """
+    if industry == "booedup":
+        return "the BooedUp dating app"
+    if industry and industry in INDUSTRY_SCENARIOS:
+        return random.choice(INDUSTRY_SCENARIOS[industry])
+    # random / unknown / none — flatten all non-booedup industries
+    pool = []
+    for k, v in INDUSTRY_SCENARIOS.items():
+        pool.extend(v)
+    return random.choice(pool) if pool else "a consumer mobile product"
 
 
 # ============================================================
@@ -306,250 +331,11 @@ def _pick_scenario() -> str:
 # ============================================================
 
 SUBTOPIC_GUIDANCE = {
-    # ---- Pharmacy Claims Analytical SQL ----
-    "adjudication_funnel": (
-        "Build a sequential FORWARD funnel problem on a pharmacy claim event log.\n"
-        "Schema MUST include a claim_events table with columns like claim_id, event_type "
-        "(values include 'submitted', 'rejected', 'recycled', 'paid', and at least one "
-        "non-funnel event like 'reversed' and/or 'dispensed'), event_ts.\n"
-        "FUNNEL STAGES — the prompt MUST specify exactly which event types ARE part of the "
-        "funnel and which are NOT:\n"
-        "  - Forward funnel stages (in order): submitted, rejected, recycled, paid\n"
-        "  - NON-funnel events that exist in the data but MUST BE EXCLUDED from the funnel: "
-        "reversed, dispensed (and any other event types). Reversed is a backwards financial "
-        "adjustment, not a forward stage. Dispensed is a downstream fulfillment event, not "
-        "part of adjudication.\n"
-        "The prompt MUST contain explicit language like: 'Only include these four event types "
-        "in the funnel: submitted, rejected, recycled, paid. The data also contains reversed "
-        "and dispensed events — exclude them from this analysis.' This prevents users from "
-        "reasonably interpreting the data and getting penalized for including reversed as "
-        "a 5th stage.\n"
-        "DATA REQUIREMENT: example_input_data and test_data MUST include at least one "
-        "'reversed' event AND at least one 'dispensed' event so the user's WHERE filter is "
-        "actually exercised. A user solution that forgets to filter will fail correctly.\n"
-        "OTHER EDGE CASES TO INCLUDE: at least one claim that was rejected, recycled, then "
-        "paid (forces first-event-of-type logic, not raw counts).\n"
-        "BUSINESS CONTEXT FOR THE GLOSSARY/CALC SECTIONS: explain that this is a forward "
-        "funnel only. Reversals belong in a separate metric (Net Acceptance Rate = "
-        "(paid - reversed) / submitted, OR a standalone Reversal Rate = reversed / paid). "
-        "Dispensed events belong in a separate Time-to-Fill or fulfillment funnel. "
-        "Conflating these into one funnel produces conversion rates that are arithmetically "
-        "fine but operationally meaningless."
-    ),
-    "cohort_retention": (
-        "Build a cohort retention problem on prescription refill data. KEEP IT SIMPLE — this "
-        "subtopic has historically failed validation because the LLM mis-traces the rate math. "
-        "Use the simplified shape below verbatim.\n\n"
-        "SCHEMA (use exactly this shape):\n"
-        "  CREATE TABLE prescriptions (\n"
-        "      rx_id INT PRIMARY KEY,\n"
-        "      patient_id VARCHAR(10) NOT NULL,\n"
-        "      drug_class VARCHAR(50) NOT NULL,\n"
-        "      fill_date DATE NOT NULL,\n"
-        "      days_supply INT NOT NULL\n"
-        "  );\n\n"
-        "METRIC DEFINITION (use this verbatim — do NOT vary):\n"
-        "  refill_rate_at_N_days = (count of DISTINCT patients who have any fill_date "
-        "satisfying fill_date > first_fill_date AND fill_date <= first_fill_date + N days) "
-        "/ (count of DISTINCT patients in the prescriptions table)\n"
-        "Where first_fill_date per patient = MIN(fill_date) across all that patient's rows.\n"
-        "The first fill itself does NOT count toward the refill (strict greater-than).\n"
-        "A patient with multiple refills inside the window still counts ONCE.\n\n"
-        "OUTPUT SHAPE: a single row with three columns:\n"
-        "  refill_rate_30d, refill_rate_60d, refill_rate_90d\n"
-        "(all DECIMAL, rounded to 4 places). NO cohort grouping — one row total.\n\n"
-        "EXAMPLE INPUT DATA (use exactly 4 patients, exactly these fills, so the math is "
-        "trivially traceable):\n"
-        "  Patient P001: fills on 2024-01-01, 2024-01-20            → first=01-01, refill at 19d\n"
-        "  Patient P002: fills on 2024-01-01, 2024-02-15            → first=01-01, refill at 45d\n"
-        "  Patient P003: fills on 2024-01-01, 2024-03-25            → first=01-01, refill at 84d\n"
-        "  Patient P004: fills on 2024-01-01 (only one fill)        → no refill\n\n"
-        "EXPECTED REFILL RATES (compute these by hand and use them for example_output_rows):\n"
-        "  refill_rate_30d = 1/4 = 0.2500  (only P001 refilled within 30 days of their first fill)\n"
-        "  refill_rate_60d = 2/4 = 0.5000  (P001 and P002 refilled within 60 days)\n"
-        "  refill_rate_90d = 3/4 = 0.7500  (P001, P002, P003 refilled within 90 days)\n\n"
-        "ANSWER KEY SHAPE (use this CTE pattern):\n"
-        "  WITH first_fills AS (\n"
-        "    SELECT patient_id, MIN(fill_date) AS first_fill_date FROM prescriptions GROUP BY patient_id\n"
-        "  ),\n"
-        "  refilled_within AS (\n"
-        "    SELECT\n"
-        "      ff.patient_id,\n"
-        "      MAX(CASE WHEN p.fill_date > ff.first_fill_date AND p.fill_date <= ff.first_fill_date + INTERVAL '30 days' THEN 1 ELSE 0 END) AS r30,\n"
-        "      MAX(CASE WHEN p.fill_date > ff.first_fill_date AND p.fill_date <= ff.first_fill_date + INTERVAL '60 days' THEN 1 ELSE 0 END) AS r60,\n"
-        "      MAX(CASE WHEN p.fill_date > ff.first_fill_date AND p.fill_date <= ff.first_fill_date + INTERVAL '90 days' THEN 1 ELSE 0 END) AS r90\n"
-        "    FROM first_fills ff\n"
-        "    LEFT JOIN prescriptions p ON p.patient_id = ff.patient_id\n"
-        "    GROUP BY ff.patient_id\n"
-        "  )\n"
-        "  SELECT\n"
-        "    ROUND(SUM(r30)::numeric / COUNT(*), 4) AS refill_rate_30d,\n"
-        "    ROUND(SUM(r60)::numeric / COUNT(*), 4) AS refill_rate_60d,\n"
-        "    ROUND(SUM(r90)::numeric / COUNT(*), 4) AS refill_rate_90d\n"
-        "  FROM refilled_within;\n\n"
-        "TEST DATA: 6 patients, fill patterns chosen so the rates are different from example "
-        "(e.g., 2/6, 4/6, 5/6). Include at least one realistic edge case (a patient with "
-        "back-to-back fills inside 30 days — must still count once) per the EDGE CASE "
-        "REQUIREMENT.\n\n"
-        "DO NOT add cohort grouping. DO NOT add segmentation by drug_class. The simplified "
-        "single-row output dramatically reduces the LLM's chance of arithmetic errors."
-    ),
-    "window_event_log": (
-        "Build a window function problem on a pharmacy event log. The answer MUST require a window "
-        "function (LAG, LEAD, ROW_NUMBER, SUM OVER, AVG OVER) with a non-trivial partition or frame "
-        "specification. Common shapes: time-between-events per claim using LAG over event_ts, "
-        "running cumulative dispensed value per patient using SUM OVER PARTITION BY patient_id, "
-        "or first / last event per claim using ROW_NUMBER PARTITION BY claim_id ORDER BY event_ts. "
-        "The prompt should make it clear why a window function is the right tool (vs a self join "
-        "or GROUP BY)."
-    ),
-    "reject_pareto": (
-        "Build a Pareto / top-N problem on pharmacy reject codes. Schema includes a claims table "
-        "with reject_code, reject_reason, claim_id, drug_class, payer. Use realistic NCPDP-style "
-        "reject category names (PA required, formulary not covered, refill too soon, days supply "
-        "exceeded, DUR reject, COB stale). The prompt asks for top N reject codes by volume AND "
-        "their cumulative percentage, with WINDOW SUM for the running total. Include at least one "
-        "reject code with only 1 or 2 occurrences to test that ordering and tie handling are right."
-    ),
-    "segment_performance": (
-        "Build a segment performance comparison problem. KEEP IT SIMPLE — this subtopic has "
-        "historically failed validation when the LLM tries to add HAVING filters or multi-"
-        "dimension grouping with insufficient data. Use the simplified shape below verbatim.\n\n"
-        "SCHEMA (use exactly this shape):\n"
-        "  CREATE TABLE claims (\n"
-        "      claim_id VARCHAR(10) PRIMARY KEY,\n"
-        "      patient_id VARCHAR(10) NOT NULL,\n"
-        "      drug_class VARCHAR(50) NOT NULL,\n"
-        "      reject_code VARCHAR(10)  -- nullable; NULL means paid on first submit\n"
-        "  );\n\n"
-        "METRIC DEFINITION (use this verbatim — no other variants):\n"
-        "  First Pass Acceptance Rate (FPAR) BY drug_class =\n"
-        "    (count of claims with reject_code IS NULL) / (count of claims) — per drug_class group\n\n"
-        "OUTPUT SHAPE: one row per drug_class with three columns:\n"
-        "  drug_class, total_claims, first_pass_acceptance_rate\n"
-        "Order by first_pass_acceptance_rate ASC (worst-performing class first — the operational "
-        "view that surfaces where to invest).\n\n"
-        "NO HAVING FILTER. NO multi-dimension GROUP BY (do not group by drug_class AND payer). "
-        "The simpler shape eliminates the row-count mismatch that kept failing validation. "
-        "Multi-dim and HAVING variants belong in a separate, more advanced subtopic — not here.\n\n"
-        "EXAMPLE INPUT DATA (use exactly 8 claims across 3 drug classes, hand-traceable):\n"
-        "  C001, P001, GLP-1 agonists, NULL                  -- paid\n"
-        "  C002, P002, GLP-1 agonists, NULL                  -- paid\n"
-        "  C003, P003, GLP-1 agonists, '75 - Prior Auth'     -- rejected\n"
-        "  C004, P004, statins, NULL                         -- paid\n"
-        "  C005, P005, statins, NULL                         -- paid\n"
-        "  C006, P006, statins, NULL                         -- paid\n"
-        "  C007, P007, fertility medications, '70 - Not Cov' -- rejected\n"
-        "  C008, P008, fertility medications, '75 - Prior Auth' -- rejected\n\n"
-        "EXPECTED OUTPUT (compute these by hand and use them as example_output_rows):\n"
-        "  fertility medications | 2 | 0.0000   (0 paid out of 2)\n"
-        "  GLP-1 agonists        | 3 | 0.6667   (2 paid out of 3)\n"
-        "  statins               | 3 | 1.0000   (3 paid out of 3)\n"
-        "Note: ordered by FPAR ASC, so fertility (0.0000) is first, statins (1.0000) is last.\n\n"
-        "ANSWER KEY SHAPE (use this single-SELECT pattern):\n"
-        "  SELECT\n"
-        "    drug_class,\n"
-        "    COUNT(*) AS total_claims,\n"
-        "    ROUND(\n"
-        "      SUM(CASE WHEN reject_code IS NULL THEN 1 ELSE 0 END)::numeric / COUNT(*),\n"
-        "      4\n"
-        "    ) AS first_pass_acceptance_rate\n"
-        "  FROM claims\n"
-        "  GROUP BY drug_class\n"
-        "  ORDER BY first_pass_acceptance_rate ASC, drug_class ASC;\n"
-        "The drug_class ASC tiebreaker makes ties in FPAR deterministic.\n\n"
-        "TEST DATA: 12-16 claims across 4 drug classes. Choose values so the FPAR rates are "
-        "DIFFERENT from the example (otherwise the user's correct query passes the example "
-        "but might miss an edge in test). Include at least one realistic edge case from the "
-        "rotation list (a NULL reject_code on a claim that was rejected then paid via recycle, "
-        "OR a drug_class with all-paid behavior to test the 1.0000 boundary).\n\n"
-        "BEFORE CLAIMING example_output_rows: count paid (NULL reject_code) and total per "
-        "drug_class by hand. Confirm the math BEFORE writing the JSON. The most common failure "
-        "mode is claiming 2 output rows when GROUP BY actually produces a different count."
-    ),
-    "time_to_fill": (
-        "Build a time-to-fill aggregation problem. KEEP IT SIMPLE — this subtopic has historically "
-        "failed because PERCENTILE_CONT does linear interpolation that's hard to hand-trace. Use "
-        "the simplified shape below verbatim. The data sizes are chosen so percentiles land on "
-        "EXACT row positions (no interpolation), making the expected output trivially verifiable.\n\n"
-        "SCHEMA (use exactly this shape — single table with submit_ts and dispense_ts on the same row):\n"
-        "  CREATE TABLE prescriptions (\n"
-        "      rx_id INT PRIMARY KEY,\n"
-        "      drug_class VARCHAR(50) NOT NULL,\n"
-        "      submit_ts TIMESTAMP NOT NULL,\n"
-        "      dispense_ts TIMESTAMP NOT NULL\n"
-        "  );\n\n"
-        "METRIC DEFINITIONS (use verbatim — no other variants):\n"
-        "  time_to_fill_minutes = EXTRACT(EPOCH FROM (dispense_ts - submit_ts)) / 60.0\n"
-        "  median_time_to_fill_minutes = PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY time_to_fill_minutes)\n"
-        "  p75_time_to_fill_minutes = PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY time_to_fill_minutes)\n"
-        "  mean_time_to_fill_minutes = AVG(time_to_fill_minutes)\n\n"
-        "OUTPUT SHAPE: one row per drug_class with four columns:\n"
-        "  drug_class, median_time_to_fill_minutes, p75_time_to_fill_minutes, mean_time_to_fill_minutes\n"
-        "All time columns rounded to 2 decimal places. Order by drug_class ASC.\n\n"
-        "EXAMPLE INPUT DATA (use exactly 10 prescriptions across 2 drug classes, 5 each — these "
-        "exact gap minutes make PERCENTILE_CONT land on exact integers):\n"
-        "  GLP-1 agonists, submit 08:00:00, gaps: 30, 60, 90, 120, 150 minutes\n"
-        "  statins,        submit 08:00:00, gaps: 15, 30, 45, 60, 240 minutes (240 is the outlier)\n"
-        "Concretely (rx_id, drug_class, submit_ts, dispense_ts):\n"
-        "  1, GLP-1 agonists, 2025-01-15 08:00:00, 2025-01-15 08:30:00\n"
-        "  2, GLP-1 agonists, 2025-01-15 08:00:00, 2025-01-15 09:00:00\n"
-        "  3, GLP-1 agonists, 2025-01-15 08:00:00, 2025-01-15 09:30:00\n"
-        "  4, GLP-1 agonists, 2025-01-15 08:00:00, 2025-01-15 10:00:00\n"
-        "  5, GLP-1 agonists, 2025-01-15 08:00:00, 2025-01-15 10:30:00\n"
-        "  6, statins,        2025-01-15 08:00:00, 2025-01-15 08:15:00\n"
-        "  7, statins,        2025-01-15 08:00:00, 2025-01-15 08:30:00\n"
-        "  8, statins,        2025-01-15 08:00:00, 2025-01-15 08:45:00\n"
-        "  9, statins,        2025-01-15 08:00:00, 2025-01-15 09:00:00\n"
-        "  10, statins,       2025-01-15 08:00:00, 2025-01-15 12:00:00\n\n"
-        "EXPECTED OUTPUT (compute by hand and use as example_output_rows):\n"
-        "PERCENTILE_CONT math reminder: with N=5 sorted values v0,v1,v2,v3,v4:\n"
-        "  - p50 position = 0.5 * (5-1) = 2.0 → exactly v2 (3rd value, 1-indexed)\n"
-        "  - p75 position = 0.75 * (5-1) = 3.0 → exactly v3 (4th value, 1-indexed)\n"
-        "GLP-1 agonists sorted gaps: 30, 60, 90, 120, 150\n"
-        "  median = 90, p75 = 120, mean = (30+60+90+120+150)/5 = 90\n"
-        "statins sorted gaps: 15, 30, 45, 60, 240\n"
-        "  median = 45, p75 = 60, mean = (15+30+45+60+240)/5 = 78\n"
-        "Final example_output_rows (ordered by drug_class ASC):\n"
-        "  GLP-1 agonists | 90.00 | 120.00 | 90.00\n"
-        "  statins        | 45.00 |  60.00 | 78.00\n"
-        "Notice the statins drug class shows median (45) MUCH lower than mean (78) — that's the "
-        "outlier-skew lesson the recipe demonstrates.\n\n"
-        "ANSWER KEY SHAPE (use this exact pattern):\n"
-        "  WITH gaps AS (\n"
-        "    SELECT\n"
-        "      drug_class,\n"
-        "      EXTRACT(EPOCH FROM (dispense_ts - submit_ts)) / 60.0 AS gap_minutes\n"
-        "    FROM prescriptions\n"
-        "  )\n"
-        "  SELECT\n"
-        "    drug_class,\n"
-        "    ROUND(PERCENTILE_CONT(0.5)  WITHIN GROUP (ORDER BY gap_minutes)::numeric, 2) AS median_time_to_fill_minutes,\n"
-        "    ROUND(PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY gap_minutes)::numeric, 2) AS p75_time_to_fill_minutes,\n"
-        "    ROUND(AVG(gap_minutes)::numeric, 2) AS mean_time_to_fill_minutes\n"
-        "  FROM gaps\n"
-        "  GROUP BY drug_class\n"
-        "  ORDER BY drug_class ASC;\n\n"
-        "TEST DATA: 16 prescriptions across 4 drug classes, 4 prescriptions each. Use 4 values per "
-        "class so percentiles still land on clean positions: with N=4, p50 = position 1.5 "
-        "(interpolate between v1 and v2), p75 = position 2.25 (interpolate between v2 and v3 — "
-        "still tractable). Pick gap minutes that produce easy interpolation results (e.g., 30, 60, "
-        "90, 120 → p50 = 75, p75 = 97.5). Include at least one drug class with an outlier so the "
-        "median-vs-mean gap is visible.\n\n"
-        "BEFORE CLAIMING example_output_rows: sort each drug class's gap_minutes by hand, then for "
-        "each percentile compute the position formula `p * (N-1)` and pick the value at that index. "
-        "If position is an integer, the value is exact. If position is fractional, interpolate "
-        "between the two surrounding values. Only after writing down the trace, fill in the JSON.\n\n"
-        "DO NOT use multi-dimension grouping (drug_class AND payer). DO NOT add HAVING filters. "
-        "DO NOT use 4 or 6 values per class in the example data — stick with 5 so percentiles "
-        "land cleanly. Test data may use 4."
-    ),
     # ---- Data Transformation Modeling ----
     # NOTE: cte_chain, staging_vs_marts, and materialization_choice were dropped
     # (they were redundant with nb01 SQL practice OR with schema_design's
     # structured form). Tab 2 now contains 4 modeling-essential subtopics:
     # schema_design (KPI form), dimensional_modeling (SQL), scd_type_2 (SQL),
-    # dbt_tests_macros (KPI markdown).
     "dimensional_modeling": (
         "Build a problem that requires designing a small star schema for a pharmacy analytics "
         "question. Schema includes 1 fact table (e.g., fact_claims) and 2 to 3 dim tables "
@@ -610,107 +396,6 @@ SUBTOPIC_GUIDANCE = {
         "produce both AVG and MEDIAN AND comment on which is more appropriate. Alternative: ask "
         "the user to write SQL that caps outliers at the 99th percentile before averaging. The "
         "answer key uses PERCENTILE_CONT and includes a SQL comment explaining the choice."
-    ),
-    "net_acceptance_rate": (
-        "Build a Net Acceptance Rate problem. This is the financially-honest version of "
-        "First Pass Acceptance Rate — it accounts for reversed (B2) claims that were paid "
-        "but later voided.\n\n"
-        "METRIC DEFINITION (industry standard, use verbatim):\n"
-        "  Net Acceptance Rate = (count of distinct claims with a paid event - count of "
-        "distinct claims with a reversed event) / count of distinct submitted claims\n"
-        "Computed at the CLAIM level, not the event level. A claim that was paid then "
-        "reversed has BOTH a paid event and a reversed event in the log; it should net to 0 "
-        "in the numerator.\n\n"
-        "SCHEMA: claim_events table with claim_id, event_type "
-        "('submitted', 'paid', 'reversed', plus other types in the data), event_ts, "
-        "optionally payer_id or drug_class for segmentation.\n\n"
-        "PROMPT MUST EXPLICITLY:\n"
-        "  - Define Net Acceptance Rate by formula and note the difference vs FPAR\n"
-        "  - Tell the user to compute at the claim level (distinct claim_ids with each event)\n"
-        "  - Specify segmentation if any (by payer or drug_class is common; pick one)\n\n"
-        "ANSWER SHAPE: a single CTE per event type counting distinct claims, then a final "
-        "SELECT computing (paid_count - reversed_count)::numeric / submitted_count, ROUND to "
-        "4 decimals, with optional GROUP BY for the segmentation dim.\n\n"
-        "DATA REQUIREMENTS: example_input_data MUST include at least one claim that was "
-        "paid AND later reversed (so the user's WHERE / DISTINCT logic is exercised). "
-        "test_data MUST include the same edge case AND at least one claim with two reversal "
-        "events (to confirm DISTINCT claim_id is correct, not a raw event count).\n\n"
-        "BUSINESS CONTEXT FOR GLOSSARY/CALC: Net Acceptance Rate is the metric Finance uses "
-        "for revenue forecasting. FPAR overstates revenue when reversals are common (e.g., "
-        "patients who don't pick up specialty drugs). Industry benchmarks: retail 90-95%, "
-        "specialty 80-90%."
-    ),
-    "reversal_rate": (
-        "Build a Reversal Rate analysis problem. Reversals are the operational signal that "
-        "something went wrong AFTER a paid claim — the patient didn't pick up, the script "
-        "was returned to stock, the prescriber canceled, or there was a billing correction.\n\n"
-        "METRIC DEFINITION (industry standard, use verbatim):\n"
-        "  Reversal Rate = count of distinct claims with a reversed event / count of "
-        "distinct claims with a paid event\n"
-        "Optionally segmented by reversal_reason (most pharmacy systems capture a reason "
-        "code on the reversal — common values: 'patient_no_show', 'returned_to_stock', "
-        "'prescriber_cancellation', 'billing_correction', 'duplicate_fill').\n\n"
-        "SCHEMA: claim_events with claim_id, event_type, event_ts, AND a reversal_reason "
-        "VARCHAR column that is NULL for non-reversal events and a real value on reversal "
-        "events. (Schema uses NOT NULL only on claim_id and event_type.)\n\n"
-        "PROMPT MUST EXPLICITLY:\n"
-        "  - Define Reversal Rate by formula\n"
-        "  - Ask for the rate either overall OR broken out by reversal_reason (pick one)\n"
-        "  - State the standard reversal reasons in the prompt so the user knows the domain\n"
-        "  - Specify the date window if any (e.g., 'reversals occurring within 30 days of "
-        "the paid event' is a common operational restriction; or 'all reversals' is fine "
-        "for the simpler version)\n\n"
-        "ANSWER SHAPE: distinct count of paid claims as the denominator, distinct count of "
-        "reversed claims (optionally GROUP BY reason) as the numerator, ROUND to 4 decimals.\n\n"
-        "DATA REQUIREMENTS: example_input_data MUST include at least one paid-but-not-"
-        "reversed claim (so denominator > numerator) and reversed claims spanning at least "
-        "two different reversal_reason values.\n\n"
-        "BUSINESS CONTEXT: Industry benchmarks for retail pharmacy reversal rate: 5-12%. "
-        "Patient no-show is typically the largest category (40-60% of reversals). Specialty "
-        "pharmacy reversal rates can exceed 15% due to high-cost drugs and PA churn. "
-        "A reversal rate climbing above benchmark is an early warning of fulfillment, "
-        "engagement, or formulary issues."
-    ),
-    "adherence_pdc": (
-        "Build a patient adherence problem using PDC (Proportion of Days Covered), the "
-        "industry-standard adherence measure used by CMS for Medicare Star Ratings.\n\n"
-        "METRIC DEFINITION (CMS standard, use verbatim):\n"
-        "  PDC for a patient and a drug_class over a measurement period =\n"
-        "    (count of unique days within the measurement period that the patient had "
-        "medication on hand) / (length of the measurement period in days)\n"
-        "Capped at 1.0 (a patient cannot be more than 100% covered).\n"
-        "Adherent threshold: PDC >= 0.80 (CMS Star Ratings cutoff).\n\n"
-        "SIMPLIFICATION FOR SQL DRILL: instead of computing day-by-day coverage with "
-        "overlapping fills (which requires a calendar table or generate_series), use the "
-        "MPR-style approximation that is acceptable for most SQL drills:\n"
-        "  PDC ≈ LEAST(SUM(days_supply) / measurement_period_days, 1.0)\n"
-        "Where measurement_period_days is fixed in the prompt (e.g., 365 days for an "
-        "annual PDC).\n\n"
-        "SCHEMA: prescriptions with rx_id, patient_id, drug_class, fill_date, days_supply.\n\n"
-        "PROMPT MUST EXPLICITLY:\n"
-        "  - Define PDC by formula\n"
-        "  - State the measurement_period_days value (use 365 for an annual measure, 90 for "
-        "a quarterly measure)\n"
-        "  - State the drug_class scope (compute PDC per patient per drug_class, OR for one "
-        "specific drug_class — pick one)\n"
-        "  - Mention the 0.80 adherent threshold and ask the user to also produce an "
-        "adherent_flag column (1 if PDC >= 0.80, else 0)\n\n"
-        "OUTPUT SHAPE: one row per (patient_id, drug_class) with columns:\n"
-        "  patient_id, drug_class, total_days_supply, pdc, adherent_flag\n"
-        "PDC rounded to 4 decimals.\n\n"
-        "ANSWER SHAPE: a single GROUP BY on patient_id and drug_class summing days_supply, "
-        "with LEAST(SUM(days_supply)::numeric / 365, 1.0) for PDC, and a CASE for "
-        "adherent_flag.\n\n"
-        "DATA REQUIREMENTS: example_input_data MUST include at least one patient who is "
-        "adherent (PDC >= 0.80) and at least one who is not. test_data MUST also include a "
-        "patient with sum(days_supply) > measurement_period (to exercise the LEAST cap) per "
-        "the EDGE CASE REQUIREMENT.\n\n"
-        "BUSINESS CONTEXT FOR GLOSSARY/CALC: PDC is the metric CMS uses for Medicare Part D "
-        "Star Ratings. Plans are scored on the share of members who hit PDC >= 0.80 for "
-        "diabetes medications, statins, RAS antagonists. High PDC predicts lower hospital "
-        "admissions and lower total cost of care. Pharmacy operations teams use PDC to "
-        "trigger adherence outreach (refill reminders, transfer to 90-day supply, "
-        "synchronization)."
     ),
     "broken_query_critique": (
         "Build a 'critique a broken SQL query' problem in the style of Product Analytics Academy "
@@ -1123,9 +808,12 @@ def _validate_sql_problem_strict(parsed: Dict[str, Any]) -> Tuple[bool, str]:
 
 
 def generate_sql_problem(category: str, subtopic: str, dialect: str = "postgresql",
-                         max_retries: int = 6, on_attempt=None) -> Optional[Dict[str, Any]]:
-    """Generate a SQL drill problem and validate it via the sandbox harness."""
-    scenario = _pick_scenario()
+                         max_retries: int = 6, on_attempt=None,
+                         scenario_mode: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Generate a SQL drill problem and validate it via the sandbox harness.
+    scenario_mode: None or 'random' for generic scenarios; 'booedup' to anchor
+    the problem in the user's BooedUp dating app context."""
+    scenario = _pick_scenario(scenario_mode)
     base_qt = base_qtype(category, subtopic)
     last_error = None
     for attempt in range(1, max_retries + 1):
@@ -1135,6 +823,7 @@ def generate_sql_problem(category: str, subtopic: str, dialect: str = "postgresq
             except Exception:
                 pass
         user_prompt = _build_sql_user_prompt(category, subtopic, dialect, scenario, last_error)
+        user_prompt = apply_scenario_anchor(user_prompt, scenario_mode)
         text = _call_claude(SQL_GENERATOR_SYSTEM, user_prompt, max_tokens=4000)
         parsed = _extract_json(text)
         if not parsed:
@@ -1147,10 +836,11 @@ def generate_sql_problem(category: str, subtopic: str, dialect: str = "postgresq
             "question_type": base_qt,
             "dialect": dialect,
             "scenario": scenario,
+            "scenario_mode": scenario_mode or "random",
             "generated_at": datetime.now().isoformat(),
             "problem_id": uuid.uuid4().hex[:12],
             "validation_attempts": attempt,
-            "notebook": "nb02_fuze_interview_drills",
+            "notebook": "nb02_analyst_interview_drills",
         }
         ok, err = _validate_sql_problem_strict(parsed)
         if ok:
@@ -1189,6 +879,11 @@ Generate problems and reference answers that match this terseness. A correct one
 that names the right concept IS a strong answer in this course style. Do not pad.
 
 Output MUST be a single JSON object inside a ```json fenced block. No prose outside.
+
+OPTIONAL TOP LEVEL FIELDS THE FORMS READ:
+  - stakeholder_rationale (string, one sentence): why the stakeholder proposed the metric. For metric_critique, write this as the stakeholder would defend it — that is the flawed reasoning the learner is supposed to spot. For metric_design and other subtopics, write what the team is trying to learn from the feature so the learner has a concrete goal to anchor on.
+  - metric_critique_picks (dict, only for metric_critique subtopic): see the metric_critique user prompt for the required shape. Drives the learner's Q6/Q7/Q8 dropdowns.
+
 
 JSON schema:
 {
@@ -1624,56 +1319,6 @@ KPI_SUBTOPIC_GUIDANCE = {
         "putting business rules in staging models, omitting tests, not naming surrogate keys, "
         "treating all dims as Type 1 to avoid SCD complexity."
     ),
-    "dbt_tests_macros": (
-        "Generate a dbt tests + ref/source macros drill problem. This is a markdown-graded "
-        "problem (no SQL execution) since dbt requires Jinja compilation that the Postgres "
-        "sandbox cannot run. The user practices reading, writing, and critiquing dbt project "
-        "snippets.\n\n"
-        "ROTATE ACROSS THESE PROBLEM SHAPES (pick one per generation):\n"
-        "  1. Write the schema.yml block that adds standard tests (unique, not_null, "
-        "accepted_values, relationships) for a given dbt model's columns\n"
-        "  2. Critique a dbt model file with a bug (circular ref, missing source, raw table "
-        "reference instead of ref(), wrong materialization, missing test coverage)\n"
-        "  3. Add a custom singular test (a .sql file in tests/ that returns rows when the "
-        "test FAILS) for a stated business rule\n"
-        "  4. Translate a raw SQL query into a proper dbt model file using ref() and source() "
-        "macros for upstream tables\n"
-        "  5. Critique a dbt project structure (sources/, staging/ stg_, intermediate/ int_, "
-        "marts/ — diagnose layering violations)\n"
-        "  6. Decide which materialization (table, view, incremental, ephemeral) fits a stated "
-        "scenario and write the config block\n\n"
-        "PHARMACY DOMAIN ANCHORS (use these — never company names):\n"
-        "  - Sources: raw_pharmacy.claim_events_raw, raw_pharmacy.prescriptions_raw, "
-        "raw_pharmacy.dim_patient_raw\n"
-        "  - Staging models: stg_claim_events, stg_prescriptions, stg_patients, stg_drugs\n"
-        "  - Intermediate: int_paid_claims, int_recycled_claims\n"
-        "  - Marts: mart_fpar_by_drug_class, mart_adherence_pdc, mart_reversal_rate\n\n"
-        "REFERENCE SYNTAX TO USE IN EXAMPLES (the user must recognize these patterns):\n"
-        "  - {{ ref('stg_claim_events') }}  — references another dbt model (compiles to db.schema.table)\n"
-        "  - {{ source('raw_pharmacy', 'claim_events_raw') }}  — references a defined source\n"
-        "  - {{ config(materialized='table') }}  — sets materialization at the top of a model file\n"
-        "  - schema.yml tests (under columns:): unique, not_null, accepted_values, relationships\n"
-        "  - sources.yml: defines sources block with database, schema, tables, freshness\n"
-        "  - tests/ directory: custom singular tests as .sql files returning rows on FAIL\n"
-        "  - snapshots/ directory: SCD Type 2 maintenance via {% snapshot %} block\n\n"
-        "INSTRUCTIONS for the user's answer:\n"
-        "  - Markdown answer with code blocks (```sql or ```yaml as appropriate)\n"
-        "  - Be concise: industry-standard YAML and Jinja syntax, no padding\n"
-        "  - Reference the specific dbt feature by name (the test name, the macro name)\n"
-        "  - For critique problems: name the bug + name the fix\n\n"
-        "RUBRIC AXES (each ~25 pts, 4 criteria total summing to 100):\n"
-        "  - Identifies the correct dbt feature (test name / macro name / config option)\n"
-        "  - Uses correct syntax (Jinja, YAML structure, file location)\n"
-        "  - Connects to the business intent of the rule/test\n"
-        "  - Names the right dbt project location for the artifact (schema.yml column under "
-        "models:, sources.yml, tests/ directory, snapshots/ directory, etc.)\n\n"
-        "REFERENCE ANSWER LENGTH: 50 to 150 words including code blocks. Match dbt documentation "
-        "voice: terse, precise, syntactically correct.\n\n"
-        "COMMON_MISTAKES should mention: hardcoding raw table names instead of using ref()/source(), "
-        "using SELECT * in staging models without renaming/casting, wrong materialization for the "
-        "use case, custom test that returns 0 rows on FAIL (inverted), missing schema.yml entry "
-        "for the model."
-    ),
     # ---- Version Control (Git for analytics) ----
     "branching_strategy": (
         "Generate a Git BRANCHING STRATEGY drill problem for an analytics team working on a "
@@ -1944,9 +1589,95 @@ def _build_kpi_user_prompt(category: str, subtopic: str, scenario: str,
     g = (
         f"Generate a Product Metrics & KPIs drill problem.\n"
         f"Subtopic: {label}\n"
-        f"Pharmacy/care scenario anchor (use this domain, no company names): {scenario}\n\n"
+        f"Industry scenario anchor (use this domain, no company names): {scenario}\n\n"
         f"Subtopic instruction:\n{KPI_SUBTOPIC_GUIDANCE.get(subtopic, '')}\n"
     )
+    # Per subtopic extra guidance for the new fields the form expects.
+    if subtopic == "metric_critique":
+        g += (
+            "\n\nADDITIONAL FIELDS REQUIRED FOR metric_critique:\n"
+            "  - proposed_metric: the EXACT name of the metric the stakeholder "
+            "is proposing, written as a noun phrase the form can display "
+            "directly (e.g., 'Total Refills Picked Up After Nudge Sent', "
+            "'Match Acceptance Rate'). This must match the metric named in the "
+            "prompt text. Do NOT use the problem title here — that is a different "
+            "string.\n"
+            "  - stakeholder_rationale: ONE sentence (max 25 words) explaining "
+            "what the stakeholder THINKS this metric tells them about the "
+            "scenario's purpose. Write it as the stakeholder would defend it. "
+            "The metric you propose for them to critique MUST plausibly attempt "
+            "to address the scenario's purpose, even though it has a flaw the "
+            "learner is supposed to find. Do NOT propose a metric that has no "
+            "connection to the scenario.\n"
+            "  - metric_critique_picks: a dict with three keys 'numerator', "
+            "'denominator', 'guardrail'. Each value is a list of 3 to 5 "
+            "objects of shape {'label': '...', 'value': '...'}. The "
+            "labels are options the learner will pick from in dropdowns when "
+            "they propose a fix. Include at least one option that maps to the "
+            "correct answer per the rubric, plus 2 to 4 plausible-but-wrong "
+            "options to make the choice non trivial. value is a short snake "
+            "case identifier (e.g., 'messages_per_match').\n"
+            "Example metric_critique_picks for a messaging engagement problem:\n"
+            "  'metric_critique_picks': {\n"
+            "    'numerator': [\n"
+            "      {'label': 'First messages sent after a Match connection', 'value': 'first_messages'},\n"
+            "      {'label': 'Total messages sent in the period', 'value': 'total_messages'},\n"
+            "      {'label': 'Reply messages', 'value': 'reply_messages'}\n"
+            "    ],\n"
+            "    'denominator': [\n"
+            "      {'label': 'Match connections in the period', 'value': 'match_connections'},\n"
+            "      {'label': 'Active users in the period', 'value': 'active_users'}\n"
+            "    ],\n"
+            "    'guardrail': [\n"
+            "      {'label': 'Message response rate after first message', 'value': 'response_rate'},\n"
+            "      {'label': 'Conversation depth', 'value': 'conversation_depth'}\n"
+            "    ]\n"
+            "  }\n"
+            "NOTE: Use single quotes in the example above as illustration only. "
+            "Emit valid JSON with double quotes in the actual output object.\n"
+            "\n"
+            "  - metric_movers: a list of 6 to 8 candidate reasons this metric "
+            "could move (up or down) in the next reporting period. Each row "
+            "is an object with these keys:\n"
+            "      reason: the candidate reason. MUST follow this template: "
+            "'[General pattern phrased generically that could transfer to other "
+            "problems] (e.g., [specific anchor tied to THIS problem])'. The "
+            "general pattern is the transferable lesson; the parenthetical "
+            "anchor makes it concrete. Good: 'A delivery channel reach shrank "
+            "(e.g., SMS opt-in fell after carrier filtering)'. Bad: 'SMS opt-in "
+            "rate dropped due to carrier filtering changes' — too specific, no "
+            "transferable pattern. Bad: 'Population' — too vague, no anchor.\n"
+            "      tag: one of the 5 pattern tags ('Population', 'Quality', "
+            "'Mix', 'Measurement', 'External') or the em dash '—' for "
+            "distractors that do not actually apply\n"
+            "      applies: boolean. True if this reason actually could move "
+            "the metric in this scenario; False if it is a distractor.\n"
+            "      explanation: ONE sentence explaining why it applies or why "
+            "it does not.\n"
+            "Include 4 to 6 rows where applies=True (covering different tags "
+            "from the 5 category list) and 2 to 3 distractors where applies=False. "
+            "Distractors should sound plausible but actually not move the metric "
+            "(e.g., a cosmetic change in an unrelated flow, a feature launched for "
+            "a different user segment, an event that would move a different "
+            "metric).\n"
+            "Example metric_movers row: {'reason': 'Per pair quality of the "
+            "match algorithm changed (e.g., Match Score regressed, lowering "
+            "messages per pair)', 'tag': 'Quality', 'applies': true, "
+            "'explanation': 'Worse matches send fewer messages per pair, "
+            "dropping the per user rate even with the same user base.'}\n"
+        )
+    elif subtopic == "metric_design":
+        g += (
+            "\n\nADDITIONAL FRAMING FOR metric_design:\n"
+            "Frame the prompt so the learner walks the full Product Analytics "
+            "Academy framework: Goal (Step 1, one sentence user goal), Signal "
+            "(Step 2, success + failure observable behaviors), Metric (Step 3, "
+            "numerator + denominator + statistic + time window), Layer three "
+            "types (Step 4, primary + guardrail + counter), Pressure Test "
+            "(Step 5, the 5 checks). Include a stakeholder_rationale field "
+            "explaining what the team is trying to learn from this feature, "
+            "so the learner has a concrete user goal to anchor Step 1.\n"
+        )
     if last_error:
         g += f"\n\nPREVIOUS ATTEMPT FAILED:\n{last_error}\nFix and return the JSON object."
         if "Could not parse JSON" in last_error:
@@ -2089,9 +1820,12 @@ def _validate_kpi_problem(problem: Dict[str, Any]) -> Tuple[bool, str]:
 
 
 def generate_kpi_problem(category: str, subtopic: str, max_retries: int = 3,
-                         on_attempt=None) -> Optional[Dict[str, Any]]:
-    """Generate a Product Metrics & KPIs problem (markdown answered)."""
-    scenario = _pick_scenario()
+                         on_attempt=None,
+                         scenario_mode: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Generate a Product Metrics & KPIs problem (markdown answered).
+    scenario_mode: None or 'random' for generic scenarios; 'booedup' to anchor
+    the problem in the user's BooedUp dating app context."""
+    scenario = _pick_scenario(scenario_mode)
     last_error = None
     # schema_design needs more tokens because the JSON spec demands multiple
     # extra fields (stakeholder_asks, candidate_dimensions, field_hints with 11
@@ -2108,6 +1842,7 @@ def generate_kpi_problem(category: str, subtopic: str, max_retries: int = 3,
             except Exception:
                 pass
         user_prompt = _build_kpi_user_prompt(category, subtopic, scenario, last_error)
+        user_prompt = apply_scenario_anchor(user_prompt, scenario_mode)
         text = _call_claude(KPI_GENERATOR_SYSTEM, user_prompt, max_tokens=kpi_max_tokens)
         parsed = _extract_json(text)
         if not parsed:
@@ -2118,10 +1853,11 @@ def generate_kpi_problem(category: str, subtopic: str, max_retries: int = 3,
             "subtopic": subtopic,
             "kind": "kpi",
             "scenario": scenario,
+            "scenario_mode": scenario_mode or "random",
             "generated_at": datetime.now().isoformat(),
             "problem_id": uuid.uuid4().hex[:12],
             "validation_attempts": attempt,
-            "notebook": "nb02_fuze_interview_drills",
+            "notebook": "nb02_analyst_interview_drills",
         }
         ok, err = _validate_kpi_problem(parsed)
         if ok:
@@ -2136,16 +1872,24 @@ def generate_kpi_problem(category: str, subtopic: str, max_retries: int = 3,
 # ============================================================
 
 def generate_problem(category: str, subtopic: str, dialect: str = "postgresql",
-                     max_retries: int = 4, on_attempt=None) -> Optional[Dict[str, Any]]:
-    """Dispatch to SQL or KPI generator based on the subtopic's effective kind
-    (per-subtopic kind override takes precedence over category kind)."""
+                     max_retries: int = 4, on_attempt=None,
+                     scenario_mode: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Dispatch to SQL, KPI, or multiple_choice generator based on the subtopic's
+    effective kind (per-subtopic kind override takes precedence over category kind).
+    scenario_mode is passed through so generators can anchor on a specific product
+    (e.g., 'booedup' for the BooedUp dating app)."""
     kind = subtopic_kind(category, subtopic)
     if kind == "sql":
         return generate_sql_problem(category, subtopic, dialect=dialect,
-                                    max_retries=max_retries, on_attempt=on_attempt)
+                                    max_retries=max_retries, on_attempt=on_attempt,
+                                    scenario_mode=scenario_mode)
     elif kind == "kpi":
         return generate_kpi_problem(category, subtopic, max_retries=max_retries,
-                                    on_attempt=on_attempt)
+                                    on_attempt=on_attempt, scenario_mode=scenario_mode)
+    elif kind == "multiple_choice":
+        return generate_multiple_choice_problem(category, max_retries=max_retries,
+                                                on_attempt=on_attempt,
+                                                scenario_mode=scenario_mode)
     else:
         raise ValueError(f"Unknown subtopic kind: {kind}")
 
@@ -3897,3 +3641,516 @@ def grade_to_html(grade: Dict[str, Any]) -> str:
         parts.append(f'<p style="margin:6px 0; font-style:italic; color:#57606a;"><strong>Next:</strong> {nxt}</p>')
     parts.append('</div>')
     return "".join(parts)
+
+
+# ============================================================
+# Multiple choice drill generator + grader
+# ============================================================
+# Generates a quiz of mixed question types: MCQ, True/False, and "order"
+# (arrange steps in the right sequence). Designed for terminology and
+# concept reinforcement before higher stakes free response drills.
+
+MULTIPLE_CHOICE_TOPIC_HINTS = {
+    "transformation_modeling": (
+        "Cover the standard Kimball + dbt vocabulary an analytics engineer would be expected to know cold: "
+        "fact vs dim tables; grain (what one row of a fact represents); SCD Type 1 vs Type 2 vs Type 3 vs hybrid; "
+        "surrogate keys vs natural keys; conformed dimensions; junk dimensions; degenerate dimensions; "
+        "snowflake vs star schema; materializations (table, view, incremental, ephemeral); "
+        "dbt project structure (sources, staging, intermediate, marts); ref() and source() macros; "
+        "dbt tests (unique, not_null, accepted_values, relationships); snapshots; seeds; exposures; "
+        "incremental strategy (append, merge, delete+insert); idempotency; late arriving facts; "
+        "additive vs semi additive vs non additive measures; slowly changing dimensions effective dating; "
+        "Bridge tables; role playing dimensions; outrigger dimensions."
+    ),
+    "product_kpis": (
+        "Cover the working vocabulary of a Product Analyst: leading vs lagging indicators; "
+        "counter metrics; vanity metrics vs actionable metrics; north star metric; AARRR funnel; "
+        "input vs output metrics; activation vs adoption vs retention; cohort retention vs revenue retention; "
+        "DAU/MAU stickiness ratio; rolling vs snapshot metrics; event vs user properties; super properties; "
+        "tracking plan; event taxonomy; identify vs alias vs track; experiment design (A/A test, A/B test, "
+        "multivariate); guardrail metrics; statistical significance vs practical significance; "
+        "Type I vs Type II error; SRM (Sample Ratio Mismatch); novelty effect; primacy effect; survivorship bias; "
+        "PRD impact measurement section; OKRs vs KPIs; HEART framework; PIRATE / AARRR; jobs to be done."
+    ),
+    "version_control": (
+        "Cover the Git workflows an analytics engineer is expected to know: trunk based development; "
+        "git flow; GitHub flow; short lived feature branches; rebase vs merge; fast forward merge; "
+        "squash merge; merge commit; force push vs force with lease; revert vs reset (soft, mixed, hard); "
+        "cherry pick; bisect; stash; reflog; HEAD vs detached HEAD; conflict markers (<<<<<<<, =======, >>>>>>>); "
+        "Conventional Commits; semantic versioning; pull request review checklist (single purpose, naming, "
+        "tests, docs); CODEOWNERS; protected branches; pre commit hooks; .gitignore basics; submodules vs subtrees."
+    ),
+}
+
+
+MULTIPLE_CHOICE_GENERATOR_SYSTEM = """\
+You are an interview prep quiz generator for an analyst. You write multiple choice quizzes that test
+terminology and concept understanding the candidate would be expected to know cold in interviews.
+
+Output ONE JSON object with this exact shape (inside a single ```json fenced block; NO prose around it):
+
+{
+  "title": "Short quiz title (5 to 8 words)",
+  "introduction": "1 to 2 sentence intro framing what the quiz tests",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "mcq",
+      "question": "Stem of the question, one sentence.",
+      "options": ["option A", "option B", "option C", "option D"],
+      "correct_answer": 1,
+      "explanation": "1 to 2 sentence teaching explanation citing why the correct answer is right and naming the trap in the distractors."
+    },
+    {
+      "id": "q2",
+      "type": "true_false",
+      "question": "A statement that is either true or false. Avoid double negatives.",
+      "options": ["True", "False"],
+      "correct_answer": 0,
+      "explanation": "1 to 2 sentence teaching explanation."
+    },
+    {
+      "id": "q3",
+      "type": "order",
+      "question": "Arrange these steps in the order they should be performed when <doing X>.",
+      "options": ["step shown out of order A", "step shown out of order B", "step shown out of order C", "step shown out of order D"],
+      "correct_answer": [2, 0, 3, 1],
+      "explanation": "1 to 2 sentence explanation of the correct sequence and why."
+    }
+  ]
+}
+
+RULES:
+- Exactly 8 questions total.
+- Mix the types: at least 3 mcq, at least 2 true_false, at least 2 order questions.
+- mcq has exactly 4 options. correct_answer is the index (0 to 3) of the correct option.
+- true_false has exactly the options ["True", "False"]. correct_answer is 0 for True or 1 for False.
+- order has 4 to 5 options shown out of order. correct_answer is a list of indices that, applied to options,
+  yields the correct sequence (e.g., correct_answer=[2,0,3,1] means options[2] is first, options[0] second,
+  options[3] third, options[1] fourth).
+- Every question MUST have an explanation that teaches the concept. The explanation should also name what
+  the wrong answers represent so the learner sees the trap.
+- Distractors in mcq must be plausible but clearly wrong on inspection. Avoid "all of the above" / "none of the above".
+- Avoid trivia. Focus on concepts and terminology that show up in technical interviews and product analyst
+  case studies.
+- No company names. Generic phrasing only.
+- Do NOT include any markdown or HTML in question text, options, or explanations. Plain text only.
+"""
+
+
+def _build_mc_user_prompt(category: str, last_error: Optional[str] = None) -> str:
+    label = CATEGORIES[category]["label"]
+    topic_hint = MULTIPLE_CHOICE_TOPIC_HINTS.get(category, "")
+    guidance = (
+        f"Generate a multiple choice interview prep quiz for the category: {label}.\n\n"
+        f"Topic surface area to draw from:\n{topic_hint}\n\n"
+        "Pick a coherent slice of this surface area for the 8 questions (do NOT try to cover everything). "
+        "Aim for a mix of definitional questions (what is X?), comparative questions (X vs Y), and process "
+        "questions (which step comes first?).\n"
+    )
+    if last_error:
+        guidance += (
+            "\n!!! PREVIOUS ATTEMPT FAILED VALIDATION !!!\n"
+            f"{last_error}\n"
+            "Fix the issue and emit ONE valid JSON object inside a single ```json fenced block.\n"
+        )
+    guidance += "\nReturn the JSON object now."
+    return guidance
+
+
+def _validate_mc_problem(parsed: Dict[str, Any]) -> Tuple[bool, str]:
+    if not isinstance(parsed, dict):
+        return False, "Top level is not a JSON object."
+    for k in ("title", "introduction", "questions"):
+        if k not in parsed:
+            return False, f"Missing required top level key: {k}"
+    qs = parsed["questions"]
+    if not isinstance(qs, list) or len(qs) != 8:
+        return False, f"Expected exactly 8 questions, got {len(qs) if isinstance(qs, list) else 'non-list'}."
+    type_counts = {"mcq": 0, "true_false": 0, "order": 0}
+    for i, q in enumerate(qs):
+        if not isinstance(q, dict):
+            return False, f"Question {i} is not an object."
+        for k in ("id", "type", "question", "options", "correct_answer", "explanation"):
+            if k not in q:
+                return False, f"Question {i} missing key: {k}"
+        qt = q["type"]
+        if qt not in type_counts:
+            return False, f"Question {i} has unknown type {qt!r}."
+        type_counts[qt] += 1
+        opts = q["options"]
+        if not isinstance(opts, list):
+            return False, f"Question {i} options is not a list."
+        ca = q["correct_answer"]
+        if qt == "mcq":
+            if len(opts) != 4:
+                return False, f"Question {i} (mcq) needs exactly 4 options, got {len(opts)}."
+            if not (isinstance(ca, int) and 0 <= ca < 4):
+                return False, f"Question {i} (mcq) correct_answer must be an int 0..3, got {ca!r}."
+        elif qt == "true_false":
+            if opts != ["True", "False"]:
+                return False, f"Question {i} (true_false) options must be exactly ['True', 'False']."
+            if not (isinstance(ca, int) and ca in (0, 1)):
+                return False, f"Question {i} (true_false) correct_answer must be 0 or 1."
+        elif qt == "order":
+            if not (4 <= len(opts) <= 5):
+                return False, f"Question {i} (order) needs 4 to 5 options, got {len(opts)}."
+            if not (isinstance(ca, list) and len(ca) == len(opts)):
+                return False, f"Question {i} (order) correct_answer must be a list of indices the same length as options."
+            if sorted(ca) != list(range(len(opts))):
+                return False, f"Question {i} (order) correct_answer must be a permutation of 0..{len(opts)-1}."
+    if type_counts["mcq"] < 3:
+        return False, f"Need at least 3 mcq questions; got {type_counts['mcq']}."
+    if type_counts["true_false"] < 2:
+        return False, f"Need at least 2 true_false questions; got {type_counts['true_false']}."
+    if type_counts["order"] < 2:
+        return False, f"Need at least 2 order questions; got {type_counts['order']}."
+    return True, "Valid."
+
+
+def generate_multiple_choice_problem(category: str, max_retries: int = 4,
+                                     on_attempt=None,
+                                     scenario_mode: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Generate a multiple choice quiz problem for the given category.
+    scenario_mode: None or 'random' for generic vocabulary; 'booedup' to anchor
+    questions in the user's BooedUp dating app context where it makes sense."""
+    if category not in CATEGORIES:
+        print(f"Unknown category: {category}")
+        return None
+    last_error = None
+    for attempt in range(1, max_retries + 1):
+        if on_attempt:
+            try:
+                on_attempt(attempt, max_retries, last_error)
+            except Exception:
+                pass
+        user_prompt = _build_mc_user_prompt(category, last_error)
+        user_prompt = apply_scenario_anchor(user_prompt, scenario_mode)
+        text = _call_claude(MULTIPLE_CHOICE_GENERATOR_SYSTEM, user_prompt, max_tokens=3000)
+        parsed = _extract_json(text)
+        if not parsed:
+            last_error = "Could not parse JSON from response."
+            continue
+        ok, err = _validate_mc_problem(parsed)
+        if not ok:
+            last_error = err
+            continue
+        parsed["_meta"] = {
+            "category": category,
+            "subtopic": "multiple_choice",
+            "kind": "multiple_choice",
+            "question_type": None,
+            "dialect": None,
+            "scenario_mode": scenario_mode or "random",
+            "generated_at": datetime.now().isoformat(),
+            "problem_id": uuid.uuid4().hex[:12],
+            "validation_attempts": attempt,
+            "notebook": "nb02_analyst_interview_drills",
+        }
+        return parsed
+    print(f"Multiple choice generation failed after {max_retries} attempts. Last error: {last_error}")
+    return None
+
+
+def grade_multiple_choice_answers(problem: Dict[str, Any],
+                                  user_answers: Dict[str, Any]) -> Dict[str, Any]:
+    """Grade the user's answers against the quiz's correct_answer keys.
+
+    Returns a dict with:
+      score: int — number correct out of total
+      total: int
+      results: list[{id, type, correct, user_answer, correct_answer, explanation}]
+    """
+    qs = problem.get("questions", [])
+    results = []
+    correct = 0
+    for q in qs:
+        qid = q.get("id", "")
+        qt = q.get("type", "")
+        user_a = user_answers.get(qid)
+        right = q.get("correct_answer")
+        is_correct = False
+        if qt in ("mcq", "true_false"):
+            if isinstance(user_a, int) and user_a == right:
+                is_correct = True
+        elif qt == "order":
+            if isinstance(user_a, list) and user_a == right:
+                is_correct = True
+        if is_correct:
+            correct += 1
+        results.append({
+            "id": qid,
+            "type": qt,
+            "question": q.get("question", ""),
+            "options": q.get("options", []),
+            "user_answer": user_a,
+            "correct_answer": right,
+            "is_correct": is_correct,
+            "explanation": q.get("explanation", ""),
+        })
+    return {
+        "score": correct,
+        "total": len(qs),
+        "results": results,
+    }
+
+
+def render_multiple_choice_problem(p: Dict[str, Any]) -> str:
+    """HTML render of the quiz introduction; questions are rendered as widgets, not HTML."""
+    meta = p.get("_meta", {})
+    title = p.get("title", "Untitled quiz")
+    intro = p.get("introduction", "")
+    cat_label = CATEGORIES.get(meta.get("category", ""), {}).get("label", "")
+    return (
+        '<div style="border:1px solid #d0d7de; border-radius:6px; padding:16px; background:#fafbfc;">'
+        f'<div style="font-size:11px; color:#57606a; margin-bottom:8px;">{cat_label} · multiple_choice · id {meta.get("problem_id","")}</div>'
+        f'<h3 style="margin:0 0 12px;">{title}</h3>'
+        f'<p style="margin:0;">{intro}</p>'
+        '</div>'
+    )
+
+
+# ============================================================
+# Scenario anchor: BooedUp dating app context
+# ============================================================
+# When the picker's scenario_mode is "booedup", every generator wraps its
+# user prompt with this app context so the LLM grounds the problem in the
+# learner's actual product instead of a generic business scenario.
+
+BOOEDUP_APP_CONTEXT = """\
+APP CONTEXT — anchor the problem in this product, not a generic scenario:
+
+PRODUCT: BooedUp, a mobile dating app for gay men. The differentiator is a
+map first interface (no swiping), real time geolocation, AI driven Type Score
+personalization for physical attraction, mutual physical attraction emphasis,
+and offline community engagement via speed dating events. All users are
+verified.
+
+TECH STACK: FlutterFlow front end, Firebase backend (Firestore, Auth, Cloud
+Functions in us-central1, Cloud Messaging for push). Stripe for premium
+subscription billing. Node.js 20 Cloud Functions. iOS + Android.
+
+RELATIONSHIP MODEL (core domain concept):
+- Two relationship types: Match (romantic) and Wingman (platonic friend).
+- Match grants messaging, dating event invites, personalized date recs, and
+  reveals the Match Score (compatibility).
+- Wingman grants messaging, ability to recommend users, member spotlight
+  nominations, and event invites; reveals the Wingman Score (shared lifestyle).
+- Transitions: Match↔Wingman (unmatch needed before becoming Wingman, mutual
+  agreement needed for the reverse), Match→Block, Wingman→Block, Match→None,
+  Wingman→None. Each transition has a 1 month cooldown, reduced to 1 week
+  for Premium members, removable via A la carte purchase.
+
+SCORES:
+- Type Score: AI driven model predicting whether the viewing user finds the
+  candidate physically attractive. Trained on the user's preference signals.
+- Match Score: compatibility, visible only after mutual match.
+- Wingman Score: based on mutual shared lifestyle interests.
+
+GEO MODEL: every user has three locations they can change with monthly limits
+gated by membership tier:
+- home_city (where they live)
+- work_city (where they commute to)
+- visiting_city (a temporary location, e.g., travel)
+Basic tier: 1 home city change per 30 day period. Premium tier: 3 each of
+home / work / visiting per 30 day period. Tracked via membershipTier,
+homeCityMonthlyLimit, homeCityChangeCount, homeCityLastChangedAt,
+homeCityLockedUntil, homeCityChangePasses fields on userMetadata.
+
+SUBSCRIPTION TIERS:
+- Basic (free, default for new users): minimal city change allowance.
+- Premium ($9.99/month USD): 3x more city changes per tier, reduced cooldown
+  on relationship transitions, ability to see who viewed your profile.
+- A la carte purchases: instant cooldown removal, additional city change
+  passes, profile boosts.
+
+KEY FIRESTORE COLLECTIONS (the user's actual schema):
+- userDetails — profile bio, demographics, physical attributes
+- userPhotos / userVideos / userAudio — media
+- userMetadata — membership tier, change counters, lock timestamps
+- userConnections — unified Match + Wingman relationship state
+- userInteractions — likes, winks, superlikes
+- partnerPreferences — physical, lifestyle, relationship preferences
+- typeScores — Type Score model outputs per (viewer, candidate) pair
+- nearbyUsers — geo indexed for the map view
+- blockedUsers / reportedUsers — moderation
+- membershipPlans / premiumRecord / userPurchases — billing
+
+KEY USER ACTIONS (the events you would log in a tracking plan):
+- Sign up + verification (multi step, requires photo verification to pass)
+- Profile setup (lifestyle, physical, relationship preference steps)
+- Open map + change radius
+- Tap profile marker
+- Send first message (after Match or Wingman established)
+- Initiate Match / accept Match / decline Match
+- Initiate Wingman / accept Wingman / decline Wingman
+- Transition (Match → Wingman, Match → Block, etc.)
+- Buy Premium / cancel Premium
+- Buy A la carte (cooldown removal, change pass)
+- RSVP to speed dating event / check in / complete pairings
+- Report user / block user
+
+PRIMARY METRICS THAT MATTER:
+- Activation funnel: signup → verification passed → profile complete → first
+  map view → first interaction → first Match
+- D1 / D7 / D30 retention
+- Mutual match rate (matches per interaction initiated)
+- Type Score quality: precision/recall vs actual mutual matches
+- Premium conversion rate and ARPU
+- Premium churn rate
+- Time to first Match (cohort distribution)
+- Messages per Match (engagement depth)
+- Report rate, block rate, time to action on reports (safety)
+- Speed dating event funnel: RSVP → check in → completed pairings
+
+When you generate a problem, anchor the scenario in BooedUp. Use the
+collection names, action names, and metric names above. Replace generic
+"e-commerce" or "SaaS" framings with this app. Do NOT invent features
+the app does not have (no swiping, no group chat unless framed as a future
+hypothetical, no ads since the product relies on subscription + a la carte
+revenue).
+"""
+
+
+def with_booedup_context(user_prompt: str) -> str:
+    """Prepend the BooedUp app context to a user prompt when scenario_mode is
+    set to 'booedup'. Returns the prompt unchanged for any other scenario_mode."""
+    return BOOEDUP_APP_CONTEXT + "\n\n" + user_prompt
+
+
+def apply_scenario_anchor(user_prompt: str, scenario_mode: Optional[str]) -> str:
+    """Single entry point for anchoring a user prompt. Pass scenario_mode from
+    the picker (None or 'random' = generic; 'booedup' = anchor on the dating
+    app). Future scenarios can be added here by extending the if/elif chain."""
+    if scenario_mode == "booedup":
+        return with_booedup_context(user_prompt)
+    return user_prompt
+
+
+
+# ============================================================
+# Metric explorer — generate worked examples for the bad metric,
+# the learner's picked replacement, and each starred alternative.
+# Called from the metric_critique form's 🔍 Explain button and
+# auto fired at the end of Get Grade.
+# ============================================================
+
+METRIC_EXPLORER_SYSTEM = """\
+You are a product analytics tutor helping a learner connect metric design choices
+to a concrete scenario. The learner has been shown a flawed metric and has picked
+a corrected numerator / denominator / guardrail. You must show, with worked
+examples on synthetic data, how each candidate metric would actually be computed
+and what reading the number would tell the team — and why the original bad metric
+fails to address the scenario's stated purpose.
+
+Output ONE JSON object inside a single ```json fenced block. NO prose around it.
+"""
+
+
+def _build_explain_user_prompt(problem, user_picks, alternative_picks):
+    """Compose the user prompt for the metric explorer."""
+    scenario = problem.get("scenario", "")
+    bad_metric = (problem.get("proposed_metric", "")
+                  or problem.get("title", "")
+                  or "the proposed metric in the prompt")
+    rationale = problem.get("stakeholder_rationale", "")
+    user_num = user_picks.get("numerator", "")
+    user_denom = user_picks.get("denominator", "")
+    user_guard = user_picks.get("guardrail", "")
+
+    alt_nums = alternative_picks.get("numerator", []) or []
+    alt_denoms = alternative_picks.get("denominator", []) or []
+    alt_guards = alternative_picks.get("guardrail", []) or []
+
+    parts = []
+    parts.append(f"SCENARIO (purpose): {scenario}")
+    parts.append(f"BAD METRIC (under critique): {bad_metric}")
+    if rationale:
+        parts.append(f"STAKEHOLDER RATIONALE: {rationale}")
+    parts.append("")
+    parts.append("LEARNER'S PICKED REPLACEMENT METRIC:")
+    parts.append(f"  Numerator:   {user_num}")
+    parts.append(f"  Denominator: {user_denom}")
+    parts.append(f"  Guardrail:   {user_guard}")
+    parts.append("")
+    parts.append("ALL OTHER STARRED ALTERNATIVES (dynamic picks the learner did NOT choose):")
+    for n in alt_nums:
+        parts.append(f"  Alt numerator:   {n}")
+    for d in alt_denoms:
+        parts.append(f"  Alt denominator: {d}")
+    for g in alt_guards:
+        parts.append(f"  Alt guardrail:   {g}")
+    parts.append("")
+    parts.append(
+        "Return a JSON object with this shape:\n\n"
+        "{\n"
+        "  \"bad_metric\": {\n"
+        "    \"name\": \"<the bad metric's name>\",\n"
+        "    \"what_it_measures\": \"<one sentence>\",\n"
+        "    \"example_data\": [\n"
+        "      {\"row\": \"<entity label>\", \"<col1>\": <num>, \"<col2>\": <num>}\n"
+        "    ],\n"
+        "    \"calculation\": \"<step by step calculation on the example data>\",\n"
+        "    \"value\": \"<the resulting number, e.g. '342 messages this week'>\",\n"
+        "    \"interpretation\": \"<what reading this value would actually tell the team>\",\n"
+        "    \"why_it_fails_the_purpose\": \"<one or two sentences: why this metric does NOT actually answer the scenario's question>\"\n"
+        "  },\n"
+        "  \"user_picked_metric\": {\n"
+        "    \"name\": \"<readable name, e.g. 'Messages sent in first 24h / Match connections'>\",\n"
+        "    \"what_it_measures\": \"<one sentence>\",\n"
+        "    \"example_data\": [...],  // RECOMPUTE on the SAME entity population as bad_metric, different aggregation\n"
+        "    \"calculation\": \"<step by step>\",\n"
+        "    \"value\": \"<resulting rate / number with units>\",\n"
+        "    \"interpretation\": \"<what this tells the team>\",\n"
+        "    \"why_it_addresses_the_purpose\": \"<one or two sentences linking the metric to the scenario's actual question>\"\n"
+        "  },\n"
+        "  \"alternatives\": [\n"
+        "    {\n"
+        "      \"name\": \"<alt metric name>\",\n"
+        "      \"what_it_measures\": \"<one sentence>\",\n"
+        "      \"example_data\": [...],\n"
+        "      \"calculation\": \"<step by step>\",\n"
+        "      \"value\": \"<resulting number>\",\n"
+        "      \"interpretation\": \"<one or two sentences>\",\n"
+        "      \"trade_off_vs_picked\": \"<how this alternative differs from the learner's pick — what it captures or misses>\"\n"
+        "    }\n"
+        "  ]\n"
+        "}\n\n"
+        "REQUIREMENTS:\n"
+        "- Use 4 to 6 synthetic data rows total. Keep them simple integers (5 to 50 range).\n"
+        "- Use the SAME synthetic population across bad_metric, user_picked_metric, and "
+        "every alternative. Only the AGGREGATION should differ. This makes the comparison "
+        "honest — same data, different lens.\n"
+        "- Build ONE alternative entry for each starred alternative numerator above. "
+        "Pair each with the most natural denominator + guardrail from the alternatives list.\n"
+        "- Calculations must show actual arithmetic on the example data (e.g., \"8 + 5 + 0 + 12 = 25 "
+        "messages; 25 / 3 Match connections = 8.3 messages per Match\").\n"
+        "- Interpretations must be 1 to 2 sentences, written as if a PM is reading the dashboard.\n"
+        "- Do not invent metrics that are not in the lists above.\n"
+        "- Match the scenario domain — do not invent unrelated products.\n"
+    )
+    return "\n".join(parts)
+
+
+def explain_metrics(problem: Dict[str, Any],
+                    user_picks: Dict[str, str],
+                    alternative_picks: Dict[str, list],
+                    max_retries: int = 2) -> Optional[Dict[str, Any]]:
+    """Generate the metric explorer JSON. Returns None on failure."""
+    last_error = None
+    for attempt in range(1, max_retries + 1):
+        user_prompt = _build_explain_user_prompt(problem, user_picks, alternative_picks)
+        if last_error:
+            user_prompt += f"\n\nPREVIOUS ATTEMPT FAILED: {last_error}\nFix the issue and emit valid JSON."
+        text = _call_claude(METRIC_EXPLORER_SYSTEM, user_prompt, max_tokens=3500)
+        parsed = _extract_json(text)
+        if not parsed:
+            last_error = "Could not parse JSON from response."
+            continue
+        # Lightweight shape check
+        if "bad_metric" not in parsed or "user_picked_metric" not in parsed:
+            last_error = "Missing required top level keys (bad_metric / user_picked_metric)."
+            continue
+        return parsed
+    print(f"explain_metrics failed after {max_retries} attempts. Last error: {last_error}")
+    return None

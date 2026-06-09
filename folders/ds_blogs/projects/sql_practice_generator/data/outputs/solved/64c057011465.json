@@ -1,0 +1,125 @@
+{
+  "problem": {
+    "title": "Identify Consecutive Portfolio ID Ranges",
+    "prompt": "Your robo-advisor platform assigns each portfolio a unique integer `portfolio_id`. Write a query that identifies all ranges of consecutive `portfolio_id` values (where IDs differ by exactly 1) that share the same `rebalance_strategy`. Output columns must be: `rebalance_strategy`, `start_id`, `end_id`. For each strategy, collapse consecutive portfolio IDs into [start_id, end_id] ranges. If a single portfolio ID stands alone (no adjacent IDs in the same strategy), it should appear as a range where start_id = end_id. Order results by `start_id` ASC. Example: portfolios 101, 102, 103 with strategy 'conservative' form one range [101, 103]; portfolio 105 alone with 'conservative' forms [105, 105]; portfolios 107, 108 with 'aggressive' form [107, 108].",
+    "schema_ddl": "CREATE TABLE portfolios (portfolio_id INTEGER PRIMARY KEY, rebalance_strategy VARCHAR(50) NOT NULL, current_aum DECIMAL(12,2) NOT NULL);",
+    "example_input_data": "INSERT INTO portfolios (portfolio_id, rebalance_strategy, current_aum) VALUES (101, 'conservative', 45000.00), (102, 'conservative', 52000.00), (103, 'conservative', 48000.00), (105, 'conservative', 61000.00), (107, 'aggressive', 33000.00), (108, 'aggressive', 41000.00), (112, 'moderate', 29000.00), (113, 'moderate', 38000.00);",
+    "example_output_columns": [
+      "rebalance_strategy",
+      "start_id",
+      "end_id"
+    ],
+    "example_output_rows": [
+      [
+        "conservative",
+        101,
+        103
+      ],
+      [
+        "conservative",
+        105,
+        105
+      ],
+      [
+        "aggressive",
+        107,
+        108
+      ],
+      [
+        "moderate",
+        112,
+        113
+      ]
+    ],
+    "test_data": "INSERT INTO portfolios (portfolio_id, rebalance_strategy, current_aum) VALUES (201, 'conservative', 55000.00), (202, 'conservative', 59000.00), (203, 'conservative', 47000.00), (204, 'conservative', 53000.00), (207, 'conservative', 62000.00), (208, 'conservative', 58000.00), (210, 'aggressive', 38000.00), (212, 'aggressive', 44000.00), (213, 'aggressive', 39000.00), (214, 'aggressive', 41000.00), (215, 'aggressive', 45000.00), (220, 'moderate', 31000.00), (221, 'moderate', 34000.00), (222, 'moderate', 36000.00), (225, 'moderate', 42000.00), (230, 'income', 67000.00), (231, 'income', 71000.00), (232, 'income', 69000.00), (233, 'income', 73000.00), (234, 'income', 75000.00), (240, 'growth', 88000.00), (245, 'growth', 92000.00), (246, 'growth', 89000.00), (250, 'balanced', 54000.00);",
+    "test_expected_columns": [
+      "rebalance_strategy",
+      "start_id",
+      "end_id"
+    ],
+    "test_expected_rows": [
+      [
+        "conservative",
+        201,
+        204
+      ],
+      [
+        "conservative",
+        207,
+        208
+      ],
+      [
+        "aggressive",
+        210,
+        210
+      ],
+      [
+        "aggressive",
+        212,
+        215
+      ],
+      [
+        "moderate",
+        220,
+        222
+      ],
+      [
+        "moderate",
+        225,
+        225
+      ],
+      [
+        "income",
+        230,
+        234
+      ],
+      [
+        "growth",
+        240,
+        240
+      ],
+      [
+        "growth",
+        245,
+        246
+      ],
+      [
+        "balanced",
+        250,
+        250
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "gaps-and-islands",
+      "composite_moves": [
+        "window-function: ROW_NUMBER partitioned by rebalance_strategy ordered by portfolio_id",
+        "group-aggregate: subtract row_number from portfolio_id to form island identifier",
+        "group-aggregate: GROUP BY strategy and island, MIN/MAX for range endpoints"
+      ]
+    },
+    "hints": [
+      "Think about how consecutive integers differ by 1, and how subtracting a sequence number from each ID can group them.",
+      "Use ROW_NUMBER() OVER (PARTITION BY rebalance_strategy ORDER BY portfolio_id) to assign sequential positions within each strategy.",
+      "The difference (portfolio_id - row_number) will be constant for consecutive IDs in the same strategy, forming your grouping key."
+    ],
+    "answer_key": "WITH numbered AS (\n  SELECT\n    portfolio_id,\n    rebalance_strategy,\n    portfolio_id - ROW_NUMBER() OVER (PARTITION BY rebalance_strategy ORDER BY portfolio_id) AS grp\n  FROM portfolios\n)\nSELECT\n  rebalance_strategy,\n  MIN(portfolio_id) AS start_id,\n  MAX(portfolio_id) AS end_id\nFROM numbered\nGROUP BY rebalance_strategy, grp\nORDER BY start_id ASC;",
+    "_meta": {
+      "question_type": "union_islands",
+      "original_qtype": "union_islands",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-27T19:39:52.000183",
+      "problem_id": "64c057011465",
+      "validation_attempts": 1,
+      "scenario": "a robo advisor tracking portfolio rebalancing and AUM growth",
+      "dml_op": null,
+      "islands_flavor": "integer_seq",
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\n\nWITH base AS (\nSELECT\n    *,\n    portfolio_id -\n    ROW_NUMBER() OVER (PARTITION BY rebalance_strategy\n                        ORDER BY portfolio_id) AS grp\nFROM portfolios\n)\nSELECT\n    rebalance_strategy,\n    MIN(portfolio_id) AS start_id,\n    MAX(portfolio_id) AS end_id\nFROM base\nGROUP BY rebalance_strategy, grp\nORDER BY MIN(portfolio_id);\n",
+  "solved_at": "2026-05-27T19:46:35.955132"
+}

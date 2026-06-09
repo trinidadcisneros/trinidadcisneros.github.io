@@ -1,0 +1,152 @@
+{
+  "title": "Pivot Student Certification Exam Scores",
+  "prompt": "You are analyzing a course platform's certification exam data. The `exam_attempts` table stores every exam attempt in long format: each row is one student's score on one exam subject. Your task is to pivot this data into a wide-format report showing each student's highest score per subject as separate columns. Specifically, produce one row per student with columns `student_id`, `sql_score`, `python_score`, and `data_viz_score`, where each score column holds the MAX score that student achieved on that subject's exam (students may attempt the same exam multiple times). If a student has never attempted a particular subject's exam, that column should contain NULL. Include the `students` table to display `student_name` alongside `student_id`. Order the final result by `student_id` ascending. Output columns (in order): `student_id`, `student_name`, `sql_score`, `python_score`, `data_viz_score`.",
+  "schema_ddl": "CREATE TABLE students (student_id INT PRIMARY KEY, student_name VARCHAR(100) NOT NULL); CREATE TABLE exam_attempts (attempt_id INT PRIMARY KEY, student_id INT NOT NULL, subject VARCHAR(50) NOT NULL, score INT NOT NULL, attempt_date DATE NOT NULL);",
+  "example_input_data": "INSERT INTO students (student_id, student_name) VALUES (101, 'Alice Chen'), (102, 'Bob Kumar'), (103, 'Carol Martinez'), (104, 'David Lee'); INSERT INTO exam_attempts (attempt_id, student_id, subject, score, attempt_date) VALUES (1, 101, 'SQL', 85, '2024-01-15'), (2, 101, 'SQL', 92, '2024-02-10'), (3, 101, 'Python', 78, '2024-01-20'), (4, 102, 'SQL', 88, '2024-01-18'), (5, 102, 'Data Viz', 91, '2024-02-05'), (6, 103, 'Python', 95, '2024-01-25'), (7, 103, 'Data Viz', 89, '2024-02-01'), (8, 104, 'SQL', 76, '2024-01-22');",
+  "example_output_columns": [
+    "student_id",
+    "student_name",
+    "sql_score",
+    "python_score",
+    "data_viz_score"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Alice Chen",
+      92.0,
+      78.0,
+      null
+    ],
+    [
+      102,
+      "Bob Kumar",
+      88.0,
+      null,
+      91.0
+    ],
+    [
+      103,
+      "Carol Martinez",
+      null,
+      95.0,
+      89.0
+    ],
+    [
+      104,
+      "David Lee",
+      76.0,
+      null,
+      null
+    ]
+  ],
+  "test_data": "INSERT INTO students (student_id, student_name) VALUES (201, 'Emma Wilson'), (202, 'Frank Zhang'), (203, 'Grace O''Connor'), (204, 'Henry Patel'), (205, 'Iris Ng'), (206, 'Jack Thompson'), (207, 'Karen Smith'), (208, 'Leo Garcia'), (209, 'Maya Johnson'), (210, 'Noah Brown'); INSERT INTO exam_attempts (attempt_id, student_id, subject, score, attempt_date) VALUES (101, 201, 'SQL', 82, '2024-01-10'), (102, 201, 'SQL', 88, '2024-01-25'), (103, 201, 'SQL', 91, '2024-02-15'), (104, 201, 'Python', 75, '2024-01-12'), (105, 201, 'Python', 80, '2024-02-01'), (106, 201, 'Data Viz', 93, '2024-01-30'), (107, 202, 'SQL', 67, '2024-01-14'), (108, 202, 'Python', 72, '2024-01-20'), (109, 202, 'Python', 78, '2024-02-10'), (110, 202, 'Python', 85, '2024-03-05'), (111, 203, 'Data Viz', 88, '2024-01-18'), (112, 203, 'Data Viz', 90, '2024-02-12'), (113, 204, 'SQL', 95, '2024-01-22'), (114, 204, 'Python', 92, '2024-01-28'), (115, 204, 'Data Viz', 89, '2024-02-05'), (116, 205, 'SQL', 70, '2024-01-16'), (117, 206, 'Python', 88, '2024-01-19'), (118, 206, 'Data Viz', 84, '2024-02-08'), (119, 207, 'SQL', 79, '2024-01-21'), (120, 207, 'SQL', 83, '2024-02-14'), (121, 207, 'Python', 77, '2024-01-27'), (122, 208, 'Data Viz', 91, '2024-01-24'), (123, 209, 'SQL', 86, '2024-01-29'), (124, 209, 'Python', 81, '2024-02-11'), (125, 209, 'Data Viz', 87, '2024-02-20'), (126, 210, 'SQL', 74, '2024-01-31'), (127, 210, 'SQL', 79, '2024-02-18');",
+  "test_expected_columns": [
+    "student_id",
+    "student_name",
+    "sql_score",
+    "python_score",
+    "data_viz_score"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Emma Wilson",
+      91.0,
+      80.0,
+      93.0
+    ],
+    [
+      202,
+      "Frank Zhang",
+      67.0,
+      85.0,
+      null
+    ],
+    [
+      203,
+      "Grace O'Connor",
+      null,
+      null,
+      90.0
+    ],
+    [
+      204,
+      "Henry Patel",
+      95.0,
+      92.0,
+      89.0
+    ],
+    [
+      205,
+      "Iris Ng",
+      70.0,
+      null,
+      null
+    ],
+    [
+      206,
+      "Jack Thompson",
+      null,
+      88.0,
+      84.0
+    ],
+    [
+      207,
+      "Karen Smith",
+      83.0,
+      77.0,
+      null
+    ],
+    [
+      208,
+      "Leo Garcia",
+      null,
+      null,
+      91.0
+    ],
+    [
+      209,
+      "Maya Johnson",
+      86.0,
+      81.0,
+      87.0
+    ],
+    [
+      210,
+      "Noah Brown",
+      79.0,
+      null,
+      null
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "reshape",
+    "composite_moves": [
+      "enrich-join (students + exam_attempts)",
+      "reshape (pivot subject into sql_score, python_score, data_viz_score using MAX CASE)"
+    ]
+  },
+  "hints": [
+    "You need to transform category values ('SQL', 'Python', 'Data Viz') into separate columns in a single row per student.",
+    "Use a GROUP BY on student_id with MAX(CASE WHEN subject = 'SQL' THEN score END) AS sql_score, and similar expressions for the other two subjects.",
+    "Join the students table to get student_name, then group by student_id and student_name. Each CASE expression will pick the matching subject's score, and MAX will select the highest across multiple attempts."
+  ],
+  "answer_key": "SELECT s.student_id, s.student_name, MAX(CASE WHEN e.subject = 'SQL' THEN e.score END) AS sql_score, MAX(CASE WHEN e.subject = 'Python' THEN e.score END) AS python_score, MAX(CASE WHEN e.subject = 'Data Viz' THEN e.score END) AS data_viz_score FROM students s LEFT JOIN exam_attempts e ON s.student_id = e.student_id GROUP BY s.student_id, s.student_name ORDER BY s.student_id;",
+  "_meta": {
+    "question_type": "pivot",
+    "original_qtype": "pivot",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-29T15:38:57.252106",
+    "problem_id": "d0996fc5d567",
+    "validation_attempts": 1,
+    "scenario": "an online course platform tracking course completion and certification",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

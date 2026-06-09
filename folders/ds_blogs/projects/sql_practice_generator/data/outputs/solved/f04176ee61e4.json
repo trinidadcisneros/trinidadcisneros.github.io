@@ -1,0 +1,177 @@
+{
+  "problem": {
+    "title": "Remove Duplicate Trial Signups by Email",
+    "prompt": "A developer tools company's trial signup system occasionally records duplicate entries when users refresh the signup page. The marketing team wants to deduplicate the `trial_signups` table, keeping only the earliest signup record (smallest `signup_id`) for each unique `email` address. Write a single DELETE statement that removes all duplicate trial signups, preserving only the first signup per email. After the deletion, write a confirming SELECT statement that returns all remaining rows from `trial_signups` ordered by `signup_id` ascending. The result should show one row per unique email address.",
+    "schema_ddl": "CREATE TABLE trial_signups (\n  signup_id SERIAL PRIMARY KEY,\n  email VARCHAR(255) NOT NULL,\n  signup_date DATE NOT NULL,\n  utm_source VARCHAR(100),\n  trial_tier VARCHAR(50) NOT NULL\n);\n\nCREATE TABLE conversions (\n  conversion_id SERIAL PRIMARY KEY,\n  signup_id INTEGER NOT NULL,\n  conversion_date DATE NOT NULL,\n  plan_name VARCHAR(100) NOT NULL,\n  monthly_revenue DECIMAL(10,2) NOT NULL\n);",
+    "example_input_data": "INSERT INTO trial_signups (signup_id, email, signup_date, utm_source, trial_tier) VALUES\n(1, 'alice@example.com', '2024-01-15', 'google', 'pro'),\n(2, 'bob@example.com', '2024-01-16', 'twitter', 'basic'),\n(3, 'alice@example.com', '2024-01-17', 'direct', 'pro'),\n(4, 'carol@example.com', '2024-01-18', 'google', 'enterprise'),\n(5, 'bob@example.com', '2024-01-19', 'google', 'basic'),\n(6, 'dave@example.com', '2024-01-20', NULL, 'pro'),\n(7, 'alice@example.com', '2024-01-21', 'twitter', 'enterprise');\n\nINSERT INTO conversions (conversion_id, signup_id, conversion_date, plan_name, monthly_revenue) VALUES\n(1, 1, '2024-02-01', 'Pro Annual', 99.00),\n(2, 4, '2024-02-05', 'Enterprise Monthly', 499.00);",
+    "example_output_columns": [
+      "signup_id",
+      "email",
+      "signup_date",
+      "utm_source",
+      "trial_tier"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "alice@example.com",
+        "2024-01-15",
+        "google",
+        "pro"
+      ],
+      [
+        2,
+        "bob@example.com",
+        "2024-01-16",
+        "twitter",
+        "basic"
+      ],
+      [
+        4,
+        "carol@example.com",
+        "2024-01-18",
+        "google",
+        "enterprise"
+      ],
+      [
+        6,
+        "dave@example.com",
+        "2024-01-20",
+        null,
+        "pro"
+      ]
+    ],
+    "test_data": "INSERT INTO trial_signups (signup_id, email, signup_date, utm_source, trial_tier) VALUES\n(101, 'user1@test.com', '2024-01-10', 'organic', 'basic'),\n(102, 'user2@test.com', '2024-01-11', 'paid', 'pro'),\n(103, 'user1@test.com', '2024-01-12', 'organic', 'basic'),\n(104, 'user3@test.com', '2024-01-13', NULL, 'enterprise'),\n(105, 'user4@test.com', '2024-01-14', 'referral', 'pro'),\n(106, 'user2@test.com', '2024-01-15', 'paid', 'enterprise'),\n(107, 'user5@test.com', '2024-01-16', 'partner', 'basic'),\n(108, 'user1@test.com', '2024-01-17', 'direct', 'pro'),\n(109, 'user6@test.com', '2024-01-18', 'organic', 'basic'),\n(110, 'user7@test.com', '2024-01-19', NULL, 'pro'),\n(111, 'user2@test.com', '2024-01-20', 'organic', 'basic'),\n(112, 'user8@test.com', '2024-01-21', 'paid', 'enterprise'),\n(113, 'user3@test.com', '2024-01-22', 'referral', 'basic'),\n(114, 'user9@test.com', '2024-01-23', 'partner', 'pro'),\n(115, 'user4@test.com', '2024-01-24', 'organic', 'enterprise'),\n(116, 'user10@test.com', '2024-01-25', 'direct', 'basic'),\n(117, 'user5@test.com', '2024-01-26', 'paid', 'pro'),\n(118, 'user6@test.com', '2024-01-27', NULL, 'enterprise'),\n(119, 'user11@test.com', '2024-01-28', 'organic', 'basic'),\n(120, 'user7@test.com', '2024-01-29', 'referral', 'pro'),\n(121, 'user8@test.com', '2024-01-30', 'partner', 'basic'),\n(122, 'user12@test.com', '2024-01-31', 'organic', 'enterprise'),\n(123, 'user9@test.com', '2024-02-01', 'paid', 'basic'),\n(124, 'user13@test.com', '2024-02-02', NULL, 'pro'),\n(125, 'user10@test.com', '2024-02-03', 'direct', 'enterprise');\n\nINSERT INTO conversions (conversion_id, signup_id, conversion_date, plan_name, monthly_revenue) VALUES\n(101, 101, '2024-02-15', 'Basic Monthly', 29.00),\n(102, 109, '2024-02-20', 'Pro Annual', 89.00),\n(103, 122, '2024-02-25', 'Enterprise Annual', 999.00);",
+    "test_expected_columns": [
+      "signup_id",
+      "email",
+      "signup_date",
+      "utm_source",
+      "trial_tier"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        "user1@test.com",
+        "2024-01-10",
+        "organic",
+        "basic"
+      ],
+      [
+        102,
+        "user2@test.com",
+        "2024-01-11",
+        "paid",
+        "pro"
+      ],
+      [
+        104,
+        "user3@test.com",
+        "2024-01-13",
+        null,
+        "enterprise"
+      ],
+      [
+        105,
+        "user4@test.com",
+        "2024-01-14",
+        "referral",
+        "pro"
+      ],
+      [
+        107,
+        "user5@test.com",
+        "2024-01-16",
+        "partner",
+        "basic"
+      ],
+      [
+        109,
+        "user6@test.com",
+        "2024-01-18",
+        "organic",
+        "basic"
+      ],
+      [
+        110,
+        "user7@test.com",
+        "2024-01-19",
+        null,
+        "pro"
+      ],
+      [
+        112,
+        "user8@test.com",
+        "2024-01-21",
+        "paid",
+        "enterprise"
+      ],
+      [
+        114,
+        "user9@test.com",
+        "2024-01-23",
+        "partner",
+        "pro"
+      ],
+      [
+        116,
+        "user10@test.com",
+        "2024-01-25",
+        "direct",
+        "basic"
+      ],
+      [
+        119,
+        "user11@test.com",
+        "2024-01-28",
+        "organic",
+        "basic"
+      ],
+      [
+        122,
+        "user12@test.com",
+        "2024-01-31",
+        "organic",
+        "enterprise"
+      ],
+      [
+        124,
+        "user13@test.com",
+        "2024-02-02",
+        null,
+        "pro"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "state_mutation",
+      "recipe": "delete-duplicates",
+      "composite_moves": [
+        "group-aggregate to find MIN(signup_id) per email",
+        "row-filter using correlated subquery to DELETE non-minimum rows"
+      ]
+    },
+    "hints": [
+      "You need to identify which signup_id is the earliest for each email address.",
+      "A correlated subquery in the WHERE clause can compare each row's signup_id against the minimum signup_id for its email group.",
+      "Delete rows where signup_id is NOT the minimum signup_id for that email using a subquery with GROUP BY email."
+    ],
+    "answer_key": "DELETE FROM trial_signups\nWHERE signup_id NOT IN (\n  SELECT MIN(signup_id)\n  FROM trial_signups\n  GROUP BY email\n);\n\nSELECT * FROM trial_signups ORDER BY signup_id;",
+    "_meta": {
+      "question_type": "dml_delete",
+      "original_qtype": "dml_delete",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-04T18:45:34.655006",
+      "problem_id": "f04176ee61e4",
+      "validation_attempts": 1,
+      "scenario": "a developer tools company tracking trial-to-paid conversion and seat expansion",
+      "dml_op": "DELETE",
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* \nRemove Duplicate Trial Signups by Email\n\n- Deduplicate `trial_signups` table, MIN(signup_id) FOR DISTINCT email\n\n1. Write a single DELETE statement that removes all duplicate trial signups, preserving only the first signup per email.\n2. SELECT * FROM trial_signups ORDER BY signup_id;\n\nSchema\nTable: trial_signups\nsignup_id\t            SERIAL PRIMARY KEY\nemail\t                VARCHAR(255) NOT NULL\nsignup_date\t            DATE NOT NULL\nutm_source\t            VARCHAR(100)\ntrial_tier\t            VARCHAR(50) NOT NULL\n\nTable: conversions\nconversion_id\t        SERIAL PRIMARY KEY\nsignup_id\t            INTEGER NOT NULL\nconversion_date\t        DATE NOT NULL\nplan_name\tV           ARCHAR(100) NOT NULL\nmonthly_revenue\t        DECIMAL(10,2) NOT NULL\n\nDELETE FROM trial_signups\nWHERE signup_id IN (SELECT \n                        signup_id\n                    FROM trial_signups\n\n*/\nDELETE FROM trial_signups\nWHERE signup_id IN (\n    WITH base AS (\n    SELECT *, \n        ROW_NUMBER() OVER(PARTITION BY email ORDER BY signup_date) AS rn\n    FROM trial_signups\n    )\n    SELECT signup_id\n    FROM base\n    WHERE rn > 1);\n\nSELECT * FROM trial_signups ORDER BY signup_id;\n\n",
+  "solved_at": "2026-06-04T18:58:09.991255"
+}

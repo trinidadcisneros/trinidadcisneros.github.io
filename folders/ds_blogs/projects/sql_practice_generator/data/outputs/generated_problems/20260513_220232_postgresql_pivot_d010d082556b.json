@@ -1,0 +1,189 @@
+{
+  "title": "Pivot Medication Orders by Drug Class",
+  "prompt": "You are analyzing medication order volumes by drug class for each patient in an electronic health record system. The `medication_orders` table records each order in long format: one row per (patient_id, drug_class, order_count) tuple. A patient may have multiple orders in the same drug_class (for different medications or at different times), and some patients may have no orders in certain classes. Pivot this data into wide format with one row per patient. Create columns `analgesics`, `antibiotics`, and `anticoagulants` that SUM the order_count for each drug class. If a patient has no orders in a class, show 0 (not NULL). Use the `patients` lookup table to include the patient's full name in the output. The output columns are: patient_id, patient_name, analgesics, antibiotics, anticoagulants. Order the result by patient_id ascending.",
+  "schema_ddl": "CREATE TABLE patients (patient_id INT PRIMARY KEY, patient_name VARCHAR(100)); CREATE TABLE medication_orders (order_id INT PRIMARY KEY, patient_id INT, drug_class VARCHAR(50), order_count INT);",
+  "example_input_data": "INSERT INTO patients (patient_id, patient_name) VALUES (101, 'Alice Chen'), (102, 'Bob Smith'), (103, 'Carol Kim'), (104, 'Dan Lee'); INSERT INTO medication_orders (order_id, patient_id, drug_class, order_count) VALUES (1, 101, 'analgesics', 2), (2, 101, 'antibiotics', 1), (3, 102, 'analgesics', 3), (4, 102, 'analgesics', 1), (5, 102, 'anticoagulants', 2), (6, 103, 'antibiotics', 2), (7, 104, 'anticoagulants', 1);",
+  "example_output_columns": [
+    "patient_id",
+    "patient_name",
+    "analgesics",
+    "antibiotics",
+    "anticoagulants"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Alice Chen",
+      2,
+      1,
+      0
+    ],
+    [
+      102,
+      "Bob Smith",
+      4,
+      0,
+      2
+    ],
+    [
+      103,
+      "Carol Kim",
+      0,
+      2,
+      0
+    ],
+    [
+      104,
+      "Dan Lee",
+      0,
+      0,
+      1
+    ]
+  ],
+  "test_data": "INSERT INTO patients (patient_id, patient_name) VALUES (201, 'Emma Davis'), (202, 'Frank Wilson'), (203, 'Grace Taylor'), (204, 'Henry Martinez'), (205, 'Iris Brown'), (206, 'Jack Anderson'), (207, 'Karen Thomas'), (208, 'Leo Jackson'), (209, 'Mia White'), (210, 'Noah Harris'), (211, 'Olivia Clark'), (212, 'Paul Lewis'), (213, 'Quinn Walker'), (214, 'Rose Hall'), (215, 'Sam Allen'); INSERT INTO medication_orders (order_id, patient_id, drug_class, order_count) VALUES (101, 201, 'analgesics', 5), (102, 201, 'analgesics', 3), (103, 201, 'antibiotics', 2), (104, 202, 'antibiotics', 4), (105, 202, 'anticoagulants', 1), (106, 203, 'analgesics', 2), (107, 203, 'antibiotics', 1), (108, 203, 'antibiotics', 2), (109, 203, 'anticoagulants', 3), (110, 204, 'anticoagulants', 6), (111, 205, 'analgesics', 1), (112, 206, 'antibiotics', 3), (113, 206, 'antibiotics', 2), (114, 207, 'analgesics', 4), (115, 207, 'analgesics', 2), (116, 207, 'anticoagulants', 1), (117, 208, 'antibiotics', 5), (118, 209, 'analgesics', 3), (119, 209, 'antibiotics', 1), (120, 209, 'anticoagulants', 2), (121, 210, 'anticoagulants', 4), (122, 211, 'analgesics', 2), (123, 211, 'antibiotics', 3), (124, 212, 'antibiotics', 1), (125, 212, 'anticoagulants', 5), (126, 213, 'analgesics', 7), (127, 214, 'antibiotics', 2), (128, 214, 'anticoagulants', 3), (129, 215, 'analgesics', 1), (130, 215, 'analgesics', 1), (131, 215, 'antibiotics', 2);",
+  "test_expected_columns": [
+    "patient_id",
+    "patient_name",
+    "analgesics",
+    "antibiotics",
+    "anticoagulants"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Emma Davis",
+      8,
+      2,
+      0
+    ],
+    [
+      202,
+      "Frank Wilson",
+      0,
+      4,
+      1
+    ],
+    [
+      203,
+      "Grace Taylor",
+      2,
+      3,
+      3
+    ],
+    [
+      204,
+      "Henry Martinez",
+      0,
+      0,
+      6
+    ],
+    [
+      205,
+      "Iris Brown",
+      1,
+      0,
+      0
+    ],
+    [
+      206,
+      "Jack Anderson",
+      0,
+      5,
+      0
+    ],
+    [
+      207,
+      "Karen Thomas",
+      6,
+      0,
+      1
+    ],
+    [
+      208,
+      "Leo Jackson",
+      0,
+      5,
+      0
+    ],
+    [
+      209,
+      "Mia White",
+      3,
+      1,
+      2
+    ],
+    [
+      210,
+      "Noah Harris",
+      0,
+      0,
+      4
+    ],
+    [
+      211,
+      "Olivia Clark",
+      2,
+      3,
+      0
+    ],
+    [
+      212,
+      "Paul Lewis",
+      0,
+      1,
+      5
+    ],
+    [
+      213,
+      "Quinn Walker",
+      7,
+      0,
+      0
+    ],
+    [
+      214,
+      "Rose Hall",
+      0,
+      2,
+      3
+    ],
+    [
+      215,
+      "Sam Allen",
+      2,
+      2,
+      0
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "reshape",
+    "composite_moves": [
+      "join patients and medication_orders on patient_id",
+      "group by patient_id and patient_name",
+      "pivot drug_class into columns using SUM(CASE WHEN drug_class = 'analgesics' THEN order_count END) AS analgesics",
+      "pivot drug_class into columns using SUM(CASE WHEN drug_class = 'antibiotics' THEN order_count END) AS antibiotics",
+      "pivot drug_class into columns using SUM(CASE WHEN drug_class = 'anticoagulants' THEN order_count END) AS anticoagulants",
+      "wrap each SUM with COALESCE(..., 0) to replace NULL with 0",
+      "order by patient_id ascending"
+    ]
+  },
+  "hints": [
+    "Consider using a CASE expression inside an aggregate function to separate counts by drug class.",
+    "Use SUM(CASE WHEN drug_class = 'analgesics' THEN order_count END) to isolate analgesics orders, and repeat for antibiotics and anticoagulants.",
+    "Group by patient_id and patient_name, then wrap each SUM with COALESCE(..., 0) to convert NULL to 0 for missing drug classes."
+  ],
+  "answer_key": "SELECT p.patient_id, p.patient_name, COALESCE(SUM(CASE WHEN m.drug_class = 'analgesics' THEN m.order_count END), 0) AS analgesics, COALESCE(SUM(CASE WHEN m.drug_class = 'antibiotics' THEN m.order_count END), 0) AS antibiotics, COALESCE(SUM(CASE WHEN m.drug_class = 'anticoagulants' THEN m.order_count END), 0) AS anticoagulants FROM patients p LEFT JOIN medication_orders m ON p.patient_id = m.patient_id GROUP BY p.patient_id, p.patient_name ORDER BY p.patient_id;",
+  "_meta": {
+    "question_type": "pivot",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-13T22:02:31.905240",
+    "problem_id": "d010d082556b",
+    "validation_attempts": 1,
+    "scenario": "an electronic health record system tracking medication orders and refills",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

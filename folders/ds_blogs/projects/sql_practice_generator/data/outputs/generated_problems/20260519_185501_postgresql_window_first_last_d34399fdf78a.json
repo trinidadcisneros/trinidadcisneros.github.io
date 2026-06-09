@@ -1,0 +1,122 @@
+{
+  "title": "First and Last Claim Status per Prescription",
+  "prompt": "Write a query that returns the first and last adjudication status for each prescription submitted to the PBM (pharmacy benefit manager). For each `prescription_id`, show the prescription ID, the earliest `adjudication_status` (by `submitted_at` timestamp), and the latest `adjudication_status`. A prescription may be submitted multiple times as it moves through re-adjudication; you need the status from the very first submission and the very last submission in the audit trail. If a prescription has only one submission record, the first and last status will be identical. Order results by `prescription_id` ascending.",
+  "schema_ddl": "CREATE TABLE pbm_adjudication_log (\n  log_id SERIAL PRIMARY KEY,\n  prescription_id VARCHAR(20) NOT NULL,\n  submitted_at TIMESTAMP NOT NULL,\n  adjudication_status VARCHAR(20) NOT NULL\n);",
+  "example_input_data": "INSERT INTO pbm_adjudication_log (prescription_id, submitted_at, adjudication_status) VALUES\n('RX1001', '2024-01-10 08:00:00', 'pending'),\n('RX1001', '2024-01-10 08:15:00', 'approved'),\n('RX1001', '2024-01-10 09:00:00', 'paid'),\n('RX1002', '2024-01-10 08:30:00', 'pending'),\n('RX1002', '2024-01-10 08:45:00', 'rejected'),\n('RX1003', '2024-01-10 09:10:00', 'approved'),\n('RX1004', '2024-01-10 10:00:00', 'pending'),\n('RX1004', '2024-01-10 10:20:00', 'approved');",
+  "example_output_columns": [
+    "prescription_id",
+    "first_status",
+    "last_status"
+  ],
+  "example_output_rows": [
+    [
+      "RX1001",
+      "pending",
+      "paid"
+    ],
+    [
+      "RX1002",
+      "pending",
+      "rejected"
+    ],
+    [
+      "RX1003",
+      "approved",
+      "approved"
+    ],
+    [
+      "RX1004",
+      "pending",
+      "approved"
+    ]
+  ],
+  "test_data": "INSERT INTO pbm_adjudication_log (prescription_id, submitted_at, adjudication_status) VALUES\n('RX2001', '2024-01-15 07:00:00', 'pending'),\n('RX2001', '2024-01-15 07:10:00', 'pending'),\n('RX2001', '2024-01-15 07:20:00', 'approved'),\n('RX2001', '2024-01-15 07:30:00', 'paid'),\n('RX2001', '2024-01-15 07:40:00', 'reversed'),\n('RX2002', '2024-01-15 08:00:00', 'pending'),\n('RX2002', '2024-01-15 08:15:00', 'rejected'),\n('RX2002', '2024-01-15 08:30:00', 'pending'),\n('RX2002', '2024-01-15 08:45:00', 'rejected'),\n('RX2003', '2024-01-15 09:00:00', 'approved'),\n('RX2004', '2024-01-15 09:30:00', 'pending'),\n('RX2004', '2024-01-15 09:45:00', 'approved'),\n('RX2004', '2024-01-15 10:00:00', 'paid'),\n('RX2004', '2024-01-15 10:15:00', 'paid'),\n('RX2005', '2024-01-15 11:00:00', 'rejected'),\n('RX2006', '2024-01-15 11:30:00', 'pending'),\n('RX2006', '2024-01-15 11:45:00', 'pending'),\n('RX2006', '2024-01-15 12:00:00', 'pending'),\n('RX2006', '2024-01-15 12:15:00', 'approved'),\n('RX2007', '2024-01-15 13:00:00', 'approved'),\n('RX2007', '2024-01-15 13:15:00', 'paid'),\n('RX2007', '2024-01-15 13:30:00', 'reversed'),\n('RX2007', '2024-01-15 13:45:00', 'approved'),\n('RX2007', '2024-01-15 14:00:00', 'paid'),\n('RX2008', '2024-01-15 14:30:00', 'pending'),\n('RX2008', '2024-01-15 14:45:00', 'rejected'),\n('RX2008', '2024-01-15 15:00:00', 'pending'),\n('RX2008', '2024-01-15 15:15:00', 'approved'),\n('RX2009', '2024-01-15 16:00:00', 'pending'),\n('RX2010', '2024-01-15 17:00:00', 'approved');",
+  "test_expected_columns": [
+    "prescription_id",
+    "first_status",
+    "last_status"
+  ],
+  "test_expected_rows": [
+    [
+      "RX2001",
+      "pending",
+      "reversed"
+    ],
+    [
+      "RX2002",
+      "pending",
+      "rejected"
+    ],
+    [
+      "RX2003",
+      "approved",
+      "approved"
+    ],
+    [
+      "RX2004",
+      "pending",
+      "paid"
+    ],
+    [
+      "RX2005",
+      "rejected",
+      "rejected"
+    ],
+    [
+      "RX2006",
+      "pending",
+      "approved"
+    ],
+    [
+      "RX2007",
+      "approved",
+      "paid"
+    ],
+    [
+      "RX2008",
+      "pending",
+      "approved"
+    ],
+    [
+      "RX2009",
+      "pending",
+      "pending"
+    ],
+    [
+      "RX2010",
+      "approved",
+      "approved"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "rank-partition",
+    "composite_moves": [
+      "window: FIRST_VALUE(adjudication_status) OVER (PARTITION BY prescription_id ORDER BY submitted_at)",
+      "window: LAST_VALUE(adjudication_status) OVER (PARTITION BY prescription_id ORDER BY submitted_at ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)",
+      "DISTINCT to collapse partition rows to one row per prescription_id",
+      "ORDER BY prescription_id"
+    ]
+  },
+  "hints": [
+    "You need to look at all submissions for each prescription and pick the earliest and latest status values by timestamp.",
+    "FIRST_VALUE and LAST_VALUE are window functions that can retrieve values from specific positions in a partition. Be careful with LAST_VALUE\u2014the default frame only goes up to the current row.",
+    "Use FIRST_VALUE(adjudication_status) OVER (PARTITION BY prescription_id ORDER BY submitted_at) for the earliest status, and LAST_VALUE(adjudication_status) OVER (PARTITION BY prescription_id ORDER BY submitted_at ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) for the latest. Then SELECT DISTINCT to get one row per prescription."
+  ],
+  "answer_key": "SELECT DISTINCT\n  prescription_id,\n  FIRST_VALUE(adjudication_status) OVER (\n    PARTITION BY prescription_id\n    ORDER BY submitted_at\n  ) AS first_status,\n  LAST_VALUE(adjudication_status) OVER (\n    PARTITION BY prescription_id\n    ORDER BY submitted_at\n    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING\n  ) AS last_status\nFROM pbm_adjudication_log\nORDER BY prescription_id;",
+  "_meta": {
+    "question_type": "window_first_last",
+    "original_qtype": "window_first_last",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-19T18:55:01.491101",
+    "problem_id": "d34399fdf78a",
+    "validation_attempts": 1,
+    "scenario": "a digital pharmacy tracking prescription submissions through PBM adjudication",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

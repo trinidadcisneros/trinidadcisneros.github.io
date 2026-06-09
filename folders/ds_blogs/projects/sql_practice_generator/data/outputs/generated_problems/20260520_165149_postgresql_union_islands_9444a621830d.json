@@ -1,0 +1,202 @@
+{
+  "title": "Consolidate User Activity Periods from Streaming and Offline States",
+  "prompt": "A music streaming service tracks user activity across two states: streaming sessions (logged in `active_streams`) and offline listening periods (logged in `offline_plays`). Each table records the date a user was in that state. Some days may have no record at all if the user was completely inactive. Your task is to identify consecutive activity periods for each user, where 'consecutive' means consecutive calendar dates present in the union of both tables, ignoring days with no records. For each user and state, collapse consecutive dates into [start_date, end_date] ranges. Return columns `user_id`, `state` (either 'streaming' or 'offline'), `start_date`, and `end_date`. Order results by `user_id` ASC, then `start_date` ASC. Only include activity from January 2024.",
+  "schema_ddl": "CREATE TABLE active_streams (user_id INT NOT NULL, stream_date DATE NOT NULL); CREATE TABLE offline_plays (user_id INT NOT NULL, play_date DATE NOT NULL);",
+  "example_input_data": "INSERT INTO active_streams (user_id, stream_date) VALUES (101, '2024-01-02'), (101, '2024-01-03'), (101, '2024-01-06'), (101, '2024-01-07'), (102, '2024-01-01'), (102, '2024-01-04'); INSERT INTO offline_plays (user_id, play_date) VALUES (101, '2024-01-04'), (101, '2024-01-08'), (102, '2024-01-02'), (102, '2024-01-03');",
+  "example_output_columns": [
+    "user_id",
+    "state",
+    "start_date",
+    "end_date"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "streaming",
+      "2024-01-02",
+      "2024-01-03"
+    ],
+    [
+      101,
+      "offline",
+      "2024-01-04",
+      "2024-01-04"
+    ],
+    [
+      101,
+      "streaming",
+      "2024-01-06",
+      "2024-01-07"
+    ],
+    [
+      101,
+      "offline",
+      "2024-01-08",
+      "2024-01-08"
+    ],
+    [
+      102,
+      "streaming",
+      "2024-01-01",
+      "2024-01-01"
+    ],
+    [
+      102,
+      "offline",
+      "2024-01-02",
+      "2024-01-03"
+    ],
+    [
+      102,
+      "streaming",
+      "2024-01-04",
+      "2024-01-04"
+    ]
+  ],
+  "test_data": "INSERT INTO active_streams (user_id, stream_date) VALUES (201, '2024-01-01'), (201, '2024-01-02'), (201, '2024-01-03'), (201, '2024-01-07'), (201, '2024-01-08'), (201, '2024-01-09'), (201, '2024-01-15'), (201, '2024-01-20'), (201, '2024-01-21'), (202, '2024-01-01'), (202, '2024-01-05'), (202, '2024-01-10'), (202, '2024-01-11'), (202, '2024-01-12'), (203, '2024-01-02'), (203, '2024-01-06'), (203, '2024-01-07'); INSERT INTO offline_plays (user_id, play_date) VALUES (201, '2024-01-04'), (201, '2024-01-05'), (201, '2024-01-10'), (201, '2024-01-11'), (201, '2024-01-16'), (201, '2024-01-17'), (201, '2024-01-18'), (202, '2024-01-02'), (202, '2024-01-03'), (202, '2024-01-04'), (202, '2024-01-06'), (202, '2024-01-13'), (203, '2024-01-03'), (203, '2024-01-04'), (203, '2024-01-05'), (203, '2024-01-08');",
+  "test_expected_columns": [
+    "user_id",
+    "state",
+    "start_date",
+    "end_date"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "streaming",
+      "2024-01-01",
+      "2024-01-03"
+    ],
+    [
+      201,
+      "offline",
+      "2024-01-04",
+      "2024-01-05"
+    ],
+    [
+      201,
+      "streaming",
+      "2024-01-07",
+      "2024-01-09"
+    ],
+    [
+      201,
+      "offline",
+      "2024-01-10",
+      "2024-01-11"
+    ],
+    [
+      201,
+      "streaming",
+      "2024-01-15",
+      "2024-01-15"
+    ],
+    [
+      201,
+      "offline",
+      "2024-01-16",
+      "2024-01-18"
+    ],
+    [
+      201,
+      "streaming",
+      "2024-01-20",
+      "2024-01-21"
+    ],
+    [
+      202,
+      "streaming",
+      "2024-01-01",
+      "2024-01-01"
+    ],
+    [
+      202,
+      "offline",
+      "2024-01-02",
+      "2024-01-04"
+    ],
+    [
+      202,
+      "streaming",
+      "2024-01-05",
+      "2024-01-05"
+    ],
+    [
+      202,
+      "offline",
+      "2024-01-06",
+      "2024-01-06"
+    ],
+    [
+      202,
+      "streaming",
+      "2024-01-10",
+      "2024-01-12"
+    ],
+    [
+      202,
+      "offline",
+      "2024-01-13",
+      "2024-01-13"
+    ],
+    [
+      203,
+      "streaming",
+      "2024-01-02",
+      "2024-01-02"
+    ],
+    [
+      203,
+      "offline",
+      "2024-01-03",
+      "2024-01-05"
+    ],
+    [
+      203,
+      "streaming",
+      "2024-01-06",
+      "2024-01-07"
+    ],
+    [
+      203,
+      "offline",
+      "2024-01-08",
+      "2024-01-08"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "union",
+    "output_shape": "fewer_rows",
+    "recipe": "gaps-and-islands",
+    "composite_moves": [
+      "UNION both source tables with state labels",
+      "Apply date range filter in each UNION branch WHERE clause",
+      "Compute ROW_NUMBER() OVER (PARTITION BY user_id, state ORDER BY date) as rn_per_state",
+      "Compute ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY date) as rn_overall",
+      "Create grp = rn_overall - rn_per_state",
+      "GROUP BY user_id, state, grp",
+      "Aggregate MIN(date) as start_date, MAX(date) as end_date",
+      "ORDER BY user_id ASC, start_date ASC"
+    ]
+  },
+  "hints": [
+    "You need to combine rows from both tables into a single result set with a state label, then identify which consecutive dates belong to the same state for each user.",
+    "Use ROW_NUMBER twice: once ordered by date overall per user, and once ordered by date per user and state. The difference between these row numbers creates a stable group identifier for consecutive dates in the same state.",
+    "After computing the group identifier (rn_overall - rn_per_state), GROUP BY user_id, state, and that identifier, then take MIN(date) and MAX(date) to form the range boundaries."
+  ],
+  "answer_key": "WITH combined AS (\n  SELECT user_id, stream_date AS activity_date, 'streaming' AS state\n  FROM active_streams\n  WHERE stream_date >= '2024-01-01' AND stream_date < '2024-02-01'\n  UNION ALL\n  SELECT user_id, play_date AS activity_date, 'offline' AS state\n  FROM offline_plays\n  WHERE play_date >= '2024-01-01' AND play_date < '2024-02-01'\n),\nranked AS (\n  SELECT\n    user_id,\n    state,\n    activity_date,\n    ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY activity_date) - \n    ROW_NUMBER() OVER (PARTITION BY user_id, state ORDER BY activity_date) AS grp\n  FROM combined\n)\nSELECT\n  user_id,\n  state,\n  MIN(activity_date) AS start_date,\n  MAX(activity_date) AS end_date\nFROM ranked\nGROUP BY user_id, state, grp\nORDER BY user_id ASC, start_date ASC;",
+  "_meta": {
+    "question_type": "union_islands",
+    "original_qtype": "union_islands",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-20T16:51:49.104335",
+    "problem_id": "9444a621830d",
+    "validation_attempts": 1,
+    "scenario": "a music streaming service tracking saved tracks and playlist creation",
+    "dml_op": null,
+    "islands_flavor": "date_sequence",
+    "percentile_flavor": null
+  }
+}

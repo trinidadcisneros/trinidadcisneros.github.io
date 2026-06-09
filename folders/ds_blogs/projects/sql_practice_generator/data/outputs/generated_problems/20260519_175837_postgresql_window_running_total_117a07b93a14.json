@@ -1,0 +1,272 @@
+{
+  "title": "Cumulative Minutes Listened Per User",
+  "prompt": "Write a query that returns each listening session with a running total of minutes listened for each user, ordered by session start time. For each session, calculate the cumulative minutes listened by that user up to and including the current session. A listening session records when a user started an episode and how many minutes they listened. Your output should show the session ID, user ID, episode ID, session start timestamp, minutes listened in that session, and the cumulative minutes listened by that user up to that session. Order the final result by user ID ascending, then by session start time ascending. Handle the case where a user may have sessions on the same timestamp (treat them in session ID order for tie-breaking).",
+  "schema_ddl": "CREATE TABLE listening_sessions (session_id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, episode_id INTEGER NOT NULL, session_start TIMESTAMP NOT NULL, minutes_listened INTEGER NOT NULL);",
+  "example_input_data": "INSERT INTO listening_sessions (session_id, user_id, episode_id, session_start, minutes_listened) VALUES (1, 101, 501, '2024-01-10 08:00:00', 25), (2, 101, 502, '2024-01-10 09:30:00', 40), (3, 102, 501, '2024-01-10 08:15:00', 15), (4, 101, 503, '2024-01-11 07:00:00', 30), (5, 102, 503, '2024-01-11 08:00:00', 20), (6, 102, 504, '2024-01-11 09:00:00', 35), (7, 103, 505, '2024-01-12 10:00:00', 50);",
+  "example_output_columns": [
+    "session_id",
+    "user_id",
+    "episode_id",
+    "session_start",
+    "minutes_listened",
+    "cumulative_minutes"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      101,
+      501,
+      "2024-01-10 08:00:00",
+      25,
+      25
+    ],
+    [
+      2,
+      101,
+      502,
+      "2024-01-10 09:30:00",
+      40,
+      65
+    ],
+    [
+      4,
+      101,
+      503,
+      "2024-01-11 07:00:00",
+      30,
+      95
+    ],
+    [
+      3,
+      102,
+      501,
+      "2024-01-10 08:15:00",
+      15,
+      15
+    ],
+    [
+      5,
+      102,
+      503,
+      "2024-01-11 08:00:00",
+      20,
+      35
+    ],
+    [
+      6,
+      102,
+      504,
+      "2024-01-11 09:00:00",
+      35,
+      70
+    ],
+    [
+      7,
+      103,
+      505,
+      "2024-01-12 10:00:00",
+      50,
+      50
+    ]
+  ],
+  "test_data": "INSERT INTO listening_sessions (session_id, user_id, episode_id, session_start, minutes_listened) VALUES (101, 201, 601, '2024-02-01 06:00:00', 10), (102, 201, 602, '2024-02-01 06:00:00', 15), (103, 201, 603, '2024-02-01 07:00:00', 20), (104, 202, 601, '2024-02-01 06:30:00', 5), (105, 202, 604, '2024-02-01 08:00:00', 25), (106, 203, 605, '2024-02-01 09:00:00', 30), (107, 201, 606, '2024-02-02 06:00:00', 12), (108, 202, 607, '2024-02-02 07:00:00', 18), (109, 203, 608, '2024-02-02 08:00:00', 22), (110, 201, 609, '2024-02-02 09:00:00', 8), (111, 204, 610, '2024-02-03 10:00:00', 45), (112, 202, 611, '2024-02-03 11:00:00', 35), (113, 203, 612, '2024-02-03 12:00:00', 40), (114, 201, 613, '2024-02-03 13:00:00', 28), (115, 204, 614, '2024-02-04 14:00:00', 33), (116, 202, 615, '2024-02-04 15:00:00', 19), (117, 203, 616, '2024-02-04 16:00:00', 27), (118, 201, 617, '2024-02-04 17:00:00', 14), (119, 204, 618, '2024-02-05 18:00:00', 50), (120, 205, 619, '2024-02-05 19:00:00', 60);",
+  "test_expected_columns": [
+    "session_id",
+    "user_id",
+    "episode_id",
+    "session_start",
+    "minutes_listened",
+    "cumulative_minutes"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      201,
+      601,
+      "2024-02-01 06:00:00",
+      10,
+      10
+    ],
+    [
+      102,
+      201,
+      602,
+      "2024-02-01 06:00:00",
+      15,
+      25
+    ],
+    [
+      103,
+      201,
+      603,
+      "2024-02-01 07:00:00",
+      20,
+      45
+    ],
+    [
+      107,
+      201,
+      606,
+      "2024-02-02 06:00:00",
+      12,
+      57
+    ],
+    [
+      110,
+      201,
+      609,
+      "2024-02-02 09:00:00",
+      8,
+      65
+    ],
+    [
+      114,
+      201,
+      613,
+      "2024-02-03 13:00:00",
+      28,
+      93
+    ],
+    [
+      118,
+      201,
+      617,
+      "2024-02-04 17:00:00",
+      14,
+      107
+    ],
+    [
+      104,
+      202,
+      601,
+      "2024-02-01 06:30:00",
+      5,
+      5
+    ],
+    [
+      105,
+      202,
+      604,
+      "2024-02-01 08:00:00",
+      25,
+      30
+    ],
+    [
+      108,
+      202,
+      607,
+      "2024-02-02 07:00:00",
+      18,
+      48
+    ],
+    [
+      112,
+      202,
+      611,
+      "2024-02-03 11:00:00",
+      35,
+      83
+    ],
+    [
+      116,
+      202,
+      615,
+      "2024-02-04 15:00:00",
+      19,
+      102
+    ],
+    [
+      106,
+      203,
+      605,
+      "2024-02-01 09:00:00",
+      30,
+      30
+    ],
+    [
+      109,
+      203,
+      608,
+      "2024-02-02 08:00:00",
+      22,
+      52
+    ],
+    [
+      113,
+      203,
+      612,
+      "2024-02-03 12:00:00",
+      40,
+      92
+    ],
+    [
+      117,
+      203,
+      616,
+      "2024-02-04 16:00:00",
+      27,
+      119
+    ],
+    [
+      111,
+      204,
+      610,
+      "2024-02-03 10:00:00",
+      45,
+      45
+    ],
+    [
+      115,
+      204,
+      614,
+      "2024-02-04 14:00:00",
+      33,
+      78
+    ],
+    [
+      119,
+      204,
+      618,
+      "2024-02-05 18:00:00",
+      50,
+      128
+    ],
+    [
+      120,
+      205,
+      619,
+      "2024-02-05 19:00:00",
+      60,
+      60
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "1. Use SUM(...) OVER (PARTITION BY user_id ORDER BY session_start, session_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) to compute cumulative minutes per user.",
+      "2. ORDER BY user_id, session_start, session_id for final output ordering."
+    ]
+  },
+  "hints": [
+    "You need to compute a running total that resets for each user.",
+    "Use a window function with PARTITION BY user_id and ORDER BY session_start to accumulate minutes over time.",
+    "The window frame should include all rows from the start of the partition up to the current row: SUM(minutes_listened) OVER (PARTITION BY user_id ORDER BY session_start, session_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)."
+  ],
+  "answer_key": "SELECT session_id, user_id, episode_id, session_start, minutes_listened, SUM(minutes_listened) OVER (PARTITION BY user_id ORDER BY session_start, session_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_minutes FROM listening_sessions ORDER BY user_id, session_start, session_id;",
+  "_meta": {
+    "question_type": "window_running_total",
+    "original_qtype": "window_running_total",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-19T17:58:37.767383",
+    "problem_id": "117a07b93a14",
+    "validation_attempts": 1,
+    "scenario": "a podcast app tracking listening sessions and episode completion",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

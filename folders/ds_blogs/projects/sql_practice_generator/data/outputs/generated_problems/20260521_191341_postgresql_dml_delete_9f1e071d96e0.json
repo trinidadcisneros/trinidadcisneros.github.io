@@ -1,0 +1,131 @@
+{
+  "title": "Remove Inactive Dating Profiles with Zero Matches",
+  "prompt": "The BooedUp dating app wants to clean up inactive user profiles. Write a single DELETE statement that removes all profiles from the `profiles` table that meet ALL of the following criteria: (1) the profile was created more than 90 days ago (use `created_at < CURRENT_DATE - INTERVAL '90 days'`), (2) the user has never received a match (their `profile_id` does not appear in the `matches` table as either `profile_id_1` or `profile_id_2`), and (3) the profile's `last_active_at` timestamp is either NULL or older than 60 days ago (use `last_active_at IS NULL OR last_active_at < CURRENT_DATE - INTERVAL '60 days'`). After the DELETE, select all remaining profiles ordered by `profile_id` to confirm the removal.",
+  "schema_ddl": "CREATE TABLE profiles (profile_id INT PRIMARY KEY, username VARCHAR(50) NOT NULL, created_at DATE NOT NULL, last_active_at DATE); CREATE TABLE matches (match_id INT PRIMARY KEY, profile_id_1 INT NOT NULL, profile_id_2 INT NOT NULL, matched_at DATE NOT NULL);",
+  "example_input_data": "INSERT INTO profiles (profile_id, username, created_at, last_active_at) VALUES (1, 'alex_2024', '2024-12-01', '2024-12-15'), (2, 'sam_old', '2024-08-15', '2024-09-20'), (3, 'chris_inactive', '2024-07-10', NULL), (4, 'jordan_gone', '2024-06-01', '2024-06-05'), (5, 'taylor_active', '2024-09-01', '2024-12-10'), (6, 'morgan_stale', '2024-05-20', '2024-10-01'); INSERT INTO matches (match_id, profile_id_1, profile_id_2, matched_at) VALUES (101, 1, 5, '2024-12-10'), (102, 2, 6, '2024-09-25'), (103, 5, 1, '2024-12-12');",
+  "example_output_columns": [
+    "profile_id",
+    "username",
+    "created_at",
+    "last_active_at"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "alex_2024",
+      "2024-12-01",
+      "2024-12-15"
+    ],
+    [
+      2,
+      "sam_old",
+      "2024-08-15",
+      "2024-09-20"
+    ],
+    [
+      5,
+      "taylor_active",
+      "2024-09-01",
+      "2024-12-10"
+    ],
+    [
+      6,
+      "morgan_stale",
+      "2024-05-20",
+      "2024-10-01"
+    ]
+  ],
+  "test_data": "INSERT INTO profiles (profile_id, username, created_at, last_active_at) VALUES (1, 'user_recent', CURRENT_DATE - INTERVAL '30 days', CURRENT_DATE - INTERVAL '10 days'), (2, 'user_old_active', CURRENT_DATE - INTERVAL '100 days', CURRENT_DATE - INTERVAL '20 days'), (3, 'user_old_inactive_null', CURRENT_DATE - INTERVAL '120 days', NULL), (4, 'user_old_inactive_stale', CURRENT_DATE - INTERVAL '150 days', CURRENT_DATE - INTERVAL '80 days'), (5, 'user_old_borderline', CURRENT_DATE - INTERVAL '91 days', CURRENT_DATE - INTERVAL '61 days'), (6, 'user_old_matched', CURRENT_DATE - INTERVAL '200 days', NULL), (7, 'user_exact_90', CURRENT_DATE - INTERVAL '90 days', NULL), (8, 'user_exact_60', CURRENT_DATE - INTERVAL '100 days', CURRENT_DATE - INTERVAL '60 days'), (9, 'user_orphan_1', CURRENT_DATE - INTERVAL '180 days', CURRENT_DATE - INTERVAL '90 days'), (10, 'user_orphan_2', CURRENT_DATE - INTERVAL '95 days', CURRENT_DATE - INTERVAL '70 days'), (11, 'user_matched_both', CURRENT_DATE - INTERVAL '110 days', CURRENT_DATE - INTERVAL '75 days'), (12, 'user_recent_no_match', CURRENT_DATE - INTERVAL '50 days', CURRENT_DATE - INTERVAL '10 days'), (13, 'user_old_very_recent', CURRENT_DATE - INTERVAL '130 days', CURRENT_DATE - INTERVAL '5 days'), (14, 'user_future_edge', CURRENT_DATE - INTERVAL '92 days', CURRENT_DATE - INTERVAL '59 days'), (15, 'user_null_old', CURRENT_DATE - INTERVAL '250 days', NULL); INSERT INTO matches (match_id, profile_id_1, profile_id_2, matched_at) VALUES (201, 1, 2, CURRENT_DATE - INTERVAL '15 days'), (202, 6, 11, CURRENT_DATE - INTERVAL '50 days'), (203, 11, 2, CURRENT_DATE - INTERVAL '60 days'), (204, 13, 1, CURRENT_DATE - INTERVAL '8 days');",
+  "test_expected_columns": [
+    "profile_id",
+    "username",
+    "created_at",
+    "last_active_at"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "user_recent",
+      "2026-04-22",
+      "2026-05-12"
+    ],
+    [
+      2,
+      "user_old_active",
+      "2026-02-11",
+      "2026-05-02"
+    ],
+    [
+      6,
+      "user_old_matched",
+      "2025-11-03",
+      null
+    ],
+    [
+      7,
+      "user_exact_90",
+      "2026-02-21",
+      null
+    ],
+    [
+      8,
+      "user_exact_60",
+      "2026-02-11",
+      "2026-03-23"
+    ],
+    [
+      11,
+      "user_matched_both",
+      "2026-02-01",
+      "2026-03-08"
+    ],
+    [
+      12,
+      "user_recent_no_match",
+      "2026-04-02",
+      "2026-05-12"
+    ],
+    [
+      13,
+      "user_old_very_recent",
+      "2026-01-12",
+      "2026-05-17"
+    ],
+    [
+      14,
+      "user_future_edge",
+      "2026-02-19",
+      "2026-03-24"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "state_mutation",
+    "recipe": "delete-duplicates",
+    "composite_moves": [
+      "subquery NOT IN with UNION to check both match columns",
+      "date arithmetic filters",
+      "NULL handling with OR condition"
+    ]
+  },
+  "hints": [
+    "You need to find profiles that don't appear in the matches table at all, considering both sides of a match.",
+    "Use NOT IN with a subquery that UNIONs profile_id_1 and profile_id_2 from the matches table to catch all matched profiles.",
+    "Combine three conditions with AND: created_at check, NOT IN subquery, and the last_active_at check with NULL handling."
+  ],
+  "answer_key": "DELETE FROM profiles WHERE created_at < CURRENT_DATE - INTERVAL '90 days' AND profile_id NOT IN (SELECT profile_id_1 FROM matches UNION SELECT profile_id_2 FROM matches) AND (last_active_at IS NULL OR last_active_at < CURRENT_DATE - INTERVAL '60 days'); SELECT * FROM profiles ORDER BY profile_id;",
+  "_meta": {
+    "question_type": "dml_delete",
+    "original_qtype": "dml_delete",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "booedup",
+    "generated_at": "2026-05-21T19:13:41.097716",
+    "problem_id": "9f1e071d96e0",
+    "validation_attempts": 1,
+    "scenario": "the BooedUp dating app",
+    "dml_op": "DELETE",
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

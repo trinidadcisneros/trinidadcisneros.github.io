@@ -1,0 +1,107 @@
+{
+  "problem": {
+    "title": "Team Points Standings from Head-to-Head Matches",
+    "prompt": "A fitness challenge app tracks team-versus-team workout competitions. Each match is recorded as one row with both teams and their scores. The `workout_matches` table has columns `match_id`, `home_team_id`, `away_team_id`, `home_score`, and `away_score`, representing the number of completed workouts each team achieved during the match period. Calculate each team's total points using standard scoring: a team earns 3 points for a win (higher score than opponent), 1 point for a draw (equal scores), and 0 points for a loss. Report every team in the `teams` table, even if they have not participated in any matches yet (show 0 points and 0 matches for those teams). Output columns: `team_name`, `matches_played`, `total_points`. Order the results by `total_points` descending, then by `team_name` ascending.",
+    "schema_ddl": "CREATE TABLE teams (team_id INT PRIMARY KEY, team_name VARCHAR(100)); CREATE TABLE workout_matches (match_id INT PRIMARY KEY, home_team_id INT, away_team_id INT, home_score INT, away_score INT);",
+    "example_input_data": "INSERT INTO teams (team_id, team_name) VALUES (1, 'Alpha Lifters'), (2, 'Beta Runners'), (3, 'Gamma Cyclists'), (4, 'Delta Yogis'); INSERT INTO workout_matches (match_id, home_team_id, away_team_id, home_score, away_score) VALUES (101, 1, 2, 12, 8), (102, 2, 3, 10, 10), (103, 3, 1, 7, 9), (104, 1, 3, 15, 15), (105, 2, 1, 6, 11);",
+    "example_output_columns": [
+      "team_name",
+      "matches_played",
+      "total_points"
+    ],
+    "example_output_rows": [
+      [
+        "Alpha Lifters",
+        "4",
+        "10"
+      ],
+      [
+        "Gamma Cyclists",
+        "3",
+        "2"
+      ],
+      [
+        "Beta Runners",
+        "3",
+        "1"
+      ],
+      [
+        "Delta Yogis",
+        "0",
+        "0"
+      ]
+    ],
+    "test_data": "INSERT INTO teams (team_id, team_name) VALUES (1, 'Alpha Lifters'), (2, 'Beta Runners'), (3, 'Gamma Cyclists'), (4, 'Delta Yogis'), (5, 'Epsilon Swimmers'), (6, 'Zeta Boxers'); INSERT INTO workout_matches (match_id, home_team_id, away_team_id, home_score, away_score) VALUES (201, 1, 2, 20, 15), (202, 2, 3, 10, 10), (203, 3, 1, 8, 12), (204, 1, 3, 18, 18), (205, 2, 1, 9, 14), (206, 3, 5, 22, 19), (207, 5, 1, 11, 11), (208, 2, 5, 16, 20), (209, 3, 2, 13, 13), (210, 5, 3, 25, 22), (211, 1, 5, 17, 14), (212, 2, 3, 10, 12), (213, 5, 2, 18, 15), (214, 1, 2, 12, 12), (215, 3, 5, 20, 20), (216, 6, 1, 0, 0);",
+    "test_expected_columns": [
+      "team_name",
+      "matches_played",
+      "total_points"
+    ],
+    "test_expected_rows": [
+      [
+        "Alpha Lifters",
+        "8",
+        "16"
+      ],
+      [
+        "Epsilon Swimmers",
+        "7",
+        "11"
+      ],
+      [
+        "Gamma Cyclists",
+        "8",
+        "10"
+      ],
+      [
+        "Beta Runners",
+        "8",
+        "3"
+      ],
+      [
+        "Zeta Boxers",
+        "1",
+        "1"
+      ],
+      [
+        "Delta Yogis",
+        "0",
+        "0"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "normalize-bidirectional",
+      "composite_moves": [
+        "unpivot the two sides of each match via UNION ALL, producing one row per (team, own_score, opponent_score)",
+        "score each unpivoted row: CASE WHEN own_score > opp_score THEN 3 WHEN own_score = opp_score THEN 1 ELSE 0 END",
+        "GROUP BY team_id aggregating SUM(points) and COUNT(*) as matches_played",
+        "LEFT JOIN from teams dimension to the aggregated results, COALESCE metrics to 0 for teams with no matches",
+        "ORDER BY total_points DESC, team_name ASC"
+      ]
+    },
+    "hints": [
+      "Each match row contains two teams; you need to extract each team's perspective separately so you can count all their matches.",
+      "Use UNION ALL to split each match into two rows: one for the home team (with home_score as their score and away_score as opponent) and one for the away team (reversed). Then apply the point-scoring rule to each row.",
+      "After unpivoting, use CASE to assign points: 3 if own_score > opponent_score, 1 if equal, 0 otherwise. Then GROUP BY team_id, SUM the points and COUNT the matches. Finally, LEFT JOIN from the teams table so every team appears, using COALESCE to default missing aggregates to 0."
+    ],
+    "answer_key": "WITH team_results AS (\n  SELECT\n    home_team_id AS team_id,\n    home_score AS own_score,\n    away_score AS opp_score\n  FROM workout_matches\n  UNION ALL\n  SELECT\n    away_team_id AS team_id,\n    away_score AS own_score,\n    home_score AS opp_score\n  FROM workout_matches\n),\nteam_points AS (\n  SELECT\n    team_id,\n    COUNT(*) AS matches_played,\n    SUM(\n      CASE\n        WHEN own_score > opp_score THEN 3\n        WHEN own_score = opp_score THEN 1\n        ELSE 0\n      END\n    ) AS total_points\n  FROM team_results\n  GROUP BY team_id\n)\nSELECT\n  t.team_name,\n  COALESCE(tp.matches_played, 0)::TEXT AS matches_played,\n  COALESCE(tp.total_points, 0)::TEXT AS total_points\nFROM teams t\nLEFT JOIN team_points tp ON t.team_id = tp.team_id\nORDER BY COALESCE(tp.total_points, 0) DESC, t.team_name ASC;",
+    "_meta": {
+      "question_type": "matchup_unpivot",
+      "original_qtype": "matchup_unpivot",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-24T11:48:34.409125",
+      "problem_id": "3683500d32bd",
+      "validation_attempts": 1,
+      "scenario": "a fitness app tracking workout completion and active days per week",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\n1. score and pivot\n2. group by\n\n*/\n\nWITH base AS (\n    SELECT\n        w.match_id::int,\n        t.team_id,\n        t.team_name,\n        CASE \n            WHEN w.home_score > w.away_score THEN 3\n            WHEN w.home_score = w.away_score THEN 1\n            WHEN w.home_score < w.away_score THEN 0\n        END AS team_scores\n    FROM teams AS t\n    LEFT JOIN workout_matches AS w\n    ON t.team_id = w.home_team_id\n\n    UNION ALL\n\n    SELECT\n        w.match_id::int,\n        t.team_id,\n        t.team_name,\n        CASE \n            WHEN w.home_score < w.away_score THEN 3\n            WHEN w.home_score = w.away_score THEN 1\n            WHEN w.home_score > w.away_score THEN 0\n        END AS team_scores\n    FROM teams AS t\n    LEFT JOIN workout_matches AS w\n    ON t.team_id = w.away_team_id\n\n)\nSELECT\n    b.team_name,\n    COALESCE(COUNT(b.match_id),0) AS matches_played,\n    COALESCE(SUM(b.team_scores),0) AS total_points\nFROM base AS b\nGROUP BY b.team_name\nORDER BY total_points DESC, team_name;\n",
+  "solved_at": "2026-05-24T12:05:17.942503"
+}

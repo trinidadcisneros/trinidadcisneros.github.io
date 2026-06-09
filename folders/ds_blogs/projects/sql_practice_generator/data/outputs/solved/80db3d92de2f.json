@@ -1,0 +1,163 @@
+{
+  "problem": {
+    "title": "7-Day Rolling Average Story Views",
+    "prompt": "You are analyzing engagement trends for a photo sharing app. The `daily_story_stats` table records the total number of story views each day. Calculate a 7-day rolling average of daily story views for each day, including the current day and the previous 6 days. The rolling average should be rounded to 2 decimal places. Order the results by date in ascending order. For days where fewer than 7 days of data exist (the first 6 days in the dataset), the rolling average should only include the available days up to and including the current day. The output should include the date and the 7-day rolling average view count.",
+    "schema_ddl": "CREATE TABLE daily_story_stats (stat_date DATE NOT NULL, total_views INTEGER NOT NULL);",
+    "example_input_data": "INSERT INTO daily_story_stats (stat_date, total_views) VALUES ('2024-01-01', 1200), ('2024-01-02', 1350), ('2024-01-03', 1100), ('2024-01-04', 1450), ('2024-01-05', 1600), ('2024-01-06', 1250), ('2024-01-07', 1400), ('2024-01-08', 1550);",
+    "example_output_columns": [
+      "stat_date",
+      "rolling_avg_views"
+    ],
+    "example_output_rows": [
+      [
+        "2024-01-01",
+        "1200.00"
+      ],
+      [
+        "2024-01-02",
+        "1275.00"
+      ],
+      [
+        "2024-01-03",
+        "1216.67"
+      ],
+      [
+        "2024-01-04",
+        "1275.00"
+      ],
+      [
+        "2024-01-05",
+        "1340.00"
+      ],
+      [
+        "2024-01-06",
+        "1325.00"
+      ],
+      [
+        "2024-01-07",
+        "1335.71"
+      ],
+      [
+        "2024-01-08",
+        "1385.71"
+      ]
+    ],
+    "test_data": "INSERT INTO daily_story_stats (stat_date, total_views) VALUES ('2024-02-01', 2100), ('2024-02-02', 2250), ('2024-02-03', 1900), ('2024-02-04', 2400), ('2024-02-05', 2600), ('2024-02-06', 2300), ('2024-02-07', 2500), ('2024-02-08', 2700), ('2024-02-09', 2200), ('2024-02-10', 2800), ('2024-02-11', 3000), ('2024-02-12', 2900), ('2024-02-13', 3100), ('2024-02-14', 2750), ('2024-02-15', 3200), ('2024-02-16', 3400), ('2024-02-17', 3000), ('2024-02-18', 3300), ('2024-02-19', 3500), ('2024-02-20', 3100);",
+    "test_expected_columns": [
+      "stat_date",
+      "rolling_avg_views"
+    ],
+    "test_expected_rows": [
+      [
+        "2024-02-01",
+        "2100.00"
+      ],
+      [
+        "2024-02-02",
+        "2175.00"
+      ],
+      [
+        "2024-02-03",
+        "2083.33"
+      ],
+      [
+        "2024-02-04",
+        "2162.50"
+      ],
+      [
+        "2024-02-05",
+        "2250.00"
+      ],
+      [
+        "2024-02-06",
+        "2258.33"
+      ],
+      [
+        "2024-02-07",
+        "2292.86"
+      ],
+      [
+        "2024-02-08",
+        "2378.57"
+      ],
+      [
+        "2024-02-09",
+        "2371.43"
+      ],
+      [
+        "2024-02-10",
+        "2500.00"
+      ],
+      [
+        "2024-02-11",
+        "2585.71"
+      ],
+      [
+        "2024-02-12",
+        "2628.57"
+      ],
+      [
+        "2024-02-13",
+        "2742.86"
+      ],
+      [
+        "2024-02-14",
+        "2778.57"
+      ],
+      [
+        "2024-02-15",
+        "2850.00"
+      ],
+      [
+        "2024-02-16",
+        "3021.43"
+      ],
+      [
+        "2024-02-17",
+        "3050.00"
+      ],
+      [
+        "2024-02-18",
+        "3092.86"
+      ],
+      [
+        "2024-02-19",
+        "3178.57"
+      ],
+      [
+        "2024-02-20",
+        "3178.57"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "time-window: apply ROWS BETWEEN 6 PRECEDING AND CURRENT ROW frame with AVG aggregate over ordered date rows"
+      ]
+    },
+    "hints": [
+      "You need to compute an average over a moving window of rows, not a simple GROUP BY.",
+      "Use a window function with an ORDER BY clause on the date column and specify a frame that includes the current row plus the 6 preceding rows.",
+      "The frame clause ROWS BETWEEN 6 PRECEDING AND CURRENT ROW with AVG will give you the rolling average. Use ROUND to format to 2 decimal places."
+    ],
+    "answer_key": "SELECT stat_date, ROUND(AVG(total_views) OVER (ORDER BY stat_date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW), 2) AS rolling_avg_views FROM daily_story_stats ORDER BY stat_date;",
+    "_meta": {
+      "question_type": "window_sliding",
+      "original_qtype": "window_sliding",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-24T19:40:20.853722",
+      "problem_id": "80db3d92de2f",
+      "validation_attempts": 1,
+      "scenario": "a photo sharing app tracking story creation and view rates",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\n\nSELECT\n    stat_date,\n    ROUND(AVG(total_views) OVER (ORDER BY stat_date\n                            ROWS BETWEEN 6 PRECEDING AND CURRENT ROW), 2) AS rolling_avg_views\nFROM daily_story_stats\nORDER BY stat_date",
+  "solved_at": "2026-05-24T19:44:55.409104"
+}

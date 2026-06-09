@@ -1,0 +1,167 @@
+{
+  "problem": {
+    "title": "7-Day Rolling Job Acceptance Rate",
+    "prompt": "You are analyzing worker engagement in a gig labor marketplace. The `daily_job_metrics` table records, for each date, the total number of job offers sent to workers (`offers_sent`) and the number of those offers that were accepted (`offers_accepted`). Write a query that computes a 7-day rolling acceptance rate for each date. The acceptance rate is defined as `(sum of offers_accepted over the window) / (sum of offers_sent over the window) * 100`, rounded to two decimal places. Use an explicit frame clause `ROWS BETWEEN 6 PRECEDING AND CURRENT ROW` so each row's window includes itself plus the prior 6 days (7 total days when available). For dates at the start of the dataset where fewer than 7 days of history exist, compute the rate over whatever days are available. Return columns `metric_date` and `rolling_acceptance_rate`, ordered by `metric_date` ascending. Note that some days may have zero offers sent; handle division by zero by returning NULL for the acceptance rate on those dates.",
+    "schema_ddl": "CREATE TABLE daily_job_metrics (\n  metric_date DATE NOT NULL PRIMARY KEY,\n  offers_sent INTEGER NOT NULL,\n  offers_accepted INTEGER NOT NULL\n);",
+    "example_input_data": "INSERT INTO daily_job_metrics (metric_date, offers_sent, offers_accepted) VALUES\n('2024-01-01', 100, 75),\n('2024-01-02', 120, 90),\n('2024-01-03', 110, 88),\n('2024-01-04', 130, 104),\n('2024-01-05', 0, 0),\n('2024-01-06', 140, 112),\n('2024-01-07', 150, 120),\n('2024-01-08', 160, 128);",
+    "example_output_columns": [
+      "metric_date",
+      "rolling_acceptance_rate"
+    ],
+    "example_output_rows": [
+      [
+        "2024-01-01",
+        "75.00"
+      ],
+      [
+        "2024-01-02",
+        "75.00"
+      ],
+      [
+        "2024-01-03",
+        "76.67"
+      ],
+      [
+        "2024-01-04",
+        "77.61"
+      ],
+      [
+        "2024-01-05",
+        "77.61"
+      ],
+      [
+        "2024-01-06",
+        "78.17"
+      ],
+      [
+        "2024-01-07",
+        "78.53"
+      ],
+      [
+        "2024-01-08",
+        "79.26"
+      ]
+    ],
+    "test_data": "INSERT INTO daily_job_metrics (metric_date, offers_sent, offers_accepted) VALUES\n('2024-02-01', 200, 150),\n('2024-02-02', 220, 176),\n('2024-02-03', 210, 168),\n('2024-02-04', 0, 0),\n('2024-02-05', 230, 184),\n('2024-02-06', 240, 192),\n('2024-02-07', 250, 200),\n('2024-02-08', 260, 208),\n('2024-02-09', 270, 216),\n('2024-02-10', 280, 224),\n('2024-02-11', 0, 0),\n('2024-02-12', 290, 232),\n('2024-02-13', 300, 240),\n('2024-02-14', 310, 248),\n('2024-02-15', 320, 256),\n('2024-02-16', 330, 264),\n('2024-02-17', 340, 272),\n('2024-02-18', 350, 280),\n('2024-02-19', 360, 288),\n('2024-02-20', 370, 296);",
+    "test_expected_columns": [
+      "metric_date",
+      "rolling_acceptance_rate"
+    ],
+    "test_expected_rows": [
+      [
+        "2024-02-01",
+        "75.00"
+      ],
+      [
+        "2024-02-02",
+        "77.62"
+      ],
+      [
+        "2024-02-03",
+        "78.41"
+      ],
+      [
+        "2024-02-04",
+        "78.41"
+      ],
+      [
+        "2024-02-05",
+        "78.84"
+      ],
+      [
+        "2024-02-06",
+        "79.09"
+      ],
+      [
+        "2024-02-07",
+        "79.26"
+      ],
+      [
+        "2024-02-08",
+        "80.00"
+      ],
+      [
+        "2024-02-09",
+        "80.00"
+      ],
+      [
+        "2024-02-10",
+        "80.00"
+      ],
+      [
+        "2024-02-11",
+        "80.00"
+      ],
+      [
+        "2024-02-12",
+        "80.00"
+      ],
+      [
+        "2024-02-13",
+        "80.00"
+      ],
+      [
+        "2024-02-14",
+        "80.00"
+      ],
+      [
+        "2024-02-15",
+        "80.00"
+      ],
+      [
+        "2024-02-16",
+        "80.00"
+      ],
+      [
+        "2024-02-17",
+        "80.00"
+      ],
+      [
+        "2024-02-18",
+        "80.00"
+      ],
+      [
+        "2024-02-19",
+        "80.00"
+      ],
+      [
+        "2024-02-20",
+        "80.00"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "order rows by metric_date",
+        "define 7-day sliding window with ROWS BETWEEN 6 PRECEDING AND CURRENT ROW",
+        "sum offers_accepted and offers_sent over window",
+        "compute acceptance rate with NULL-safe division",
+        "round result to two decimals"
+      ]
+    },
+    "hints": [
+      "You'll need a window function that aggregates over a rolling range of rows.",
+      "Use ROWS BETWEEN 6 PRECEDING AND CURRENT ROW to define a 7-day window, and sum both numerator and denominator separately.",
+      "Handle division by zero with a CASE or NULLIF; compute (sum_accepted / NULLIF(sum_sent, 0) * 100) and round to two decimal places."
+    ],
+    "answer_key": "SELECT\n  metric_date,\n  ROUND(\n    (SUM(offers_accepted) OVER (ORDER BY metric_date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW)::NUMERIC\n     / NULLIF(SUM(offers_sent) OVER (ORDER BY metric_date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW), 0))\n    * 100,\n    2\n  ) AS rolling_acceptance_rate\nFROM daily_job_metrics\nORDER BY metric_date;",
+    "_meta": {
+      "question_type": "window_sliding",
+      "original_qtype": "window_sliding",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-19T18:37:32.548893",
+      "problem_id": "2d6e2219cd9c",
+      "validation_attempts": 1,
+      "scenario": "a gig labor marketplace tracking job acceptance and completion rates",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\nWITH base AS (\n    SELECT\n        metric_date,\n        offers_sent,\n        offers_accepted,\n        ROUND(\n        SUM(offers_accepted) OVER (\n            ORDER BY metric_date \n            ROWS BETWEEN 6 PRECEDING AND CURRENT ROW\n        )::numeric / NULLIF(SUM(offers_sent) OVER (\n            ORDER BY metric_date \n            ROWS BETWEEN 6 PRECEDING AND CURRENT ROW\n        ), 0) * 100, 2)\n         AS rolling_acceptance_rate\n    FROM daily_job_metrics\n    ORDER BY metric_date\n\n)\nSELECT\n    metric_date,\n    rolling_acceptance_rate\nFROM base;\n",
+  "solved_at": "2026-05-19T18:50:38.649031"
+}

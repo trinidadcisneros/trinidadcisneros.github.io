@@ -1,0 +1,174 @@
+{
+  "title": "Member Activity Periods by Status",
+  "prompt": "You are analyzing member activity in a community forum. Member activity is tracked in two tables: `active_periods` records dates when a member was actively participating, and `inactive_periods` records dates when the member was registered but not participating. A member can switch between active and inactive status multiple times. You need to identify consecutive status periods for each member, where 'consecutive' means consecutive rows in the combined timeline for that member (ignoring any missing calendar days). Write a query that returns one row per consecutive status period per member. Output columns must be: `member_id`, `status` (either 'active' or 'inactive'), `period_start` (the earliest date in that consecutive run), and `period_end` (the latest date in that consecutive run). Order the results by `member_id` ASC, then `period_start` ASC. A member may have multiple periods of the same status separated by periods of the other status.",
+  "schema_ddl": "CREATE TABLE active_periods (member_id INT NOT NULL, activity_date DATE NOT NULL); CREATE TABLE inactive_periods (member_id INT NOT NULL, inactivity_date DATE NOT NULL);",
+  "example_input_data": "INSERT INTO active_periods (member_id, activity_date) VALUES (101, '2024-01-05'), (101, '2024-01-06'), (101, '2024-01-12'), (102, '2024-01-03'), (102, '2024-01-10'); INSERT INTO inactive_periods (member_id, inactivity_date) VALUES (101, '2024-01-08'), (101, '2024-01-09'), (102, '2024-01-05'), (102, '2024-01-06');",
+  "example_output_columns": [
+    "member_id",
+    "status",
+    "period_start",
+    "period_end"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "active",
+      "2024-01-05",
+      "2024-01-06"
+    ],
+    [
+      101,
+      "inactive",
+      "2024-01-08",
+      "2024-01-09"
+    ],
+    [
+      101,
+      "active",
+      "2024-01-12",
+      "2024-01-12"
+    ],
+    [
+      102,
+      "active",
+      "2024-01-03",
+      "2024-01-03"
+    ],
+    [
+      102,
+      "inactive",
+      "2024-01-05",
+      "2024-01-06"
+    ],
+    [
+      102,
+      "active",
+      "2024-01-10",
+      "2024-01-10"
+    ]
+  ],
+  "test_data": "INSERT INTO active_periods (member_id, activity_date) VALUES (101, '2024-01-05'), (101, '2024-01-06'), (101, '2024-01-07'), (101, '2024-01-15'), (101, '2024-01-16'), (101, '2024-01-25'), (102, '2024-01-02'), (102, '2024-01-03'), (102, '2024-01-12'), (102, '2024-01-13'), (102, '2024-01-14'), (103, '2024-01-01'), (103, '2024-01-08'), (103, '2024-01-09'), (103, '2024-01-20'); INSERT INTO inactive_periods (member_id, inactivity_date) VALUES (101, '2024-01-10'), (101, '2024-01-11'), (101, '2024-01-12'), (101, '2024-01-20'), (101, '2024-01-21'), (102, '2024-01-05'), (102, '2024-01-06'), (102, '2024-01-07'), (102, '2024-01-08'), (102, '2024-01-18'), (102, '2024-01-19'), (103, '2024-01-03'), (103, '2024-01-04'), (103, '2024-01-05'), (103, '2024-01-12'), (103, '2024-01-13');",
+  "test_expected_columns": [
+    "member_id",
+    "status",
+    "period_start",
+    "period_end"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      "active",
+      "2024-01-05",
+      "2024-01-07"
+    ],
+    [
+      101,
+      "inactive",
+      "2024-01-10",
+      "2024-01-12"
+    ],
+    [
+      101,
+      "active",
+      "2024-01-15",
+      "2024-01-16"
+    ],
+    [
+      101,
+      "inactive",
+      "2024-01-20",
+      "2024-01-21"
+    ],
+    [
+      101,
+      "active",
+      "2024-01-25",
+      "2024-01-25"
+    ],
+    [
+      102,
+      "active",
+      "2024-01-02",
+      "2024-01-03"
+    ],
+    [
+      102,
+      "inactive",
+      "2024-01-05",
+      "2024-01-08"
+    ],
+    [
+      102,
+      "active",
+      "2024-01-12",
+      "2024-01-14"
+    ],
+    [
+      102,
+      "inactive",
+      "2024-01-18",
+      "2024-01-19"
+    ],
+    [
+      103,
+      "active",
+      "2024-01-01",
+      "2024-01-01"
+    ],
+    [
+      103,
+      "inactive",
+      "2024-01-03",
+      "2024-01-05"
+    ],
+    [
+      103,
+      "active",
+      "2024-01-08",
+      "2024-01-09"
+    ],
+    [
+      103,
+      "inactive",
+      "2024-01-12",
+      "2024-01-13"
+    ],
+    [
+      103,
+      "active",
+      "2024-01-20",
+      "2024-01-20"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "union",
+    "output_shape": "fewer_rows",
+    "recipe": "gaps-and-islands",
+    "composite_moves": [
+      "UNION ALL active_periods and inactive_periods with status labels",
+      "per-entity partition: ROW_NUMBER() OVER (PARTITION BY member_id ORDER BY date) - ROW_NUMBER() OVER (PARTITION BY member_id, status ORDER BY date)",
+      "GROUP BY member_id, status, grp; MIN(date) AS period_start, MAX(date) AS period_end",
+      "ORDER BY member_id, period_start"
+    ]
+  },
+  "hints": [
+    "Combine both tables into a single timeline per member, tagging each row with its status.",
+    "Use the row-number difference technique partitioned by member to identify consecutive runs of the same status for each member independently.",
+    "Group by member, status, and the gap identifier; then take MIN and MAX dates for each group to form the period boundaries."
+  ],
+  "answer_key": "WITH combined AS (\n  SELECT member_id, activity_date AS status_date, 'active' AS status\n  FROM active_periods\n  UNION ALL\n  SELECT member_id, inactivity_date AS status_date, 'inactive' AS status\n  FROM inactive_periods\n),\nranked AS (\n  SELECT\n    member_id,\n    status,\n    status_date,\n    ROW_NUMBER() OVER (PARTITION BY member_id ORDER BY status_date) -\n    ROW_NUMBER() OVER (PARTITION BY member_id, status ORDER BY status_date) AS grp\n  FROM combined\n)\nSELECT\n  member_id,\n  status,\n  MIN(status_date) AS period_start,\n  MAX(status_date) AS period_end\nFROM ranked\nGROUP BY member_id, status, grp\nORDER BY member_id ASC, period_start ASC;",
+  "_meta": {
+    "question_type": "union_islands",
+    "original_qtype": "union_islands",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-04T19:18:23.738634",
+    "problem_id": "653ceb98e629",
+    "validation_attempts": 1,
+    "scenario": "a community forum tracking thread participation and member retention",
+    "dml_op": null,
+    "islands_flavor": "partitioned_status_periods",
+    "percentile_flavor": null
+  }
+}

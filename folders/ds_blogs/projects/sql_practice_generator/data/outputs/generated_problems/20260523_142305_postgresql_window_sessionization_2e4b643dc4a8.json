@@ -1,0 +1,170 @@
+{
+  "title": "Workout Session Detection with 20-Minute Gaps",
+  "prompt": "A fitness app records every exercise completion with a timestamp. Management wants to group these exercise events into workout sessions, where a new session starts whenever 20 or more minutes have passed since the user's previous exercise. Write a query that assigns a unique session identifier to each exercise event, then returns one row per user per session showing the user_id, session_id, session start time (earliest exercise_completed_at in that session), session end time (latest exercise_completed_at), and total number of exercises completed in that session. Order results by user_id ascending, then session_id ascending. A user's very first exercise always starts session 1 for that user. Handle cases where a user has only one exercise in a session.",
+  "schema_ddl": "CREATE TABLE exercise_completions (exercise_id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, exercise_name VARCHAR(100) NOT NULL, exercise_completed_at TIMESTAMP NOT NULL);",
+  "example_input_data": "INSERT INTO exercise_completions (user_id, exercise_name, exercise_completed_at) VALUES (101, 'Push-ups', '2024-01-15 08:00:00'), (101, 'Squats', '2024-01-15 08:10:00'), (101, 'Plank', '2024-01-15 08:15:00'), (101, 'Jumping Jacks', '2024-01-15 09:00:00'), (101, 'Lunges', '2024-01-15 09:05:00'), (202, 'Burpees', '2024-01-15 07:30:00'), (202, 'Mountain Climbers', '2024-01-15 08:20:00'), (202, 'Sit-ups', '2024-01-15 08:35:00');",
+  "example_output_columns": [
+    "user_id",
+    "session_id",
+    "session_start",
+    "session_end",
+    "exercises_completed"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      1,
+      "2024-01-15 08:00:00",
+      "2024-01-15 08:15:00",
+      3
+    ],
+    [
+      101,
+      2,
+      "2024-01-15 09:00:00",
+      "2024-01-15 09:05:00",
+      2
+    ],
+    [
+      202,
+      1,
+      "2024-01-15 07:30:00",
+      "2024-01-15 07:30:00",
+      1
+    ],
+    [
+      202,
+      2,
+      "2024-01-15 08:20:00",
+      "2024-01-15 08:35:00",
+      2
+    ]
+  ],
+  "test_data": "INSERT INTO exercise_completions (user_id, exercise_name, exercise_completed_at) VALUES (101, 'Push-ups', '2024-01-20 06:00:00'), (101, 'Squats', '2024-01-20 06:05:00'), (101, 'Plank', '2024-01-20 06:18:00'), (101, 'Lunges', '2024-01-20 06:40:00'), (101, 'Burpees', '2024-01-20 06:55:00'), (101, 'Jumping Jacks', '2024-01-20 07:16:00'), (101, 'Crunches', '2024-01-20 07:20:00'), (101, 'Dips', '2024-01-20 08:00:00'), (202, 'Push-ups', '2024-01-20 07:00:00'), (202, 'Squats', '2024-01-20 07:10:00'), (202, 'Plank', '2024-01-20 07:15:00'), (202, 'Lunges', '2024-01-20 08:00:00'), (202, 'Burpees', '2024-01-20 08:05:00'), (303, 'Push-ups', '2024-01-20 09:00:00'), (303, 'Squats', '2024-01-20 09:25:00'), (303, 'Plank', '2024-01-20 09:30:00'), (303, 'Lunges', '2024-01-20 10:10:00'), (404, 'Burpees', '2024-01-20 10:00:00'), (404, 'Jumping Jacks', '2024-01-20 10:15:00'), (404, 'Crunches', '2024-01-20 10:40:00'), (404, 'Dips', '2024-01-20 10:55:00'), (404, 'Mountain Climbers', '2024-01-20 11:00:00'), (505, 'Push-ups', '2024-01-20 08:00:00');",
+  "test_expected_columns": [
+    "user_id",
+    "session_id",
+    "session_start",
+    "session_end",
+    "exercises_completed"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      1,
+      "2024-01-20 06:00:00",
+      "2024-01-20 06:18:00",
+      3
+    ],
+    [
+      101,
+      2,
+      "2024-01-20 06:40:00",
+      "2024-01-20 06:55:00",
+      2
+    ],
+    [
+      101,
+      3,
+      "2024-01-20 07:16:00",
+      "2024-01-20 07:20:00",
+      2
+    ],
+    [
+      101,
+      4,
+      "2024-01-20 08:00:00",
+      "2024-01-20 08:00:00",
+      1
+    ],
+    [
+      202,
+      1,
+      "2024-01-20 07:00:00",
+      "2024-01-20 07:15:00",
+      3
+    ],
+    [
+      202,
+      2,
+      "2024-01-20 08:00:00",
+      "2024-01-20 08:05:00",
+      2
+    ],
+    [
+      303,
+      1,
+      "2024-01-20 09:00:00",
+      "2024-01-20 09:00:00",
+      1
+    ],
+    [
+      303,
+      2,
+      "2024-01-20 09:25:00",
+      "2024-01-20 09:30:00",
+      2
+    ],
+    [
+      303,
+      3,
+      "2024-01-20 10:10:00",
+      "2024-01-20 10:10:00",
+      1
+    ],
+    [
+      404,
+      1,
+      "2024-01-20 10:00:00",
+      "2024-01-20 10:15:00",
+      2
+    ],
+    [
+      404,
+      2,
+      "2024-01-20 10:40:00",
+      "2024-01-20 11:00:00",
+      3
+    ],
+    [
+      505,
+      1,
+      "2024-01-20 08:00:00",
+      "2024-01-20 08:00:00",
+      1
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "CTE-1: LAG to compute previous_ts per user ordered by exercise_completed_at",
+      "CTE-1: CASE to flag new_session when previous_ts IS NULL or gap >= 20 minutes",
+      "CTE-2: SUM(new_session_flag) OVER (PARTITION BY user_id ORDER BY exercise_completed_at ROWS UNBOUNDED PRECEDING) to assign session_id",
+      "GROUP BY user_id, session_id",
+      "Aggregate: MIN(exercise_completed_at) as session_start, MAX(exercise_completed_at) as session_end, COUNT(*) as exercises_completed",
+      "ORDER BY user_id, session_id"
+    ]
+  },
+  "hints": [
+    "Think about how you can identify when a new session begins by comparing each exercise timestamp to the previous one for the same user.",
+    "Use LAG() to get the previous exercise timestamp for each user, then flag rows where the gap is 20 minutes or more (or where there is no previous exercise). Assign session numbers by taking a cumulative sum of those flags.",
+    "In a first CTE, compute previous_ts using LAG(exercise_completed_at) OVER (PARTITION BY user_id ORDER BY exercise_completed_at), then create new_session_flag as CASE WHEN previous_ts IS NULL OR exercise_completed_at - previous_ts >= INTERVAL '20 minutes' THEN 1 ELSE 0 END. In a second CTE, compute session_id as SUM(new_session_flag) OVER (PARTITION BY user_id ORDER BY exercise_completed_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW). Finally, GROUP BY user_id and session_id to aggregate MIN(exercise_completed_at), MAX(exercise_completed_at), and COUNT(*)."
+  ],
+  "answer_key": "WITH flagged AS (\n  SELECT\n    user_id,\n    exercise_completed_at,\n    LAG(exercise_completed_at) OVER (PARTITION BY user_id ORDER BY exercise_completed_at) AS previous_ts,\n    CASE\n      WHEN LAG(exercise_completed_at) OVER (PARTITION BY user_id ORDER BY exercise_completed_at) IS NULL\n           OR exercise_completed_at - LAG(exercise_completed_at) OVER (PARTITION BY user_id ORDER BY exercise_completed_at) >= INTERVAL '20 minutes'\n      THEN 1\n      ELSE 0\n    END AS new_session_flag\n  FROM exercise_completions\n),\nsessionized AS (\n  SELECT\n    user_id,\n    exercise_completed_at,\n    SUM(new_session_flag) OVER (PARTITION BY user_id ORDER BY exercise_completed_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS session_id\n  FROM flagged\n)\nSELECT\n  user_id,\n  session_id,\n  MIN(exercise_completed_at) AS session_start,\n  MAX(exercise_completed_at) AS session_end,\n  COUNT(*) AS exercises_completed\nFROM sessionized\nGROUP BY user_id, session_id\nORDER BY user_id, session_id;",
+  "_meta": {
+    "question_type": "window_sessionization",
+    "original_qtype": "window_sessionization",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-23T14:23:05.261294",
+    "problem_id": "2e4b643dc4a8",
+    "validation_attempts": 1,
+    "scenario": "a fitness app tracking workout completion and active days per week",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

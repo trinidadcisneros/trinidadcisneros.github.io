@@ -1,0 +1,160 @@
+{
+  "problem": {
+    "title": "Session Engagement Metrics for Dating App",
+    "prompt": "A dating app wants to understand user engagement by grouping messaging activity into sessions. A session is defined as a continuous sequence of messages sent by a user, where any gap longer than 15 minutes between consecutive messages starts a new session. Write a query that returns one row per user per session, showing the user_id, session_id (a sequential number starting from 1 for each user's first session), the number of messages in that session, and the total duration of the session in minutes (time from first message to last message in the session, 0 if only one message). Order results by user_id, then session_id. Each user should have session_id values that are consecutive integers starting from 1. Handle cases where a user sends only one message in a session (duration = 0) and users who send messages with gaps both smaller and larger than 15 minutes.",
+    "schema_ddl": "CREATE TABLE messages (message_id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, recipient_id INTEGER NOT NULL, message_text TEXT NOT NULL, sent_at TIMESTAMP NOT NULL);",
+    "example_input_data": "INSERT INTO messages (message_id, user_id, recipient_id, message_text, sent_at) VALUES (1, 101, 202, 'Hey there!', '2024-01-15 10:00:00'), (2, 101, 202, 'How are you?', '2024-01-15 10:05:00'), (3, 101, 202, 'Still there?', '2024-01-15 10:10:00'), (4, 101, 203, 'Hi!', '2024-01-15 10:40:00'), (5, 101, 203, 'Whats up?', '2024-01-15 10:42:00'), (6, 102, 201, 'Hello!', '2024-01-15 09:00:00'), (7, 102, 201, 'Nice profile', '2024-01-15 09:25:00'), (8, 102, 204, 'Hey', '2024-01-15 11:00:00');",
+    "example_output_columns": [
+      "user_id",
+      "session_id",
+      "message_count",
+      "session_duration_minutes"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        1,
+        3,
+        "10"
+      ],
+      [
+        101,
+        2,
+        2,
+        "2"
+      ],
+      [
+        102,
+        1,
+        1,
+        "0"
+      ],
+      [
+        102,
+        2,
+        1,
+        "0"
+      ],
+      [
+        102,
+        3,
+        1,
+        "0"
+      ]
+    ],
+    "test_data": "INSERT INTO messages (message_id, user_id, recipient_id, message_text, sent_at) VALUES (101, 201, 301, 'Hi', '2024-02-01 08:00:00'), (102, 201, 301, 'Hello', '2024-02-01 08:03:00'), (103, 201, 301, 'How are you', '2024-02-01 08:14:00'), (104, 201, 302, 'Hey', '2024-02-01 08:35:00'), (105, 201, 302, 'Whats new', '2024-02-01 08:36:00'), (106, 201, 302, 'Cool', '2024-02-01 08:50:00'), (107, 201, 303, 'Morning', '2024-02-01 09:10:00'), (108, 202, 304, 'First msg', '2024-02-01 07:00:00'), (109, 202, 304, 'Second', '2024-02-01 07:14:59'), (110, 202, 305, 'Third', '2024-02-01 07:30:00'), (111, 202, 305, 'Fourth', '2024-02-01 07:31:00'), (112, 202, 305, 'Fifth', '2024-02-01 07:45:00'), (113, 202, 306, 'Sixth', '2024-02-01 08:05:00'), (114, 203, 307, 'Solo message', '2024-02-01 12:00:00'), (115, 203, 308, 'Another solo', '2024-02-01 14:00:00'), (116, 204, 309, 'A', '2024-02-01 10:00:00'), (117, 204, 309, 'B', '2024-02-01 10:01:00'), (118, 204, 309, 'C', '2024-02-01 10:02:00'), (119, 204, 309, 'D', '2024-02-01 10:03:00'), (120, 204, 309, 'E', '2024-02-01 10:04:00'), (121, 204, 310, 'F', '2024-02-01 10:25:00'), (122, 205, 311, 'X', '2024-02-01 16:00:00'), (123, 205, 311, 'Y', '2024-02-01 16:10:00'), (124, 205, 312, 'Z', '2024-02-01 16:26:00');",
+    "test_expected_columns": [
+      "user_id",
+      "session_id",
+      "message_count",
+      "session_duration_minutes"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        1,
+        3,
+        "14"
+      ],
+      [
+        201,
+        2,
+        3,
+        "15"
+      ],
+      [
+        201,
+        3,
+        1,
+        "0"
+      ],
+      [
+        202,
+        1,
+        2,
+        "15"
+      ],
+      [
+        202,
+        2,
+        3,
+        "15"
+      ],
+      [
+        202,
+        3,
+        1,
+        "0"
+      ],
+      [
+        203,
+        1,
+        1,
+        "0"
+      ],
+      [
+        203,
+        2,
+        1,
+        "0"
+      ],
+      [
+        204,
+        1,
+        5,
+        "4"
+      ],
+      [
+        204,
+        2,
+        1,
+        "0"
+      ],
+      [
+        205,
+        1,
+        2,
+        "10"
+      ],
+      [
+        205,
+        2,
+        1,
+        "0"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "CTE-1: LAG(sent_at) OVER (PARTITION BY user_id ORDER BY sent_at) to get previous_ts per user",
+        "CTE-1: flag new_session = CASE WHEN previous_ts IS NULL OR sent_at - previous_ts > INTERVAL '15 minutes' THEN 1 ELSE 0 END",
+        "CTE-2: assign session_id = SUM(new_session) OVER (PARTITION BY user_id ORDER BY sent_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
+        "final SELECT: GROUP BY user_id, session_id, aggregate COUNT(*) as message_count, EXTRACT(EPOCH FROM MAX(sent_at) - MIN(sent_at))/60 as duration"
+      ]
+    },
+    "hints": [
+      "Consider how to identify when a new session starts based on the time gap between consecutive messages for each user.",
+      "Use LAG to compare each message timestamp with the previous message timestamp within the same user's activity, then flag rows where the gap exceeds 15 minutes or there is no previous message.",
+      "Apply a cumulative SUM of the new session flags over a window partitioned by user and ordered by timestamp to assign session IDs, then group by user and session to compute message counts and duration as the difference between MAX and MIN timestamps in minutes."
+    ],
+    "answer_key": "WITH flagged AS (\n  SELECT\n    user_id,\n    sent_at,\n    LAG(sent_at) OVER (PARTITION BY user_id ORDER BY sent_at) AS previous_ts,\n    CASE\n      WHEN LAG(sent_at) OVER (PARTITION BY user_id ORDER BY sent_at) IS NULL\n           OR sent_at - LAG(sent_at) OVER (PARTITION BY user_id ORDER BY sent_at) > INTERVAL '15 minutes'\n      THEN 1\n      ELSE 0\n    END AS new_session_flag\n  FROM messages\n),\nsessionized AS (\n  SELECT\n    user_id,\n    sent_at,\n    SUM(new_session_flag) OVER (PARTITION BY user_id ORDER BY sent_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS session_id\n  FROM flagged\n)\nSELECT\n  user_id,\n  session_id,\n  COUNT(*) AS message_count,\n  ROUND(EXTRACT(EPOCH FROM MAX(sent_at) - MIN(sent_at)) / 60) AS session_duration_minutes\nFROM sessionized\nGROUP BY user_id, session_id\nORDER BY user_id, session_id;",
+    "_meta": {
+      "question_type": "window_sessionization",
+      "original_qtype": "window_sessionization",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-31T20:03:36.484531",
+      "problem_id": "ff06d427b483",
+      "validation_attempts": 1,
+      "scenario": "a dating app tracking mutual matches and messaging engagement",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\nSession Engagement Metrics for Dating App\n\nPrompt\n- understand user engagement by grouping messaging activity into sessions.\n- session is any gap longer than 15 minutes between consecutive messages\n\nTASK\n- query that returns one row per user per session, showing the \nuser_id, \nsession_id\nmessage_count\nsession_duration_minutes:    cumulative time or 0 if only one session\n\nORDER BY user_id, session_id\n*/\nWITH flagged AS (\n    SELECT\n        user_id,\n        message_id,\n        sent_at,\n        CASE WHEN \n            sent_at - LAG(sent_at) OVER (PARTITION BY user_id ORDER BY sent_at)\n            > INTERVAL '15 minutes' THEN 1 ELSE 0 END AS is_new_session\n    FROM messages\n),\nsessions AS (\n    SELECT\n        user_id,\n        message_id,\n        sent_at,\n        SUM(is_new_session) OVER (PARTITION BY user_id ORDER BY sent_at) +1 AS session_id\n    FROM flagged\n)\nSELECT\n    user_id,\n    session_id,\n    COUNT(*) AS message_count,\n    ROUND(COALESCE(EXTRACT(EPOCH FROM (MAX(sent_at) - MIN(sent_at)))/60,0),0)::INT AS session_duration_minutes\nFROM sessions\nGROUP BY user_id, session_id\nORDER BY user_id, session_id;\n\n\n",
+  "solved_at": "2026-05-31T20:19:22.674509"
+}

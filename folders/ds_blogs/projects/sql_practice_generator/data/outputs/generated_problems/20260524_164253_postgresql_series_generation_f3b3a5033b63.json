@@ -1,0 +1,107 @@
+{
+  "title": "Daily Visit Completion Report with Zero-Fill",
+  "prompt": "A telehealth platform tracks visit progress across four stages: booked, patient_joined, provider_joined, and completed. Management wants a daily completion report for the week of 2024-03-04 through 2024-03-10 showing the count of visits that reached 'completed' status each day. Because operational dashboards must display every day in the range even when no visits completed, your query must produce exactly 7 rows (one per day) with a count of 0 for days with no completions. Write a query that uses `generate_series` to build a complete date spine for the literal range [2024-03-04, 2024-03-10], LEFT JOINs the actual completion events, and returns two columns: `report_date` (the date) and `completed_count` (the count of visits completed on that date, or 0 if none). Order the result by `report_date` ascending. Use COALESCE to ensure days with no completions show 0, not NULL.",
+  "schema_ddl": "CREATE TABLE visits (visit_id INTEGER PRIMARY KEY, patient_id INTEGER NOT NULL, provider_id INTEGER NOT NULL, booked_at TIMESTAMP NOT NULL); CREATE TABLE visit_events (event_id INTEGER PRIMARY KEY, visit_id INTEGER NOT NULL REFERENCES visits(visit_id), event_type VARCHAR(20) NOT NULL, event_timestamp TIMESTAMP NOT NULL);",
+  "example_input_data": "INSERT INTO visits (visit_id, patient_id, provider_id, booked_at) VALUES (1, 101, 201, '2024-03-04 08:00:00'), (2, 102, 202, '2024-03-05 09:00:00'), (3, 103, 201, '2024-03-06 10:00:00'), (4, 104, 203, '2024-03-07 11:00:00'), (5, 105, 202, '2024-03-08 12:00:00'), (6, 106, 201, '2024-03-09 13:00:00'); INSERT INTO visit_events (event_id, visit_id, event_type, event_timestamp) VALUES (1, 1, 'booked', '2024-03-04 08:00:00'), (2, 1, 'patient_joined', '2024-03-04 14:00:00'), (3, 1, 'provider_joined', '2024-03-04 14:05:00'), (4, 1, 'completed', '2024-03-04 14:30:00'), (5, 2, 'booked', '2024-03-05 09:00:00'), (6, 2, 'patient_joined', '2024-03-05 15:00:00'), (7, 2, 'completed', '2024-03-05 15:45:00'), (8, 4, 'booked', '2024-03-07 11:00:00'), (9, 4, 'completed', '2024-03-07 16:00:00'), (10, 5, 'booked', '2024-03-08 12:00:00'), (11, 6, 'booked', '2024-03-09 13:00:00');",
+  "example_output_columns": [
+    "report_date",
+    "completed_count"
+  ],
+  "example_output_rows": [
+    [
+      "2024-03-04",
+      "1"
+    ],
+    [
+      "2024-03-05",
+      "1"
+    ],
+    [
+      "2024-03-06",
+      "0"
+    ],
+    [
+      "2024-03-07",
+      "1"
+    ],
+    [
+      "2024-03-08",
+      "0"
+    ],
+    [
+      "2024-03-09",
+      "0"
+    ],
+    [
+      "2024-03-10",
+      "0"
+    ]
+  ],
+  "test_data": "INSERT INTO visits (visit_id, patient_id, provider_id, booked_at) VALUES (1, 101, 201, '2024-03-04 08:00:00'), (2, 102, 202, '2024-03-04 09:00:00'), (3, 103, 201, '2024-03-04 10:00:00'), (4, 104, 203, '2024-03-05 11:00:00'), (5, 105, 202, '2024-03-05 12:00:00'), (6, 106, 201, '2024-03-06 13:00:00'), (7, 107, 204, '2024-03-06 14:00:00'), (8, 108, 202, '2024-03-07 08:00:00'), (9, 109, 201, '2024-03-07 09:00:00'), (10, 110, 203, '2024-03-07 10:00:00'), (11, 111, 204, '2024-03-08 11:00:00'), (12, 112, 202, '2024-03-08 12:00:00'), (13, 113, 201, '2024-03-09 13:00:00'), (14, 114, 203, '2024-03-09 14:00:00'), (15, 115, 204, '2024-03-09 15:00:00'), (16, 116, 202, '2024-03-10 16:00:00'), (17, 117, 201, '2024-03-10 17:00:00'), (18, 118, 203, '2024-03-10 18:00:00'); INSERT INTO visit_events (event_id, visit_id, event_type, event_timestamp) VALUES (1, 1, 'booked', '2024-03-04 08:00:00'), (2, 1, 'patient_joined', '2024-03-04 14:00:00'), (3, 1, 'provider_joined', '2024-03-04 14:05:00'), (4, 1, 'completed', '2024-03-04 14:30:00'), (5, 2, 'booked', '2024-03-04 09:00:00'), (6, 2, 'completed', '2024-03-04 15:00:00'), (7, 3, 'booked', '2024-03-04 10:00:00'), (8, 3, 'patient_joined', '2024-03-04 16:00:00'), (9, 4, 'booked', '2024-03-05 11:00:00'), (10, 5, 'booked', '2024-03-05 12:00:00'), (11, 5, 'completed', '2024-03-05 17:00:00'), (12, 6, 'booked', '2024-03-06 13:00:00'), (13, 7, 'booked', '2024-03-06 14:00:00'), (14, 7, 'completed', '2024-03-06 18:00:00'), (15, 8, 'booked', '2024-03-07 08:00:00'), (16, 9, 'booked', '2024-03-07 09:00:00'), (17, 9, 'completed', '2024-03-07 14:00:00'), (18, 10, 'booked', '2024-03-07 10:00:00'), (19, 10, 'patient_joined', '2024-03-07 15:00:00'), (20, 11, 'booked', '2024-03-08 11:00:00'), (21, 12, 'booked', '2024-03-08 12:00:00'), (22, 13, 'booked', '2024-03-09 13:00:00'), (23, 14, 'booked', '2024-03-09 14:00:00'), (24, 14, 'completed', '2024-03-09 19:00:00'), (25, 15, 'booked', '2024-03-09 15:00:00'), (26, 15, 'completed', '2024-03-09 20:00:00'), (27, 16, 'booked', '2024-03-10 16:00:00'), (28, 16, 'completed', '2024-03-10 21:00:00'), (29, 17, 'booked', '2024-03-10 17:00:00'), (30, 18, 'booked', '2024-03-10 18:00:00');",
+  "test_expected_columns": [
+    "report_date",
+    "completed_count"
+  ],
+  "test_expected_rows": [
+    [
+      "2024-03-04",
+      "2"
+    ],
+    [
+      "2024-03-05",
+      "1"
+    ],
+    [
+      "2024-03-06",
+      "1"
+    ],
+    [
+      "2024-03-07",
+      "1"
+    ],
+    [
+      "2024-03-08",
+      "0"
+    ],
+    [
+      "2024-03-09",
+      "2"
+    ],
+    [
+      "2024-03-10",
+      "1"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "same_rows",
+    "recipe": "reshape",
+    "composite_moves": [
+      "generate_series to build complete date spine with literal bounds",
+      "LEFT JOIN visit_events filtered to event_type='completed'",
+      "extract DATE from event_timestamp",
+      "GROUP BY report_date and COUNT",
+      "COALESCE COUNT to 0 for dates with no completions"
+    ]
+  },
+  "hints": [
+    "You need every date in the range to appear in the output, even if no visits completed that day.",
+    "Use `generate_series(DATE '2024-03-04', DATE '2024-03-10', INTERVAL '1 day')` to build a date spine, then LEFT JOIN the visit_events table filtered to 'completed' events.",
+    "Extract the date portion of `event_timestamp` using `DATE(event_timestamp)` or `event_timestamp::date`, GROUP BY the generated date, and use `COALESCE(COUNT(visit_id), 0)` to show 0 for days with no completions."
+  ],
+  "answer_key": "SELECT gs.d::date AS report_date, COALESCE(COUNT(ve.visit_id), 0)::text AS completed_count FROM generate_series(DATE '2024-03-04', DATE '2024-03-10', INTERVAL '1 day') AS gs(d) LEFT JOIN visit_events ve ON ve.event_timestamp::date = gs.d::date AND ve.event_type = 'completed' GROUP BY gs.d ORDER BY gs.d;",
+  "_meta": {
+    "question_type": "series_generation",
+    "original_qtype": "series_generation",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-24T16:42:53.030066",
+    "problem_id": "f3b3a5033b63",
+    "validation_attempts": 1,
+    "scenario": "a telehealth visit completion funnel from booking to provider sign-off",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

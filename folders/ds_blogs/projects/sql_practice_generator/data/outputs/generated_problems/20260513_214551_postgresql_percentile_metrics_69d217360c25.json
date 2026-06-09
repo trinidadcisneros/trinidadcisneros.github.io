@@ -1,0 +1,171 @@
+{
+  "title": "Quartile Bucketing by Sleep Quality Score",
+  "prompt": "You are analyzing user sleep quality scores on a wellness platform. Each user has a daily sleep quality score calculated from various metrics. Split all users into 4 quartiles based on their `sleep_quality_score`, with the highest scores in quartile 1 and lowest in quartile 4. Return three columns: `user_id`, `sleep_quality_score`, and `quartile` (an integer 1-4). Order the output by `quartile` ascending, then by `sleep_quality_score` descending within each quartile. Use the NTILE window function to perform the bucketing. Note that if the total number of rows is not evenly divisible by 4, NTILE will distribute the extra rows to the lower-numbered quartiles.",
+  "schema_ddl": "CREATE TABLE user_sleep_metrics (user_id INTEGER PRIMARY KEY, username VARCHAR(50), sleep_quality_score DECIMAL(5,2), total_sleep_hours DECIMAL(4,1), deep_sleep_minutes INTEGER);",
+  "example_input_data": "INSERT INTO user_sleep_metrics (user_id, username, sleep_quality_score, total_sleep_hours, deep_sleep_minutes) VALUES (101, 'alice_m', 92.5, 8.2, 105), (102, 'bob_k', 88.0, 7.5, 95), (103, 'carol_w', 76.3, 6.8, 72), (104, 'dan_p', 95.1, 8.5, 118), (105, 'emma_l', 81.2, 7.0, 88), (106, 'frank_r', 69.4, 6.2, 58), (107, 'grace_t', 73.8, 6.5, 65);",
+  "example_output_columns": [
+    "user_id",
+    "sleep_quality_score",
+    "quartile"
+  ],
+  "example_output_rows": [
+    [
+      104,
+      "95.10",
+      1
+    ],
+    [
+      101,
+      "92.50",
+      1
+    ],
+    [
+      102,
+      "88.00",
+      2
+    ],
+    [
+      105,
+      "81.20",
+      2
+    ],
+    [
+      103,
+      "76.30",
+      3
+    ],
+    [
+      107,
+      "73.80",
+      3
+    ],
+    [
+      106,
+      "69.40",
+      4
+    ]
+  ],
+  "test_data": "INSERT INTO user_sleep_metrics (user_id, username, sleep_quality_score, total_sleep_hours, deep_sleep_minutes) VALUES (201, 'user_a', 98.7, 9.0, 135), (202, 'user_b', 95.3, 8.6, 122), (203, 'user_c', 92.1, 8.3, 110), (204, 'user_d', 89.5, 8.0, 102), (205, 'user_e', 86.2, 7.7, 95), (206, 'user_f', 83.8, 7.4, 88), (207, 'user_g', 80.1, 7.1, 82), (208, 'user_h', 76.9, 6.8, 75), (209, 'user_i', 73.4, 6.5, 68), (210, 'user_j', 70.2, 6.2, 61), (211, 'user_k', 66.8, 5.9, 54), (212, 'user_l', 63.5, 5.6, 48), (213, 'user_m', 59.9, 5.3, 42), (214, 'user_n', 55.1, 5.0, 36), (215, 'user_o', 51.3, 4.7, 30), (216, 'user_p', 47.8, 4.4, 25), (217, 'user_q', 43.2, 4.1, 20), (218, 'user_r', 38.6, 3.8, 15);",
+  "test_expected_columns": [
+    "user_id",
+    "sleep_quality_score",
+    "quartile"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "98.70",
+      1
+    ],
+    [
+      202,
+      "95.30",
+      1
+    ],
+    [
+      203,
+      "92.10",
+      1
+    ],
+    [
+      204,
+      "89.50",
+      1
+    ],
+    [
+      205,
+      "86.20",
+      1
+    ],
+    [
+      206,
+      "83.80",
+      2
+    ],
+    [
+      207,
+      "80.10",
+      2
+    ],
+    [
+      208,
+      "76.90",
+      2
+    ],
+    [
+      209,
+      "73.40",
+      2
+    ],
+    [
+      210,
+      "70.20",
+      2
+    ],
+    [
+      211,
+      "66.80",
+      3
+    ],
+    [
+      212,
+      "63.50",
+      3
+    ],
+    [
+      213,
+      "59.90",
+      3
+    ],
+    [
+      214,
+      "55.10",
+      3
+    ],
+    [
+      215,
+      "51.30",
+      4
+    ],
+    [
+      216,
+      "47.80",
+      4
+    ],
+    [
+      217,
+      "43.20",
+      4
+    ],
+    [
+      218,
+      "38.60",
+      4
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "rank-partition",
+    "composite_moves": [
+      "rank-partition: NTILE window function to bucket rows"
+    ]
+  },
+  "hints": [
+    "Use a window function that divides rows into equal-sized buckets.",
+    "The NTILE(n) window function assigns bucket numbers 1 through n, ordering rows by a specified column.",
+    "Write: SELECT user_id, sleep_quality_score, NTILE(4) OVER (ORDER BY sleep_quality_score DESC) AS quartile FROM user_sleep_metrics ORDER BY quartile, sleep_quality_score DESC;"
+  ],
+  "answer_key": "SELECT user_id, sleep_quality_score, NTILE(4) OVER (ORDER BY sleep_quality_score DESC) AS quartile FROM user_sleep_metrics ORDER BY quartile, sleep_quality_score DESC;",
+  "_meta": {
+    "question_type": "percentile_metrics",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-13T21:45:51.522455",
+    "problem_id": "69d217360c25",
+    "validation_attempts": 1,
+    "scenario": "a wellness platform tracking sleep and activity goal achievement",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": "ntile_buckets"
+  }
+}

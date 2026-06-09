@@ -1,0 +1,59 @@
+{
+  "problem": {
+    "title": "Calculate Average Inquiry Rate for Premium Listings",
+    "prompt": "You are analyzing a real estate listing platform. Write a PostgreSQL function named `calculate_avg_inquiry_rate` that accepts a `listing_tier` parameter (VARCHAR) and returns the average inquiry rate (NUMERIC) for all saved searches targeting listings in that tier. The inquiry rate for each saved search is calculated as `inquiries_received / views_received`, but only include saved searches where `views_received > 0` to avoid division by zero. Return the result rounded to 4 decimal places. If no saved searches match the criteria, return `0.0000`. Test your function by calling: `SELECT calculate_avg_inquiry_rate('premium') AS result;`",
+    "schema_ddl": "CREATE TABLE listings (listing_id INT PRIMARY KEY, property_type VARCHAR(50), city VARCHAR(100), tier VARCHAR(20), price_usd NUMERIC(12,2)); CREATE TABLE saved_searches (search_id INT PRIMARY KEY, user_id INT, listing_id INT, views_received INT, inquiries_received INT, created_date DATE);",
+    "example_input_data": "INSERT INTO listings (listing_id, property_type, city, tier, price_usd) VALUES (101, 'condo', 'Seattle', 'premium', 850000.00), (102, 'house', 'Portland', 'premium', 1200000.00), (103, 'townhouse', 'Seattle', 'standard', 650000.00), (104, 'condo', 'Portland', 'premium', 920000.00), (105, 'house', 'Seattle', 'standard', 550000.00); INSERT INTO saved_searches (search_id, user_id, listing_id, views_received, inquiries_received, created_date) VALUES (1, 201, 101, 100, 12, '2024-01-15'), (2, 202, 101, 50, 8, '2024-01-20'), (3, 203, 102, 80, 10, '2024-02-01'), (4, 204, 103, 60, 6, '2024-02-10'), (5, 205, 104, 0, 0, '2024-03-01'), (6, 206, 102, 120, 18, '2024-03-15');",
+    "example_output_columns": [
+      "result"
+    ],
+    "example_output_rows": [
+      [
+        "0.1388"
+      ]
+    ],
+    "test_data": "INSERT INTO listings (listing_id, property_type, city, tier, price_usd) VALUES (101, 'condo', 'Seattle', 'premium', 850000.00), (102, 'house', 'Portland', 'premium', 1200000.00), (103, 'townhouse', 'Seattle', 'standard', 650000.00), (104, 'condo', 'Portland', 'premium', 920000.00), (105, 'house', 'Seattle', 'standard', 550000.00), (106, 'apartment', 'Eugene', 'budget', 320000.00), (107, 'condo', 'Seattle', 'premium', 975000.00), (108, 'house', 'Portland', 'standard', 780000.00), (109, 'townhouse', 'Eugene', 'premium', 890000.00), (110, 'apartment', 'Seattle', 'budget', 425000.00); INSERT INTO saved_searches (search_id, user_id, listing_id, views_received, inquiries_received, created_date) VALUES (1, 201, 101, 100, 12, '2024-01-15'), (2, 202, 101, 50, 8, '2024-01-20'), (3, 203, 102, 80, 10, '2024-02-01'), (4, 204, 103, 60, 6, '2024-02-10'), (5, 205, 104, 0, 0, '2024-03-01'), (6, 206, 102, 120, 18, '2024-03-15'), (7, 207, 107, 90, 15, '2024-03-20'), (8, 208, 109, 110, 22, '2024-04-01'), (9, 209, 101, 75, 9, '2024-04-10'), (10, 210, 107, 0, 0, '2024-04-15'), (11, 211, 104, 65, 13, '2024-05-01'), (12, 212, 102, 95, 14, '2024-05-10'), (13, 213, 109, 105, 21, '2024-05-20'), (14, 214, 107, 88, 16, '2024-06-01'), (15, 215, 101, 0, 0, '2024-06-10'), (16, 216, 104, 72, 11, '2024-06-15'), (17, 217, 109, 0, 5, '2024-06-20'), (18, 218, 107, 130, 26, '2024-07-01'), (19, 219, 103, 55, 7, '2024-07-10'), (20, 220, 108, 48, 4, '2024-07-15'), (21, 221, 106, 30, 2, '2024-07-20'), (22, 222, 110, 25, 1, '2024-08-01'), (23, 223, 105, 42, 3, '2024-08-10'), (24, 224, 103, 0, 0, '2024-08-15'), (25, 225, 108, 51, 5, '2024-08-20');",
+    "test_expected_columns": [
+      "result"
+    ],
+    "test_expected_rows": [
+      [
+        "0.1634"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "scalar_return",
+      "recipe": "enrich-aggregate",
+      "composite_moves": [
+        "join listings to saved_searches",
+        "filter by tier parameter and views_received > 0",
+        "compute inquiry_rate per row",
+        "aggregate AVG of inquiry_rate",
+        "handle empty result with COALESCE"
+      ]
+    },
+    "hints": [
+      "You need to join the two tables to filter saved searches by the listing tier, then calculate a rate for each valid search.",
+      "Use a WHERE clause to ensure views_received is greater than zero before computing the inquiry rate, and filter by the tier parameter.",
+      "Calculate the average of (inquiries_received / views_received) across all matching rows, and use COALESCE to return 0.0000 if no rows match. Round the final result to 4 decimal places."
+    ],
+    "answer_key": "CREATE OR REPLACE FUNCTION calculate_avg_inquiry_rate(listing_tier VARCHAR)\nRETURNS NUMERIC AS $$\nBEGIN\n  RETURN (\n    SELECT COALESCE(ROUND(AVG(s.inquiries_received::NUMERIC / s.views_received), 4), 0.0000)\n    FROM saved_searches s\n    JOIN listings l ON s.listing_id = l.listing_id\n    WHERE l.tier = listing_tier\n      AND s.views_received > 0\n  );\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT calculate_avg_inquiry_rate('premium') AS result;",
+    "_meta": {
+      "question_type": "returns_scalar",
+      "original_qtype": "returns_scalar",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-26T20:52:21.749058",
+      "problem_id": "f973ed70ea4b",
+      "validation_attempts": 1,
+      "scenario": "a real estate listing platform tracking saved searches and inquiry rates",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\nWrite a PostgreSQL function named \n\ncalculate_avg_inquiry_rate(listing_tier VARCHAR)\n\nreturns average inquiry rate (NUMERIC)\nROUND(inquiries_received / views_received, 4)\n\nCONDITION\nviews_received > 0\n\nDECIMAL 4 decimal places\n\nWHERE tier = premium\n\nSELECT calculate_avg_inquiry_rate('premium') AS result;\n\n\nTable: listings\nlisting_id\t        INT PRIMARY KEY    xx\nproperty_type\t    VARCHAR(50)\ncity\t            VARCHAR(100)\ntier\t            VARCHAR(20)\nprice_usd\t        NUMERIC(12,2)\n\nTable: saved_searches\nsearch_id\t        INT PRIMARY KEY\nuser_id\t            INT\nlisting_id\t        INT                 xx\nviews_received\t    INT\ninquiries_received\tINT\ncreated_date\t    DATE\n\n */\n\n-- join and filter for tier\n\n-- aggregate and calcualte\nCREATE OR REPLACE FUNCTION calculate_avg_inquiry_rate(p_listing_tier VARCHAR)\nRETURNS NUMERIC AS $$\nBEGIN\nRETURN (\n    WITH base AS (\n        SELECT\n            s.search_id,\n            s.user_id,\n            l.listing_id,\n            s.views_received::numeric,\n            s.inquiries_received::numeric,\n            ROUND(COALESCE(s.inquiries_received::numeric /s.views_received::numeric, 0), 4) AS inquiry_rate\n        FROM listings AS l\n        JOIN saved_searches AS s\n        USING(listing_id)\n        WHERE l.tier = p_listing_tier AND s.views_received > 0\n    )\n    SELECT ROUND(COALESCE(AVG(inquiry_rate), 0), 4) AS result\n    FROM base\n    );\nEND;\n\n$$ LANGUAGE PLPGSQL;\n\nSELECT calculate_avg_inquiry_rate('premium') AS result;\n\n",
+  "solved_at": "2026-05-26T21:18:46.884563"
+}

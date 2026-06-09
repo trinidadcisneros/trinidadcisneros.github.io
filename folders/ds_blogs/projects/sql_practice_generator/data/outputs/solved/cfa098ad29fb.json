@@ -1,0 +1,120 @@
+{
+  "problem": {
+    "title": "Weekly Workout Streak Report with Gap Detection",
+    "prompt": "A fitness app tracks member workouts in the `workout_logs` table. Management wants a weekly report showing the number of distinct members who completed at least one workout each week, grouped by week starting Monday. Write a query that uses `DATE_TRUNC('week', workout_date)` to bucket workouts into weeks, counts distinct members per week, and returns results for all weeks in the range from the earliest workout date to the latest workout date in the table, *including weeks with zero workouts*. Use `generate_series` to create a skeleton of all weeks in that range, then LEFT JOIN the aggregated workout counts. Output columns: `week_start` (the Monday of that week as a DATE), `active_members` (count of distinct members, or 0 if none). Order by `week_start` ascending. Note: PostgreSQL's `DATE_TRUNC('week', ...)` returns the Monday of that week at 00:00:00; cast it to DATE for cleaner output.",
+    "schema_ddl": "CREATE TABLE workout_logs (log_id SERIAL PRIMARY KEY, member_id INT NOT NULL, workout_date DATE NOT NULL, duration_minutes INT NOT NULL);",
+    "example_input_data": "INSERT INTO workout_logs (member_id, workout_date, duration_minutes) VALUES (101, '2024-01-01', 45), (102, '2024-01-02', 30), (101, '2024-01-08', 50), (103, '2024-01-09', 60), (101, '2024-01-15', 40), (102, '2024-01-16', 35), (103, '2024-01-22', 55), (101, '2024-01-23', 45);",
+    "example_output_columns": [
+      "week_start",
+      "active_members"
+    ],
+    "example_output_rows": [
+      [
+        "2024-01-01",
+        2
+      ],
+      [
+        "2024-01-08",
+        2
+      ],
+      [
+        "2024-01-15",
+        2
+      ],
+      [
+        "2024-01-22",
+        2
+      ]
+    ],
+    "test_data": "INSERT INTO workout_logs (member_id, workout_date, duration_minutes) VALUES (201, '2024-02-05', 30), (202, '2024-02-05', 45), (203, '2024-02-06', 50), (201, '2024-02-12', 40), (204, '2024-02-13', 35), (202, '2024-02-19', 55), (203, '2024-02-20', 60), (204, '2024-02-21', 50), (201, '2024-02-26', 45), (202, '2024-02-27', 40), (205, '2024-03-04', 50), (206, '2024-03-05', 55), (201, '2024-03-11', 60), (205, '2024-03-18', 45), (206, '2024-03-19', 50), (207, '2024-03-25', 40), (208, '2024-03-26', 35), (209, '2024-03-27', 60), (210, '2024-04-01', 45), (211, '2024-04-02', 50), (212, '2024-04-08', 55), (213, '2024-04-09', 60), (214, '2024-04-15', 40), (215, '2024-04-16', 35), (216, '2024-04-22', 50), (217, '2024-04-23', 45), (218, '2024-04-29', 55), (219, '2024-04-30', 60);",
+    "test_expected_columns": [
+      "week_start",
+      "active_members"
+    ],
+    "test_expected_rows": [
+      [
+        "2024-02-05",
+        3
+      ],
+      [
+        "2024-02-12",
+        2
+      ],
+      [
+        "2024-02-19",
+        3
+      ],
+      [
+        "2024-02-26",
+        2
+      ],
+      [
+        "2024-03-04",
+        2
+      ],
+      [
+        "2024-03-11",
+        1
+      ],
+      [
+        "2024-03-18",
+        2
+      ],
+      [
+        "2024-03-25",
+        3
+      ],
+      [
+        "2024-04-01",
+        2
+      ],
+      [
+        "2024-04-08",
+        2
+      ],
+      [
+        "2024-04-15",
+        2
+      ],
+      [
+        "2024-04-22",
+        2
+      ],
+      [
+        "2024-04-29",
+        2
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "prep: subquery to find MIN/MAX workout_date",
+        "prep: generate_series to create date skeleton of all weeks",
+        "prep: subquery to aggregate workouts by DATE_TRUNC week",
+        "enrich-join: LEFT JOIN skeleton to aggregated counts",
+        "scalar-extract: COALESCE to fill missing weeks with 0"
+      ]
+    },
+    "hints": [
+      "You need to ensure every week in the date range appears in the output, even if no workouts occurred that week.",
+      "Use `generate_series` to create a series of all Monday dates from the earliest to latest workout date, incrementing by 7 days or by '1 week' interval. Then aggregate the workout counts per week using `DATE_TRUNC('week', workout_date)` and LEFT JOIN the series to the aggregated counts.",
+      "The skeleton query is `SELECT generate_series((SELECT DATE_TRUNC('week', MIN(workout_date))::DATE FROM workout_logs), (SELECT DATE_TRUNC('week', MAX(workout_date))::DATE FROM workout_logs), INTERVAL '1 week')::DATE AS week_start`. Then aggregate `SELECT DATE_TRUNC('week', workout_date)::DATE AS week_start, COUNT(DISTINCT member_id) AS active_members FROM workout_logs GROUP BY 1`. Finally LEFT JOIN the skeleton to the aggregated table on week_start and COALESCE the count to 0."
+    ],
+    "answer_key": "WITH date_range AS (\n  SELECT \n    MIN(workout_date) AS min_date,\n    MAX(workout_date) AS max_date\n  FROM workout_logs\n),\nweek_skeleton AS (\n  SELECT \n    generate_series(\n      DATE_TRUNC('week', (SELECT min_date FROM date_range)),\n      DATE_TRUNC('week', (SELECT max_date FROM date_range)),\n      INTERVAL '1 week'\n    )::DATE AS week_start\n),\nweekly_counts AS (\n  SELECT \n    DATE_TRUNC('week', workout_date)::DATE AS week_start,\n    COUNT(DISTINCT member_id) AS active_members\n  FROM workout_logs\n  GROUP BY week_start\n)\nSELECT \n  ws.week_start,\n  COALESCE(wc.active_members, 0) AS active_members\nFROM week_skeleton ws\nLEFT JOIN weekly_counts wc ON ws.week_start = wc.week_start\nORDER BY ws.week_start;",
+    "_meta": {
+      "question_type": "date_operations",
+      "dialect": "postgresql",
+      "generated_at": "2026-05-13T22:13:02.434627",
+      "problem_id": "cfa098ad29fb",
+      "validation_attempts": 1,
+      "scenario": "a fitness app tracking workout completion streaks and member retention",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\nWITH base AS (\nSELECT\n    *,\n    DATE_TRUNC('week', workout_date)::date AS week_start\nFROM workout_logs\n)\nSELECT\n    week_start,\n    COUNT(member_id) AS active_members\nFROM base\nGROUP BY week_start\nORDER BY week_start;",
+  "solved_at": "2026-05-13T22:16:32.754622"
+}

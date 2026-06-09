@@ -87,19 +87,20 @@ def code(src, hidden=False, with_toggle=True):
 # ============================================================
 # Cell 0 — Intro
 # ============================================================
-md('''# Pharmacy Analytics Interview Drills (nb02)
+md('''# Analyst Interview Drills (nb02)
 
-Claude-powered drill notebook for Staff Product Analyst interview prep in the pharmacy / digital health space.
+Claude-powered drill notebook for analyst interview prep. Pick a category, generate a problem grounded in that category's subtopic, then submit your answer for grading.
 
-**Five categories with nested subtopics:**
+The pharmacy claims analytical SQL category lives in `nb01_sql_practice.ipynb` now; this notebook focuses on the broader analyst interview surface area.
 
-1. Pharmacy Claims Analytical SQL — funnels, cohort retention, window functions, reject pareto, segments, time-to-fill
-2. Data Transformation Modeling — schema design (KPI form, the centerpiece), dimensional modeling (build fact + dim hands-on), SCD Type 2 (history maintenance hands-on), dbt tests + macros (YAML/Jinja syntax)
-3. Critical Reasoning SQL — ambiguous metrics, missing data, edge cases, clarify-then-query, outliers
-4. Understanding Product Metrics & KPIs — markdown answers graded against a rubric (mirrors Product Analytics Academy exercises)
-5. Version Control (Git workflows for analytics) — branching strategy, merge conflict resolution, rebase vs merge, PR critique, commit hygiene, revert strategy, git state diagnose
+**Four categories with nested subtopics:**
 
-**Workflow:** pick category + subtopic → generate problem (or replay a saved one) → diagnose (Modeling Diagnostic supports markdown + ASCII for non-SQL drills) → write SQL or markdown → submit for grading → next.
+1. Data Transformation Modeling — schema design (KPI form, the centerpiece), dimensional modeling (build fact + dim hands-on), SCD Type 2 (history maintenance hands-on), dbt tests + macros (YAML/Jinja syntax)
+2. Critical Reasoning SQL — ambiguous metrics, missing data, edge cases, clarify then query, outliers, broken query critique
+3. Understanding Product Metrics & KPIs — markdown answers graded against a rubric (mirrors Product Analytics Academy exercises)
+4. Version Control (Git workflows for analytics) — branching strategy, merge conflict resolution, rebase vs merge, PR critique, commit hygiene, revert strategy, git state diagnose
+
+**Workflow:** pick category + subtopic → generate problem (or replay a saved one) → diagnose (Modeling Diagnostic supports markdown + ASCII for non SQL drills) → write SQL or markdown → submit for grading → next.
 ''')
 
 
@@ -224,7 +225,7 @@ code('''# ── Problem Picker ──
 
 category_dd = widgets.Dropdown(
     options=[(dru.CATEGORIES[k]["label"], k) for k in dru.category_keys()],
-    value="pharmacy_sql",
+    value=dru.category_keys()[0],
     description="Category:",
     style={"description_width": "90px"},
     layout=widgets.Layout(width="560px"),
@@ -256,6 +257,32 @@ source_radio = widgets.RadioButtons(
     style={"description_width": "90px"},
     layout=widgets.Layout(width="320px"),
 )
+
+# Scenario anchor dropdown — pick Random (any industry), My App, or a
+# specific industry vertical. When set to "booedup" the generator also
+# injects the rich BooedUp app context (collections, features, metrics).
+scenario_dd = widgets.Dropdown(
+    options=[
+        ("🎲 Random (any industry)", "random"),
+        ("🎯 My App (BooedUp dating app)", "booedup"),
+        ("Consumer Social (dating, social, video, podcast)", "consumer_social"),
+        ("Marketplace (rideshare, delivery, listings)", "marketplace"),
+        ("Ecommerce (D2C, fashion, grocery)", "ecommerce"),
+        ("Fintech (neobank, BNPL, robo, crypto)", "fintech"),
+        ("B2B SaaS (CRM, PM, HR, observability)", "b2b_saas"),
+        ("Productivity & Media (notes, streaming, news)", "productivity_media"),
+        ("Health & Wellness (telehealth, fitness, sleep)", "health_wellness"),
+        ("Gaming (mobile, console)", "gaming"),
+        ("Education (courses, language, tutoring)", "education"),
+        ("Pharmacy & Care (digital pharmacy, diagnostics)", "pharmacy_care"),
+    ],
+    value="random",
+    description="Scenario:",
+    style={"description_width": "90px"},
+    layout=widgets.Layout(width="480px"),
+)
+# Alias so any code path that still references scenario_radio.value keeps working.
+scenario_radio = scenario_dd
 
 saved_dd = widgets.Dropdown(
     options=[("— pick a saved problem —", None)],
@@ -335,6 +362,7 @@ def on_generate(b):
                 category_dd.value, subtopic_dd.value,
                 dialect=dialect_dd.value,
                 on_attempt=_attempt_progress,
+                scenario_mode=scenario_radio.value,
             )
             if not problem:
                 print("Generation failed. Click Generate to try again.")
@@ -398,6 +426,7 @@ display(widgets.VBox([
     category_dd,
     subtopic_dd,
     widgets.HBox([dialect_dd, source_radio]),
+    scenario_dd,
     saved_dd,
     generate_btn,
     status_out,
@@ -411,13 +440,16 @@ display(widgets.VBox([
 # ============================================================
 md('''## 2. Response Builder
 
-Five panels. Use the one(s) that fit the problem.
+Four accordions, one per category. When you generate a problem, the matching accordion auto opens and shows the response form tailored to your subtopic.
 
-- **Structural Diagnostic** (SQL execution drills only): paraphrase, classify input/output shape, name the recipe and moves before writing the query.
-- **Modeling Diagnostic** (any modeling-flavored problem, SQL or markdown): state grain, joins, materialization, dbt layer, and tests. Headline check for `dimensional_modeling`, `scd_type_2`, `dbt_tests_macros`. Markdown and ASCII diagrams welcome in the text fields.
-- **Business Analysis** (any problem with an expected output to interpret): write your interpretation + recommendation against the problem's expected output.
-- **Schema Design Response Form** (Tab 2 → schema_design): 11-field structured response with metrics classifier, source column classifier, decision trees, edge case picker.
-- **Version Control Response Form** (Tab 5 → version_control): 6-field structured response with subtopic-specific section breakdown, edge case picker, and known-pattern multi-select.
+- **1. Data Transformation Modeling** — Modeling Diagnostic (grain, joins, materialization, dbt layer, tests) for `dimensional_modeling`, `scd_type_2`, `dbt_tests_macros`; the 11 field Schema Design Response Form for `schema_design`; or the new Multiple Choice quiz for `multiple_choice`.
+- **2. Critical Reasoning SQL** — Structural Diagnostic (paraphrase, classify shape, list moves) for all six SQL execution subtopics. Use it as a warm up before scrolling to Section 3 to write the SQL.
+- **3. Understanding Product Metrics & KPIs** — Business Analysis (interpret expected output + recommend an action) for the 10 markdown subtopics; or the Multiple Choice quiz for `multiple_choice`.
+- **4. Version Control (Git workflows)** — 6 field Version Control Response Form for the seven git subtopics; or the Multiple Choice quiz for `multiple_choice`.
+
+**Multiple Choice drills** (new) — 8 questions per drill mixing MCQ, True/False, and ordering questions. Tests the standard interview vocabulary for each category. Submit to get a score and per question explanations.
+
+**Solve vs Walkthrough mode** — most response forms support both. Solve mode = try blind. Walkthrough mode = the worked answer appears in each field's hint area so you can read it, then paraphrase it in your own words below to lock it in. Schema Design has this today; other forms will gain it over time.
 ''')
 
 
@@ -496,7 +528,7 @@ interpretation_ta = widgets.Textarea(
 interpretation_ta.add_class("diagnose-textarea")
 
 recommendation_ta = widgets.Textarea(
-    placeholder="Based on your interpretation, write 3-5 recommendation bullets:\\n- start each with an action verb (Trigger / Implement / Investigate / Add)\\n- name the owning stakeholder (Pharmacy Ops, Care, Finance, Quality, Product)\\n- reference an industry-standard practice (PA team triage, medication sync, adherence outreach, Star Ratings, refill cliff)\\n- include at least one 'what to monitor next' with a concrete metric",
+    placeholder="Based on your interpretation, write 3-5 recommendation bullets:\\n- start each with an action verb (Trigger / Implement / Investigate / Add)\\n- name the owning stakeholder (Product, Engineering, Analytics, Finance, GTM)\\n- reference an industry-standard practice or framework relevant to the problem domain\\n- include at least one 'what to monitor next' with a concrete metric and direction",
     layout=widgets.Layout(width="100%", min_height="140px"),
     description="Recommend:",
     style={"description_width": "110px"},
@@ -842,15 +874,35 @@ _vc_panel_placeholder = widgets.VBox([
                  "this placeholder will be replaced when the cell finishes running.</i>")
 ])
 
+# === 4 panel category-organized response builder ===========================
+# Each category panel is a VBox whose .children list is repopulated by
+# _populate_category_panels() (defined later in this cell) when the active
+# problem changes. The legacy form widgets get assigned as panel children.
+
+_panel_tm = widgets.VBox([widgets.HTML(
+    "<i style='color:#57606a;'>Generate a problem under "
+    "<b>1. Data Transformation Modeling</b> to load the response form here.</i>"
+)])
+_panel_cr = widgets.VBox([widgets.HTML(
+    "<i style='color:#57606a;'>Generate a problem under "
+    "<b>2. Critical Reasoning SQL</b> to load the response form here.</i>"
+)])
+_panel_pk = widgets.VBox([widgets.HTML(
+    "<i style='color:#57606a;'>Generate a problem under "
+    "<b>3. Understanding Product Metrics &amp; KPIs</b> to load the response form here.</i>"
+)])
+_panel_vc = widgets.VBox([widgets.HTML(
+    "<i style='color:#57606a;'>Generate a problem under "
+    "<b>4. Version Control</b> to load the response form here.</i>"
+)])
+
 _generic_diagnostics_accordion = widgets.Accordion(
-    children=[_structural_panel, _modeling_panel, _business_panel,
-              _schema_design_panel_placeholder, _vc_panel_placeholder],
+    children=[_panel_tm, _panel_cr, _panel_pk, _panel_vc],
 )
-_generic_diagnostics_accordion.set_title(0, "Structural Diagnostic — paraphrase, classify shape, list moves")
-_generic_diagnostics_accordion.set_title(1, "Modeling Diagnostic — materialization, grain, joins, dbt layer, tests, design notes")
-_generic_diagnostics_accordion.set_title(2, "Business Analysis — interpret expected output, recommend an action")
-_generic_diagnostics_accordion.set_title(3, "Schema Design Response Form — 11 fields for schema_design problems")
-_generic_diagnostics_accordion.set_title(4, "Version Control Response Form — 6 fields for git/version_control problems")
+_generic_diagnostics_accordion.set_title(0, "1. Data Transformation Modeling")
+_generic_diagnostics_accordion.set_title(1, "2. Critical Reasoning SQL")
+_generic_diagnostics_accordion.set_title(2, "3. Understanding Product Metrics & KPIs")
+_generic_diagnostics_accordion.set_title(3, "4. Version Control (Git workflows)")
 _generic_diagnostics_accordion.selected_index = None  # all collapsed by default
 
 # Wrap in a VBox so refresh_subtopic_form() can toggle visibility on the container
@@ -5364,18 +5416,25 @@ _vc_form_box = widgets.VBox([
 ])
 
 
-# Wire all 5 panels into the accordion now that all widgets exist.
-_generic_diagnostics_accordion.children = (
-    _structural_panel, _modeling_panel, _business_panel, _schema_design_form_box, _vc_form_box,
-)
-_generic_diagnostics_accordion.set_title(3, "Schema Design Response Form — 11 fields for schema_design problems")
-_generic_diagnostics_accordion.set_title(4, "Version Control Response Form — 6 fields for version_control problems")
+# Wire the actual form widgets into their placeholders so they render
+# inside the new category accordion panels via _populate_category_panels.
+# (Phase 2: the accordion is now category-organized with 4 children, and
+# the placeholders live inside the relevant category panel.)
+_schema_design_panel_placeholder.children = (_schema_design_form_box,)
+_vc_panel_placeholder.children = (_vc_form_box,)
 
 
 def refresh_subtopic_form():
     """When a schema_design problem loads, reset the form fields and auto-expand
     the 4th accordion panel so the user knows where to go. For other subtopics,
     leave the accordion alone (all panels collapsed by default)."""
+    # Phase 1: repopulate the 4 category panels based on active subtopic.
+    try:
+        _populate_category_panels()
+    except NameError:
+        pass  # _populate_category_panels defined later in this cell
+    except Exception as _e:
+        print(f"[populate_category_panels warning] {type(_e).__name__}: {_e}")
     p = STATE.get("problem")
     sub = (p or {}).get("_meta", {}).get("subtopic", "")
     if sub == "schema_design":
@@ -5439,8 +5498,8 @@ def refresh_subtopic_form():
                     print(f"Restored your prior attempt for this problem (saved {saved_at}).{score_msg}")
         except Exception as load_err:
             print(f"(warning: could not load saved attempt: {load_err})")
-        # Auto-expand the schema_design accordion panel (index 3)
-        _generic_diagnostics_accordion.selected_index = 3
+        # Phase 2: _populate_category_panels already opened the right
+        # accordion entry (the slim view has only one child). No-op.
     elif (p or {}).get("_meta", {}).get("category", "") == "version_control":
         # Reset and rebuild the version control form for this subtopic.
         try:
@@ -5499,12 +5558,12 @@ def refresh_subtopic_form():
                 print(f"(warning: could not load saved VC attempt: {load_err})")
         except Exception as e:
             print(f"[vc form rebuild error] {type(e).__name__}: {e}")
-        # Auto-expand the version_control accordion panel (index 4)
-        _generic_diagnostics_accordion.selected_index = 4
+        # Phase 2: _populate_category_panels already opened the right
+        # accordion entry (the slim view has only one child). No-op.
     else:
-        # Collapse subtopic-specific panels — let user pick whichever they need
-        if _generic_diagnostics_accordion.selected_index in (3, 4):
-            _generic_diagnostics_accordion.selected_index = None
+        # Phase 2: the accordion is rebuilt per problem in
+        # _populate_category_panels, no manual collapse needed here.
+        pass
 
 # Diagnostic textarea theme + tab handling
 display(HTML("""
@@ -5566,18 +5625,255 @@ display(Javascript(r"""
   poll(); setInterval(poll, 1000);
 })();
 """))
+
+
+# ============================================================
+# Multiple choice quiz UI builder (Phase 1 rebuild)
+# ============================================================
+
+_mc_state = {
+    "problem": None,
+    "answer_widgets": {},
+    "result_out": None,
+}
+
+
+def _build_mc_quiz_ui(problem):
+    """Return a VBox with quiz widgets for the given multiple_choice problem."""
+    _mc_state["problem"] = problem
+    _mc_state["answer_widgets"] = {}
+
+    qs = problem.get("questions", [])
+    blocks = []
+    blocks.append(widgets.HTML(
+        f"<div style='padding:10px 14px; background:#ddf4ff; border-left:4px solid "
+        f"#0969da; border-radius:4px; margin-bottom:12px;'>"
+        f"<b>{problem.get('title','Quiz')}</b><br>"
+        f"<span style='color:#57606a;'>{problem.get('introduction','')}</span></div>"
+    ))
+
+    for i, q in enumerate(qs):
+        qid = q.get("id", f"q{i+1}")
+        qt = q.get("type", "mcq")
+        stem = q.get("question", "")
+        opts = q.get("options", [])
+
+        block_children = [widgets.HTML(
+            f"<div style='margin-top:12px;'><b>Q{i+1} ({qt}):</b> {stem}</div>"
+        )]
+
+        if qt in ("mcq", "true_false"):
+            opts_pairs = [(f"{chr(65+j)}. {o}", j) for j, o in enumerate(opts)]
+            rb = widgets.RadioButtons(
+                options=opts_pairs,
+                value=None,
+                description="",
+                layout=widgets.Layout(margin="4px 0 4px 12px"),
+            )
+            block_children.append(rb)
+            _mc_state["answer_widgets"][qid] = rb
+
+        elif qt == "order":
+            block_children.append(widgets.HTML(
+                "<div style='font-size:12px; color:#57606a; margin-left:12px;'>"
+                "For each position, pick which step belongs there. Each step is "
+                "labeled A, B, C, ... and shown out of order below.</div>"
+            ))
+            labels_html = "<ol style='margin:4px 0 4px 24px;'>" + "".join(
+                f"<li><b>{chr(65+j)}.</b> {o}</li>" for j, o in enumerate(opts)
+            ) + "</ol>"
+            block_children.append(widgets.HTML(labels_html))
+            dd_list = []
+            opts_pairs = [("— pick —", None)] + [(f"{chr(65+j)}", j) for j in range(len(opts))]
+            for pos in range(len(opts)):
+                dd = widgets.Dropdown(
+                    options=opts_pairs,
+                    value=None,
+                    description=f"Pos {pos+1}:",
+                    style={"description_width": "60px"},
+                    layout=widgets.Layout(width="200px", margin="2px 12px"),
+                )
+                dd_list.append(dd)
+            block_children.append(widgets.HBox(dd_list))
+            _mc_state["answer_widgets"][qid] = dd_list
+
+        blocks.append(widgets.VBox(block_children))
+
+    submit_btn = widgets.Button(
+        description="Grade Quiz",
+        button_style="success",
+        layout=widgets.Layout(width="180px", height="34px", margin="14px 0 6px 0"),
+    )
+    result_out = widgets.Output()
+    _mc_state["result_out"] = result_out
+
+    def on_submit(_):
+        p = _mc_state.get("problem")
+        if not p:
+            return
+        user_answers = {}
+        for qid, w in _mc_state["answer_widgets"].items():
+            if isinstance(w, list):
+                picks = [d.value for d in w]
+                if any(v is None for v in picks):
+                    user_answers[qid] = None
+                else:
+                    user_answers[qid] = picks
+            else:
+                user_answers[qid] = w.value
+        grade = dru.grade_multiple_choice_answers(p, user_answers)
+        with result_out:
+            clear_output(wait=True)
+            score = grade["score"]; total = grade["total"]
+            pct = round(100 * score / total) if total else 0
+            color = "#1a7f37" if pct >= 75 else ("#d4a72c" if pct >= 50 else "#cf222e")
+            display(HTML(
+                f"<div style='padding:12px 16px; background:#fafbfc; border:1px solid "
+                f"#d0d7de; border-radius:6px; margin-top:8px;'>"
+                f"<h4 style='margin:0 0 8px; color:{color};'>Score: {score} / {total} "
+                f"({pct}%)</h4>"
+            ))
+            for r in grade["results"]:
+                tick = ("<span style='color:#1a7f37;'>&#10003; correct</span>"
+                        if r["is_correct"] else
+                        "<span style='color:#cf222e;'>&#10007; incorrect</span>")
+                ua = r["user_answer"]
+                ca = r["correct_answer"]
+                opts = r["options"]
+                def _label(ans, opts=opts):
+                    if ans is None:
+                        return "<i>(no answer)</i>"
+                    if isinstance(ans, list):
+                        return ", ".join(chr(65+i) for i in ans)
+                    return f"{chr(65+ans)}. {opts[ans]}" if isinstance(ans, int) and 0 <= ans < len(opts) else str(ans)
+                display(HTML(
+                    f"<div style='margin:10px 0; padding:8px 12px; background:#fff; "
+                    f"border:1px solid #d0d7de; border-radius:4px;'>"
+                    f"<div><b>{r['id']}</b> &middot; {tick}</div>"
+                    f"<div style='font-size:13px; color:#57606a; margin-top:4px;'>"
+                    f"Your answer: {_label(ua)}</div>"
+                    f"<div style='font-size:13px; color:#57606a;'>"
+                    f"Correct answer: {_label(ca)}</div>"
+                    f"<div style='margin-top:6px;'><b>Why:</b> {r['explanation']}</div>"
+                    f"</div>"
+                ))
+            display(HTML("</div>"))
+
+    submit_btn.on_click(on_submit)
+    blocks.append(submit_btn)
+    blocks.append(result_out)
+    return widgets.VBox(blocks)
+
+
+_sql_handoff_banner_html = (
+    "<div style='padding:10px 14px; background:#fff8c5; border-left:4px solid "
+    "#d4a72c; border-radius:4px; margin-top:10px;'>"
+    "<b>SQL subtopic.</b> Use this accordion for the diagnostic form, then "
+    "scroll to <b>Section 3 — Write your SQL</b> below to run, test, and submit."
+    "</div>"
+)
+
+
+def _populate_category_panels():
+    """Repopulate the active category panel based on the active subtopic, fold
+    the SQL/KPI editor inside the panel where applicable, and rebuild the
+    accordion to show only the active category (others are hidden so the page
+    stays focused on the current problem)."""
+    p = STATE.get("problem")
+    if not p:
+        return
+    meta = p.get("_meta", {})
+    cat = meta.get("category", "")
+    sub = meta.get("subtopic", "")
+    kind = meta.get("kind", "")
+
+    # Prime the editor for the active problem so it shows the right pane
+    # (SQL editor for kind=sql, KPI markdown answer area for kind=kpi).
+    try:
+        switch_editor_for_kind(kind)
+    except NameError:
+        pass
+    except Exception as _e:
+        print(f"[switch_editor_for_kind warning] {type(_e).__name__}: {_e}")
+    try:
+        apply_subtopic_editor_override(sub)
+    except NameError:
+        pass
+    except Exception as _e:
+        print(f"[apply_subtopic_editor_override warning] {type(_e).__name__}: {_e}")
+
+    # Pick the children list for the active category panel.
+    fallback = widgets.HTML("<i style='color:#57606a;'>No matching form for this subtopic.</i>")
+
+    def _editor_block():
+        """Reminder + editor_box, in a VBox so the editor sits below the form."""
+        try:
+            return widgets.VBox([reminder_box, editor_box])
+        except NameError:
+            return widgets.HTML(
+                "<i style='color:#57606a;'>Editor widgets defined in the next "
+                "cell — run that cell first.</i>"
+            )
+
+    if cat == "transformation_modeling":
+        if sub == "schema_design":
+            children = [_schema_design_panel_placeholder, _editor_block()]
+        elif sub == "multiple_choice":
+            children = [_build_mc_quiz_ui(p)]
+        elif sub in ("dimensional_modeling", "scd_type_2"):
+            children = [_modeling_panel, _editor_block()]
+        else:
+            children = [_modeling_panel, _editor_block()]
+        active_panel = _panel_tm
+    elif cat == "critical_reasoning":
+        children = [_structural_panel, _editor_block()]
+        active_panel = _panel_cr
+    elif cat == "product_kpis":
+        if sub == "multiple_choice":
+            children = [_build_mc_quiz_ui(p)]
+        elif sub == "metric_critique":
+            try:
+                _refresh_metric_critique_form()
+            except NameError:
+                pass  # form defined later in this cell
+            children = [metric_critique_form_box]
+        elif sub == "metric_design":
+            try:
+                _refresh_metric_design_form()
+            except NameError:
+                pass
+            children = [metric_design_form_box]
+        else:
+            children = [_business_panel, _editor_block()]
+        active_panel = _panel_pk
+    elif cat == "version_control":
+        if sub == "multiple_choice":
+            children = [_build_mc_quiz_ui(p)]
+        else:
+            children = [_vc_panel_placeholder, _editor_block()]
+        active_panel = _panel_vc
+    else:
+        children = [fallback]
+        active_panel = _panel_tm
+
+    active_panel.children = children
+
+    # Rebuild the accordion to contain only the active category panel.
+    # Other categories are hidden until the user generates a problem in them.
+    _category_labels = {
+        "transformation_modeling": "1. Data Transformation Modeling",
+        "critical_reasoning":      "2. Critical Reasoning SQL",
+        "product_kpis":            "3. Understanding Product Metrics & KPIs",
+        "version_control":         "4. Version Control (Git workflows)",
+    }
+    label = _category_labels.get(cat, "Response Builder")
+    _generic_diagnostics_accordion.children = (active_panel,)
+    _generic_diagnostics_accordion.set_title(0, label)
+    _generic_diagnostics_accordion.selected_index = 0
+
 ''', hidden=True)
 
 
-# ============================================================
-# Cell 6 — Editor header
-# ============================================================
-md('''## 3. Write your SQL
-
-This section is **SQL only**. For SQL problems: write SQL in the dark editor below. Test runs against example data and shows output. Run compares to expected. Submit grades against hidden test data and saves on pass.
-
-For non-SQL problems (schema_design, dbt_tests_macros, KPI drills, version control), your answer goes in **section 2** — pick the relevant accordion panel there. This editor is unused for those subtopics.
-''')
 
 
 # ============================================================
@@ -5859,7 +6155,9 @@ grade_btn.on_click(on_grade)
 kpi_save_btn.on_click(on_kpi_save)
 reveal_btn.on_click(on_reveal)
 
-display(widgets.VBox([reminder_box, editor_box]))
+# Phase 2: editor widgets are folded inside the response builder accordion;
+# display call suppressed so this cell no longer renders Section 3 inline.
+# (sql_container, kpi_container, editor_box, reminder_box remain defined globals.)
 
 # Editor styles
 display(HTML("""
@@ -5976,7 +6274,7 @@ display(Javascript(r"""
 # ============================================================
 # Cell 8 — Next problem header
 # ============================================================
-md('''## 4. Next problem
+md('''## 3. Next problem
 
 Clear all fields and start over.
 ''')
@@ -6071,3 +6369,1695 @@ with open(out_path, "w") as f:
 
 print(f"Wrote {out_path}")
 print(f"Cells: {len(CELLS)} ({sum(1 for c in CELLS if c['cell_type']=='code')} code, {sum(1 for c in CELLS if c['cell_type']=='markdown')} markdown)")
+
+
+
+# ============================================================
+# metric_critique response form (Phase 3)
+# ============================================================
+# Two field structured response with Solve / Walkthrough toggle. When the
+# active subtopic is metric_critique, _populate_category_panels swaps this
+# form into Accordion 3 (Product Metrics & KPIs) instead of the generic
+# Business Analysis panel.
+
+mc_mode_toggle = widgets.ToggleButtons(
+    options=[
+        ("🎯 Guided (decision flow)", "guided"),
+        ("🧠 Try blind (fill in the blank)", "solve"),
+        ("📖 Walkthrough (read the answer, paraphrase)", "walkthrough"),
+    ],
+    value="guided",
+    description="Mode:",
+    style={"description_width": "60px", "button_width": "260px"},
+    layout=widgets.Layout(margin="6px 0 10px 0"),
+)
+
+
+# Framework reference shown at the top of the Step 1 block. GSM expanded
+# to Goal, Signal, Metric per the user's request, and the 5 Pressure Test
+# checks are now a bullet list.
+_mc_framework_ref = widgets.HTML(
+    "<div style='background:#ddf4ff; border-left:4px solid #0969da; "
+    "padding:10px 14px; border-radius:4px; margin:10px 0;'>"
+    "<b>Framework: Product Analytics Academy — Goal, Signal, Metric (GSM) "
+    "+ Pressure Test</b><br>"
+    "<span style='font-size:12px;'>For &quot;what is wrong with this metric&quot; "
+    "questions, the prescribed approach is to <b>skip GSM</b> and walk the "
+    "metric through the 5 Pressure Test checks:</span>"
+    "<ul style='font-size:12px; margin:6px 0 6px 18px;'>"
+    "<li>Ambiguity</li>"
+    "<li>Normalization</li>"
+    "<li>Time window</li>"
+    "<li>Survivorship</li>"
+    "<li>Understandability</li>"
+    "</ul>"
+    "<span style='font-size:12px;'>The dropdowns below cover all 5 checks. "
+    "Pick &quot;Not sure&quot; for any check that doesn't apply to the current metric "
+    "— the Compose button will only assemble a sentence from the checks that "
+    "failed.</span></div>"
+)
+
+
+# Helper that renders a <details> collapsible explaining a Pressure Test
+# check and giving a sentence template for translating picks into prose.
+def _mc_info_block(title, what_it_checks, how_to_read, sentence_template):
+    return widgets.HTML(
+        f"<details style='margin:2px 0 8px 0;'>"
+        f"<summary style='cursor:pointer; color:#0969da; font-size:12px;'>"
+        f"ℹ How to read {title}</summary>"
+        f"<div style='background:#f6f8fa; border:1px solid #d0d7de; "
+        f"border-radius:4px; padding:8px 12px; margin-top:4px; font-size:12px;'>"
+        f"<div><b>What this check is asking:</b> {what_it_checks}</div>"
+        f"<div style='margin-top:6px;'><b>How to read the options:</b> {how_to_read}</div>"
+        f"<div style='margin-top:6px;'><b>Sentence template:</b> {sentence_template}</div>"
+        f"</div></details>"
+    )
+
+
+# --- Q1 Ambiguity ------------------------------------------------------
+_mc_q1_label = widgets.HTML(
+    "<div style='margin-top:10px;'>"
+    "<b>Q1 — Pressure Test: Ambiguity</b><br>"
+    "<span style='font-size:12px; color:#57606a;'>Can this metric move up for "
+    "<i>opposite</i> reasons? If yes, the metric is ambiguous — a rise could "
+    "mean improvement OR degradation, and you can't tell which without "
+    "decomposing the metric further.</span></div>"
+)
+mc_g_q1_dd = widgets.Dropdown(
+    options=[
+        ("— pick —", ""),
+        ("Yes — it is ambiguous (moves up whether behavior improves or degrades)", "ambiguous"),
+        ("No — it cleanly tracks one direction (better behavior moves it up only)", "clean"),
+        ("Not sure", "unsure"),
+    ],
+    value="",
+    description="Q1:",
+    style={"description_width": "30px"},
+    layout=widgets.Layout(width="700px", margin="3px 0"),
+)
+_mc_q1_info = _mc_info_block(
+    title="Q1 (Ambiguity)",
+    what_it_checks=(
+        "Whether the metric can rise for two different reasons. Example: "
+        "&quot;total matches per week&quot; rises if quality improved OR if you simply "
+        "added more users (without per user quality changing)."
+    ),
+    how_to_read=(
+        "Pick <b>Yes</b> if the metric mixes two signals (volume + quality, "
+        "engagement + sign ups, etc.). Pick <b>No</b> if only one mechanism can "
+        "move it. Pick <b>Not sure</b> if the prompt doesn't give you enough "
+        "to tell."
+    ),
+    sentence_template=(
+        "&quot;This metric is ambiguous because it can rise both when "
+        "[improvement scenario] and when [degradation scenario].&quot;"
+    ),
+)
+_mc_q1_walk = widgets.HTML("")
+
+# --- Q2 Normalization --------------------------------------------------
+_mc_q2_label = widgets.HTML(
+    "<div style='margin-top:10px;'>"
+    "<b>Q2 — Pressure Test: Normalization</b><br>"
+    "<span style='font-size:12px; color:#57606a;'>Is the metric a raw count "
+    "or a rate? Raw counts scale with the user base. Rates normalize per user, "
+    "per session, per interaction. <b>Time window (&quot;per week&quot;) is a separate "
+    "check — see Q3.</b> Normalization here means &quot;divided by users / sessions / "
+    "interactions.&quot;</span></div>"
+)
+mc_g_q2_dd = widgets.Dropdown(
+    options=[
+        ("— pick —", ""),
+        ("Raw count or total — has no per-user, per-session, or per-interaction divisor", "raw_count"),
+        ("Rate or percentage — already divided by users / sessions / interactions", "rate"),
+        ("Duration or statistic — median, p95, mean (e.g., median time to first match)", "duration"),
+        ("Not sure", "unsure"),
+    ],
+    value="",
+    description="Q2:",
+    style={"description_width": "30px"},
+    layout=widgets.Layout(width="700px", margin="3px 0"),
+)
+_mc_q2_info = _mc_info_block(
+    title="Q2 (Normalization)",
+    what_it_checks=(
+        "Whether the metric divides by a population (users, sessions, "
+        "interactions). &quot;Per week&quot; is NOT normalization — that's the time "
+        "window check (Q3). &quot;Per user&quot; or &quot;per session&quot; IS normalization."
+    ),
+    how_to_read=(
+        "Pick <b>Raw count</b> for any metric that has no per user / per "
+        "session / per interaction divisor — even if it has a time window. "
+        "&quot;Total matches this week&quot; is a raw count because it doesn't divide "
+        "by users. Pick <b>Rate</b> for &quot;matches per active user&quot; or &quot;match "
+        "rate per interaction.&quot; Pick <b>Duration</b> for &quot;median time to first "
+        "match&quot; or &quot;p95 latency.&quot;"
+    ),
+    sentence_template=(
+        "&quot;This metric is a raw count not normalized per [users / sessions / "
+        "interactions], so a larger cohort always appears better even when "
+        "per user behavior is worse.&quot;"
+    ),
+)
+_mc_q2_walk = widgets.HTML("")
+
+# --- Q3 Time window ----------------------------------------------------
+_mc_q3_label = widgets.HTML(
+    "<div style='margin-top:10px;'>"
+    "<b>Q3 — Pressure Test: Time window</b><br>"
+    "<span style='font-size:12px; color:#57606a;'>Does the metric specify "
+    "a window (per day, per week, rolling 28 days)? Without a window the "
+    "metric drifts — &quot;total matches&quot; means different things depending on "
+    "whether you mean today or all time.</span></div>"
+)
+mc_g_q3_dd = widgets.Dropdown(
+    options=[
+        ("— pick —", ""),
+        ("Yes — has an explicit time window (per day / week / rolling 28 days, etc.)", "windowed"),
+        ("No window specified — the metric drifts in scope", "no_window"),
+        ("Not sure", "unsure"),
+    ],
+    value="",
+    description="Q3:",
+    style={"description_width": "30px"},
+    layout=widgets.Layout(width="700px", margin="3px 0"),
+)
+_mc_q3_info = _mc_info_block(
+    title="Q3 (Time window)",
+    what_it_checks=(
+        "Whether the metric tells you WHEN it is measured. &quot;Total matches "
+        "per week&quot; passes — the window is &quot;per week.&quot; &quot;Total matches&quot; with no "
+        "window fails — you don't know if that's today, last 30 days, or all "
+        "time."
+    ),
+    how_to_read=(
+        "Pick <b>Yes</b> if the metric name or definition includes phrases "
+        "like &quot;per day,&quot; &quot;per week,&quot; &quot;rolling 28 days,&quot; or &quot;during the "
+        "experiment window.&quot; Pick <b>No window</b> if the metric is stated as "
+        "a flat number with no temporal scope."
+    ),
+    sentence_template=(
+        "&quot;This metric has no explicit time window, so it is not operable — "
+        "you can't tell whether it's measured daily, weekly, or all time.&quot;"
+    ),
+)
+_mc_q3_walk = widgets.HTML("")
+
+# --- Q4 Survivorship ---------------------------------------------------
+_mc_q4d_label = widgets.HTML(
+    "<div style='margin-top:10px;'>"
+    "<b>Q4 — Pressure Test: Survivorship</b><br>"
+    "<span style='font-size:12px; color:#57606a;'>Does the metric's "
+    "denominator only include users who already succeeded at some prior "
+    "step? If yes, the metric is biased: users who would have failed are "
+    "excluded from the population entirely.</span></div>"
+)
+mc_g_q4d_dd = widgets.Dropdown(
+    options=[
+        ("— pick —", ""),
+        ("Yes — denominator only counts users who already passed an earlier step (survivorship bias)", "survivorship"),
+        ("No — denominator includes everyone who could have done the action", "clean_denom"),
+        ("N/A — the metric has no denominator (it is a raw count)", "no_denom"),
+        ("Not sure", "unsure"),
+    ],
+    value="",
+    description="Q4:",
+    style={"description_width": "30px"},
+    layout=widgets.Layout(width="700px", margin="3px 0"),
+)
+_mc_q4d_info = _mc_info_block(
+    title="Q4 (Survivorship)",
+    what_it_checks=(
+        "Whether the population in the denominator was already filtered. "
+        "Example: &quot;match rate per user who completed verification&quot; — the "
+        "denominator excludes users who quit during verification, so the rate "
+        "looks better than the true funnel."
+    ),
+    how_to_read=(
+        "Pick <b>Yes</b> if the denominator implicitly excludes users who "
+        "would have failed (verified users only, paying users only, users who "
+        "completed profile only). Pick <b>No</b> if everyone who could have "
+        "done the action is counted. Pick <b>N/A</b> if there is no denominator."
+    ),
+    sentence_template=(
+        "&quot;The denominator only includes [survivor population], which "
+        "excludes [users who failed earlier], so the rate looks better than "
+        "the true end to end funnel.&quot;"
+    ),
+)
+_mc_q4d_walk = widgets.HTML("")
+
+# --- Q5 Understandability ----------------------------------------------
+_mc_q5d_label = widgets.HTML(
+    "<div style='margin-top:10px;'>"
+    "<b>Q5 — Pressure Test: Understandability</b><br>"
+    "<span style='font-size:12px; color:#57606a;'>Could a PM or exec hold "
+    "this metric in their head and explain it to someone else without "
+    "looking it up? If not, the metric won't drive action because the team "
+    "can't reason about it day to day.</span></div>"
+)
+mc_g_q5d_dd = widgets.Dropdown(
+    options=[
+        ("— pick —", ""),
+        ("Yes — easy to remember and explain in one sentence", "understandable"),
+        ("No — the formula is too complex for a PM to hold in their head", "not_understandable"),
+        ("No — simple, but doesn't address the scenario's purpose", "doesnt_address_purpose"),
+        ("Not sure", "unsure"),
+    ],
+    value="",
+    description="Q5:",
+    style={"description_width": "30px"},
+    layout=widgets.Layout(width="700px", margin="3px 0"),
+)
+_mc_q5d_info = _mc_info_block(
+    title="Q5 (Understandability)",
+    what_it_checks=(
+        "Whether the metric is operable in day to day product conversations. "
+        "Highly complex metrics (multi step composite scores, ML model "
+        "outputs) often fail this check even when they are technically valid."
+    ),
+    how_to_read=(
+        "Pick <b>Yes</b> if you can summarize the metric in one sentence (e.g., "
+        "&quot;mutual matches per active user, weekly&quot;). Pick <b>No</b> if it "
+        "takes a paragraph to explain or if the formula has 3+ nested conditions."
+    ),
+    sentence_template=(
+        "&quot;This metric is too complex for a PM to hold in their head; a "
+        "simpler proxy like [simpler metric] would be more operable.&quot;"
+    ),
+)
+_mc_q5d_walk = widgets.HTML("")
+
+
+# --- Step 2 Fix dropdowns (renumbered Q6 / Q7 / Q8) --------------------
+_mc_fix_source_note = widgets.HTML(
+    "<div style='background:#fff8c5; border-left:4px solid #d4a72c; "
+    "padding:8px 12px; border-radius:4px; margin:10px 0; font-size:12px;'>"
+    "<b>About these options:</b> the Q6 / Q7 / Q8 dropdowns are curated "
+    "lists drawn from the BooedUp app context (mutual matches, interactions, "
+    "active users, Type Score). They are <i>not</i> generated per problem by "
+    "Claude — they are static options chosen to fit dating app metrics in "
+    "general. For a problem that doesn't fit any option, pick the closest "
+    "match and edit the composed draft in the Step 2 textarea.</div>"
+)
+
+_mc_q6_label = widgets.HTML(
+    "<div style='margin-top:10px;'>"
+    "<b>Q6 — Fix: numerator of the corrected metric</b><br>"
+    "<span style='font-size:12px; color:#57606a;'>What event or count goes "
+    "on top? Pick the user behavior that actually reflects success of the "
+    "feature.</span></div>"
+)
+mc_g_num_dd = widgets.Dropdown(
+    options=[
+        ("— pick —", ""),
+        ("Mutual matches in the period", "mutual_matches"),
+        ("Interactions initiated (likes, winks, superlikes)", "interactions"),
+        ("Messages sent in the period", "messages_sent"),
+        ("First messages sent after a Match or Wingman connection", "first_messages"),
+        ("Reply messages (responses to an existing thread)", "reply_messages"),
+        ("Profile views received", "profile_views"),
+        ("Paid (Premium) upgrades in the period", "premium_upgrades"),
+        ("Activated users (verified + profile complete + first interaction)", "activated"),
+        ("Sessions", "sessions"),
+    ],
+    value="",
+    description="Q6:",
+    style={"description_width": "30px"},
+    layout=widgets.Layout(width="700px", margin="3px 0"),
+)
+_mc_q6_info = _mc_info_block(
+    title="Q6 (numerator)",
+    what_it_checks="What event you count on the top of the fraction.",
+    how_to_read=(
+        "Pick the behavior that, if it increases, means the feature succeeded. "
+        "Mutual matches measures pair formation; interactions measures attempted "
+        "outreach; activated users measures funnel completion."
+    ),
+    sentence_template=(
+        "&quot;Replace with [numerator] divided by [denominator from Q7], paired "
+        "with [guardrail from Q8].&quot;"
+    ),
+)
+_mc_q6_walk = widgets.HTML("")
+
+_mc_q7_label = widgets.HTML(
+    "<div style='margin-top:10px;'>"
+    "<b>Q7 — Fix: denominator</b><br>"
+    "<span style='font-size:12px; color:#57606a;'>What does the numerator "
+    "get divided by? Pick the population at risk of doing the numerator "
+    "behavior.</span></div>"
+)
+mc_g_denom_dd = widgets.Dropdown(
+    options=[
+        ("— pick —", ""),
+        ("Active users in the period (DAU or MAU)", "active_users"),
+        ("Interactions initiated", "interactions"),
+        ("Match connections in the period", "match_connections"),
+        ("Wingman connections in the period", "wingman_connections"),
+        ("Total connections (Match + Wingman) in the period", "total_connections"),
+        ("Conversations started (at least one message exchanged)", "conversations_started"),
+        ("Verified users in cohort", "verified_users"),
+        ("Sessions", "sessions"),
+        ("No denominator — keep as raw count", "no_denom"),
+    ],
+    value="",
+    description="Q7:",
+    style={"description_width": "30px"},
+    layout=widgets.Layout(width="700px", margin="3px 0"),
+)
+_mc_q7_info = _mc_info_block(
+    title="Q7 (denominator)",
+    what_it_checks="What population the numerator is divided by.",
+    how_to_read=(
+        "Pick &quot;active users&quot; for engagement rates. Pick &quot;interactions&quot; if "
+        "you want the success rate per attempt (matches / attempts). Pick "
+        "&quot;sessions&quot; if you want per visit. Avoid &quot;verified users&quot; if you "
+        "are NOT trying to measure post verification behavior — that's "
+        "survivorship bias."
+    ),
+    sentence_template=(
+        "&quot;The denominator [users / sessions / interactions] is the population "
+        "at risk of doing the numerator behavior.&quot;"
+    ),
+)
+_mc_q7_walk = widgets.HTML("")
+
+_mc_q8_label = widgets.HTML(
+    "<div style='margin-top:10px;'>"
+    "<b>Q8 — Fix: guardrail / counter metric</b><br>"
+    "<span style='font-size:12px; color:#57606a;'>The counter metric is the "
+    "opposite hypothesis — what would move if the feature is hurting users "
+    "in a way the primary metric can't see. If this moves the wrong way, "
+    "you would stop the rollout.</span></div>"
+)
+mc_g_guardrail_dd = widgets.Dropdown(
+    options=[
+        ("— pick —", ""),
+        ("Type Score acceptance rate (match quality not just volume)", "type_score_quality"),
+        ("Report rate / safety incidents per active user", "safety"),
+        ("Time to first match (engagement depth, not just throughput)", "time_to_first_match"),
+        ("Premium churn rate", "churn"),
+        ("Message response rate after match (matches converting to conversation)", "response_rate"),
+        ("Conversation depth — median messages per connection", "conversation_depth"),
+        ("Match-to-message conversion rate (Match formed → first message sent within 48h)", "match_to_message"),
+        ("Connection longevity — % of Match connections still active at 30 days", "connection_longevity"),
+        ("None / not needed for this metric", "none"),
+    ],
+    value="",
+    description="Q8:",
+    style={"description_width": "30px"},
+    layout=widgets.Layout(width="700px", margin="3px 0"),
+)
+_mc_q8_info = _mc_info_block(
+    title="Q8 (guardrail / counter metric)",
+    what_it_checks=(
+        "A second metric that would catch harm the primary metric misses. "
+        "Required for every A/B test in the academy framework."
+    ),
+    how_to_read=(
+        "Pick a metric that measures quality (Type Score acceptance), safety "
+        "(report rate), or downstream value (message response rate) — not "
+        "another volume metric."
+    ),
+    sentence_template=(
+        "&quot;Pair this with [guardrail metric] so the model is not optimizing "
+        "for [the harmful behavior the guardrail catches].&quot;"
+    ),
+)
+_mc_q8_walk = widgets.HTML("")
+
+
+mc_compose_btn = widgets.Button(
+    description="Compose draft from picks",
+    button_style="info",
+    layout=widgets.Layout(width="240px", height="32px", margin="10px 0"),
+)
+
+
+# --- Container groups for visibility toggling --------------------------
+mc_guided_step1_box = widgets.VBox([
+    widgets.HTML("<b>Step 1 — diagnose the flaw (pick each row):</b>"),
+    _mc_framework_ref,
+    _mc_q1_label, mc_g_q1_dd, _mc_q1_walk, _mc_q1_info,
+    _mc_q2_label, mc_g_q2_dd, _mc_q2_walk, _mc_q2_info,
+    _mc_q3_label, mc_g_q3_dd, _mc_q3_walk, _mc_q3_info,
+    _mc_q4d_label, mc_g_q4d_dd, _mc_q4d_walk, _mc_q4d_info,
+    _mc_q5d_label, mc_g_q5d_dd, _mc_q5d_walk, _mc_q5d_info,
+])
+mc_guided_step2_box = widgets.VBox([
+    widgets.HTML("<b>Step 2 — frame the fix (pick each row):</b>"),
+    _mc_fix_source_note,
+    _mc_q6_label, mc_g_num_dd, _mc_q6_walk, _mc_q6_info,
+    _mc_q7_label, mc_g_denom_dd, _mc_q7_walk, _mc_q7_info,
+    _mc_q8_label, mc_g_guardrail_dd, _mc_q8_walk, _mc_q8_info,
+])
+mc_guided_compose_box = widgets.VBox([mc_compose_btn])
+
+# --- Textarea labels (clarify example vs answer) -----------------------
+mc_flaw_label = widgets.HTML(
+    "<h4 style='margin:10px 0 4px;'>Step 1 — What is wrong with this metric?</h4>"
+    "<div style='font-size:12px; color:#57606a; margin-bottom:6px;'>"
+    "Name the specific flaw in one or two short sentences. "
+    "<b>The dark text below is just an EXAMPLE</b> — your real answer should be "
+    "based on this problem's metric. In Guided mode the dropdowns above "
+    "shape the draft via the Compose button; in Try blind mode you write "
+    "from scratch.</div>"
+)
+mc_flaw_ta = widgets.Textarea(
+    placeholder="Example answer (do not copy verbatim — write your own): 'Total matches per week is a raw count not normalized by active users, so a larger cohort always appears better even when match quality is worse per user.'",
+    layout=widgets.Layout(width="100%", min_height="80px"),
+)
+mc_flaw_ta.add_class("diagnose-textarea")
+mc_flaw_hint = widgets.HTML("")
+
+mc_fix_label = widgets.HTML(
+    "<h4 style='margin:14px 0 4px;'>Step 2 — How would you fix it?</h4>"
+    "<div style='font-size:12px; color:#57606a; margin-bottom:6px;'>"
+    "Propose a specific replacement metric with formula plus a guardrail. "
+    "<b>The dark text below is an EXAMPLE</b> — write your own.</div>"
+)
+mc_fix_ta = widgets.Textarea(
+    placeholder="Example answer (do not copy verbatim): 'Mutual Match Rate = (mutual matches) / (interactions initiated), measured per active user. Guardrail: Type Score acceptance rate so the model is not optimizing for promiscuous matching.'",
+    layout=widgets.Layout(width="100%", min_height="80px"),
+)
+mc_fix_ta.add_class("diagnose-textarea")
+mc_fix_hint = widgets.HTML("")
+
+mc_grade_btn = widgets.Button(
+    description="Get Grade",
+    button_style="success",
+    layout=widgets.Layout(width="180px", height="34px", margin="12px 0 6px 0"),
+)
+mc_grade_out = widgets.Output()
+
+# Case context widgets — defined before the form box so the box can hold
+# references to them. Both widgets share the same HTML content (set by
+# _mc_render_case_context). One is shown at the top of Step 1, the other
+# above Step 2 so the learner does not have to scroll back up.
+_mc_case_context = widgets.HTML("")
+_mc_case_context_step2 = widgets.HTML("")
+_mc_case_context_box = widgets.Accordion(
+    children=[widgets.VBox([_mc_case_context])],
+)
+_mc_case_context_box.set_title(0, "📋 Case context — scenario, proposed metric, stakeholder rationale")
+_mc_case_context_box.selected_index = 0  # open by default
+
+_mc_case_context_step2_box = widgets.Accordion(
+    children=[widgets.VBox([_mc_case_context_step2])],
+)
+_mc_case_context_step2_box.set_title(0, "📋 Case context — repeated here so you don't have to scroll")
+_mc_case_context_step2_box.selected_index = None  # collapsed by default at Step 2
+
+metric_critique_form_box = widgets.VBox([
+    mc_mode_toggle,
+    _mc_case_context_box,        # case context Accordion (open) above Step 1
+    mc_guided_step1_box,
+    mc_flaw_label, mc_flaw_ta, mc_flaw_hint,
+    _mc_case_context_step2_box,  # case context Accordion (collapsed) above Step 2
+    mc_guided_step2_box,
+    mc_fix_label, mc_fix_ta, mc_fix_hint,
+    mc_guided_compose_box,
+    mc_grade_btn, mc_grade_out,
+])
+
+
+# --- Walkthrough mode heuristics: infer recommended dropdown picks -----
+# Reads the problem's expected_themes / rubric and suggests a pick per
+# dropdown by keyword matching. Non destructive: the suggestion appears
+# in a small green note under the dropdown, the dropdown's actual value
+# is left alone.
+def _mc_walk_suggest(problem):
+    """Return dict mapping dropdown name -> suggested option label."""
+    p = problem or {}
+    text = " ".join(p.get("expected_themes", []) or []).lower()
+    rubric = p.get("rubric", []) or []
+    text += " " + " ".join(
+        (r.get("description", "") + " " + r.get("criterion", "")).lower()
+        for r in rubric
+    )
+    suggestions = {}
+    if any(k in text for k in ("ambigu", "opposite reason", "both directions")):
+        suggestions["q1"] = "Yes — ambiguous"
+    if any(k in text for k in ("normaliz", "raw count", "per user", "per active user", "rate")):
+        suggestions["q2"] = "Raw count or total"
+    if any(k in text for k in ("time window", "no window", "rolling", "weekly", "per week")):
+        if "no window" in text or "without window" in text or "missing window" in text:
+            suggestions["q3"] = "No window specified"
+    if "survivorship" in text or "survivor" in text:
+        suggestions["q4d"] = "Yes — survivorship"
+    if "complex" in text or "understandab" in text or "hold in their head" in text:
+        suggestions["q5d"] = "No — too complex"
+    # Fix
+    # Q6 numerator
+    if "first message" in text:
+        suggestions["q6"] = "First messages sent after a Match or Wingman connection"
+    elif "reply" in text and "message" in text:
+        suggestions["q6"] = "Reply messages"
+    elif "message" in text:
+        suggestions["q6"] = "Messages sent in the period"
+    elif "mutual match" in text:
+        suggestions["q6"] = "Mutual matches in the period"
+    elif "activat" in text:
+        suggestions["q6"] = "Activated users"
+    elif "profile view" in text:
+        suggestions["q6"] = "Profile views received"
+    elif "premium" in text and "upgrade" in text:
+        suggestions["q6"] = "Premium upgrades in the period"
+    elif "interaction" in text:
+        suggestions["q6"] = "Interactions initiated"
+    # Q7 denominator
+    if "per match" in text or "per connection" in text or "per relationship" in text:
+        if "wingman" in text and "match" not in text.replace("wingman", "", 1):
+            suggestions["q7"] = "Wingman connections in the period"
+        elif "match" in text and "wingman" not in text:
+            suggestions["q7"] = "Match connections in the period"
+        else:
+            suggestions["q7"] = "Total connections (Match + Wingman) in the period"
+    elif "active user" in text or "per active" in text or "per user" in text:
+        suggestions["q7"] = "Active users in the period (DAU or MAU)"
+    elif "conversation" in text:
+        suggestions["q7"] = "Conversations started"
+    elif "interaction" in text:
+        suggestions["q7"] = "Interactions initiated"
+    # Q8 guardrail
+    if "type score" in text:
+        suggestions["q8"] = "Type Score acceptance rate"
+    elif "safety" in text or "report" in text:
+        suggestions["q8"] = "Report rate / safety incidents"
+    elif "conversation depth" in text or "messages per connection" in text:
+        suggestions["q8"] = "Conversation depth"
+    elif "longevity" in text or "still active" in text:
+        suggestions["q8"] = "Connection longevity"
+    elif "response" in text or "message" in text:
+        suggestions["q8"] = "Message response rate"
+    return suggestions
+
+
+def _mc_walk_note(label):
+    """Render a small green walkthrough suggestion note."""
+    if not label:
+        return ""
+    return (
+        f"<div style='font-size:12px; color:#1a7f37; margin:-4px 0 6px 36px;'>"
+        f"💡 Walkthrough suggests: <b>{label}</b></div>"
+    )
+
+
+# --- Dropdown -> sentence helpers --------------------------------------
+def _mc_label_for(dd):
+    for label, value in dd.options:
+        if value == dd.value:
+            return label if value else ""
+    return ""
+
+
+def _mc_compose_flaw_sentence():
+    """Build a sentence enumerating each Pressure Test that failed."""
+    fails = []
+    if mc_g_q1_dd.value == "ambiguous":
+        fails.append("ambiguity — the metric can move up for opposite reasons (improvement OR cohort growth that masks per user decline)")
+    if mc_g_q2_dd.value == "raw_count":
+        fails.append("normalization — it is a raw count not a rate, so it scales with the user base instead of measuring per user behavior")
+    if mc_g_q3_dd.value == "no_window":
+        fails.append("time window — no explicit window, so the metric is not operable from a fixed point in time")
+    if mc_g_q4d_dd.value == "survivorship":
+        fails.append("survivorship — the denominator only counts users who already passed an earlier step, so the rate looks better than the true end to end funnel")
+    if mc_g_q5d_dd.value == "not_understandable":
+        fails.append("understandability — the metric is too complex for a PM or exec to hold in their head, so it can't drive day to day decisions")
+    if mc_g_q5d_dd.value == "doesnt_address_purpose":
+        fails.append("understandability — the metric is simple to read but does not connect to the scenario's stated purpose; looking at the number doesn't tell anyone whether the underlying goal was achieved")
+    if not fails:
+        return ""
+    if len(fails) == 1:
+        return f"This metric fails the Pressure Test on {fails[0]}."
+    return "This metric fails the Pressure Test on multiple checks: " + "; ".join(fails) + "."
+
+
+def _mc_compose_fix_sentence():
+    num = _mc_label_for(mc_g_num_dd)
+    denom = _mc_label_for(mc_g_denom_dd)
+    guard = _mc_label_for(mc_g_guardrail_dd)
+    if not (num and denom):
+        return ""
+    if mc_g_denom_dd.value == "no_denom":
+        formula = f"Keep the numerator as is — {num} — but report it per user segment so a larger cohort cannot mask a worse per user rate."
+    else:
+        formula = f"Replace with ({num}) divided by ({denom})."
+    parts = [formula]
+    if guard and mc_g_guardrail_dd.value not in ("", "none"):
+        parts.append(f"Pair it with this guardrail metric: {guard}.")
+    return " ".join(parts)
+
+
+def _on_mc_compose(_b):
+    flaw = _mc_compose_flaw_sentence()
+    fix = _mc_compose_fix_sentence()
+    if flaw:
+        mc_flaw_ta.value = flaw
+    if fix:
+        mc_fix_ta.value = fix
+
+
+mc_compose_btn.on_click(_on_mc_compose)
+
+
+def _set_visible(box, visible):
+    box.layout.display = "" if visible else "none"
+
+
+def _mc_apply_mode():
+    mode = mc_mode_toggle.value
+    # Guided controls
+    _set_visible(mc_guided_step1_box, mode == "guided")
+    _set_visible(mc_guided_step2_box, mode == "guided")
+    _set_visible(mc_guided_compose_box, mode == "guided")
+    # Walkthrough hints on the textareas
+    p = STATE.get("problem") or {}
+    themes = p.get("expected_themes", []) or []
+    if mode == "walkthrough":
+        if themes:
+            half = max(1, len(themes) // 2)
+            flaw_themes = themes[:half]
+            fix_themes = themes[half:]
+        else:
+            flaw_themes = ["raw count vs rate", "missing normalization", "missing counter metric"]
+            fix_themes = ["named replacement metric with formula", "one line on why it's better", "a guardrail metric"]
+        mc_flaw_hint.value = (
+            "<div style='background:#fff8c5; border-left:4px solid #d4a72c; "
+            "padding:10px; border-radius:4px; margin:4px 0 10px;'>"
+            "<b>Walkthrough — points to hit in Step 1:</b>"
+            "<ul style='margin:6px 0 0 18px;'>"
+            + "".join(f"<li>{t}</li>" for t in flaw_themes)
+            + "</ul></div>"
+        )
+        mc_fix_hint.value = (
+            "<div style='background:#fff8c5; border-left:4px solid #d4a72c; "
+            "padding:10px; border-radius:4px; margin:4px 0 10px;'>"
+            "<b>Walkthrough — points to hit in Step 2:</b>"
+            "<ul style='margin:6px 0 0 18px;'>"
+            + "".join(f"<li>{t}</li>" for t in fix_themes)
+            + "</ul></div>"
+        )
+    else:
+        mc_flaw_hint.value = ""
+        mc_fix_hint.value = ""
+    # Walkthrough mode also surfaces a recommended dropdown pick under each
+    # dropdown (both Step 1 and Step 2). Non destructive: just a green note.
+    if mode == "walkthrough":
+        s = _mc_walk_suggest(p)
+        _mc_q1_walk.value = _mc_walk_note(s.get("q1", ""))
+        _mc_q2_walk.value = _mc_walk_note(s.get("q2", ""))
+        _mc_q3_walk.value = _mc_walk_note(s.get("q3", ""))
+        _mc_q4d_walk.value = _mc_walk_note(s.get("q4d", ""))
+        _mc_q5d_walk.value = _mc_walk_note(s.get("q5d", ""))
+        _mc_q6_walk.value = _mc_walk_note(s.get("q6", ""))
+        _mc_q7_walk.value = _mc_walk_note(s.get("q7", ""))
+        _mc_q8_walk.value = _mc_walk_note(s.get("q8", ""))
+        # In Walkthrough mode also show the guided dropdowns so the user can
+        # see WHICH options the walkthrough recommends.
+        _set_visible(mc_guided_step1_box, True)
+        _set_visible(mc_guided_step2_box, True)
+    else:
+        for w in (_mc_q1_walk, _mc_q2_walk, _mc_q3_walk, _mc_q4d_walk,
+                  _mc_q5d_walk, _mc_q6_walk, _mc_q7_walk, _mc_q8_walk):
+            w.value = ""
+
+
+# Static fallback options used when the problem JSON does not carry
+# metric_critique_picks. These match the curated catalog from before.
+_MC_STATIC_NUM_OPTS = [
+    ("— pick —", ""),
+    ("Mutual matches in the period", "mutual_matches"),
+    ("Interactions initiated (likes, winks, superlikes)", "interactions"),
+    ("Messages sent in the period", "messages_sent"),
+    ("First messages sent after a Match or Wingman connection", "first_messages"),
+    ("Reply messages (responses to an existing thread)", "reply_messages"),
+    ("Profile views received", "profile_views"),
+    ("Paid (Premium) upgrades in the period", "premium_upgrades"),
+    ("Activated users (verified + profile complete + first interaction)", "activated"),
+    ("Sessions", "sessions"),
+]
+_MC_STATIC_DENOM_OPTS = [
+    ("— pick —", ""),
+    ("Active users in the period (DAU or MAU)", "active_users"),
+    ("Interactions initiated", "interactions"),
+    ("Match connections in the period", "match_connections"),
+    ("Wingman connections in the period", "wingman_connections"),
+    ("Total connections (Match + Wingman) in the period", "total_connections"),
+    ("Conversations started (at least one message exchanged)", "conversations_started"),
+    ("Verified users in cohort", "verified_users"),
+    ("Sessions", "sessions"),
+    ("No denominator — keep as raw count", "no_denom"),
+]
+_MC_STATIC_GUARD_OPTS = [
+    ("— pick —", ""),
+    ("Type Score acceptance rate (match quality not just volume)", "type_score_quality"),
+    ("Report rate / safety incidents per active user", "safety"),
+    ("Time to first match (engagement depth, not just throughput)", "time_to_first_match"),
+    ("Premium churn rate", "churn"),
+    ("Message response rate after match (matches converting to conversation)", "response_rate"),
+    ("Conversation depth — median messages per connection", "conversation_depth"),
+    ("Match-to-message conversion rate (Match formed → first message sent within 48h)", "match_to_message"),
+    ("Connection longevity — % of Match connections still active at 30 days", "connection_longevity"),
+    ("None / not needed for this metric", "none"),
+]
+
+
+def _mc_dynamic_opts(static_opts, picks_list):
+    """Merge dynamic picks from the problem JSON in front of the static
+    catalog. Picks come as a list of {"label": ..., "value": ...} dicts."""
+    if not picks_list:
+        return static_opts
+    dyn = [("— pick —", "")]
+    seen_values = set()
+    for it in picks_list:
+        if not isinstance(it, dict):
+            continue
+        lbl = it.get("label", "").strip()
+        val = it.get("value", "").strip()
+        if not lbl or not val or val in seen_values:
+            continue
+        # Tag dynamic picks so the learner sees they were tailored to this problem.
+        dyn.append((f"⭐ {lbl}", val))
+        seen_values.add(val)
+    # Append the static catalog below the dynamic picks as a fallback.
+    for lbl, val in static_opts[1:]:
+        if val not in seen_values:
+            dyn.append((lbl, val))
+    return dyn
+
+
+def _mc_render_case_context(p):
+    if not p:
+        _mc_case_context.value = ""
+        return
+    scenario = p.get("scenario", "") or ""
+    rationale = p.get("stakeholder_rationale", "") or ""
+    title = p.get("title", "") or ""
+    prompt_text = p.get("prompt", "") or ""
+    # Prefer the explicit proposed_metric field (added in this rebuild).
+    # Older problems may not have it; fall back to extracting a single
+    # or double quoted metric name out of the prompt text. Last resort:
+    # use the title (which is the problem TITLE, not the metric, but
+    # better than blank).
+    proposed_metric = (p.get("proposed_metric", "") or "").strip()
+    if not proposed_metric and prompt_text:
+        import re as _re
+        m = _re.search(r"[\u2018\u2019\'\"]([^\u2018\u2019\'\"]{4,80})[\u2018\u2019\'\"]", prompt_text)
+        if m:
+            proposed_metric = m.group(1).strip()
+    if not proposed_metric:
+        proposed_metric = title
+    parts = [
+        "<div style='background:#fafbfc; border:1px solid #d0d7de; "
+        "border-radius:6px; padding:12px 14px; margin:8px 0;'>",
+        "<div style='font-size:11px; color:#57606a; "
+        "text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;'>"
+        "Case context (kept here so you don't have to scroll)</div>",
+    ]
+    if scenario:
+        parts.append(
+            f"<div style='margin:4px 0;'><b>Scenario (purpose):</b> "
+            f"{scenario}</div>"
+        )
+    if proposed_metric:
+        parts.append(
+            f"<div style='margin:4px 0;'><b>Proposed metric (under review):"
+            f"</b> {proposed_metric}</div>"
+        )
+    if rationale:
+        parts.append(
+            f"<div style='margin:4px 0;'><b>Stakeholder rationale "
+            f"(why they think this metric works):</b> {rationale}</div>"
+        )
+    parts.append("</div>")
+    html = "".join(parts)
+    _mc_case_context.value = html
+    try:
+        _mc_case_context_step2.value = html
+    except NameError:
+        pass
+
+
+def _refresh_metric_critique_form():
+    p = STATE.get("problem")
+    # Rebuild Q6/Q7/Q8 options from dynamic picks if present
+    picks = (p or {}).get("metric_critique_picks", {}) or {}
+    mc_g_num_dd.options = _mc_dynamic_opts(_MC_STATIC_NUM_OPTS, picks.get("numerator"))
+    mc_g_denom_dd.options = _mc_dynamic_opts(_MC_STATIC_DENOM_OPTS, picks.get("denominator"))
+    mc_g_guardrail_dd.options = _mc_dynamic_opts(_MC_STATIC_GUARD_OPTS, picks.get("guardrail"))
+    # Reset state
+    for dd in (mc_g_q1_dd, mc_g_q2_dd, mc_g_q3_dd, mc_g_q4d_dd, mc_g_q5d_dd,
+               mc_g_num_dd, mc_g_denom_dd, mc_g_guardrail_dd):
+        dd.value = ""
+    mc_flaw_ta.value = ""
+    mc_fix_ta.value = ""
+    with mc_grade_out:
+        clear_output()
+    # Render case context at the top of the panel
+    _mc_render_case_context(p)
+    _mc_apply_mode()
+    # Build the metric movers checklist for the active problem. Guarded
+    # so callers don't crash if the helper hasn't been defined yet (it
+    # lives in the appendix below in this cell).
+    try:
+        _mc_build_movers_ui(STATE.get("problem"))
+    except NameError:
+        pass
+    except Exception as _movers_err:
+        print(f"[_mc_build_movers_ui warning] {type(_movers_err).__name__}: {_movers_err}")
+
+
+mc_mode_toggle.observe(lambda _change: _mc_apply_mode(), names="value")
+
+
+def _mc_learning_mode_html(result):
+    """Build a small banner showing a Learning mode score that drops the
+    Conciseness criterion (if present) and rescales the remaining weights
+    so the learner is not penalized for over thorough answers when they
+    are practicing rather than interviewing."""
+    if not result:
+        return ""
+    scores = result.get("scores", []) or []
+    drops = [s for s in scores if "conciseness" in str(s.get("criterion", "")).lower()]
+    kept = [s for s in scores if "conciseness" not in str(s.get("criterion", "")).lower()]
+    if not drops or not kept:
+        return ""  # nothing to drop, no banner
+    kept_weight = sum(s.get("weight", 0) for s in kept) or 1
+    kept_earned = sum(s.get("earned", 0) for s in kept)
+    # Rescale earned weight to 100 so the score is comparable across drills.
+    learning_score = round(100 * kept_earned / kept_weight)
+    color = "#1a7f37" if learning_score >= 80 else ("#9a6700" if learning_score >= 60 else "#cf222e")
+    dropped_names = ", ".join(s.get("criterion", "") for s in drops)
+    return (
+        f"<div style='margin:8px 0; padding:10px 14px; background:#ddf4ff; "
+        f"border-left:4px solid #0969da; border-radius:4px;'>"
+        f"<b>Learning mode score:</b> "
+        f"<span style='color:{color}; font-weight:700;'>{learning_score}/100</span> "
+        f"<span style='font-size:12px; color:#57606a;'>"
+        f"(dropped: {dropped_names} — only matters when you're cosplaying the actual interview)"
+        f"</span></div>"
+    )
+
+
+def _on_mc_grade(_b):
+    with mc_grade_out:
+        clear_output(wait=True)
+        p = STATE.get("problem")
+        if not p:
+            print("Generate a problem first.")
+            return
+        if not mc_flaw_ta.value.strip() and not mc_fix_ta.value.strip():
+            print("Fill in at least one field before grading (or click Compose draft from picks).")
+            return
+        combined = (
+            "What is wrong with this metric:\n"
+            + mc_flaw_ta.value.strip()
+            + "\n\nHow I would fix it:\n"
+            + mc_fix_ta.value.strip()
+        )
+        print("Grading ...")
+        result = dru.grade_kpi_answer(p, combined)
+        clear_output(wait=True)
+        if not result:
+            print("Grading failed.")
+            return
+        # Show the interview-style grade first, then a Learning mode banner.
+        display(HTML(dru.grade_to_html(result)))
+        learning_html = _mc_learning_mode_html(result)
+        if learning_html:
+            display(HTML(learning_html))
+
+
+mc_grade_btn.on_click(_on_mc_grade)
+
+
+# Phase 3: if a problem already lives in STATE (the user generated before
+# this cell ran), populate the slim view now so they don't have to click
+# Generate again.
+try:
+    refresh_subtopic_form()
+except Exception as _e:
+    print(f"[initial refresh_subtopic_form] {type(_e).__name__}: {_e}")
+
+
+
+# ============================================================
+# metric_design Guided form — GSM + Pressure Test walk (5 steps)
+# ============================================================
+# metric_design problems ask the learner to invent metrics for a feature.
+# The academy framework prescribes walking all 5 steps:
+#   1. Goal
+#   2. Signal
+#   3. Metric (numerator + denominator + statistic + window)
+#   4. Layer three types (primary + guardrail + counter)
+#   5. Pressure Test (5 checks against the proposed metric)
+
+md_mode_toggle = widgets.ToggleButtons(
+    options=[
+        ("🎯 Guided (walk the framework)", "guided"),
+        ("🧠 Try blind", "solve"),
+        ("📖 Walkthrough", "walkthrough"),
+    ],
+    value="guided",
+    description="Mode:",
+    style={"description_width": "60px", "button_width": "260px"},
+    layout=widgets.Layout(margin="6px 0 10px 0"),
+)
+
+_md_framework_ref = widgets.HTML(
+    "<div style='background:#ddf4ff; border-left:4px solid #0969da; "
+    "padding:10px 14px; border-radius:4px; margin:10px 0;'>"
+    "<b>Framework: Product Analytics Academy — Goal, Signal, Metric "
+    "(GSM) + Pressure Test</b><br>"
+    "<span style='font-size:12px;'>For &quot;propose metrics for this feature&quot; "
+    "questions, walk all 5 steps:</span>"
+    "<ol style='font-size:12px; margin:6px 0 6px 18px;'>"
+    "<li><b>Goal</b> — one sentence from the user's perspective.</li>"
+    "<li><b>Signal</b> — observable behavior for success AND failure.</li>"
+    "<li><b>Metric</b> — numerator + denominator + statistic + time window.</li>"
+    "<li><b>Layer three types</b> — primary + guardrail + counter.</li>"
+    "<li><b>Pressure Test</b> — Ambiguity, Normalization, Time window, "
+    "Survivorship, Understandability.</li>"
+    "</ol></div>"
+)
+
+_md_case_context = widgets.HTML("")
+
+
+def _md_render_case_context(p):
+    if not p:
+        _md_case_context.value = ""
+        return
+    scenario = p.get("scenario", "") or ""
+    prompt_text = p.get("prompt", "") or ""
+    rationale = p.get("stakeholder_rationale", "") or ""
+    title = p.get("title", "") or ""
+    parts = [
+        "<div style='background:#fafbfc; border:1px solid #d0d7de; "
+        "border-radius:6px; padding:12px 14px; margin:8px 0;'>",
+        "<div style='font-size:11px; color:#57606a; "
+        "text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;'>"
+        "Case context (kept here so you don't have to scroll)</div>",
+    ]
+    if title:
+        parts.append(f"<div style='margin:4px 0;'><b>Feature:</b> {title}</div>")
+    if scenario:
+        parts.append(
+            f"<div style='margin:4px 0;'><b>Scenario:</b> {scenario}</div>"
+        )
+    if rationale:
+        parts.append(
+            f"<div style='margin:4px 0;'><b>What the team wants to learn:</b> "
+            f"{rationale}</div>"
+        )
+    parts.append("</div>")
+    _md_case_context.value = "".join(parts)
+
+
+# Step 1 — Goal
+md_goal_label = widgets.HTML(
+    "<h4 style='margin:10px 0 4px;'>Step 1 — Goal (one sentence)</h4>"
+    "<div style='font-size:12px; color:#57606a;'>State what the feature is "
+    "trying to accomplish from the <b>user's</b> perspective in one sentence. "
+    "Avoid commercial language (revenue, conversion). Behavioral verbs only "
+    "(&quot;find,&quot; &quot;decide,&quot; &quot;reach,&quot; &quot;avoid&quot;).</div>"
+)
+md_goal_ta = widgets.Textarea(
+    placeholder="Example: 'Help users identify and start conversations with people they would likely form a Match with, without scrolling through dozens of low fit profiles.'",
+    layout=widgets.Layout(width="100%", min_height="60px"),
+)
+md_goal_ta.add_class("diagnose-textarea")
+
+# Step 2 — Signal
+md_signal_label = widgets.HTML(
+    "<h4 style='margin:14px 0 4px;'>Step 2 — Signal (success and failure)</h4>"
+    "<div style='font-size:12px; color:#57606a;'>What would a user who "
+    "succeeded actually <i>do</i>? What would a user who failed do? "
+    "Observable behavior only — not feelings.</div>"
+)
+md_signal_success_ta = widgets.Textarea(
+    placeholder="Success signal example: 'User initiates a Match within 5 minutes of opening the map view, the Match is accepted, and a first message is sent within 24 hours.'",
+    description="Success:",
+    style={"description_width": "70px"},
+    layout=widgets.Layout(width="100%", min_height="60px"),
+)
+md_signal_success_ta.add_class("diagnose-textarea")
+md_signal_failure_ta = widgets.Textarea(
+    placeholder="Failure signal example: 'User opens the app, scrolls the map for 60+ seconds, closes without initiating any interaction.'",
+    description="Failure:",
+    style={"description_width": "70px"},
+    layout=widgets.Layout(width="100%", min_height="60px"),
+)
+md_signal_failure_ta.add_class("diagnose-textarea")
+
+# Step 3 — Metric build
+md_metric_label = widgets.HTML(
+    "<h4 style='margin:14px 0 4px;'>Step 3 — Metric (numerator + denominator + statistic + window)</h4>"
+    "<div style='font-size:12px; color:#57606a;'>Turn the success signal into "
+    "a countable metric. Every metric needs four pieces.</div>"
+)
+md_num_ta = widgets.Text(
+    placeholder="Numerator (event counted on top): e.g., Matches initiated within 5 min of map open",
+    description="Numerator:",
+    style={"description_width": "100px"},
+    layout=widgets.Layout(width="100%", margin="3px 0"),
+)
+md_denom_ta = widgets.Text(
+    placeholder="Denominator (population): e.g., Active users in the period",
+    description="Denominator:",
+    style={"description_width": "100px"},
+    layout=widgets.Layout(width="100%", margin="3px 0"),
+)
+md_stat_dd = widgets.Dropdown(
+    options=[
+        ("— pick —", ""),
+        ("Rate (numerator / denominator)", "rate"),
+        ("Median (use when outliers skew the mean)", "median"),
+        ("Mean", "mean"),
+        ("Percentile (P75, P90, P95)", "percentile"),
+        ("Count", "count"),
+    ],
+    value="",
+    description="Statistic:",
+    style={"description_width": "100px"},
+    layout=widgets.Layout(width="100%", margin="3px 0"),
+)
+md_window_dd = widgets.Dropdown(
+    options=[
+        ("— pick —", ""),
+        ("Daily", "daily"),
+        ("Weekly", "weekly"),
+        ("Rolling 28 days", "rolling_28d"),
+        ("Per session", "per_session"),
+        ("During the experiment window", "experiment_window"),
+    ],
+    value="",
+    description="Window:",
+    style={"description_width": "100px"},
+    layout=widgets.Layout(width="100%", margin="3px 0"),
+)
+
+# Step 4 — Layer three types
+md_layer_label = widgets.HTML(
+    "<h4 style='margin:14px 0 4px;'>Step 4 — Layer three metric types</h4>"
+    "<div style='font-size:12px; color:#57606a;'>Every rollout needs a "
+    "<b>Primary</b> (moves if the feature works), a <b>Guardrail</b> (must "
+    "not break), and a <b>Counter metric</b> (the opposite hypothesis — "
+    "what would move if the feature is hurting users in a way the primary "
+    "metric can't see).</div>"
+)
+md_primary_ta = widgets.Text(
+    placeholder="Primary metric (your Step 3 result): e.g., Match initiation rate within 5 min of map open",
+    description="Primary:",
+    style={"description_width": "100px"},
+    layout=widgets.Layout(width="100%", margin="3px 0"),
+)
+md_guardrail_ta = widgets.Text(
+    placeholder="Guardrail (must not break): e.g., Report rate / safety incidents per active user",
+    description="Guardrail:",
+    style={"description_width": "100px"},
+    layout=widgets.Layout(width="100%", margin="3px 0"),
+)
+md_counter_ta = widgets.Text(
+    placeholder="Counter metric (opposite hypothesis): e.g., Match-to-message conversion rate (catches superficial matches)",
+    description="Counter:",
+    style={"description_width": "100px"},
+    layout=widgets.Layout(width="100%", margin="3px 0"),
+)
+
+# Step 5 — Pressure Test (free form note: one sentence per check)
+md_pressure_label = widgets.HTML(
+    "<h4 style='margin:14px 0 4px;'>Step 5 — Pressure Test your primary metric</h4>"
+    "<div style='font-size:12px; color:#57606a;'>For each of the 5 checks, "
+    "state in one sentence why your primary metric passes (or what you "
+    "would change to make it pass).</div>"
+)
+md_pressure_ta = widgets.Textarea(
+    placeholder=(
+        "Example:\n"
+        "Ambiguity — passes; only one mechanism (more Match initiations) moves the rate.\n"
+        "Normalization — passes; rate is per active user, not raw count.\n"
+        "Time window — passes; measured rolling 28 days.\n"
+        "Survivorship — passes; denominator is all active users, not just users who already matched.\n"
+        "Understandability — passes; PM can hold &quot;Match initiation rate per active user, rolling 28d.&quot;"
+    ),
+    layout=widgets.Layout(width="100%", min_height="120px"),
+)
+md_pressure_ta.add_class("diagnose-textarea")
+
+# Compose + grade
+md_compose_btn = widgets.Button(
+    description="Compose final metric design draft",
+    button_style="info",
+    layout=widgets.Layout(width="280px", height="32px", margin="10px 0"),
+)
+md_draft_label = widgets.HTML(
+    "<h4 style='margin:14px 0 4px;'>Final design draft</h4>"
+    "<div style='font-size:12px; color:#57606a;'>Compose stitches your "
+    "Step 1 to Step 5 entries into a clean response. Edit before grading."
+    "</div>"
+)
+md_draft_ta = widgets.Textarea(
+    placeholder="Click Compose above to build the draft from your picks, then edit.",
+    layout=widgets.Layout(width="100%", min_height="160px"),
+)
+md_draft_ta.add_class("diagnose-textarea")
+
+md_grade_btn = widgets.Button(
+    description="Get Grade",
+    button_style="success",
+    layout=widgets.Layout(width="180px", height="34px", margin="12px 0 6px 0"),
+)
+md_grade_out = widgets.Output()
+
+md_guided_box = widgets.VBox([
+    md_mode_toggle,
+    _md_case_context,
+    _md_framework_ref,
+    md_goal_label, md_goal_ta,
+    md_signal_label, md_signal_success_ta, md_signal_failure_ta,
+    md_metric_label, md_num_ta, md_denom_ta, md_stat_dd, md_window_dd,
+    md_layer_label, md_primary_ta, md_guardrail_ta, md_counter_ta,
+    md_pressure_label, md_pressure_ta,
+    md_compose_btn,
+    md_draft_label, md_draft_ta,
+    md_grade_btn, md_grade_out,
+])
+
+
+def _md_label_for(dd):
+    for label, value in dd.options:
+        if value == dd.value:
+            return label if value else ""
+    return ""
+
+
+def _on_md_compose(_b):
+    goal = md_goal_ta.value.strip()
+    success = md_signal_success_ta.value.strip()
+    failure = md_signal_failure_ta.value.strip()
+    num = md_num_ta.value.strip()
+    denom = md_denom_ta.value.strip()
+    stat = _md_label_for(md_stat_dd)
+    window = _md_label_for(md_window_dd)
+    primary = md_primary_ta.value.strip()
+    guardrail = md_guardrail_ta.value.strip()
+    counter = md_counter_ta.value.strip()
+    pressure = md_pressure_ta.value.strip()
+
+    parts = []
+    if goal:
+        parts.append(f"**Goal**\n{goal}")
+    sigs = []
+    if success: sigs.append(f"- Success: {success}")
+    if failure: sigs.append(f"- Failure: {failure}")
+    if sigs:
+        parts.append("**Signal**\n" + "\n".join(sigs))
+    metric_pieces = []
+    if num: metric_pieces.append(f"- Numerator: {num}")
+    if denom: metric_pieces.append(f"- Denominator: {denom}")
+    if stat: metric_pieces.append(f"- Statistic: {stat}")
+    if window: metric_pieces.append(f"- Time window: {window}")
+    if metric_pieces:
+        parts.append("**Metric**\n" + "\n".join(metric_pieces))
+    layered = []
+    if primary: layered.append(f"- Primary: {primary}")
+    if guardrail: layered.append(f"- Guardrail: {guardrail}")
+    if counter: layered.append(f"- Counter: {counter}")
+    if layered:
+        parts.append("**Layer three types**\n" + "\n".join(layered))
+    if pressure:
+        parts.append(f"**Pressure Test**\n{pressure}")
+    md_draft_ta.value = "\n\n".join(parts)
+
+
+md_compose_btn.on_click(_on_md_compose)
+
+
+def _refresh_metric_design_form():
+    md_goal_ta.value = ""
+    md_signal_success_ta.value = ""
+    md_signal_failure_ta.value = ""
+    md_num_ta.value = ""
+    md_denom_ta.value = ""
+    md_stat_dd.value = ""
+    md_window_dd.value = ""
+    md_primary_ta.value = ""
+    md_guardrail_ta.value = ""
+    md_counter_ta.value = ""
+    md_pressure_ta.value = ""
+    md_draft_ta.value = ""
+    with md_grade_out:
+        clear_output()
+    _md_render_case_context(STATE.get("problem"))
+    _md_apply_mode()
+
+
+def _md_apply_mode():
+    """For now Guided is the only mode that does anything special; Try blind
+    just hides the framework banner and reveals an empty draft area; Walkthrough
+    fills the draft with the reference answer (if present) so the learner can
+    paraphrase."""
+    mode = md_mode_toggle.value
+    # Framework + step widgets are visible in Guided and Walkthrough; hidden
+    # in Try blind (where the learner just gets the empty draft textarea).
+    for w in (_md_framework_ref, md_goal_label, md_goal_ta,
+              md_signal_label, md_signal_success_ta, md_signal_failure_ta,
+              md_metric_label, md_num_ta, md_denom_ta, md_stat_dd, md_window_dd,
+              md_layer_label, md_primary_ta, md_guardrail_ta, md_counter_ta,
+              md_pressure_label, md_pressure_ta, md_compose_btn):
+        w.layout.display = "" if mode in ("guided", "walkthrough") else "none"
+    if mode == "walkthrough":
+        p = STATE.get("problem") or {}
+        ref = p.get("reference_answer", "") or ""
+        if ref:
+            md_draft_ta.value = ref
+
+
+md_mode_toggle.observe(lambda _c: _md_apply_mode(), names="value")
+
+
+def _on_md_grade(_b):
+    with md_grade_out:
+        clear_output(wait=True)
+        p = STATE.get("problem")
+        if not p:
+            print("Generate a problem first.")
+            return
+        body = md_draft_ta.value.strip()
+        if not body:
+            print("Fill in the steps and click Compose first, then Get Grade.")
+            return
+        print("Grading ...")
+        result = dru.grade_kpi_answer(p, body)
+        clear_output(wait=True)
+        if not result:
+            print("Grading failed.")
+            return
+        display(HTML(dru.grade_to_html(result)))
+
+
+md_grade_btn.on_click(_on_md_grade)
+
+metric_design_form_box = md_guided_box
+
+
+
+# ============================================================
+# Q1 learning aid: "Why might this metric move?" checklist
+# ============================================================
+_MC_STATIC_MOVERS = [
+    {
+        "reason": "More users joined the cohort during the period",
+        "tag": "Population",
+        "applies": True,
+        "explanation": "A raw count rises proportionally with cohort size, even when per user behavior is identical.",
+    },
+    {
+        "reason": "A marketing push attracted users who tend to be heavy users",
+        "tag": "Mix",
+        "applies": True,
+        "explanation": "Composition shift toward heavier users raises the average per user count without changing any individual's behavior.",
+    },
+    {
+        "reason": "Tracking code was updated and now double counts events",
+        "tag": "Measurement",
+        "applies": True,
+        "explanation": "Measurement artifacts can fake any direction of metric movement; always rule this out first.",
+    },
+    {
+        "reason": "A holiday weekend reduced overall app activity",
+        "tag": "External",
+        "applies": True,
+        "explanation": "Seasonality moves volume metrics independent of any product change.",
+    },
+    {
+        "reason": "The team improved the matching algorithm quality",
+        "tag": "Quality",
+        "applies": True,
+        "explanation": "Per user behavior shifts when matches are better — same cohort, more engagement per pair.",
+    },
+    {
+        "reason": "The app icon was changed in the App Store",
+        "tag": "—",
+        "applies": False,
+        "explanation": "Icon changes may affect downloads, but rarely move behavior of users already in the app.",
+    },
+    {
+        "reason": "Premium subscription price increased by $1",
+        "tag": "—",
+        "applies": False,
+        "explanation": "Price changes affect conversion to Premium, not the messaging behavior of users who are already there.",
+    },
+]
+
+
+def _mc_tag_chip(tag):
+    colors = {
+        "Population":  "#0969da",
+        "Quality":     "#1a7f37",
+        "Mix":         "#8250df",
+        "Measurement": "#cf222e",
+        "External":    "#9a6700",
+    }
+    color = colors.get(tag, "#57606a")
+    return (
+        f"<span style='display:inline-block; padding:2px 8px; "
+        f"background:#f6f8fa; color:{color}; border:1px solid {color}; "
+        f"border-radius:10px; font-size:11px; font-weight:600; "
+        f"margin-right:8px;'>{tag}</span>"
+    )
+
+
+mc_movers_box = widgets.VBox([])
+mc_movers_check_btn = widgets.Button(
+    description="Check my picks",
+    button_style="info",
+    layout=widgets.Layout(width="180px", height="32px", margin="8px 0"),
+)
+mc_movers_out = widgets.Output()
+
+_mc_movers_header = widgets.HTML(
+    "<details open style='margin-top:10px;'>"
+    "<summary style='cursor:pointer; color:#0969da; font-weight:600; "
+    "font-size:13px;'>🧩 Why might this metric move? — practice identifying "
+    "the levers</summary>"
+    "<div style='font-size:12px; color:#57606a; padding:6px 0;'>"
+    "Check the reasons that actually could move <b>THIS metric</b>. "
+    "Distractors are mixed in — pick carefully. Tags show the pattern "
+    "category so you can build a mental map of metric movement causes."
+    "</div></details>"
+)
+
+_mc_movers_inner_vbox = widgets.VBox([
+    _mc_movers_header,
+    mc_movers_box,
+    mc_movers_check_btn,
+    mc_movers_out,
+])
+mc_movers_section = widgets.Accordion(children=[_mc_movers_inner_vbox])
+mc_movers_section.set_title(0, "🧩 Why might this metric move? — practice identifying the levers (click to expand)")
+mc_movers_section.selected_index = None  # collapsed by default to save vertical space
+
+_mc_movers_rows = []
+
+
+def _mc_build_movers_ui(problem):
+    global _mc_movers_rows
+    movers = (problem or {}).get("metric_movers")
+    if not movers:
+        movers = _MC_STATIC_MOVERS
+    _mc_movers_rows = []
+    rows_widgets = []
+    for m in movers:
+        if not isinstance(m, dict):
+            continue
+        reason = m.get("reason", "")
+        tag = m.get("tag", "—")
+        applies = bool(m.get("applies", False))
+        explanation = m.get("explanation", "")
+        cb = widgets.Checkbox(
+            value=False,
+            indent=False,
+            layout=widgets.Layout(width="28px"),
+        )
+        label = widgets.HTML(
+            f"<div style='padding-top:2px;'>{_mc_tag_chip(tag)}{reason}</div>"
+        )
+        row = widgets.HBox(
+            [cb, label],
+            layout=widgets.Layout(align_items="flex-start", margin="3px 0"),
+        )
+        rows_widgets.append(row)
+        _mc_movers_rows.append({
+            "checkbox": cb,
+            "applies": applies,
+            "tag": tag,
+            "reason": reason,
+            "explanation": explanation,
+        })
+    mc_movers_box.children = rows_widgets
+    with mc_movers_out:
+        clear_output()
+
+
+def _on_mc_movers_check(_b):
+    correct = 0
+    rendered = []
+    for r in _mc_movers_rows:
+        picked = r["checkbox"].value
+        is_right = picked == r["applies"]
+        if is_right:
+            correct += 1
+        if r["applies"] and picked:
+            verdict = "<span style='color:#1a7f37; font-weight:600;'>&#10003; correct apply</span>"
+        elif r["applies"] and not picked:
+            verdict = "<span style='color:#cf222e; font-weight:600;'>&#10007; missed</span> — this DOES apply"
+        elif (not r["applies"]) and picked:
+            verdict = "<span style='color:#cf222e; font-weight:600;'>&#10007; false positive</span> — this does NOT apply"
+        else:
+            verdict = "<span style='color:#1a7f37; font-weight:600;'>&#10003; correctly ignored</span>"
+        rendered.append(
+            f"<div style='margin:6px 0; padding:8px 12px; background:#fafbfc; "
+            f"border:1px solid #d0d7de; border-radius:4px;'>"
+            f"<div>{_mc_tag_chip(r['tag'])}{r['reason']}</div>"
+            f"<div style='font-size:12px; margin-top:4px;'>{verdict}</div>"
+            f"<div style='font-size:12px; color:#57606a; margin-top:4px;'>"
+            f"<b>Why:</b> {r['explanation']}</div>"
+            f"</div>"
+        )
+    total = len(_mc_movers_rows)
+    pct = round(100 * correct / total) if total else 0
+    color = "#1a7f37" if pct >= 75 else ("#d4a72c" if pct >= 50 else "#cf222e")
+    with mc_movers_out:
+        clear_output(wait=True)
+        display(HTML(
+            f"<div style='padding:10px 14px; background:#fff; border:1px solid "
+            f"#d0d7de; border-radius:6px;'>"
+            f"<h4 style='margin:0 0 8px; color:{color};'>Score: {correct} / "
+            f"{total} ({pct}%)</h4>"
+            + "".join(rendered)
+            + "</div>"
+        ))
+
+
+mc_movers_check_btn.on_click(_on_mc_movers_check)
+
+
+_step1_children = list(mc_guided_step1_box.children)
+try:
+    _q1_info_idx = _step1_children.index(_mc_q1_info)
+    _step1_children.insert(_q1_info_idx + 1, mc_movers_section)
+    mc_guided_step1_box.children = tuple(_step1_children)
+except ValueError:
+    mc_guided_step1_box.children = tuple(_step1_children) + (mc_movers_section,)
+
+
+# Phase: the movers call now lives INSIDE the original
+# _refresh_metric_critique_form (above) so there's no wrapper
+# indirection. Older versions used a wrapper here; removed for
+# robustness.
+
+# One shot populate: trigger the movers UI build now that everything
+# is wired. If a problem was loaded before cell 5 ran (or the user
+# generates after this cell finishes) the rows will refresh either
+# way thanks to the call baked into _refresh_metric_critique_form.
+try:
+    _mc_build_movers_ui(STATE.get("problem"))
+except Exception as _initial_movers_err:
+    print(f"[initial _mc_build_movers_ui warning] "
+          f"{type(_initial_movers_err).__name__}: {_initial_movers_err}")
+
+
+# One shot populate so the movers list shows up even when the initial
+# refresh_subtopic_form auto call (at end of cell 5) ran BEFORE this
+# wrapper was bound. Safe to call multiple times.
+try:
+    _mc_build_movers_ui(STATE.get("problem"))
+except Exception as _e:
+    print(f"[initial _mc_build_movers_ui warning] {type(_e).__name__}: {_e}")
+
+
+
+# ============================================================
+# Metric explorer UI — comparison cards for bad / picked / alternatives
+# ============================================================
+
+mc_explain_btn = widgets.Button(
+    description="🔍 Explain how the metrics would actually look",
+    button_style="info",
+    layout=widgets.Layout(width="380px", height="34px", margin="6px 0"),
+    tooltip="Generate worked examples on synthetic data for the bad metric, your pick, and every starred alternative.",
+)
+mc_explain_out = widgets.Output()
+
+
+def _mc_explorer_card(card, color_border, color_label, label):
+    """Render one comparison card (bad / picked / alternative) as HTML."""
+    if not isinstance(card, dict):
+        return ""
+    name = card.get("name", "")
+    measures = card.get("what_it_measures", "")
+    calc = card.get("calculation", "")
+    value = card.get("value", "")
+    interp = card.get("interpretation", "")
+    why_fail = card.get("why_it_fails_the_purpose", "")
+    why_address = card.get("why_it_addresses_the_purpose", "")
+    tradeoff = card.get("trade_off_vs_picked", "")
+
+    # Render example data as a small HTML table.
+    data = card.get("example_data", []) or []
+    data_html = ""
+    if data and isinstance(data, list):
+        cols = []
+        for row in data:
+            if isinstance(row, dict):
+                for k in row.keys():
+                    if k not in cols:
+                        cols.append(k)
+        if cols:
+            head = "".join(f"<th style='padding:4px 8px; text-align:left; background:#eaeef2;'>{c}</th>" for c in cols)
+            body_rows = []
+            for row in data:
+                cells = "".join(f"<td style='padding:4px 8px; border-top:1px solid #d0d7de;'>{row.get(c, '')}</td>" for c in cols)
+                body_rows.append(f"<tr>{cells}</tr>")
+            data_html = (
+                "<table style='border-collapse:collapse; margin:6px 0; font-size:12px;'>"
+                f"<thead><tr>{head}</tr></thead>"
+                f"<tbody>{''.join(body_rows)}</tbody>"
+                "</table>"
+            )
+
+    purpose_line = ""
+    if why_fail:
+        purpose_line = f"<div style='font-size:12px; color:#cf222e; margin-top:6px;'><b>Why it fails the purpose:</b> {why_fail}</div>"
+    elif why_address:
+        purpose_line = f"<div style='font-size:12px; color:#1a7f37; margin-top:6px;'><b>Why it addresses the purpose:</b> {why_address}</div>"
+    elif tradeoff:
+        purpose_line = f"<div style='font-size:12px; color:#57606a; margin-top:6px;'><b>Trade off vs your pick:</b> {tradeoff}</div>"
+
+    return (
+        f"<div style='border:2px solid {color_border}; border-radius:6px; "
+        f"padding:12px 14px; margin:10px 0; background:#fff;'>"
+        f"<div style='display:inline-block; padding:2px 8px; background:{color_border}; "
+        f"color:#fff; border-radius:4px; font-size:11px; font-weight:600; "
+        f"text-transform:uppercase; letter-spacing:0.5px;'>{label}</div>"
+        f"<div style='font-weight:700; font-size:14px; margin-top:6px;'>{name}</div>"
+        f"<div style='font-size:12px; color:#57606a; margin:4px 0;'>{measures}</div>"
+        f"{data_html}"
+        f"<div style='font-size:12px; margin-top:6px;'><b>Calculation:</b> {calc}</div>"
+        f"<div style='font-size:12px; margin-top:4px;'><b>Result:</b> {value}</div>"
+        f"<div style='font-size:12px; margin-top:4px;'><b>Interpretation:</b> {interp}</div>"
+        f"{purpose_line}"
+        f"</div>"
+    )
+
+
+def _mc_collect_dynamic_picks(p):
+    """Pull the dynamic numerator/denominator/guardrail picks from the problem's
+    metric_critique_picks field. Returns three lists of LABEL strings."""
+    picks = (p or {}).get("metric_critique_picks", {}) or {}
+    def labels(key):
+        out = []
+        for it in picks.get(key, []) or []:
+            if isinstance(it, dict):
+                lbl = it.get("label", "").strip()
+                if lbl:
+                    out.append(lbl)
+        return out
+    return labels("numerator"), labels("denominator"), labels("guardrail")
+
+
+def _mc_current_user_picks():
+    """Read the learner's currently selected Q6/Q7/Q8 LABELS (not values)."""
+    return {
+        "numerator":   _mc_label_for(mc_g_num_dd).lstrip("⭐ ").strip(),
+        "denominator": _mc_label_for(mc_g_denom_dd).lstrip("⭐ ").strip(),
+        "guardrail":   _mc_label_for(mc_g_guardrail_dd).lstrip("⭐ ").strip(),
+    }
+
+
+def _mc_alternative_picks(p, user_picks):
+    """All starred alternatives the user did NOT pick — by dropdown."""
+    nums, denoms, guards = _mc_collect_dynamic_picks(p)
+    return {
+        "numerator":   [n for n in nums   if n != user_picks.get("numerator")],
+        "denominator": [d for d in denoms if d != user_picks.get("denominator")],
+        "guardrail":   [g for g in guards if g != user_picks.get("guardrail")],
+    }
+
+
+def _mc_render_explainer(report):
+    """Top level renderer for the explorer JSON."""
+    if not report:
+        return "<div style='color:#cf222e;'>Could not generate explanation. Try clicking the button again.</div>"
+    parts = []
+    parts.append(
+        "<div style='margin:8px 0 14px 0; padding:10px 14px; background:#fafbfc; "
+        "border:1px solid #d0d7de; border-radius:6px;'>"
+        "<b>📊 Metric explorer:</b> same synthetic population, different aggregations. "
+        "Compare what each candidate metric tells the team about the scenario's "
+        "stated purpose.</div>"
+    )
+    parts.append(_mc_explorer_card(report.get("bad_metric"), "#cf222e", "#cf222e", "❌ Bad metric (the one being critiqued)"))
+    parts.append(_mc_explorer_card(report.get("user_picked_metric"), "#1a7f37", "#1a7f37", "✅ Your pick"))
+    for alt in report.get("alternatives", []) or []:
+        parts.append(_mc_explorer_card(alt, "#9a6700", "#9a6700", "⚙️ Alternative (starred but not picked)"))
+    return "".join(parts)
+
+
+def _on_mc_explain(_b=None, _silent=False):
+    with mc_explain_out:
+        clear_output(wait=True)
+        p = STATE.get("problem")
+        if not p:
+            print("Generate a problem first.")
+            return
+        user_picks = _mc_current_user_picks()
+        if not (user_picks["numerator"] and user_picks["denominator"]):
+            print("Pick at least a numerator (Q6) and denominator (Q7) before clicking Explain.")
+            return
+        alt = _mc_alternative_picks(p, user_picks)
+        if not _silent:
+            print("Generating worked examples for each candidate metric ...")
+        report = dru.explain_metrics(p, user_picks, alt)
+        clear_output(wait=True)
+        if not report:
+            print("Could not generate the explanation. The API may be overloaded; try again.")
+            return
+        display(HTML(_mc_render_explainer(report)))
+
+
+mc_explain_btn.on_click(_on_mc_explain)
+
+
+# Splice the explain widgets into metric_critique_form_box AFTER the grade
+# button + grade output.
+_metric_critique_children = list(metric_critique_form_box.children)
+try:
+    _grade_idx = _metric_critique_children.index(mc_grade_out)
+    _metric_critique_children.insert(_grade_idx + 1, mc_explain_btn)
+    _metric_critique_children.insert(_grade_idx + 2, mc_explain_out)
+    metric_critique_form_box.children = tuple(_metric_critique_children)
+except ValueError:
+    metric_critique_form_box.children = tuple(_metric_critique_children) + (mc_explain_btn, mc_explain_out)
+
+
+# Wrap _on_mc_grade so the explorer auto fires after grading.
+_mc_original_grade_handler = _on_mc_grade
+
+def _on_mc_grade_with_explorer(_b):
+    _mc_original_grade_handler(_b)
+    # Auto fire the explorer if the user has filled in Q6 + Q7.
+    try:
+        if mc_g_num_dd.value and mc_g_denom_dd.value:
+            _on_mc_explain(None, _silent=False)
+    except Exception as _e:
+        print(f"[explorer auto fire warning] {type(_e).__name__}: {_e}")
+
+
+# Re-bind the click handler from the wrapper.
+mc_grade_btn._click_handlers.callbacks = []
+mc_grade_btn.on_click(_on_mc_grade_with_explorer)

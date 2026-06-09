@@ -1,0 +1,161 @@
+{
+  "problem": {
+    "title": "Match Eligibility and Best Message Time",
+    "prompt": "Your dating app wants to analyze the best time to send promotional messages to matched users. For each match, determine the earliest message timestamp sent by EITHER user in that match, but ONLY if the match has a compatibility score of at least 70. If the compatibility score is below 70, output NULL for the earliest message time. A match is represented by a unique `match_id`. The `matches` table stores each match's compatibility score (an integer from 0 to 100). The `messages` table records every message sent within a match, including the sender and a timestamp. Output one row per match with columns `match_id`, `compatibility_score`, and `earliest_message_time`. Order results by `match_id` ascending. Matches with no messages should still appear in the output (with NULL for `earliest_message_time` if they would otherwise qualify, or NULL if they don't meet the threshold).",
+    "schema_ddl": "CREATE TABLE matches (match_id INT PRIMARY KEY, user_a_id INT NOT NULL, user_b_id INT NOT NULL, compatibility_score INT NOT NULL, matched_at TIMESTAMP NOT NULL); CREATE TABLE messages (message_id INT PRIMARY KEY, match_id INT NOT NULL, sender_user_id INT NOT NULL, message_text TEXT NOT NULL, sent_at TIMESTAMP NOT NULL);",
+    "example_input_data": "INSERT INTO matches (match_id, user_a_id, user_b_id, compatibility_score, matched_at) VALUES (1, 101, 102, 85, '2024-01-15 10:00:00'), (2, 103, 104, 92, '2024-01-16 11:00:00'), (3, 105, 106, 55, '2024-01-17 09:30:00'), (4, 107, 108, 78, '2024-01-18 14:00:00'), (5, 109, 110, 48, '2024-01-19 08:00:00'), (6, 111, 112, 88, '2024-01-20 13:00:00'); INSERT INTO messages (message_id, match_id, sender_user_id, message_text, sent_at) VALUES (1, 1, 101, 'Hey there!', '2024-01-15 10:05:00'), (2, 1, 102, 'Hi!', '2024-01-15 10:03:00'), (3, 2, 103, 'Hello', '2024-01-16 12:00:00'), (4, 2, 104, 'Hey', '2024-01-16 11:30:00'), (5, 3, 105, 'Hi', '2024-01-17 10:00:00'), (6, 4, 107, 'Greetings', '2024-01-18 15:00:00'), (7, 4, 108, 'Hello!', '2024-01-18 14:30:00'), (8, 4, 107, 'How are you?', '2024-01-18 16:00:00');",
+    "example_output_columns": [
+      "match_id",
+      "compatibility_score",
+      "earliest_message_time"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        85,
+        "2024-01-15 10:03:00"
+      ],
+      [
+        2,
+        92,
+        "2024-01-16 11:30:00"
+      ],
+      [
+        3,
+        55,
+        null
+      ],
+      [
+        4,
+        78,
+        "2024-01-18 14:30:00"
+      ],
+      [
+        5,
+        48,
+        null
+      ],
+      [
+        6,
+        88,
+        null
+      ]
+    ],
+    "test_data": "INSERT INTO matches (match_id, user_a_id, user_b_id, compatibility_score, matched_at) VALUES (101, 201, 202, 95, '2024-02-01 09:00:00'), (102, 203, 204, 72, '2024-02-02 10:00:00'), (103, 205, 206, 68, '2024-02-03 11:00:00'), (104, 207, 208, 70, '2024-02-04 12:00:00'), (105, 209, 210, 45, '2024-02-05 13:00:00'), (106, 211, 212, 88, '2024-02-06 14:00:00'), (107, 213, 214, 62, '2024-02-07 15:00:00'), (108, 215, 216, 100, '2024-02-08 16:00:00'), (109, 217, 218, 70, '2024-02-09 17:00:00'), (110, 219, 220, 69, '2024-02-10 18:00:00'), (111, 221, 222, 82, '2024-02-11 19:00:00'), (112, 223, 224, 55, '2024-02-12 20:00:00'), (113, 225, 226, 77, '2024-02-13 21:00:00'), (114, 227, 228, 91, '2024-02-14 22:00:00'), (115, 229, 230, 0, '2024-02-15 23:00:00'); INSERT INTO messages (message_id, match_id, sender_user_id, message_text, sent_at) VALUES (101, 101, 201, 'First message', '2024-02-01 09:15:00'), (102, 101, 202, 'Second message', '2024-02-01 09:10:00'), (103, 101, 201, 'Third message', '2024-02-01 09:20:00'), (104, 102, 203, 'Hello', '2024-02-02 10:30:00'), (105, 102, 204, 'Hi there', '2024-02-02 10:25:00'), (106, 103, 205, 'Hey', '2024-02-03 11:15:00'), (107, 104, 207, 'Greetings', '2024-02-04 12:05:00'), (108, 105, 209, 'Message', '2024-02-05 13:10:00'), (109, 105, 210, 'Reply', '2024-02-05 13:05:00'), (110, 107, 213, 'Text', '2024-02-07 15:30:00'), (111, 108, 215, 'Early bird', '2024-02-08 16:01:00'), (112, 108, 216, 'Night owl', '2024-02-08 16:45:00'), (113, 109, 217, 'Boundary test', '2024-02-09 17:05:00'), (114, 111, 221, 'Multiple messages', '2024-02-11 19:10:00'), (115, 111, 222, 'Even more', '2024-02-11 19:08:00'), (116, 111, 221, 'Latest', '2024-02-11 19:25:00'), (117, 112, 223, 'Below threshold', '2024-02-12 20:15:00'), (118, 113, 225, 'Above threshold', '2024-02-13 21:12:00'), (119, 113, 226, 'Earliest here', '2024-02-13 21:08:00'), (120, 114, 227, 'High score match', '2024-02-14 22:30:00');",
+    "test_expected_columns": [
+      "match_id",
+      "compatibility_score",
+      "earliest_message_time"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        95,
+        "2024-02-01 09:10:00"
+      ],
+      [
+        102,
+        72,
+        "2024-02-02 10:25:00"
+      ],
+      [
+        103,
+        68,
+        null
+      ],
+      [
+        104,
+        70,
+        "2024-02-04 12:05:00"
+      ],
+      [
+        105,
+        45,
+        null
+      ],
+      [
+        106,
+        88,
+        null
+      ],
+      [
+        107,
+        62,
+        null
+      ],
+      [
+        108,
+        100,
+        "2024-02-08 16:01:00"
+      ],
+      [
+        109,
+        70,
+        "2024-02-09 17:05:00"
+      ],
+      [
+        110,
+        69,
+        null
+      ],
+      [
+        111,
+        82,
+        "2024-02-11 19:08:00"
+      ],
+      [
+        112,
+        55,
+        null
+      ],
+      [
+        113,
+        77,
+        "2024-02-13 21:08:00"
+      ],
+      [
+        114,
+        91,
+        "2024-02-14 22:30:00"
+      ],
+      [
+        115,
+        0,
+        null
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "same_rows",
+      "recipe": "enrich-join",
+      "composite_moves": [
+        "join matches to messages on match_id",
+        "per-group pick: MIN(sent_at) per match_id to find earliest message",
+        "lookup gate: matches.compatibility_score",
+        "gate with CASE: if compatibility_score >= 70 then earliest_message_time else NULL"
+      ]
+    },
+    "hints": [
+      "You need to combine information from both tables, using the match_id as the linking key.",
+      "For each match, find the minimum sent_at timestamp across all messages in that match, then apply the compatibility score rule to decide whether to show it or NULL.",
+      "Use a LEFT JOIN from matches to an aggregated subquery of messages grouped by match_id with MIN(sent_at), then wrap the result in a CASE expression that checks compatibility_score >= 70."
+    ],
+    "answer_key": "SELECT m.match_id, m.compatibility_score, CASE WHEN m.compatibility_score >= 70 THEN msg.earliest_message_time ELSE NULL END AS earliest_message_time FROM matches m LEFT JOIN (SELECT match_id, MIN(sent_at) AS earliest_message_time FROM messages GROUP BY match_id) msg ON m.match_id = msg.match_id ORDER BY m.match_id;",
+    "_meta": {
+      "question_type": "gated_lookup",
+      "original_qtype": "gated_lookup",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-27T20:51:46.062443",
+      "problem_id": "5cd3ab31b849",
+      "validation_attempts": 1,
+      "scenario": "a dating app tracking mutual matches and messaging engagement",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\n\nWITH per_match_messages AS (\n    -- Step 1: LEFT JOIN matches to messages, KEEP every audit column\n    -- so you can SELECT this CTE alone and see exactly what attached.\n    SELECT\n        m.match_id,\n        m.compatibility_score,\n        msg.message_id,\n        msg.sender_user_id,\n        msg.sent_at\n    FROM matches m\n    LEFT JOIN messages msg ON msg.match_id = m.match_id\n),\nmatch_earliest AS (\n    SELECT\n        match_id,\n        compatibility_score,\n        MIN(sent_at) AS raw_earliest_time\n    FROM per_match_messages\n    GROUP BY match_id, compatibility_score\n),\ngated AS (\n    SELECT\n        match_id,\n        compatibility_score,\n        raw_earliest_time,\n        CASE WHEN compatibility_score >= 70\n            THEN raw_earliest_time\n            ELSE NULL END as earliest_message_time\n    FROM match_earliest\n)\nSELECT\n    match_id,\n    compatibility_score,\n    earliest_message_time\nFROM gated\nORDER BY match_id;\n;",
+  "solved_at": "2026-05-28T09:29:26.542029"
+}

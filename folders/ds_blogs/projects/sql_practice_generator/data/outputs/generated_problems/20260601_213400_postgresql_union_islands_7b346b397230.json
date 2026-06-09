@@ -1,0 +1,99 @@
+{
+  "title": "Collapse Consecutive Message IDs into Ranges",
+  "prompt": "A dating app stores every message sent on the platform with a unique `message_id` (integer). Due to system cleanups, some message IDs have been deleted from the archive, leaving gaps in the sequence. Write a query that finds all ranges of consecutive message IDs currently in the `messages` table. A range is consecutive if the IDs differ by exactly 1 with no missing IDs in between. Output columns `start_id` and `end_id` for each range. A single message ID that has no adjacent neighbors should appear as a range where `start_id = end_id`. Order the results by `start_id` ascending.",
+  "schema_ddl": "CREATE TABLE messages (message_id INTEGER PRIMARY KEY, sender_id INTEGER NOT NULL, receiver_id INTEGER NOT NULL, sent_at TIMESTAMP NOT NULL);",
+  "example_input_data": "INSERT INTO messages (message_id, sender_id, receiver_id, sent_at) VALUES (101, 1, 2, '2024-01-15 10:00:00'), (102, 1, 2, '2024-01-15 10:05:00'), (103, 2, 1, '2024-01-15 10:10:00'), (107, 3, 4, '2024-01-15 11:00:00'), (110, 5, 6, '2024-01-15 12:00:00'), (111, 5, 6, '2024-01-15 12:05:00'), (112, 6, 5, '2024-01-15 12:10:00'), (113, 6, 5, '2024-01-15 12:15:00');",
+  "example_output_columns": [
+    "start_id",
+    "end_id"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      103
+    ],
+    [
+      107,
+      107
+    ],
+    [
+      110,
+      113
+    ]
+  ],
+  "test_data": "INSERT INTO messages (message_id, sender_id, receiver_id, sent_at) VALUES (200, 10, 11, '2024-02-01 08:00:00'), (201, 10, 11, '2024-02-01 08:01:00'), (202, 11, 10, '2024-02-01 08:02:00'), (203, 10, 11, '2024-02-01 08:03:00'), (204, 11, 10, '2024-02-01 08:04:00'), (210, 12, 13, '2024-02-01 09:00:00'), (211, 12, 13, '2024-02-01 09:01:00'), (215, 14, 15, '2024-02-01 10:00:00'), (220, 16, 17, '2024-02-01 11:00:00'), (221, 16, 17, '2024-02-01 11:01:00'), (222, 17, 16, '2024-02-01 11:02:00'), (223, 16, 17, '2024-02-01 11:03:00'), (224, 17, 16, '2024-02-01 11:04:00'), (225, 16, 17, '2024-02-01 11:05:00'), (226, 17, 16, '2024-02-01 11:06:00'), (227, 16, 17, '2024-02-01 11:07:00'), (230, 18, 19, '2024-02-01 12:00:00'), (231, 18, 19, '2024-02-01 12:01:00'), (232, 19, 18, '2024-02-01 12:02:00'), (240, 20, 21, '2024-02-01 13:00:00'), (250, 22, 23, '2024-02-01 14:00:00'), (251, 22, 23, '2024-02-01 14:01:00'), (252, 23, 22, '2024-02-01 14:02:00'), (253, 22, 23, '2024-02-01 14:03:00'), (254, 23, 22, '2024-02-01 14:04:00'), (255, 22, 23, '2024-02-01 14:05:00'), (270, 24, 25, '2024-02-01 15:00:00'), (275, 26, 27, '2024-02-01 16:00:00'), (276, 26, 27, '2024-02-01 16:01:00'), (277, 27, 26, '2024-02-01 16:02:00');",
+  "test_expected_columns": [
+    "start_id",
+    "end_id"
+  ],
+  "test_expected_rows": [
+    [
+      200,
+      204
+    ],
+    [
+      210,
+      211
+    ],
+    [
+      215,
+      215
+    ],
+    [
+      220,
+      227
+    ],
+    [
+      230,
+      232
+    ],
+    [
+      240,
+      240
+    ],
+    [
+      250,
+      255
+    ],
+    [
+      270,
+      270
+    ],
+    [
+      275,
+      277
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "gaps-and-islands",
+    "composite_moves": [
+      "row-number over ordered ids to create island group identifier",
+      "subtract row_number from message_id to create constant group key per consecutive range",
+      "group by the constant group key",
+      "aggregate MIN(message_id) as start_id and MAX(message_id) as end_id",
+      "order by start_id ascending"
+    ]
+  },
+  "hints": [
+    "Think about how you can identify groups of consecutive integers using a window function.",
+    "When you subtract ROW_NUMBER() from the message_id, consecutive IDs will produce the same difference value.",
+    "Use that constant difference as a grouping key, then take MIN and MAX of message_id within each group to find the range boundaries."
+  ],
+  "answer_key": "WITH numbered AS (\n  SELECT\n    message_id,\n    message_id - ROW_NUMBER() OVER (ORDER BY message_id) AS grp\n  FROM messages\n)\nSELECT\n  MIN(message_id) AS start_id,\n  MAX(message_id) AS end_id\nFROM numbered\nGROUP BY grp\nORDER BY start_id ASC;",
+  "_meta": {
+    "question_type": "union_islands",
+    "original_qtype": "union_islands",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-01T21:34:00.312008",
+    "problem_id": "7b346b397230",
+    "validation_attempts": 1,
+    "scenario": "a dating app tracking mutual matches and messaging engagement",
+    "dml_op": null,
+    "islands_flavor": "integer_seq",
+    "percentile_flavor": null
+  }
+}

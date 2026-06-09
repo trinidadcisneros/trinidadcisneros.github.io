@@ -1,0 +1,169 @@
+{
+  "problem": {
+    "title": "Top 3 Box Items by Renewal Rate per Category",
+    "prompt": "Your subscription box service tracks which items drive renewals. Write a query that returns the top 3 items (by `renewal_rate`) within each `category_name`, showing `category_name`, `item_name`, and `renewal_rate`. If a category has fewer than 3 items, return all items in that category. When two items have the same `renewal_rate`, use `item_name` alphabetically ascending as the tiebreaker (so 'Almond Butter' ranks before 'Zinc Gummies' at the same rate). Order the final output by `category_name` ascending, then `renewal_rate` descending, then `item_name` ascending.",
+    "schema_ddl": "CREATE TABLE subscription_items (item_id INT PRIMARY KEY, item_name VARCHAR(100) NOT NULL, category_name VARCHAR(50) NOT NULL, renewal_rate DECIMAL(5,2) NOT NULL);",
+    "example_input_data": "INSERT INTO subscription_items (item_id, item_name, category_name, renewal_rate) VALUES (1, 'Organic Coffee', 'Beverage', 82.50), (2, 'Herbal Tea Sampler', 'Beverage', 78.00), (3, 'Almond Butter', 'Snacks', 91.00), (4, 'Protein Bars', 'Snacks', 85.50), (5, 'Trail Mix', 'Snacks', 85.50), (6, 'Dark Chocolate', 'Snacks', 80.00), (7, 'Yoga Mat', 'Wellness', 72.30), (8, 'Essential Oils', 'Wellness', 88.00);",
+    "example_output_columns": [
+      "category_name",
+      "item_name",
+      "renewal_rate"
+    ],
+    "example_output_rows": [
+      [
+        "Beverage",
+        "Organic Coffee",
+        "82.50"
+      ],
+      [
+        "Beverage",
+        "Herbal Tea Sampler",
+        "78.00"
+      ],
+      [
+        "Snacks",
+        "Almond Butter",
+        "91.00"
+      ],
+      [
+        "Snacks",
+        "Protein Bars",
+        "85.50"
+      ],
+      [
+        "Snacks",
+        "Trail Mix",
+        "85.50"
+      ],
+      [
+        "Wellness",
+        "Essential Oils",
+        "88.00"
+      ],
+      [
+        "Wellness",
+        "Yoga Mat",
+        "72.30"
+      ]
+    ],
+    "test_data": "INSERT INTO subscription_items (item_id, item_name, category_name, renewal_rate) VALUES (101, 'Matcha Powder', 'Beverage', 95.00), (102, 'Cold Brew Concentrate', 'Beverage', 89.50), (103, 'Green Tea', 'Beverage', 89.50), (104, 'Chai Latte Mix', 'Beverage', 84.00), (105, 'Kombucha Starter', 'Beverage', 77.00), (106, 'Cashew Nuts', 'Snacks', 92.00), (107, 'Granola Bars', 'Snacks', 87.50), (108, 'Rice Cakes', 'Snacks', 81.00), (109, 'Popcorn', 'Snacks', 79.50), (110, 'Dried Fruit', 'Snacks', 76.00), (111, 'Meditation Cushion', 'Wellness', 91.50), (112, 'Resistance Bands', 'Wellness', 86.00), (113, 'Foam Roller', 'Wellness', 83.50), (114, 'Aromatherapy Diffuser', 'Wellness', 80.00), (115, 'Face Serum', 'Beauty', 94.00), (116, 'Sheet Masks', 'Beauty', 88.50), (117, 'Lip Balm', 'Beauty', 85.00), (118, 'Hand Cream', 'Beauty', 82.00), (119, 'Zinc Gummies', 'Supplements', 90.00), (120, 'Vitamin D', 'Supplements', 90.00), (121, 'Probiotics', 'Supplements', 87.50), (122, 'Fish Oil', 'Supplements', 84.00), (123, 'Multivitamin', 'Supplements', 81.50), (124, 'Collagen Powder', 'Supplements', 79.00), (125, 'Notebook Set', 'Stationery', 73.00);",
+    "test_expected_columns": [
+      "category_name",
+      "item_name",
+      "renewal_rate"
+    ],
+    "test_expected_rows": [
+      [
+        "Beauty",
+        "Face Serum",
+        "94.00"
+      ],
+      [
+        "Beauty",
+        "Sheet Masks",
+        "88.50"
+      ],
+      [
+        "Beauty",
+        "Lip Balm",
+        "85.00"
+      ],
+      [
+        "Beverage",
+        "Matcha Powder",
+        "95.00"
+      ],
+      [
+        "Beverage",
+        "Cold Brew Concentrate",
+        "89.50"
+      ],
+      [
+        "Beverage",
+        "Green Tea",
+        "89.50"
+      ],
+      [
+        "Snacks",
+        "Cashew Nuts",
+        "92.00"
+      ],
+      [
+        "Snacks",
+        "Granola Bars",
+        "87.50"
+      ],
+      [
+        "Snacks",
+        "Rice Cakes",
+        "81.00"
+      ],
+      [
+        "Stationery",
+        "Notebook Set",
+        "73.00"
+      ],
+      [
+        "Supplements",
+        "Vitamin D",
+        "90.00"
+      ],
+      [
+        "Supplements",
+        "Zinc Gummies",
+        "90.00"
+      ],
+      [
+        "Supplements",
+        "Probiotics",
+        "87.50"
+      ],
+      [
+        "Wellness",
+        "Meditation Cushion",
+        "91.50"
+      ],
+      [
+        "Wellness",
+        "Resistance Bands",
+        "86.00"
+      ],
+      [
+        "Wellness",
+        "Foam Roller",
+        "83.50"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "rank-partition",
+      "composite_moves": [
+        "rank-partition: ROW_NUMBER OVER (PARTITION BY category_name ORDER BY renewal_rate DESC, item_name ASC)",
+        "row-filter: WHERE rn <= 3"
+      ]
+    },
+    "hints": [
+      "You need a way to rank items within each category and then keep only the top few.",
+      "Use ROW_NUMBER() in a CTE with PARTITION BY category_name and an ORDER BY clause that handles both the primary sort and the tiebreaker.",
+      "Filter the CTE result where the row number is 3 or less, then order the final output by category_name, renewal_rate DESC, and item_name."
+    ],
+    "answer_key": "WITH ranked AS (\n  SELECT \n    category_name,\n    item_name,\n    renewal_rate,\n    ROW_NUMBER() OVER (PARTITION BY category_name ORDER BY renewal_rate DESC, item_name ASC) AS rn\n  FROM subscription_items\n)\nSELECT \n  category_name,\n  item_name,\n  renewal_rate\nFROM ranked\nWHERE rn <= 3\nORDER BY category_name ASC, renewal_rate DESC, item_name ASC;",
+    "_meta": {
+      "question_type": "window_top_n_per_group",
+      "original_qtype": "window_top_n_per_group",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-23T13:44:32.539992",
+      "problem_id": "105e190d145e",
+      "validation_attempts": 1,
+      "scenario": "a D2C subscription box service tracking renewal and churn",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* \n1. reducing rows by ranking\n */\nWITH base AS (\n    SELECT\n        category_name,\n        item_name,\n        renewal_rate,\n        ROW_NUMBER() OVER (PARTITION BY category_name ORDER BY renewal_rate DESC, item_name) AS rnk\n    FROM subscription_items\n)\nSELECT \n    category_name,\n    item_name,\n    renewal_rate\nFROM base\nWHERE rnk < 4\nORDER BY category_name, renewal_rate DESC;\n",
+  "solved_at": "2026-05-23T13:52:25.656730"
+}

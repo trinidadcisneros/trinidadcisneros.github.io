@@ -1,0 +1,122 @@
+{
+  "title": "Find Fastest Episode for Active Series",
+  "prompt": "Your streaming platform needs a performance report showing the fastest loading episode for each series, but ONLY for series that are currently active. Write a query that returns one row per series showing the series name and the shortest load time (in seconds) among all episodes in that series. However, if a series has `status != 'active'` in the series catalog, output `NULL` for its load time instead of the actual minimum. Include all series in the output, ordered by series_id ascending. The gate is the series-level status attribute; the pick is the per-series minimum load_time_seconds from the episodes table. Output columns: series_id, series_name, fastest_load_seconds.",
+  "schema_ddl": "CREATE TABLE series_catalog (series_id INT PRIMARY KEY, series_name VARCHAR(100), status VARCHAR(20)); CREATE TABLE episode_metrics (episode_id INT PRIMARY KEY, series_id INT, episode_title VARCHAR(100), load_time_seconds DECIMAL(5,2));",
+  "example_input_data": "INSERT INTO series_catalog (series_id, series_name, status) VALUES (1, 'Mystery Hills', 'active'), (2, 'Space Odyssey', 'cancelled'), (3, 'Crime Files', 'active'), (4, 'Old West Tales', 'archived'); INSERT INTO episode_metrics (episode_id, series_id, episode_title, load_time_seconds) VALUES (101, 1, 'Pilot', 2.35), (102, 1, 'Dark Secrets', 1.89), (103, 2, 'First Contact', 3.12), (104, 2, 'Lost Signal', 2.77), (105, 3, 'Case Zero', 1.45), (106, 4, 'Frontier', 2.90);",
+  "example_output_columns": [
+    "series_id",
+    "series_name",
+    "fastest_load_seconds"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Mystery Hills",
+      "1.89"
+    ],
+    [
+      2,
+      "Space Odyssey",
+      null
+    ],
+    [
+      3,
+      "Crime Files",
+      "1.45"
+    ],
+    [
+      4,
+      "Old West Tales",
+      null
+    ]
+  ],
+  "test_data": "INSERT INTO series_catalog (series_id, series_name, status) VALUES (1, 'Mystery Hills', 'active'), (2, 'Space Odyssey', 'cancelled'), (3, 'Crime Files', 'active'), (4, 'Old West Tales', 'archived'), (5, 'Tech Wars', 'active'), (6, 'Ancient Rome', 'paused'), (7, 'Comedy Night', 'active'), (8, 'Noir City', 'cancelled'), (9, 'Fantasy Quest', 'active'), (10, 'Documentary Now', 'active'); INSERT INTO episode_metrics (episode_id, series_id, episode_title, load_time_seconds) VALUES (101, 1, 'Pilot', 2.35), (102, 1, 'Dark Secrets', 1.89), (103, 1, 'Finale', 2.10), (104, 2, 'First Contact', 3.12), (105, 2, 'Lost Signal', 2.77), (106, 2, 'Aftermath', 2.90), (107, 3, 'Case Zero', 1.45), (108, 4, 'Frontier', 2.90), (109, 4, 'Showdown', 3.45), (110, 4, 'Settlement', 2.10), (111, 5, 'Boot Camp', 1.67), (112, 5, 'Protocol', 1.55), (113, 5, 'Breach', 2.22), (114, 5, 'Recovery', 1.88), (115, 6, 'Empire Rises', 2.05), (116, 6, 'Gladiators', 1.99), (117, 7, 'Standup Special', 1.34), (118, 8, 'Shadow', 2.56), (119, 8, 'Betrayal', 2.44), (120, 9, 'Dragon Egg', 1.72), (121, 9, 'Quest Begins', 1.55), (122, 9, 'Dark Forest', 1.88), (123, 9, 'Magic War', 2.01), (124, 10, 'Climate Change', 1.92), (125, 10, 'Ocean Life', 1.78), (126, 10, 'Space Exploration', 2.11);",
+  "test_expected_columns": [
+    "series_id",
+    "series_name",
+    "fastest_load_seconds"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "Mystery Hills",
+      "1.89"
+    ],
+    [
+      2,
+      "Space Odyssey",
+      null
+    ],
+    [
+      3,
+      "Crime Files",
+      "1.45"
+    ],
+    [
+      4,
+      "Old West Tales",
+      null
+    ],
+    [
+      5,
+      "Tech Wars",
+      "1.55"
+    ],
+    [
+      6,
+      "Ancient Rome",
+      null
+    ],
+    [
+      7,
+      "Comedy Night",
+      "1.34"
+    ],
+    [
+      8,
+      "Noir City",
+      null
+    ],
+    [
+      9,
+      "Fantasy Quest",
+      "1.55"
+    ],
+    [
+      10,
+      "Documentary Now",
+      "1.78"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "same_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "join series_catalog to bring the gate attribute (status)",
+      "compute per-series MIN(load_time_seconds) from episode_metrics",
+      "apply CASE: if status = 'active' then the MIN else NULL",
+      "output one row per series with the gated load time"
+    ]
+  },
+  "hints": [
+    "You need information from both tables: the series status acts as a gate, and the episode metrics provide the values to pick from.",
+    "First find the minimum load time for each series across all its episodes, then decide whether to show that value based on the series status.",
+    "Use a LEFT JOIN to bring the status onto each series, compute MIN(load_time_seconds) grouped by series, and wrap the MIN in a CASE that checks if status = 'active'."
+  ],
+  "answer_key": "SELECT sc.series_id, sc.series_name, CASE WHEN sc.status = 'active' THEN MIN(em.load_time_seconds) ELSE NULL END AS fastest_load_seconds FROM series_catalog sc LEFT JOIN episode_metrics em ON sc.series_id = em.series_id GROUP BY sc.series_id, sc.series_name, sc.status ORDER BY sc.series_id;",
+  "_meta": {
+    "question_type": "gated_lookup",
+    "original_qtype": "gated_lookup",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-28T20:53:13.081775",
+    "problem_id": "c930e6cafa86",
+    "validation_attempts": 1,
+    "scenario": "a streaming video service tracking watch time and binge depth",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

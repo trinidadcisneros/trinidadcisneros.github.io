@@ -1,0 +1,159 @@
+{
+  "problem": {
+    "title": "Top 3 Most Active Subscribers per Plan Tier",
+    "prompt": "A subscription box service wants to identify their most engaged subscribers in each plan tier. Write a query that returns the top 3 subscribers per `plan_tier` based on their total number of boxes received (`boxes_received`), ordered from highest to lowest. If subscribers are tied on `boxes_received`, use `subscriber_id` in ascending order as the tiebreaker. Include the subscriber's `subscriber_id`, `plan_tier`, and `boxes_received`. The output should be ordered by `plan_tier` ascending, then `boxes_received` descending, then `subscriber_id` ascending.",
+    "schema_ddl": "CREATE TABLE subscribers (subscriber_id INT PRIMARY KEY, subscriber_name VARCHAR(100) NOT NULL, plan_tier VARCHAR(20) NOT NULL, boxes_received INT NOT NULL, signup_date DATE NOT NULL);",
+    "example_input_data": "INSERT INTO subscribers (subscriber_id, subscriber_name, plan_tier, boxes_received, signup_date) VALUES (101, 'Alice Chen', 'premium', 24, '2022-01-15'), (102, 'Bob Martinez', 'premium', 18, '2022-03-20'), (103, 'Carol Singh', 'premium', 24, '2021-11-10'), (104, 'David Park', 'premium', 12, '2023-01-05'), (105, 'Emma Wilson', 'basic', 8, '2022-06-12'), (106, 'Frank Lee', 'basic', 6, '2023-02-18'), (107, 'Grace Taylor', 'standard', 15, '2022-04-22'), (108, 'Henry Brown', 'standard', 15, '2022-05-30');",
+    "example_output_columns": [
+      "subscriber_id",
+      "plan_tier",
+      "boxes_received"
+    ],
+    "example_output_rows": [
+      [
+        105,
+        "basic",
+        8
+      ],
+      [
+        106,
+        "basic",
+        6
+      ],
+      [
+        101,
+        "premium",
+        24
+      ],
+      [
+        103,
+        "premium",
+        24
+      ],
+      [
+        102,
+        "premium",
+        18
+      ],
+      [
+        107,
+        "standard",
+        15
+      ],
+      [
+        108,
+        "standard",
+        15
+      ]
+    ],
+    "test_data": "INSERT INTO subscribers (subscriber_id, subscriber_name, plan_tier, boxes_received, signup_date) VALUES (201, 'Iris Johnson', 'premium', 36, '2021-01-10'), (202, 'Jack Davis', 'premium', 32, '2021-03-15'), (203, 'Kelly White', 'premium', 32, '2021-02-20'), (204, 'Liam Garcia', 'premium', 28, '2021-06-05'), (205, 'Mia Rodriguez', 'premium', 28, '2021-07-12'), (206, 'Noah Martinez', 'premium', 24, '2022-01-08'), (207, 'Olivia Lopez', 'premium', 20, '2022-03-14'), (208, 'Paul Hernandez', 'basic', 16, '2021-09-22'), (209, 'Quinn Lee', 'basic', 14, '2022-01-30'), (210, 'Ryan Kim', 'basic', 14, '2022-02-05'), (211, 'Sara Patel', 'basic', 12, '2022-05-18'), (212, 'Tom Anderson', 'basic', 10, '2022-08-25'), (213, 'Uma Thomas', 'standard', 22, '2021-05-10'), (214, 'Victor Moore', 'standard', 22, '2021-06-15'), (215, 'Wendy Taylor', 'standard', 18, '2021-11-20'), (216, 'Xavier Jackson', 'standard', 18, '2022-01-12'), (217, 'Yuki Martin', 'standard', 16, '2022-03-08'), (218, 'Zoe Thompson', 'deluxe', 40, '2020-12-01'), (219, 'Alan Scott', 'deluxe', 38, '2021-01-05'), (220, 'Beth Green', 'deluxe', 34, '2021-03-20'), (221, 'Carl Adams', 'deluxe', 30, '2021-06-15'), (222, 'Dana Baker', 'starter', 4, '2023-10-10'), (223, 'Evan Clark', 'starter', 2, '2023-11-20');",
+    "test_expected_columns": [
+      "subscriber_id",
+      "plan_tier",
+      "boxes_received"
+    ],
+    "test_expected_rows": [
+      [
+        208,
+        "basic",
+        16
+      ],
+      [
+        209,
+        "basic",
+        14
+      ],
+      [
+        210,
+        "basic",
+        14
+      ],
+      [
+        218,
+        "deluxe",
+        40
+      ],
+      [
+        219,
+        "deluxe",
+        38
+      ],
+      [
+        220,
+        "deluxe",
+        34
+      ],
+      [
+        201,
+        "premium",
+        36
+      ],
+      [
+        202,
+        "premium",
+        32
+      ],
+      [
+        203,
+        "premium",
+        32
+      ],
+      [
+        213,
+        "standard",
+        22
+      ],
+      [
+        214,
+        "standard",
+        22
+      ],
+      [
+        215,
+        "standard",
+        18
+      ],
+      [
+        222,
+        "starter",
+        4
+      ],
+      [
+        223,
+        "starter",
+        2
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "rank-partition",
+      "composite_moves": [
+        "rank-partition: ROW_NUMBER OVER (PARTITION BY plan_tier ORDER BY boxes_received DESC, subscriber_id ASC)",
+        "row-filter: rn <= 3"
+      ]
+    },
+    "hints": [
+      "You need to rank subscribers within each plan_tier based on boxes_received.",
+      "Use ROW_NUMBER() OVER (PARTITION BY plan_tier ORDER BY boxes_received DESC, subscriber_id ASC) in a CTE to assign rankings.",
+      "Filter the CTE results where the row number is less than or equal to 3, then order the final output by plan_tier, boxes_received DESC, and subscriber_id."
+    ],
+    "answer_key": "WITH ranked_subscribers AS (SELECT subscriber_id, plan_tier, boxes_received, ROW_NUMBER() OVER (PARTITION BY plan_tier ORDER BY boxes_received DESC, subscriber_id ASC) AS rn FROM subscribers) SELECT subscriber_id, plan_tier, boxes_received FROM ranked_subscribers WHERE rn <= 3 ORDER BY plan_tier ASC, boxes_received DESC, subscriber_id ASC;",
+    "_meta": {
+      "question_type": "window_top_n_per_group",
+      "original_qtype": "window_top_n_per_group",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-19T18:26:48.034970",
+      "problem_id": "50ac0d856df9",
+      "validation_attempts": 1,
+      "scenario": "a D2C subscription box service tracking renewal and churn",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\n\nWrite a query that returns the top 3 subscribers per `plan_tier` based on their total number of boxes received (`boxes_received`), ordered from highest to lowest.\n\nIf subscribers are tied on `boxes_received`, use `subscriber_id` in ascending order as the tiebreaker.\n\nOUTPUT:\nsubscriber_id,\nplan_tier,\nboxes_received\n\nORDER BY\nplan_tier ASC, boxes_received DESC, subscriber_id ASC\n */\n\nWITH base AS (\n    SELECT *,\n        RANK() OVER (PARTITION BY plan_tier ORDER BY boxes_received DESC, signup_date ASC) AS rnk\n    FROM subscribers\n\n)\nSELECT \n    subscriber_id,\n    plan_tier,\n    boxes_received\nFROM base\nWHERE rnk < 4\nORDER BY plan_tier ASC, boxes_received DESC, subscriber_id ASC;\n\n\n",
+  "solved_at": "2026-05-19T18:36:15.142102"
+}

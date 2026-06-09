@@ -1,0 +1,267 @@
+{
+  "title": "Subscription Box Renewal Tier and Credit Assignment",
+  "prompt": "You manage a D2C subscription box service. The `subscribers` table tracks active subscriptions. Management wants you to update subscriber tiers and renewal credits based on tenure and revenue, applying the following rules in sequence inside a DO block:\n\n1. Set `tier` to 'platinum' for any subscriber where `months_active >= 24`.\n2. Set `tier` to 'gold' for any subscriber where `months_active >= 12` AND `months_active < 24`.\n3. Set `tier` to 'silver' for any subscriber where `months_active >= 6` AND `months_active < 12`.\n4. Set `renewal_credit` to `lifetime_revenue * 0.10` (10% of `lifetime_revenue`) for subscribers with `tier = 'platinum'`.\n5. Set `renewal_credit` to `lifetime_revenue * 0.05` (5% of `lifetime_revenue`) for subscribers with `tier = 'gold'`.\n\nWrite a DO block containing UPDATE statements that apply these rules, then a trailing `SELECT * FROM subscribers ORDER BY subscriber_id;` to show the final state. The schema uses DECIMAL(10,2) for revenue and credit columns. Some subscribers have NULL `lifetime_revenue`; treat those as 0 when computing credits (use COALESCE).",
+  "schema_ddl": "CREATE TABLE subscribers (subscriber_id INT PRIMARY KEY, subscriber_name VARCHAR(100), months_active INT, lifetime_revenue DECIMAL(10,2), tier VARCHAR(20) DEFAULT 'bronze', renewal_credit DECIMAL(10,2) DEFAULT 0.00);",
+  "example_input_data": "INSERT INTO subscribers (subscriber_id, subscriber_name, months_active, lifetime_revenue, tier, renewal_credit) VALUES (1, 'Alice Chen', 30, 4500.00, 'bronze', 0.00), (2, 'Bob Martinez', 18, 2200.00, 'bronze', 0.00), (3, 'Carol Singh', 8, 800.00, 'bronze', 0.00), (4, 'David Kim', 3, 150.00, 'bronze', 0.00), (5, 'Emma Lee', 25, NULL, 'bronze', 0.00), (6, 'Frank Torres', 12, 1500.00, 'bronze', 0.00);",
+  "example_output_columns": [
+    "subscriber_id",
+    "subscriber_name",
+    "months_active",
+    "lifetime_revenue",
+    "tier",
+    "renewal_credit"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Alice Chen",
+      30,
+      "4500.00",
+      "platinum",
+      "450.00"
+    ],
+    [
+      2,
+      "Bob Martinez",
+      18,
+      "2200.00",
+      "gold",
+      "110.00"
+    ],
+    [
+      3,
+      "Carol Singh",
+      8,
+      "800.00",
+      "silver",
+      "0.00"
+    ],
+    [
+      4,
+      "David Kim",
+      3,
+      "150.00",
+      "bronze",
+      "0.00"
+    ],
+    [
+      5,
+      "Emma Lee",
+      25,
+      null,
+      "platinum",
+      "0.00"
+    ],
+    [
+      6,
+      "Frank Torres",
+      12,
+      "1500.00",
+      "gold",
+      "75.00"
+    ]
+  ],
+  "test_data": "INSERT INTO subscribers (subscriber_id, subscriber_name, months_active, lifetime_revenue, tier, renewal_credit) VALUES (101, 'Subscriber A', 36, 8000.00, 'bronze', 0.00), (102, 'Subscriber B', 24, 3600.00, 'bronze', 0.00), (103, 'Subscriber C', 23, 2800.00, 'bronze', 0.00), (104, 'Subscriber D', 18, 2100.00, 'bronze', 0.00), (105, 'Subscriber E', 12, 1440.00, 'bronze', 0.00), (106, 'Subscriber F', 11, 990.00, 'bronze', 0.00), (107, 'Subscriber G', 9, 720.00, 'bronze', 0.00), (108, 'Subscriber H', 6, 480.00, 'bronze', 0.00), (109, 'Subscriber I', 5, 350.00, 'bronze', 0.00), (110, 'Subscriber J', 3, 180.00, 'bronze', 0.00), (111, 'Subscriber K', 1, 60.00, 'bronze', 0.00), (112, 'Subscriber L', 0, 0.00, 'bronze', 0.00), (113, 'Subscriber M', 24, NULL, 'bronze', 0.00), (114, 'Subscriber N', 12, NULL, 'bronze', 0.00), (115, 'Subscriber O', 30, 0.00, 'bronze', 0.00), (116, 'Subscriber P', 15, 1800.00, 'bronze', 0.00), (117, 'Subscriber Q', 7, 560.00, 'bronze', 0.00), (118, 'Subscriber R', 25, 5000.00, 'bronze', 0.00), (119, 'Subscriber S', 13, 1560.00, 'bronze', 0.00), (120, 'Subscriber T', 6, NULL, 'bronze', 0.00);",
+  "test_expected_columns": [
+    "subscriber_id",
+    "subscriber_name",
+    "months_active",
+    "lifetime_revenue",
+    "tier",
+    "renewal_credit"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      "Subscriber A",
+      36,
+      "8000.00",
+      "platinum",
+      "800.00"
+    ],
+    [
+      102,
+      "Subscriber B",
+      24,
+      "3600.00",
+      "platinum",
+      "360.00"
+    ],
+    [
+      103,
+      "Subscriber C",
+      23,
+      "2800.00",
+      "gold",
+      "140.00"
+    ],
+    [
+      104,
+      "Subscriber D",
+      18,
+      "2100.00",
+      "gold",
+      "105.00"
+    ],
+    [
+      105,
+      "Subscriber E",
+      12,
+      "1440.00",
+      "gold",
+      "72.00"
+    ],
+    [
+      106,
+      "Subscriber F",
+      11,
+      "990.00",
+      "silver",
+      "0.00"
+    ],
+    [
+      107,
+      "Subscriber G",
+      9,
+      "720.00",
+      "silver",
+      "0.00"
+    ],
+    [
+      108,
+      "Subscriber H",
+      6,
+      "480.00",
+      "silver",
+      "0.00"
+    ],
+    [
+      109,
+      "Subscriber I",
+      5,
+      "350.00",
+      "bronze",
+      "0.00"
+    ],
+    [
+      110,
+      "Subscriber J",
+      3,
+      "180.00",
+      "bronze",
+      "0.00"
+    ],
+    [
+      111,
+      "Subscriber K",
+      1,
+      "60.00",
+      "bronze",
+      "0.00"
+    ],
+    [
+      112,
+      "Subscriber L",
+      0,
+      "0.00",
+      "bronze",
+      "0.00"
+    ],
+    [
+      113,
+      "Subscriber M",
+      24,
+      null,
+      "platinum",
+      "0.00"
+    ],
+    [
+      114,
+      "Subscriber N",
+      12,
+      null,
+      "gold",
+      "0.00"
+    ],
+    [
+      115,
+      "Subscriber O",
+      30,
+      "0.00",
+      "platinum",
+      "0.00"
+    ],
+    [
+      116,
+      "Subscriber P",
+      15,
+      "1800.00",
+      "gold",
+      "90.00"
+    ],
+    [
+      117,
+      "Subscriber Q",
+      7,
+      "560.00",
+      "silver",
+      "0.00"
+    ],
+    [
+      118,
+      "Subscriber R",
+      25,
+      "5000.00",
+      "platinum",
+      "500.00"
+    ],
+    [
+      119,
+      "Subscriber S",
+      13,
+      "1560.00",
+      "gold",
+      "78.00"
+    ],
+    [
+      120,
+      "Subscriber T",
+      6,
+      null,
+      "silver",
+      "0.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "state_mutation",
+    "recipe": "row-transform",
+    "composite_moves": [
+      "UPDATE tier to platinum WHERE months_active >= 24",
+      "UPDATE tier to gold WHERE months_active >= 12 AND months_active < 24",
+      "UPDATE tier to silver WHERE months_active >= 6 AND months_active < 12",
+      "UPDATE renewal_credit to lifetime_revenue * 0.10 WHERE tier = platinum",
+      "UPDATE renewal_credit to lifetime_revenue * 0.05 WHERE tier = gold"
+    ]
+  },
+  "hints": [
+    "You need a DO block wrapping multiple UPDATE statements that fire in sequence. The tier updates come first, then the credit assignments reference the newly assigned tiers.",
+    "The tier rules have non-overlapping ranges: platinum (>= 24), gold (12..23), silver (6..11). Apply them as three separate UPDATEs. Then compute renewal_credit as a percentage of lifetime_revenue for platinum and gold tiers only.",
+    "Use COALESCE(lifetime_revenue, 0) in the credit calculation to handle NULL revenues. The DO block looks like: DO $$ BEGIN UPDATE subscribers SET tier='platinum' WHERE months_active>=24; UPDATE subscribers SET tier='gold' WHERE months_active>=12 AND months_active<24; UPDATE subscribers SET tier='silver' WHERE months_active>=6 AND months_active<12; UPDATE subscribers SET renewal_credit=COALESCE(lifetime_revenue,0)*0.10 WHERE tier='platinum'; UPDATE subscribers SET renewal_credit=COALESCE(lifetime_revenue,0)*0.05 WHERE tier='gold'; END $$; then SELECT * FROM subscribers ORDER BY subscriber_id;"
+  ],
+  "answer_key": "DO $$\nBEGIN\n  UPDATE subscribers SET tier = 'platinum' WHERE months_active >= 24;\n  UPDATE subscribers SET tier = 'gold' WHERE months_active >= 12 AND months_active < 24;\n  UPDATE subscribers SET tier = 'silver' WHERE months_active >= 6 AND months_active < 12;\n  UPDATE subscribers SET renewal_credit = COALESCE(lifetime_revenue, 0) * 0.10 WHERE tier = 'platinum';\n  UPDATE subscribers SET renewal_credit = COALESCE(lifetime_revenue, 0) * 0.05 WHERE tier = 'gold';\nEND $$;\n\nSELECT * FROM subscribers ORDER BY subscriber_id;",
+  "_meta": {
+    "question_type": "do_block",
+    "original_qtype": "do_block",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-26T18:48:26.364110",
+    "problem_id": "0c9324c9d8e7",
+    "validation_attempts": 1,
+    "scenario": "a D2C subscription box service tracking renewal and churn",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

@@ -1,0 +1,163 @@
+{
+  "problem": {
+    "title": "7-Day Rolling Trial Start Average",
+    "prompt": "You work for a developer tools company that tracks daily trial signups. Management wants to smooth out day-to-day noise by calculating a 7-day rolling average of trial starts. Write a query that returns each date and the average number of trials started per day over that date and the 6 preceding days (a 7-day window ending on the current row). Include dates where no trials started (0 signups). Order results by date ascending. For dates in the first 6 days of data, the window will be smaller than 7 days; calculate the average over however many days are available up to and including that date.",
+    "schema_ddl": "CREATE TABLE daily_trial_starts (\n  event_date DATE NOT NULL,\n  trials_started INTEGER NOT NULL DEFAULT 0\n);",
+    "example_input_data": "INSERT INTO daily_trial_starts (event_date, trials_started) VALUES\n('2024-01-01', 5),\n('2024-01-02', 8),\n('2024-01-03', 3),\n('2024-01-04', 10),\n('2024-01-05', 0),\n('2024-01-06', 7),\n('2024-01-07', 12),\n('2024-01-08', 6);",
+    "example_output_columns": [
+      "event_date",
+      "rolling_avg_trials"
+    ],
+    "example_output_rows": [
+      [
+        "2024-01-01",
+        "5.00"
+      ],
+      [
+        "2024-01-02",
+        "6.50"
+      ],
+      [
+        "2024-01-03",
+        "5.33"
+      ],
+      [
+        "2024-01-04",
+        "6.50"
+      ],
+      [
+        "2024-01-05",
+        "5.20"
+      ],
+      [
+        "2024-01-06",
+        "5.50"
+      ],
+      [
+        "2024-01-07",
+        "6.43"
+      ],
+      [
+        "2024-01-08",
+        "6.57"
+      ]
+    ],
+    "test_data": "INSERT INTO daily_trial_starts (event_date, trials_started) VALUES\n('2024-02-01', 12),\n('2024-02-02', 0),\n('2024-02-03', 8),\n('2024-02-04', 15),\n('2024-02-05', 3),\n('2024-02-06', 0),\n('2024-02-07', 9),\n('2024-02-08', 11),\n('2024-02-09', 0),\n('2024-02-10', 14),\n('2024-02-11', 7),\n('2024-02-12', 0),\n('2024-02-13', 10),\n('2024-02-14', 5),\n('2024-02-15', 0),\n('2024-02-16', 8),\n('2024-02-17', 13),\n('2024-02-18', 0),\n('2024-02-19', 6),\n('2024-02-20', 9);",
+    "test_expected_columns": [
+      "event_date",
+      "rolling_avg_trials"
+    ],
+    "test_expected_rows": [
+      [
+        "2024-02-01",
+        "12.00"
+      ],
+      [
+        "2024-02-02",
+        "6.00"
+      ],
+      [
+        "2024-02-03",
+        "6.67"
+      ],
+      [
+        "2024-02-04",
+        "8.75"
+      ],
+      [
+        "2024-02-05",
+        "7.60"
+      ],
+      [
+        "2024-02-06",
+        "6.33"
+      ],
+      [
+        "2024-02-07",
+        "6.71"
+      ],
+      [
+        "2024-02-08",
+        "6.57"
+      ],
+      [
+        "2024-02-09",
+        "6.57"
+      ],
+      [
+        "2024-02-10",
+        "7.43"
+      ],
+      [
+        "2024-02-11",
+        "6.29"
+      ],
+      [
+        "2024-02-12",
+        "5.86"
+      ],
+      [
+        "2024-02-13",
+        "7.29"
+      ],
+      [
+        "2024-02-14",
+        "6.71"
+      ],
+      [
+        "2024-02-15",
+        "5.14"
+      ],
+      [
+        "2024-02-16",
+        "6.29"
+      ],
+      [
+        "2024-02-17",
+        "6.14"
+      ],
+      [
+        "2024-02-18",
+        "5.14"
+      ],
+      [
+        "2024-02-19",
+        "6.00"
+      ],
+      [
+        "2024-02-20",
+        "5.86"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "time-window: partition by (none), order by event_date, frame ROWS BETWEEN 6 PRECEDING AND CURRENT ROW, compute AVG(trials_started)"
+      ]
+    },
+    "hints": [
+      "You need to compute an average that 'slides' as you move down the ordered rows.",
+      "Window functions allow you to define a frame relative to the current row using ROWS BETWEEN.",
+      "Use AVG() OVER (ORDER BY event_date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) to get a 7-day trailing average, and format the result to two decimal places with ROUND() or ::NUMERIC."
+    ],
+    "answer_key": "SELECT\n  event_date,\n  ROUND(AVG(trials_started) OVER (\n    ORDER BY event_date\n    ROWS BETWEEN 6 PRECEDING AND CURRENT ROW\n  ), 2)::TEXT AS rolling_avg_trials\nFROM daily_trial_starts\nORDER BY event_date;",
+    "_meta": {
+      "question_type": "window_sliding",
+      "original_qtype": "window_sliding",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-24T19:50:28.577839",
+      "problem_id": "504c0536ed6b",
+      "validation_attempts": 1,
+      "scenario": "a developer tools company tracking trial-to-paid conversion and seat expansion",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\n\nSELECT\n    event_date,\n    ROUND(AVG(trials_started) OVER (ORDER BY event_date\n                                ROWS BETWEEN 6 PRECEDING AND CURRENT ROW),2) AS rolling_avg_trials\nFROM daily_trial_starts\nORDER BY 1;",
+  "solved_at": "2026-05-24T19:53:03.142313"
+}

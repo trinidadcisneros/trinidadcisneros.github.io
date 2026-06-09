@@ -1,0 +1,226 @@
+{
+  "problem": {
+    "title": "High-Denial Payer Claims Filter Function",
+    "prompt": "Write a PostgreSQL function named `get_high_denial_claims` that accepts two parameters: `p_min_claim_amount` (NUMERIC(10,2)) and `p_denial_threshold` (INTEGER, representing a percentage). The function should return a table with columns: `claim_id` (INTEGER), `patient_name` (VARCHAR(100)), `payer_name` (VARCHAR(100)), `claim_amount` (NUMERIC(10,2)), `claim_status` (VARCHAR(20)), and `denial_reason` (VARCHAR(200)). Return all claims whose claim_amount is greater than or equal to `p_min_claim_amount` AND whose payer has a denial rate (percentage of denied claims) strictly greater than `p_denial_threshold`. Calculate the denial rate as: (count of denied claims for that payer / total claims for that payer) * 100. Order results by `claim_amount` descending, then by `claim_id` ascending. Test your function by calling: `SELECT * FROM get_high_denial_claims(5000.00, 40);`",
+    "schema_ddl": "CREATE TABLE claims (claim_id INTEGER PRIMARY KEY, patient_name VARCHAR(100), payer_name VARCHAR(100), claim_amount NUMERIC(10,2), claim_status VARCHAR(20), denial_reason VARCHAR(200));",
+    "example_input_data": "INSERT INTO claims (claim_id, patient_name, payer_name, claim_amount, claim_status, denial_reason) VALUES (1, 'Alice Johnson', 'BlueCross', 8500.00, 'denied', 'Prior authorization missing'), (2, 'Bob Smith', 'BlueCross', 12000.00, 'paid', NULL), (3, 'Carol White', 'Aetna', 6500.00, 'denied', 'Service not covered'), (4, 'David Lee', 'Aetna', 9000.00, 'denied', 'Documentation incomplete'), (5, 'Eve Martinez', 'BlueCross', 7500.00, 'denied', 'Coding error'), (6, 'Frank Brown', 'UnitedHealth', 11000.00, 'paid', NULL), (7, 'Grace Davis', 'UnitedHealth', 5500.00, 'paid', NULL), (8, 'Henry Wilson', 'Aetna', 4500.00, 'paid', NULL);",
+    "example_output_columns": [
+      "claim_id",
+      "patient_name",
+      "payer_name",
+      "claim_amount",
+      "claim_status",
+      "denial_reason"
+    ],
+    "example_output_rows": [
+      [
+        2,
+        "Bob Smith",
+        "BlueCross",
+        "12000.00",
+        "paid",
+        null
+      ],
+      [
+        4,
+        "David Lee",
+        "Aetna",
+        "9000.00",
+        "denied",
+        "Documentation incomplete"
+      ],
+      [
+        1,
+        "Alice Johnson",
+        "BlueCross",
+        "8500.00",
+        "denied",
+        "Prior authorization missing"
+      ],
+      [
+        5,
+        "Eve Martinez",
+        "BlueCross",
+        "7500.00",
+        "denied",
+        "Coding error"
+      ],
+      [
+        3,
+        "Carol White",
+        "Aetna",
+        "6500.00",
+        "denied",
+        "Service not covered"
+      ]
+    ],
+    "test_data": "INSERT INTO claims (claim_id, patient_name, payer_name, claim_amount, claim_status, denial_reason) VALUES (101, 'Patient A', 'InsureCo', 15000.00, 'denied', 'Network issue'), (102, 'Patient B', 'InsureCo', 8000.00, 'paid', NULL), (103, 'Patient C', 'HealthPlus', 12500.00, 'denied', 'Missing referral'), (104, 'Patient D', 'HealthPlus', 9500.00, 'denied', 'Duplicate claim'), (105, 'Patient E', 'HealthPlus', 7000.00, 'paid', NULL), (106, 'Patient F', 'MediShield', 6000.00, 'denied', 'Out of network'), (107, 'Patient G', 'MediShield', 11000.00, 'denied', 'Authorization expired'), (108, 'Patient H', 'MediShield', 4500.00, 'paid', NULL), (109, 'Patient I', 'CareCover', 10000.00, 'paid', NULL), (110, 'Patient J', 'CareCover', 8500.00, 'paid', NULL), (111, 'Patient K', 'CareCover', 7500.00, 'paid', NULL), (112, 'Patient L', 'CareCover', 6500.00, 'paid', NULL), (113, 'Patient M', 'CareCover', 5500.00, 'denied', 'Policy lapsed'), (114, 'Patient N', 'InsureCo', 13000.00, 'denied', 'Service bundled'), (115, 'Patient O', 'HealthPlus', 10500.00, 'denied', 'Timely filing limit'), (116, 'Patient P', 'MediShield', 9000.00, 'denied', 'Pre-existing condition'), (117, 'Patient Q', 'InsureCo', 7800.00, 'paid', NULL), (118, 'Patient R', 'HealthPlus', 6800.00, 'paid', NULL), (119, 'Patient S', 'MediShield', 5200.00, 'denied', 'Incorrect modifier'), (120, 'Patient T', 'InsureCo', 14500.00, 'denied', 'Medical necessity'), (121, 'Patient U', 'HealthPlus', 11500.00, 'denied', 'Coordination of benefits'), (122, 'Patient V', 'MediShield', 8200.00, 'paid', NULL), (123, 'Patient W', 'InsureCo', 3000.00, 'paid', NULL), (124, 'Patient X', 'HealthPlus', 2500.00, 'denied', 'Coding mismatch'), (125, 'Patient Y', 'MediShield', 2000.00, 'paid', NULL);",
+    "test_expected_columns": [
+      "claim_id",
+      "patient_name",
+      "payer_name",
+      "claim_amount",
+      "claim_status",
+      "denial_reason"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        "Patient A",
+        "InsureCo",
+        "15000.00",
+        "denied",
+        "Network issue"
+      ],
+      [
+        120,
+        "Patient T",
+        "InsureCo",
+        "14500.00",
+        "denied",
+        "Medical necessity"
+      ],
+      [
+        114,
+        "Patient N",
+        "InsureCo",
+        "13000.00",
+        "denied",
+        "Service bundled"
+      ],
+      [
+        103,
+        "Patient C",
+        "HealthPlus",
+        "12500.00",
+        "denied",
+        "Missing referral"
+      ],
+      [
+        121,
+        "Patient U",
+        "HealthPlus",
+        "11500.00",
+        "denied",
+        "Coordination of benefits"
+      ],
+      [
+        107,
+        "Patient G",
+        "MediShield",
+        "11000.00",
+        "denied",
+        "Authorization expired"
+      ],
+      [
+        115,
+        "Patient O",
+        "HealthPlus",
+        "10500.00",
+        "denied",
+        "Timely filing limit"
+      ],
+      [
+        104,
+        "Patient D",
+        "HealthPlus",
+        "9500.00",
+        "denied",
+        "Duplicate claim"
+      ],
+      [
+        116,
+        "Patient P",
+        "MediShield",
+        "9000.00",
+        "denied",
+        "Pre-existing condition"
+      ],
+      [
+        122,
+        "Patient V",
+        "MediShield",
+        "8200.00",
+        "paid",
+        null
+      ],
+      [
+        102,
+        "Patient B",
+        "InsureCo",
+        "8000.00",
+        "paid",
+        null
+      ],
+      [
+        117,
+        "Patient Q",
+        "InsureCo",
+        "7800.00",
+        "paid",
+        null
+      ],
+      [
+        105,
+        "Patient E",
+        "HealthPlus",
+        "7000.00",
+        "paid",
+        null
+      ],
+      [
+        118,
+        "Patient R",
+        "HealthPlus",
+        "6800.00",
+        "paid",
+        null
+      ],
+      [
+        106,
+        "Patient F",
+        "MediShield",
+        "6000.00",
+        "denied",
+        "Out of network"
+      ],
+      [
+        119,
+        "Patient S",
+        "MediShield",
+        "5200.00",
+        "denied",
+        "Incorrect modifier"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "function-wrapped",
+      "composite_moves": [
+        "group-aggregate to find high-denial payers",
+        "row-filter by claim amount and payer membership",
+        "function-wrapped to accept parameters"
+      ]
+    },
+    "hints": [
+      "First identify which payers have a denial rate above the threshold by grouping claims by payer and calculating the percentage of denied claims.",
+      "Use a subquery or CTE to find the list of payer names that exceed the denial threshold, then filter the main claims table to include only claims from those payers with claim_amount >= the minimum.",
+      "In your RETURNS TABLE function, alias the source table in the RETURN QUERY SELECT and qualify every column reference (e.g., c.claim_id, c.payer_name) to avoid ambiguity with the RETURNS TABLE column names. Use a subquery with a fully qualified payer_name reference (e.g., sub.payer_name) in the HAVING clause."
+    ],
+    "answer_key": "CREATE OR REPLACE FUNCTION get_high_denial_claims(\n  p_min_claim_amount NUMERIC(10,2),\n  p_denial_threshold INTEGER\n)\nRETURNS TABLE (\n  claim_id INTEGER,\n  patient_name VARCHAR(100),\n  payer_name VARCHAR(100),\n  claim_amount NUMERIC(10,2),\n  claim_status VARCHAR(20),\n  denial_reason VARCHAR(200)\n)\nAS $$\nBEGIN\n  RETURN QUERY (\n    SELECT\n      c.claim_id,\n      c.patient_name,\n      c.payer_name,\n      c.claim_amount,\n      c.claim_status,\n      c.denial_reason\n    FROM claims c\n    WHERE c.claim_amount >= p_min_claim_amount\n      AND c.payer_name IN (\n        SELECT sub.payer_name\n        FROM claims sub\n        GROUP BY sub.payer_name\n        HAVING (COUNT(CASE WHEN sub.claim_status = 'denied' THEN 1 END)::DECIMAL / COUNT(*)::DECIMAL * 100) > p_denial_threshold\n      )\n    ORDER BY c.claim_amount DESC, c.claim_id ASC\n  );\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT * FROM get_high_denial_claims(5000.00, 40);",
+    "_meta": {
+      "question_type": "returns_table",
+      "dialect": "postgresql",
+      "generated_at": "2026-05-16T13:55:12.127917",
+      "problem_id": "29cae1bd8484",
+      "validation_attempts": 2,
+      "scenario": "a hospital revenue cycle team tracking claim submissions and denial reasons",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\nCREATE OR REPLACE FUNCTION get_high_denial_claims(p_min_claim_amount NUMERIC(10,2), p_denial_threshold INT)\nRETURNS TABLE (claim_id INT, \n                patient_name text, \n                payer_name text, \n                claim_amount NUMERIC, \n                claim_status text, \n                denial_reason text\n                ) AS $$\nBEGIN\n    RETURN QUERY (\n        WITH base AS (\n            SELECT \n                c.claim_id,\n                c.patient_name,\n                c.payer_name,\n                c.claim_amount,\n                c.claim_status,\n                c.denial_reason,\n                CASE WHEN c.claim_status = 'denied' THEN 1.0 ELSE 0 END AS n_denied\n            FROM claims AS c\n        ),\n        payers AS (\n            SELECT\n                c.payer_name,\n                AVG(n_denied)::numeric * 100 AS pct_denied\n            FROM base AS c\n            GROUP BY c.payer_name\n        )\n        SELECT \n            b.claim_id::int,\n            b.patient_name::text,\n            p.payer_name::text,\n            b.claim_amount::NUMERIC,\n            b.claim_status::text,\n            b.denial_reason::text\n        FROM base AS b\n        JOIN payers AS p  \n        USING(payer_name)\n        WHERE b.claim_amount >= p_min_claim_amount AND pct_denied >= p_denial_threshold\n        ORDER BY claim_amount DESC, claim_id ASC\n    );\n\nEND;\n$$ LANGUAGE PLPGSQL;\n\n\n\nSELECT * FROM get_high_denial_claims(5000.00, 40);",
+  "solved_at": "2026-05-16T14:37:34.093540"
+}

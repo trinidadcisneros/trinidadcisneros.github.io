@@ -1,0 +1,109 @@
+{
+  "problem": {
+    "title": "Pivot article engagement by subscription tier",
+    "prompt": "You maintain a news app that logs daily article engagement metrics. The `daily_engagement` table stores one row per (date, subscription_tier, metric) combination, with columns `engagement_date`, `subscription_tier` (one of: 'free', 'basic', 'premium'), `metric_type` (one of: 'articles_opened', 'articles_completed', 'conversions'), and `metric_value` (integer count for that day/tier/metric). Write a query that pivots this data into a wide-format report showing, for each engagement_date, the SUM of metric_value across all tiers for each of the three metric types. The output columns must be: `engagement_date`, `articles_opened`, `articles_completed`, `conversions`. If no rows exist for a given metric_type on a date, show 0 instead of NULL. Order the result by `engagement_date` ascending. Edge case: some dates may lack rows for certain metric types; some dates may have multiple rows (different tiers) for the same metric type.",
+    "schema_ddl": "CREATE TABLE daily_engagement (engagement_date DATE NOT NULL, subscription_tier VARCHAR(20) NOT NULL, metric_type VARCHAR(30) NOT NULL, metric_value INT NOT NULL);",
+    "example_input_data": "INSERT INTO daily_engagement (engagement_date, subscription_tier, metric_type, metric_value) VALUES ('2024-01-15', 'free', 'articles_opened', 120), ('2024-01-15', 'basic', 'articles_opened', 80), ('2024-01-15', 'premium', 'articles_opened', 45), ('2024-01-15', 'free', 'articles_completed', 30), ('2024-01-15', 'premium', 'articles_completed', 20), ('2024-01-15', 'basic', 'conversions', 5), ('2024-01-16', 'free', 'articles_opened', 95), ('2024-01-16', 'premium', 'articles_completed', 18);",
+    "example_output_columns": [
+      "engagement_date",
+      "articles_opened",
+      "articles_completed",
+      "conversions"
+    ],
+    "example_output_rows": [
+      [
+        "2024-01-15",
+        245,
+        50,
+        5
+      ],
+      [
+        "2024-01-16",
+        95,
+        18,
+        0
+      ]
+    ],
+    "test_data": "INSERT INTO daily_engagement (engagement_date, subscription_tier, metric_type, metric_value) VALUES ('2024-02-01', 'free', 'articles_opened', 150), ('2024-02-01', 'basic', 'articles_opened', 110), ('2024-02-01', 'premium', 'articles_opened', 60), ('2024-02-01', 'free', 'articles_completed', 40), ('2024-02-01', 'basic', 'articles_completed', 35), ('2024-02-01', 'premium', 'articles_completed', 28), ('2024-02-01', 'free', 'conversions', 3), ('2024-02-01', 'basic', 'conversions', 7), ('2024-02-01', 'premium', 'conversions', 12), ('2024-02-02', 'free', 'articles_opened', 88), ('2024-02-02', 'premium', 'articles_opened', 52), ('2024-02-02', 'free', 'articles_completed', 22), ('2024-02-02', 'premium', 'conversions', 9), ('2024-02-03', 'basic', 'articles_opened', 72), ('2024-02-03', 'basic', 'articles_opened', 15), ('2024-02-03', 'free', 'articles_completed', 19), ('2024-02-03', 'basic', 'articles_completed', 14), ('2024-02-03', 'premium', 'articles_completed', 11), ('2024-02-04', 'free', 'conversions', 2), ('2024-02-04', 'basic', 'conversions', 4), ('2024-02-05', 'premium', 'articles_opened', 38), ('2024-02-05', 'free', 'articles_opened', 102), ('2024-02-05', 'basic', 'articles_opened', 67), ('2024-02-05', 'premium', 'articles_completed', 16), ('2024-02-06', 'free', 'articles_opened', 91), ('2024-02-06', 'basic', 'articles_completed', 27), ('2024-02-06', 'premium', 'conversions', 8), ('2024-02-07', 'basic', 'articles_opened', 55), ('2024-02-07', 'premium', 'articles_opened', 42), ('2024-02-07', 'free', 'articles_completed', 25);",
+    "test_expected_columns": [
+      "engagement_date",
+      "articles_opened",
+      "articles_completed",
+      "conversions"
+    ],
+    "test_expected_rows": [
+      [
+        "2024-02-01",
+        320,
+        103,
+        22
+      ],
+      [
+        "2024-02-02",
+        140,
+        22,
+        9
+      ],
+      [
+        "2024-02-03",
+        87,
+        44,
+        0
+      ],
+      [
+        "2024-02-04",
+        0,
+        0,
+        6
+      ],
+      [
+        "2024-02-05",
+        207,
+        16,
+        0
+      ],
+      [
+        "2024-02-06",
+        91,
+        27,
+        8
+      ],
+      [
+        "2024-02-07",
+        97,
+        25,
+        0
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "reshape",
+      "composite_moves": [
+        "pivot: GROUP BY engagement_date with SUM(CASE WHEN metric_type = 'X' THEN metric_value END) per target column, COALESCE to 0"
+      ]
+    },
+    "hints": [
+      "Think about how to turn each metric_type value into its own column while summing across all tiers for that metric on each date.",
+      "Use CASE expressions inside SUM to isolate rows for each metric_type, then group by engagement_date. Wrap each SUM with COALESCE to turn NULLs into 0.",
+      "The pattern is: SELECT engagement_date, COALESCE(SUM(CASE WHEN metric_type = 'articles_opened' THEN metric_value END), 0) AS articles_opened, ... FROM daily_engagement GROUP BY engagement_date ORDER BY engagement_date."
+    ],
+    "answer_key": "SELECT\n  engagement_date,\n  COALESCE(SUM(CASE WHEN metric_type = 'articles_opened' THEN metric_value END), 0) AS articles_opened,\n  COALESCE(SUM(CASE WHEN metric_type = 'articles_completed' THEN metric_value END), 0) AS articles_completed,\n  COALESCE(SUM(CASE WHEN metric_type = 'conversions' THEN metric_value END), 0) AS conversions\nFROM daily_engagement\nGROUP BY engagement_date\nORDER BY engagement_date;",
+    "_meta": {
+      "question_type": "pivot",
+      "original_qtype": "pivot",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-30T18:30:56.468507",
+      "problem_id": "5531c115e3ad",
+      "validation_attempts": 1,
+      "scenario": "a news app tracking article completion and subscription conversion",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\nSELECT\n    engagement_date,\n    SUM(CASE WHEN metric_type = 'articles_opened' THEN metric_value ELSE 0 END) AS articles_opened,\n    SUM(CASE WHEN metric_type = 'articles_completed' THEN metric_value ELSE 0 END) AS articles_completed,\n    SUM(CASE WHEN metric_type = 'conversions' THEN metric_value ELSE 0 END) AS conversions\nFROM daily_engagement\nGROUP BY engagement_date\nORDER BY engagement_date;\n",
+  "solved_at": "2026-05-30T18:34:26.071012"
+}

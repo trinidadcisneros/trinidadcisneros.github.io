@@ -1,0 +1,102 @@
+{
+  "title": "First and Last Message per Match",
+  "prompt": "You are analyzing conversation patterns in a dating app. The `match_messages` table stores all messages sent between matched users. Each match is identified by `match_id`, and messages are timestamped. Write a query that returns one row per match showing: the match_id, the content of the FIRST message sent (earliest timestamp), and the content of the LAST message sent (latest timestamp) in that conversation. Order the results by match_id ascending. Note: some matches may have only one message, and you must correctly identify the true last message in each partition, not just the current row's value.",
+  "schema_ddl": "CREATE TABLE match_messages (message_id SERIAL PRIMARY KEY, match_id INT NOT NULL, sent_at TIMESTAMP NOT NULL, message_content TEXT NOT NULL);",
+  "example_input_data": "INSERT INTO match_messages (match_id, sent_at, message_content) VALUES (101, '2024-01-10 14:30:00', 'Hey! Nice profile'), (101, '2024-01-10 14:45:00', 'Thanks! How was your weekend?'), (101, '2024-01-10 15:20:00', 'Pretty good, went hiking'), (102, '2024-01-11 09:00:00', 'Hi there!'), (102, '2024-01-11 09:15:00', 'Hello! Love your travel photos'), (102, '2024-01-11 10:30:00', 'Want to grab coffee sometime?'), (103, '2024-01-12 18:00:00', 'Hey, matched with you at the concert!'), (103, '2024-01-12 18:05:00', 'Yes! That was a great show');",
+  "example_output_columns": [
+    "match_id",
+    "first_message",
+    "last_message"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Hey! Nice profile",
+      "Pretty good, went hiking"
+    ],
+    [
+      102,
+      "Hi there!",
+      "Want to grab coffee sometime?"
+    ],
+    [
+      103,
+      "Hey, matched with you at the concert!",
+      "Yes! That was a great show"
+    ]
+  ],
+  "test_data": "INSERT INTO match_messages (match_id, sent_at, message_content) VALUES (201, '2024-02-01 08:00:00', 'Good morning!'), (201, '2024-02-01 08:10:00', 'Morning! How are you?'), (201, '2024-02-01 08:25:00', 'Doing well, thanks'), (201, '2024-02-01 09:00:00', 'Want to meet up this weekend?'), (201, '2024-02-01 09:30:00', 'Sounds great!'), (202, '2024-02-02 12:00:00', 'Hi!'), (202, '2024-02-02 12:15:00', 'Hey there'), (202, '2024-02-02 12:45:00', 'What are you up to?'), (202, '2024-02-02 13:00:00', 'Just working from home'), (202, '2024-02-02 14:00:00', 'Same here, coffee break?'), (202, '2024-02-02 14:30:00', 'Sure, when works for you?'), (203, '2024-02-03 19:00:00', 'Loved your dog pics!'), (203, '2024-02-03 19:20:00', 'Thanks! He is adorable'), (203, '2024-02-03 20:00:00', 'We should take them to the park together'), (204, '2024-02-04 10:00:00', 'Single message match'), (205, '2024-02-05 16:00:00', 'Hey!'), (205, '2024-02-05 16:05:00', 'Hi there!'), (205, '2024-02-05 16:10:00', 'How is your day?'), (205, '2024-02-05 16:20:00', 'Great, yours?'), (205, '2024-02-05 16:30:00', 'Pretty good'), (205, '2024-02-05 17:00:00', 'Want to chat more over dinner?'), (205, '2024-02-05 17:15:00', 'Absolutely!'), (206, '2024-02-06 11:00:00', 'Hi!'), (206, '2024-02-06 11:30:00', 'Hello!'), (207, '2024-02-07 14:00:00', 'Nice to match!'), (207, '2024-02-07 14:10:00', 'Likewise!'), (207, '2024-02-07 14:25:00', 'What do you like to do for fun?'), (207, '2024-02-07 14:40:00', 'I enjoy hiking and reading'), (207, '2024-02-07 15:00:00', 'Me too! We should go on a hike'), (207, '2024-02-07 15:20:00', 'That would be awesome');",
+  "test_expected_columns": [
+    "match_id",
+    "first_message",
+    "last_message"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Good morning!",
+      "Sounds great!"
+    ],
+    [
+      202,
+      "Hi!",
+      "Sure, when works for you?"
+    ],
+    [
+      203,
+      "Loved your dog pics!",
+      "We should take them to the park together"
+    ],
+    [
+      204,
+      "Single message match",
+      "Single message match"
+    ],
+    [
+      205,
+      "Hey!",
+      "Absolutely!"
+    ],
+    [
+      206,
+      "Hi!",
+      "Hello!"
+    ],
+    [
+      207,
+      "Nice to match!",
+      "That would be awesome"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "rank-partition",
+    "composite_moves": [
+      "window FIRST_VALUE OVER (PARTITION BY match_id ORDER BY sent_at)",
+      "window LAST_VALUE OVER (PARTITION BY match_id ORDER BY sent_at ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)",
+      "DISTINCT to collapse to one row per match",
+      "ORDER BY match_id"
+    ]
+  },
+  "hints": [
+    "Use window functions to access the first and last values within each match partition.",
+    "FIRST_VALUE works with the default frame, but LAST_VALUE requires an explicit frame clause to see beyond the current row.",
+    "Specify `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING` in your LAST_VALUE window to get the true last message in each match, then use DISTINCT to collapse to one row per match_id."
+  ],
+  "answer_key": "SELECT DISTINCT match_id, FIRST_VALUE(message_content) OVER (PARTITION BY match_id ORDER BY sent_at) AS first_message, LAST_VALUE(message_content) OVER (PARTITION BY match_id ORDER BY sent_at ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_message FROM match_messages ORDER BY match_id;",
+  "_meta": {
+    "question_type": "window_first_last",
+    "original_qtype": "window_first_last",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-24T20:03:26.228971",
+    "problem_id": "b7f899b9a16a",
+    "validation_attempts": 1,
+    "scenario": "a dating app tracking mutual matches and messaging engagement",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "problem": {
+    "title": "Pivot Video Engagement Metrics by Content Type",
+    "prompt": "You are analyzing a short video platform's engagement data. The `video_watch_metrics` table stores one row per video per content type category, recording total watch time in minutes. Each video can have multiple rows for the same content type (representing aggregated daily snapshots). Write a query to pivot this long-format data into a wide-format report showing each video's total watch time across three content types: 'education', 'entertainment', and 'news'. The output must have columns: `video_id`, `video_title`, `education_minutes`, `entertainment_minutes`, `news_minutes`. Use SUM to aggregate watch time for videos with multiple rows in the same category. If a video has no rows for a particular content type, show 0 (not NULL) for that category's minutes. Order the final result by `video_id` ascending.",
+    "schema_ddl": "CREATE TABLE videos (video_id INT PRIMARY KEY, video_title VARCHAR(100)); CREATE TABLE video_watch_metrics (metric_id SERIAL PRIMARY KEY, video_id INT, content_type VARCHAR(50), watch_minutes DECIMAL(10,2));",
+    "example_input_data": "INSERT INTO videos (video_id, video_title) VALUES (1, 'Quick Math Tips'), (2, 'Comedy Sketch Vol 3'), (3, 'Morning News Brief'); INSERT INTO video_watch_metrics (video_id, content_type, watch_minutes) VALUES (1, 'education', 120.50), (1, 'education', 45.00), (2, 'entertainment', 300.75), (2, 'news', 15.00), (3, 'news', 200.00), (3, 'news', 50.25);",
+    "example_output_columns": [
+      "video_id",
+      "video_title",
+      "education_minutes",
+      "entertainment_minutes",
+      "news_minutes"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "Quick Math Tips",
+        "165.50",
+        "0",
+        "0"
+      ],
+      [
+        2,
+        "Comedy Sketch Vol 3",
+        "0",
+        "300.75",
+        "15.00"
+      ],
+      [
+        3,
+        "Morning News Brief",
+        "0",
+        "0",
+        "250.25"
+      ]
+    ],
+    "test_data": "INSERT INTO videos (video_id, video_title) VALUES (10, 'Advanced Calculus'), (11, 'Stand-Up Special'), (12, 'Evening Headlines'), (13, 'Science Explainer'), (14, 'Cooking Show'), (15, 'Political Debate'), (16, 'Music Performance'), (17, 'Tech Review'), (18, 'Documentary Short'); INSERT INTO video_watch_metrics (video_id, content_type, watch_minutes) VALUES (10, 'education', 500.00), (10, 'education', 150.25), (10, 'education', 75.50), (11, 'entertainment', 1200.00), (11, 'entertainment', 300.00), (12, 'news', 450.75), (12, 'news', 200.00), (12, 'entertainment', 50.00), (13, 'education', 800.00), (13, 'news', 100.50), (14, 'entertainment', 600.00), (14, 'entertainment', 250.25), (14, 'education', 30.00), (15, 'news', 950.00), (15, 'news', 350.75), (15, 'news', 125.50), (16, 'entertainment', 2000.00), (17, 'education', 400.00), (17, 'entertainment', 150.00), (17, 'news', 75.25), (18, 'education', 1100.00), (18, 'education', 200.00);",
+    "test_expected_columns": [
+      "video_id",
+      "video_title",
+      "education_minutes",
+      "entertainment_minutes",
+      "news_minutes"
+    ],
+    "test_expected_rows": [
+      [
+        10,
+        "Advanced Calculus",
+        "725.75",
+        "0",
+        "0"
+      ],
+      [
+        11,
+        "Stand-Up Special",
+        "0",
+        "1500.00",
+        "0"
+      ],
+      [
+        12,
+        "Evening Headlines",
+        "0",
+        "50.00",
+        "650.75"
+      ],
+      [
+        13,
+        "Science Explainer",
+        "800.00",
+        "0",
+        "100.50"
+      ],
+      [
+        14,
+        "Cooking Show",
+        "30.00",
+        "850.25",
+        "0"
+      ],
+      [
+        15,
+        "Political Debate",
+        "0",
+        "0",
+        "1426.25"
+      ],
+      [
+        16,
+        "Music Performance",
+        "0",
+        "2000.00",
+        "0"
+      ],
+      [
+        17,
+        "Tech Review",
+        "400.00",
+        "150.00",
+        "75.25"
+      ],
+      [
+        18,
+        "Documentary Short",
+        "1300.00",
+        "0",
+        "0"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "reshape",
+      "composite_moves": [
+        "join videos and video_watch_metrics",
+        "group by video_id, video_title",
+        "pivot content_type categories using CASE WHEN in SUM aggregations",
+        "coalesce NULL to 0 for missing categories",
+        "order by video_id"
+      ]
+    },
+    "hints": [
+      "You need to transform rows with a category column into separate columns for each category value.",
+      "Use SUM with CASE WHEN content_type = 'education' THEN watch_minutes END to create the education_minutes column. Repeat this pattern for the other two content types.",
+      "Wrap each SUM(CASE...) in COALESCE(..., 0) to convert NULL to 0 when a video has no rows for that content type. Join the videos table to get video_title, then GROUP BY video_id and video_title."
+    ],
+    "answer_key": "SELECT v.video_id, v.video_title, COALESCE(SUM(CASE WHEN m.content_type = 'education' THEN m.watch_minutes END), 0) AS education_minutes, COALESCE(SUM(CASE WHEN m.content_type = 'entertainment' THEN m.watch_minutes END), 0) AS entertainment_minutes, COALESCE(SUM(CASE WHEN m.content_type = 'news' THEN m.watch_minutes END), 0) AS news_minutes FROM videos v LEFT JOIN video_watch_metrics m ON v.video_id = m.video_id GROUP BY v.video_id, v.video_title ORDER BY v.video_id;",
+    "_meta": {
+      "question_type": "pivot",
+      "original_qtype": "pivot",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-27T20:03:59.914484",
+      "problem_id": "9dac7b5dcfd8",
+      "validation_attempts": 1,
+      "scenario": "a short video platform tracking watch time and completion rates",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\nWITH base AS (\nSELECT\n    v.video_id,\n    v.video_title,\n    vmm.content_type,\n    vmm.watch_minutes\nFROM videos AS v\nJOIN video_watch_metrics AS vmm\nON v.video_id = vmm.video_id\n)\nSELECT\n    video_id, \n    video_title,\n    SUM(CASE WHEN content_type = 'education' THEN watch_minutes ELSE 0 END) AS education_minutes,\n    SUM(CASE WHEN content_type = 'entertainment' THEN watch_minutes ELSE 0 END) AS entertainment_minutes,\n    SUM(CASE WHEN content_type = 'news' THEN watch_minutes ELSE 0 END) AS news_minutes\nFROM base\nGROUP BY video_id, video_title\nORDER BY video_id;\n\n\n\n\n\n",
+  "solved_at": "2026-05-27T20:08:54.889552"
+}

@@ -1,0 +1,241 @@
+{
+  "title": "Sprint Velocity Trend with Trailing Window",
+  "prompt": "You are analyzing task completion velocity across sprints for different teams. The `sprint_metrics` table tracks each sprint's completed story points. For each sprint, calculate a 3-sprint moving average velocity that includes the current sprint and the 2 immediately preceding sprints (by sprint number within each team). If fewer than 3 sprints exist before the current one, include all available sprints up to and including the current. Output the team, sprint number, points completed that sprint, and the trailing 3-sprint average (rounded to 2 decimals). Order results by team, then sprint_number ascending. The frame must include exactly the current row and the 2 preceding rows by position\u2014do NOT include all rows from the start of the partition, and do NOT use a centered or look-ahead window.",
+  "schema_ddl": "CREATE TABLE sprint_metrics (\n  team_id VARCHAR(50),\n  sprint_number INT,\n  points_completed INT\n);",
+  "example_input_data": "INSERT INTO sprint_metrics (team_id, sprint_number, points_completed) VALUES\n('alpha', 1, 20),\n('alpha', 2, 25),\n('alpha', 3, 30),\n('alpha', 4, 22),\n('alpha', 5, 28),\n('beta', 1, 15),\n('beta', 2, 18),\n('beta', 3, 20);",
+  "example_output_columns": [
+    "team_id",
+    "sprint_number",
+    "points_completed",
+    "trailing_3_avg"
+  ],
+  "example_output_rows": [
+    [
+      "alpha",
+      1,
+      20,
+      "20.00"
+    ],
+    [
+      "alpha",
+      2,
+      25,
+      "22.50"
+    ],
+    [
+      "alpha",
+      3,
+      30,
+      "25.00"
+    ],
+    [
+      "alpha",
+      4,
+      22,
+      "25.67"
+    ],
+    [
+      "alpha",
+      5,
+      28,
+      "26.67"
+    ],
+    [
+      "beta",
+      1,
+      15,
+      "15.00"
+    ],
+    [
+      "beta",
+      2,
+      18,
+      "16.50"
+    ],
+    [
+      "beta",
+      3,
+      20,
+      "17.67"
+    ]
+  ],
+  "test_data": "INSERT INTO sprint_metrics (team_id, sprint_number, points_completed) VALUES\n('alpha', 1, 10),\n('alpha', 2, 20),\n('alpha', 3, 30),\n('alpha', 4, 40),\n('alpha', 5, 50),\n('alpha', 6, 35),\n('alpha', 7, 25),\n('alpha', 8, 30),\n('beta', 1, 12),\n('beta', 2, 15),\n('beta', 3, 18),\n('beta', 4, 21),\n('beta', 5, 24),\n('beta', 6, 27),\n('gamma', 1, 8),\n('gamma', 2, 10),\n('gamma', 3, 12),\n('gamma', 4, 14),\n('gamma', 5, 16),\n('gamma', 6, 18),\n('gamma', 7, 20),\n('delta', 1, 5),\n('delta', 2, 5);",
+  "test_expected_columns": [
+    "team_id",
+    "sprint_number",
+    "points_completed",
+    "trailing_3_avg"
+  ],
+  "test_expected_rows": [
+    [
+      "alpha",
+      1,
+      10,
+      "10.00"
+    ],
+    [
+      "alpha",
+      2,
+      20,
+      "15.00"
+    ],
+    [
+      "alpha",
+      3,
+      30,
+      "20.00"
+    ],
+    [
+      "alpha",
+      4,
+      40,
+      "30.00"
+    ],
+    [
+      "alpha",
+      5,
+      50,
+      "40.00"
+    ],
+    [
+      "alpha",
+      6,
+      35,
+      "41.67"
+    ],
+    [
+      "alpha",
+      7,
+      25,
+      "36.67"
+    ],
+    [
+      "alpha",
+      8,
+      30,
+      "30.00"
+    ],
+    [
+      "beta",
+      1,
+      12,
+      "12.00"
+    ],
+    [
+      "beta",
+      2,
+      15,
+      "13.50"
+    ],
+    [
+      "beta",
+      3,
+      18,
+      "15.00"
+    ],
+    [
+      "beta",
+      4,
+      21,
+      "18.00"
+    ],
+    [
+      "beta",
+      5,
+      24,
+      "21.00"
+    ],
+    [
+      "beta",
+      6,
+      27,
+      "24.00"
+    ],
+    [
+      "delta",
+      1,
+      5,
+      "5.00"
+    ],
+    [
+      "delta",
+      2,
+      5,
+      "5.00"
+    ],
+    [
+      "gamma",
+      1,
+      8,
+      "8.00"
+    ],
+    [
+      "gamma",
+      2,
+      10,
+      "9.00"
+    ],
+    [
+      "gamma",
+      3,
+      12,
+      "10.00"
+    ],
+    [
+      "gamma",
+      4,
+      14,
+      "12.00"
+    ],
+    [
+      "gamma",
+      5,
+      16,
+      "14.00"
+    ],
+    [
+      "gamma",
+      6,
+      18,
+      "16.00"
+    ],
+    [
+      "gamma",
+      7,
+      20,
+      "18.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "partition by team_id, order by sprint_number",
+      "apply AVG window function with ROWS BETWEEN 2 PRECEDING AND CURRENT ROW",
+      "round result to 2 decimals",
+      "select team_id, sprint_number, points_completed, trailing_3_avg",
+      "order by team_id, sprint_number"
+    ]
+  },
+  "hints": [
+    "You need a window function that computes an average over a sliding window of rows within each team's partition.",
+    "Use a ROWS frame clause with PARTITION BY team_id ORDER BY sprint_number, specifying a frame that includes the current row and the 2 rows before it.",
+    "The exact frame clause is `ROWS BETWEEN 2 PRECEDING AND CURRENT ROW`; apply AVG() over this frame and round the result to 2 decimals."
+  ],
+  "answer_key": "SELECT\n  team_id,\n  sprint_number,\n  points_completed,\n  ROUND(AVG(points_completed) OVER (\n    PARTITION BY team_id\n    ORDER BY sprint_number\n    ROWS BETWEEN 2 PRECEDING AND CURRENT ROW\n  ), 2) AS trailing_3_avg\nFROM sprint_metrics\nORDER BY team_id, sprint_number;",
+  "_meta": {
+    "question_type": "window_frames",
+    "original_qtype": "window_frames",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-26T18:20:52.371917",
+    "problem_id": "f245cabb1af2",
+    "validation_attempts": 1,
+    "scenario": "a project management tool tracking sprint completion and task throughput",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

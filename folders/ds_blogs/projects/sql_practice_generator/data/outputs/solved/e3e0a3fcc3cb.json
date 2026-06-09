@@ -1,0 +1,115 @@
+{
+  "problem": {
+    "title": "Monthly Churn Rate by Signup Cohort",
+    "prompt": "Your subscription box service tracks renewals and cancellations in the `subscriptions` table. Each row records a subscription's `signup_date` (when they first subscribed) and `cancelled_date` (NULL if still active, otherwise the cancellation date). Calculate the churn rate for each monthly signup cohort. A cohort is defined by the month in which users signed up (use `DATE_TRUNC('month', signup_date)` to bucket them). The churn rate is the percentage of subscriptions in that cohort that have been cancelled (i.e., `cancelled_date IS NOT NULL`). Only include cohorts where at least 2 subscriptions signed up in that month. Return columns `cohort_month` (DATE, the first day of the signup month), `total_signups` (count of all subscriptions in that cohort), `cancelled_count` (count of cancelled subscriptions), and `churn_rate` (percentage, rounded to 2 decimal places, e.g., 33.33 for 33.33%). Order by `cohort_month` ascending.",
+    "schema_ddl": "CREATE TABLE subscriptions (subscription_id SERIAL PRIMARY KEY, customer_email VARCHAR(100) NOT NULL, signup_date DATE NOT NULL, cancelled_date DATE);",
+    "example_input_data": "INSERT INTO subscriptions (subscription_id, customer_email, signup_date, cancelled_date) VALUES (1, 'alice@example.com', DATE '2024-01-05', NULL), (2, 'bob@example.com', DATE '2024-01-15', DATE '2024-02-20'), (3, 'carol@example.com', DATE '2024-01-22', DATE '2024-03-10'), (4, 'dave@example.com', DATE '2024-02-03', NULL), (5, 'eve@example.com', DATE '2024-02-14', NULL), (6, 'frank@example.com', DATE '2024-02-28', DATE '2024-04-05'), (7, 'grace@example.com', DATE '2024-03-01', NULL), (8, 'hank@example.com', DATE '2024-03-12', DATE '2024-05-01');",
+    "example_output_columns": [
+      "cohort_month",
+      "total_signups",
+      "cancelled_count",
+      "churn_rate"
+    ],
+    "example_output_rows": [
+      [
+        "2024-01-01",
+        3,
+        2,
+        "66.67"
+      ],
+      [
+        "2024-02-01",
+        3,
+        1,
+        "33.33"
+      ],
+      [
+        "2024-03-01",
+        2,
+        1,
+        "50.00"
+      ]
+    ],
+    "test_data": "INSERT INTO subscriptions (subscription_id, customer_email, signup_date, cancelled_date) VALUES (101, 'user101@example.com', DATE '2023-11-01', NULL), (102, 'user102@example.com', DATE '2023-12-15', DATE '2024-01-20'), (103, 'user103@example.com', DATE '2023-12-20', NULL), (104, 'user104@example.com', DATE '2023-12-28', DATE '2024-02-10'), (105, 'user105@example.com', DATE '2024-01-01', NULL), (106, 'user106@example.com', DATE '2024-01-10', DATE '2024-03-05'), (107, 'user107@example.com', DATE '2024-01-15', NULL), (108, 'user108@example.com', DATE '2024-01-20', DATE '2024-02-25'), (109, 'user109@example.com', DATE '2024-01-31', NULL), (110, 'user110@example.com', DATE '2024-02-01', NULL), (111, 'user111@example.com', DATE '2024-02-14', DATE '2024-04-10'), (112, 'user112@example.com', DATE '2024-02-14', NULL), (113, 'user113@example.com', DATE '2024-02-29', DATE '2024-03-15'), (114, 'user114@example.com', DATE '2024-03-05', NULL), (115, 'user115@example.com', DATE '2024-03-10', NULL), (116, 'user116@example.com', DATE '2024-03-15', DATE '2024-05-20'), (117, 'user117@example.com', DATE '2024-03-25', NULL), (118, 'user118@example.com', DATE '2024-04-01', NULL), (119, 'user119@example.com', DATE '2024-04-10', DATE '2024-06-01'), (120, 'user120@example.com', DATE '2024-04-15', NULL), (121, 'user121@example.com', DATE '2024-05-01', DATE '2024-06-20'), (122, 'user122@example.com', DATE '2024-05-10', NULL), (123, 'user123@example.com', DATE '2024-05-20', NULL), (124, 'user124@example.com', DATE '2024-06-01', NULL);",
+    "test_expected_columns": [
+      "cohort_month",
+      "total_signups",
+      "cancelled_count",
+      "churn_rate"
+    ],
+    "test_expected_rows": [
+      [
+        "2023-12-01",
+        3,
+        2,
+        "66.67"
+      ],
+      [
+        "2024-01-01",
+        5,
+        2,
+        "40.00"
+      ],
+      [
+        "2024-02-01",
+        4,
+        2,
+        "50.00"
+      ],
+      [
+        "2024-03-01",
+        4,
+        1,
+        "25.00"
+      ],
+      [
+        "2024-04-01",
+        3,
+        1,
+        "33.33"
+      ],
+      [
+        "2024-05-01",
+        3,
+        1,
+        "33.33"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "DATE_TRUNC('month', signup_date) to bucket into cohorts",
+        "GROUP BY cohort_month",
+        "COUNT(*) for total_signups",
+        "SUM(CASE WHEN cancelled_date IS NOT NULL THEN 1 ELSE 0 END) for cancelled_count",
+        "Calculate churn_rate as (cancelled_count * 100.0 / total_signups) rounded to 2 decimals",
+        "HAVING total_signups >= 2 to filter cohorts",
+        "ORDER BY cohort_month ASC"
+      ]
+    },
+    "hints": [
+      "Use DATE_TRUNC to group subscriptions by the month they signed up.",
+      "Count total subscriptions per cohort and count how many have a non-NULL cancelled_date, then filter cohorts with at least 2 signups using HAVING.",
+      "The churn rate is (cancelled_count * 100.0 / total_signups); use ROUND(..., 2) and cast the result to match the expected string format."
+    ],
+    "answer_key": "SELECT DATE_TRUNC('month', signup_date)::DATE AS cohort_month, COUNT(*) AS total_signups, SUM(CASE WHEN cancelled_date IS NOT NULL THEN 1 ELSE 0 END) AS cancelled_count, ROUND((SUM(CASE WHEN cancelled_date IS NOT NULL THEN 1 ELSE 0 END) * 100.0 / COUNT(*)), 2)::TEXT AS churn_rate FROM subscriptions GROUP BY DATE_TRUNC('month', signup_date) HAVING COUNT(*) >= 2 ORDER BY cohort_month ASC;",
+    "_meta": {
+      "question_type": "date_operations",
+      "original_qtype": "date_operations",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-29T20:17:54.346093",
+      "problem_id": "e3e0a3fcc3cb",
+      "validation_attempts": 1,
+      "scenario": "a D2C subscription box service tracking renewal and churn",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\n1. create cohort_month\n2. group by\ntotal_signups = COUNT(subscription_id)\ncancelled_count = SUM(CASE WHEN cancelled_date IS NOT NULL THEN 1.0 ELSE 0 END)\nchurn_rate = SUM(CASE WHEN cancelled_date IS NOT NULL THEN 1.0 ELSE 0 END)/COUNT(subscription_id)\n\n*/\n\nSELECT\n    DATE_TRUNC('month', signup_date)::date AS cohort_month,\n    COUNT(subscription_id) AS total_signups,\n    SUM(CASE WHEN cancelled_date IS NOT NULL THEN 1.0 ELSE 0 END)::int AS cancelled_count,\n    ROUND(COALESCE(AVG(CASE WHEN cancelled_date IS NOT NULL THEN 1.0 ELSE 0 END)*100, 0),2) AS churn_rate\nFROM subscriptions\nGROUP BY DATE_TRUNC('month', signup_date)::date\nHAVING COUNT(subscription_id) >= 2\nORDER BY cohort_month;",
+  "solved_at": "2026-05-29T20:26:08.795463"
+}

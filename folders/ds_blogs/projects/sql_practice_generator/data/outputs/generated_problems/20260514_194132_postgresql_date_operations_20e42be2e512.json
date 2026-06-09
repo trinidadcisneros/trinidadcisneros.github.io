@@ -1,0 +1,149 @@
+{
+  "title": "Trial Enrollment Duration Analysis with Inclusive Day Count",
+  "prompt": "A clinical research platform tracks trial enrollment periods. Write a query that calculates the enrollment duration in days (inclusive of both the start and end dates) for each trial that enrolled at least one participant. The enrollment duration is the number of days from `enrollment_start_date` to `enrollment_end_date` inclusive, meaning if a trial started and ended on the same day, the duration is 1 day. Only include trials where the enrollment period ended more than 30 days ago (use `CURRENT_DATE` as the reference point). Order the results by `trial_id` ascending. Output columns: `trial_id`, `trial_name`, `enrollment_duration_days`.",
+  "schema_ddl": "CREATE TABLE clinical_trials (\n  trial_id INTEGER PRIMARY KEY,\n  trial_name VARCHAR(200) NOT NULL,\n  enrollment_start_date DATE NOT NULL,\n  enrollment_end_date DATE NOT NULL,\n  participant_count INTEGER NOT NULL\n);",
+  "example_input_data": "INSERT INTO clinical_trials (trial_id, trial_name, enrollment_start_date, enrollment_end_date, participant_count) VALUES\n(101, 'Cardio Safety Study', '2024-01-15', '2024-02-14', 45),\n(102, 'Diabetes Intervention Trial', '2024-03-01', '2024-03-01', 12),\n(103, 'Oncology Phase II', '2024-06-10', '2024-08-25', 0),\n(104, 'Neurology Observational', '2024-02-01', '2024-04-30', 78),\n(105, 'Pediatric Vaccine Study', '2024-11-01', '2024-11-15', 33),\n(106, 'Rare Disease Protocol', '2023-12-20', '2024-01-10', 8);",
+  "example_output_columns": [
+    "trial_id",
+    "trial_name",
+    "enrollment_duration_days"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Cardio Safety Study",
+      31
+    ],
+    [
+      102,
+      "Diabetes Intervention Trial",
+      1
+    ],
+    [
+      104,
+      "Neurology Observational",
+      90
+    ],
+    [
+      105,
+      "Pediatric Vaccine Study",
+      15
+    ],
+    [
+      106,
+      "Rare Disease Protocol",
+      22
+    ]
+  ],
+  "test_data": "INSERT INTO clinical_trials (trial_id, trial_name, enrollment_start_date, enrollment_end_date, participant_count) VALUES\n(201, 'Immunotherapy Trial A', '2024-01-01', '2024-01-31', 56),\n(202, 'Cardiovascular Outcomes', '2024-02-28', '2024-02-29', 23),\n(203, 'Mental Health Intervention', '2024-03-15', '2024-06-14', 0),\n(204, 'Geriatric Assessment Study', '2023-11-01', '2023-12-31', 44),\n(205, 'Infectious Disease Trial', '2024-04-01', '2024-04-01', 17),\n(206, 'Metabolic Syndrome Study', '2024-08-01', '2024-09-30', 0),\n(207, 'Pain Management Protocol', '2024-07-15', '2024-08-14', 29),\n(208, 'Ophthalmology Research', '2023-10-01', '2023-11-15', 12),\n(209, 'Dermatology Clinical Trial', '2024-05-20', '2024-07-19', 38),\n(210, 'Pulmonary Function Study', '2024-09-01', '2024-10-31', 0),\n(211, 'Allergy Prevention Trial', '2023-12-25', '2024-01-24', 19),\n(212, 'Orthopedic Recovery Study', '2024-06-01', '2024-08-31', 0),\n(213, 'Endocrinology Protocol', '2024-02-14', '2024-02-14', 8),\n(214, 'Renal Function Trial', '2023-09-15', '2023-10-14', 27),\n(215, 'Hematology Research Study', '2024-01-10', '2024-03-10', 41),\n(216, 'Gastroenterology Trial', '2024-12-01', '2024-12-15', 15),\n(217, 'Rheumatology Intervention', '2023-08-01', '2023-09-30', 0),\n(218, 'Urology Clinical Protocol', '2024-04-15', '2024-06-14', 22),\n(219, 'Hepatology Observational', '2023-07-01', '2023-08-31', 31),\n(220, 'Nephrology Phase III', '2024-03-01', '2024-05-31', 49);",
+  "test_expected_columns": [
+    "trial_id",
+    "trial_name",
+    "enrollment_duration_days"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Immunotherapy Trial A",
+      31
+    ],
+    [
+      202,
+      "Cardiovascular Outcomes",
+      2
+    ],
+    [
+      204,
+      "Geriatric Assessment Study",
+      61
+    ],
+    [
+      205,
+      "Infectious Disease Trial",
+      1
+    ],
+    [
+      207,
+      "Pain Management Protocol",
+      31
+    ],
+    [
+      208,
+      "Ophthalmology Research",
+      46
+    ],
+    [
+      209,
+      "Dermatology Clinical Trial",
+      61
+    ],
+    [
+      211,
+      "Allergy Prevention Trial",
+      31
+    ],
+    [
+      213,
+      "Endocrinology Protocol",
+      1
+    ],
+    [
+      214,
+      "Renal Function Trial",
+      30
+    ],
+    [
+      215,
+      "Hematology Research Study",
+      61
+    ],
+    [
+      216,
+      "Gastroenterology Trial",
+      15
+    ],
+    [
+      218,
+      "Urology Clinical Protocol",
+      61
+    ],
+    [
+      219,
+      "Hepatology Observational",
+      62
+    ],
+    [
+      220,
+      "Nephrology Phase III",
+      92
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "filter: participant_count > 0 to identify trials with enrollment",
+      "filter: enrollment_end_date < CURRENT_DATE - 30 for ended-more-than-30-days-ago",
+      "row-transform: compute (enrollment_end_date - enrollment_start_date) + 1 for inclusive day count",
+      "sort by trial_id ascending"
+    ]
+  },
+  "hints": [
+    "You need to filter trials that ended more than 30 days before today using date arithmetic with CURRENT_DATE.",
+    "The day count between two dates is calculated by subtracting them, but remember the problem asks for inclusive days (both endpoints count), so you need to adjust the result by 1.",
+    "Use `WHERE enrollment_end_date < CURRENT_DATE - 30` to find trials that ended more than 30 days ago, and calculate duration as `(enrollment_end_date - enrollment_start_date) + 1` to include both the start and end dates."
+  ],
+  "answer_key": "SELECT \n  trial_id,\n  trial_name,\n  (enrollment_end_date - enrollment_start_date) + 1 AS enrollment_duration_days\nFROM clinical_trials\nWHERE participant_count > 0\n  AND enrollment_end_date < CURRENT_DATE - 30\nORDER BY trial_id;",
+  "_meta": {
+    "question_type": "date_operations",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-14T19:41:32.495723",
+    "problem_id": "20e42be2e512",
+    "validation_attempts": 1,
+    "scenario": "a clinical research platform tracking trial enrollment and adverse events",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

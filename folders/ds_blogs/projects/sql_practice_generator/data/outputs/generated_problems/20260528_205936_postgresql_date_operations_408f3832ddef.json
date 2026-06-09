@@ -1,0 +1,119 @@
+{
+  "title": "Monthly Writing Streak Analysis by Cohort",
+  "prompt": "You manage a note-taking app that tracks notebooks and daily writing activity. Each user can create multiple notebooks, and the app records which day(s) they wrote in each notebook. You want to analyze user engagement by looking at their monthly streak patterns. Write a query that for each user shows their signup month cohort (YYYY-MM format), the number of distinct calendar months in which they wrote at least one note, and the longest consecutive-day writing streak (in days) they achieved across all their notebooks. A writing streak is the number of consecutive calendar days with at least one note written (across any notebook), counting the first and last day inclusively. For example, if a user wrote notes on Jan 5, Jan 6, and Jan 7, their streak for that period is 3 days. To determine the longest streak, consider all writing activity dates for each user and find the maximum gap-free sequence. Only include users whose signup date is on or after DATE '2024-01-01'. Return columns `user_id`, `signup_cohort` (text, formatted as 'YYYY-MM'), `active_months` (integer count of distinct months with activity), and `longest_streak_days` (integer). Order by `user_id` ascending. Use DATE_TRUNC to bucket signup dates into monthly cohorts, and calculate the longest streak by examining consecutive day gaps in the writing activity.",
+  "schema_ddl": "CREATE TABLE users (user_id INT PRIMARY KEY, username TEXT NOT NULL, signup_date DATE NOT NULL); CREATE TABLE notebooks (notebook_id INT PRIMARY KEY, user_id INT NOT NULL REFERENCES users(user_id), notebook_name TEXT NOT NULL, created_at DATE NOT NULL); CREATE TABLE notes (note_id INT PRIMARY KEY, notebook_id INT NOT NULL REFERENCES notebooks(notebook_id), written_date DATE NOT NULL, note_title TEXT NOT NULL);",
+  "example_input_data": "INSERT INTO users (user_id, username, signup_date) VALUES (1, 'alice', '2024-01-15'), (2, 'bob', '2024-02-20'), (3, 'carol', '2024-01-05'), (4, 'dave', '2023-12-10'); INSERT INTO notebooks (notebook_id, user_id, notebook_name, created_at) VALUES (101, 1, 'Daily Journal', '2024-01-16'), (102, 2, 'Work Notes', '2024-02-21'), (103, 3, 'Ideas', '2024-01-06'), (104, 3, 'Recipes', '2024-03-01'); INSERT INTO notes (note_id, notebook_id, written_date, note_title) VALUES (1001, 101, '2024-01-17', 'First entry'), (1002, 101, '2024-01-18', 'Second entry'), (1003, 101, '2024-01-19', 'Third entry'), (1004, 101, '2024-03-05', 'March note'), (1005, 102, '2024-02-22', 'Meeting notes'), (1006, 102, '2024-02-23', 'Ideas'), (1007, 103, '2024-01-07', 'Startup idea'), (1008, 103, '2024-01-08', 'Another idea'), (1009, 104, '2024-03-02', 'Pasta recipe'), (1010, 104, '2024-03-03', 'Salad recipe'), (1011, 104, '2024-03-04', 'Dessert');",
+  "example_output_columns": [
+    "user_id",
+    "signup_cohort",
+    "active_months",
+    "longest_streak_days"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "2024-01",
+      2,
+      3
+    ],
+    [
+      2,
+      "2024-02",
+      1,
+      2
+    ],
+    [
+      3,
+      "2024-01",
+      2,
+      3
+    ]
+  ],
+  "test_data": "INSERT INTO users (user_id, username, signup_date) VALUES (1, 'alice', '2024-01-15'), (2, 'bob', '2024-02-29'), (3, 'carol', '2024-01-05'), (4, 'dave', '2023-12-10'), (5, 'eve', '2024-03-31'), (6, 'frank', '2024-01-01'), (7, 'grace', '2024-02-14'), (8, 'hank', '2024-04-15'); INSERT INTO notebooks (notebook_id, user_id, notebook_name, created_at) VALUES (101, 1, 'Daily Journal', '2024-01-16'), (102, 2, 'Work Notes', '2024-03-01'), (103, 3, 'Ideas', '2024-01-06'), (104, 3, 'Recipes', '2024-03-01'), (105, 5, 'Fitness Log', '2024-04-01'), (106, 6, 'Reading List', '2024-01-02'), (107, 7, 'Travel', '2024-02-15'), (108, 8, 'Code Snippets', '2024-04-16'); INSERT INTO notes (note_id, notebook_id, written_date, note_title) VALUES (1001, 101, '2024-01-17', 'First'), (1002, 101, '2024-01-18', 'Second'), (1003, 101, '2024-01-19', 'Third'), (1004, 101, '2024-01-20', 'Fourth'), (1005, 101, '2024-01-21', 'Fifth'), (1006, 101, '2024-03-05', 'March note'), (1007, 101, '2024-03-06', 'Another March'), (1008, 101, '2024-05-10', 'May'), (1009, 101, '2024-05-11', 'May 2'), (1010, 101, '2024-05-12', 'May 3'), (1011, 101, '2024-05-13', 'May 4'), (1012, 101, '2024-05-14', 'May 5'), (1013, 102, '2024-03-01', 'Meeting'), (1014, 102, '2024-03-02', 'Ideas'), (1015, 102, '2024-04-10', 'April note'), (1016, 103, '2024-01-07', 'Startup'), (1017, 103, '2024-01-08', 'Another'), (1018, 103, '2024-01-09', 'More'), (1019, 104, '2024-03-02', 'Pasta'), (1020, 104, '2024-03-03', 'Salad'), (1021, 104, '2024-03-04', 'Dessert'), (1022, 104, '2024-03-10', 'Soup'), (1023, 105, '2024-04-01', 'Workout 1'), (1024, 105, '2024-04-02', 'Workout 2'), (1025, 105, '2024-04-03', 'Workout 3'), (1026, 105, '2024-04-04', 'Workout 4'), (1027, 105, '2024-04-05', 'Workout 5'), (1028, 105, '2024-04-06', 'Workout 6'), (1029, 105, '2024-04-07', 'Workout 7'), (1030, 106, '2024-01-02', 'Book 1'), (1031, 106, '2024-02-15', 'Book 2'), (1032, 107, '2024-02-15', 'Trip plan'), (1033, 107, '2024-02-16', 'Itinerary'), (1034, 107, '2024-02-17', 'Packing'), (1035, 107, '2024-02-18', 'Notes'), (1036, 108, '2024-04-16', 'Snippet 1'), (1037, 108, '2024-04-17', 'Snippet 2'), (1038, 108, '2024-04-18', 'Snippet 3'), (1039, 108, '2024-04-20', 'Snippet 4'), (1040, 108, '2024-04-21', 'Snippet 5');",
+  "test_expected_columns": [
+    "user_id",
+    "signup_cohort",
+    "active_months",
+    "longest_streak_days"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "2024-01",
+      3,
+      5
+    ],
+    [
+      2,
+      "2024-02",
+      2,
+      2
+    ],
+    [
+      3,
+      "2024-01",
+      2,
+      3
+    ],
+    [
+      5,
+      "2024-03",
+      1,
+      7
+    ],
+    [
+      6,
+      "2024-01",
+      2,
+      1
+    ],
+    [
+      7,
+      "2024-02",
+      1,
+      4
+    ],
+    [
+      8,
+      "2024-04",
+      1,
+      3
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "join users -> notebooks -> notes to get user signup_date and all written_date per user",
+      "filter users.signup_date >= '2024-01-01'",
+      "DATE_TRUNC('month', signup_date) for cohort bucketing",
+      "COUNT DISTINCT DATE_TRUNC('month', written_date) for active_months per user",
+      "streak calculation: LAG(written_date) OVER (PARTITION BY user_id ORDER BY written_date) to find gaps",
+      "identify streak boundaries where written_date - LAG(written_date) > 1 or LAG IS NULL",
+      "assign streak group ID using windowing cumulative sum",
+      "COUNT(*) per streak group, MAX across groups per user for longest_streak_days",
+      "GROUP BY user_id, signup_cohort; ORDER BY user_id"
+    ]
+  },
+  "hints": [
+    "You need to combine data from all three tables to get each user's signup date and all their writing dates. Consider which dates determine the cohort and which determine activity.",
+    "Use DATE_TRUNC('month', ...) to bucket the signup date into a monthly cohort. For active months, count distinct months of writing activity. For the streak, you'll need to detect gaps between consecutive writing dates.",
+    "To find the longest streak: get all distinct written_date per user, order them, use LAG() to find the previous date, then identify where written_date - LAG(written_date) > 1 (or LAG IS NULL) to mark streak boundaries. Assign a streak group ID using SUM() OVER with a window that accumulates boundary flags, then COUNT dates per group and take the MAX count per user."
+  ],
+  "answer_key": "WITH user_notes AS (\n  SELECT \n    u.user_id,\n    TO_CHAR(DATE_TRUNC('month', u.signup_date), 'YYYY-MM') AS signup_cohort,\n    n.written_date\n  FROM users u\n  JOIN notebooks nb ON u.user_id = nb.user_id\n  JOIN notes n ON nb.notebook_id = n.notebook_id\n  WHERE u.signup_date >= DATE '2024-01-01'\n),\nactive_months_cte AS (\n  SELECT \n    user_id,\n    signup_cohort,\n    COUNT(DISTINCT DATE_TRUNC('month', written_date)) AS active_months\n  FROM user_notes\n  GROUP BY user_id, signup_cohort\n),\ndistinct_dates AS (\n  SELECT DISTINCT user_id, signup_cohort, written_date\n  FROM user_notes\n),\nwith_lag AS (\n  SELECT \n    user_id,\n    signup_cohort,\n    written_date,\n    LAG(written_date) OVER (PARTITION BY user_id ORDER BY written_date) AS prev_date\n  FROM distinct_dates\n),\nstreak_boundaries AS (\n  SELECT \n    user_id,\n    signup_cohort,\n    written_date,\n    CASE \n      WHEN prev_date IS NULL OR (written_date - prev_date) > 1 THEN 1 \n      ELSE 0 \n    END AS is_boundary\n  FROM with_lag\n),\nstreak_groups AS (\n  SELECT \n    user_id,\n    signup_cohort,\n    written_date,\n    SUM(is_boundary) OVER (PARTITION BY user_id ORDER BY written_date) AS streak_id\n  FROM streak_boundaries\n),\nstreak_lengths AS (\n  SELECT \n    user_id,\n    signup_cohort,\n    streak_id,\n    COUNT(*) AS streak_days\n  FROM streak_groups\n  GROUP BY user_id, signup_cohort, streak_id\n),\nlongest_streaks AS (\n  SELECT \n    user_id,\n    signup_cohort,\n    MAX(streak_days) AS longest_streak_days\n  FROM streak_lengths\n  GROUP BY user_id, signup_cohort\n)\nSELECT \n  a.user_id,\n  a.signup_cohort,\n  a.active_months,\n  l.longest_streak_days\nFROM active_months_cte a\nJOIN longest_streaks l ON a.user_id = l.user_id AND a.signup_cohort = l.signup_cohort\nORDER BY a.user_id;",
+  "_meta": {
+    "question_type": "date_operations",
+    "original_qtype": "date_operations",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-28T20:59:35.841367",
+    "problem_id": "408f3832ddef",
+    "validation_attempts": 1,
+    "scenario": "a note-taking app tracking notebook creation and daily writing streaks",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

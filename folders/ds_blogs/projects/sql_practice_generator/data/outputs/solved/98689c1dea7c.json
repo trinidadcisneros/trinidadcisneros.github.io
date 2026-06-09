@@ -1,0 +1,250 @@
+{
+  "problem": {
+    "title": "Unpivot Monthly Box Shipments to Long Format",
+    "prompt": "You are analyzing monthly shipment volumes for a subscription-box retailer. The `monthly_shipments` table stores each warehouse's shipment counts in wide format, with one column per month (jan_boxes, feb_boxes, mar_boxes, apr_boxes). Transform this into long format with one row per warehouse-month combination. The output must have three columns: `warehouse_id` (the entity key), `month_label` (the month name), and `boxes_shipped` (the shipment count). Use the following exact labels for each source column: jan_boxes \u2192 'January', feb_boxes \u2192 'February', mar_boxes \u2192 'March', apr_boxes \u2192 'April'. Include rows where the source column value is NULL (do not filter them out). Order the final result by `warehouse_id` ASC, then `month_label` ASC (alphabetically).",
+    "schema_ddl": "CREATE TABLE monthly_shipments (warehouse_id INT PRIMARY KEY, warehouse_name VARCHAR(100), jan_boxes INT, feb_boxes INT, mar_boxes INT, apr_boxes INT);",
+    "example_input_data": "INSERT INTO monthly_shipments (warehouse_id, warehouse_name, jan_boxes, feb_boxes, mar_boxes, apr_boxes) VALUES (101, 'Seattle Fulfillment', 450, 520, 480, 510), (102, 'Austin Distribution', 320, NULL, 350, 340), (103, 'Boston Hub', 280, 290, 300, 295);",
+    "example_output_columns": [
+      "warehouse_id",
+      "month_label",
+      "boxes_shipped"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "April",
+        510.0
+      ],
+      [
+        101,
+        "February",
+        520.0
+      ],
+      [
+        101,
+        "January",
+        450.0
+      ],
+      [
+        101,
+        "March",
+        480.0
+      ],
+      [
+        102,
+        "April",
+        340.0
+      ],
+      [
+        102,
+        "February",
+        null
+      ],
+      [
+        102,
+        "January",
+        320.0
+      ],
+      [
+        102,
+        "March",
+        350.0
+      ],
+      [
+        103,
+        "April",
+        295.0
+      ],
+      [
+        103,
+        "February",
+        290.0
+      ],
+      [
+        103,
+        "January",
+        280.0
+      ],
+      [
+        103,
+        "March",
+        300.0
+      ]
+    ],
+    "test_data": "INSERT INTO monthly_shipments (warehouse_id, warehouse_name, jan_boxes, feb_boxes, mar_boxes, apr_boxes) VALUES (201, 'Denver Central', 680, 720, 695, 710), (202, 'Miami Depot', 540, 555, NULL, 570), (203, 'Phoenix Warehouse', NULL, 410, 425, 440), (204, 'Portland Hub', 390, 405, 398, NULL), (205, 'Dallas Facility', 820, 850, 835, 860), (206, 'Chicago Center', 0, 0, 0, 0), (207, 'Nashville Site', 150, NULL, NULL, 160);",
+    "test_expected_columns": [
+      "warehouse_id",
+      "month_label",
+      "boxes_shipped"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "April",
+        710.0
+      ],
+      [
+        201,
+        "February",
+        720.0
+      ],
+      [
+        201,
+        "January",
+        680.0
+      ],
+      [
+        201,
+        "March",
+        695.0
+      ],
+      [
+        202,
+        "April",
+        570.0
+      ],
+      [
+        202,
+        "February",
+        555.0
+      ],
+      [
+        202,
+        "January",
+        540.0
+      ],
+      [
+        202,
+        "March",
+        null
+      ],
+      [
+        203,
+        "April",
+        440.0
+      ],
+      [
+        203,
+        "February",
+        410.0
+      ],
+      [
+        203,
+        "January",
+        null
+      ],
+      [
+        203,
+        "March",
+        425.0
+      ],
+      [
+        204,
+        "April",
+        null
+      ],
+      [
+        204,
+        "February",
+        405.0
+      ],
+      [
+        204,
+        "January",
+        390.0
+      ],
+      [
+        204,
+        "March",
+        398.0
+      ],
+      [
+        205,
+        "April",
+        860.0
+      ],
+      [
+        205,
+        "February",
+        850.0
+      ],
+      [
+        205,
+        "January",
+        820.0
+      ],
+      [
+        205,
+        "March",
+        835.0
+      ],
+      [
+        206,
+        "April",
+        0.0
+      ],
+      [
+        206,
+        "February",
+        0.0
+      ],
+      [
+        206,
+        "January",
+        0.0
+      ],
+      [
+        206,
+        "March",
+        0.0
+      ],
+      [
+        207,
+        "April",
+        160.0
+      ],
+      [
+        207,
+        "February",
+        null
+      ],
+      [
+        207,
+        "January",
+        150.0
+      ],
+      [
+        207,
+        "March",
+        null
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "reshape",
+      "composite_moves": [
+        "reshape: unpivot wide columns (jan_boxes, feb_boxes, mar_boxes, apr_boxes) into long format using UNION ALL, producing (num_entities \u00d7 4) output rows"
+      ]
+    },
+    "hints": [
+      "PostgreSQL does not have a native UNPIVOT keyword; you need to construct the long format manually by selecting each source column separately.",
+      "Use UNION ALL to combine multiple SELECT statements, one per month column. Each SELECT should pull the warehouse_id, a literal string for the month label, and the corresponding month's value column.",
+      "Structure each branch as: SELECT warehouse_id, 'MonthName' AS month_label, month_column AS boxes_shipped FROM monthly_shipments. Repeat for all four months, then apply ORDER BY to the final unioned result."
+    ],
+    "answer_key": "SELECT warehouse_id, 'January' AS month_label, jan_boxes AS boxes_shipped FROM monthly_shipments UNION ALL SELECT warehouse_id, 'February' AS month_label, feb_boxes AS boxes_shipped FROM monthly_shipments UNION ALL SELECT warehouse_id, 'March' AS month_label, mar_boxes AS boxes_shipped FROM monthly_shipments UNION ALL SELECT warehouse_id, 'April' AS month_label, apr_boxes AS boxes_shipped FROM monthly_shipments ORDER BY warehouse_id ASC, month_label ASC;",
+    "_meta": {
+      "question_type": "unpivot",
+      "dialect": "postgresql",
+      "generated_at": "2026-05-09T18:37:15.277597",
+      "problem_id": "98689c1dea7c",
+      "validation_attempts": 1,
+      "scenario": "a subscription-box retailer managing monthly box assembly and customer churn",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\n\nSELECT\n    warehouse_id,\n    'April' AS month_label,\n    apr_boxes AS boxes_shipped\nFROM monthly_shipments\n\nUNION ALL\n\nSELECT\n    warehouse_id,\n    'March' AS month_label,\n    mar_boxes AS boxes_shipped\nFROM monthly_shipments\n\nUNION ALL\n\nSELECT\n    warehouse_id,\n    'February' AS month_label,\n    feb_boxes AS boxes_shipped\nFROM monthly_shipments\n\nUNION ALL\n\nSELECT\n    warehouse_id,\n    'January' AS month_label,\n    jan_boxes AS boxes_shipped\nFROM monthly_shipments\n\nORDER BY warehouse_id, month_label\n;",
+  "solved_at": "2026-05-09T18:46:29.831705"
+}

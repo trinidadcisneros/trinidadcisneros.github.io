@@ -1,0 +1,144 @@
+{
+  "problem": {
+    "title": "Trial Activity Streak Analysis",
+    "prompt": "A developer tools company tracks two types of daily trial activity: active trial days (when users engage with the product) and idle trial days (when trial accounts exist but show no activity). Write a query that identifies all consecutive streaks of the same activity type between 2024-01-01 and 2024-01-31. Every day in this range is covered by exactly one activity type. Return columns `activity_type`, `start_date`, `end_date`, and `day_count`. Order results by `start_date` ascending. A streak can be a single day (start_date = end_date) or span multiple consecutive days.",
+    "schema_ddl": "CREATE TABLE active_trial_days (activity_date DATE NOT NULL); CREATE TABLE idle_trial_days (activity_date DATE NOT NULL);",
+    "example_input_data": "INSERT INTO active_trial_days (activity_date) VALUES ('2024-01-01'), ('2024-01-02'), ('2024-01-03'), ('2024-01-06'), ('2024-01-07'), ('2024-01-08'), ('2024-01-09'), ('2024-01-11'); INSERT INTO idle_trial_days (activity_date) VALUES ('2024-01-04'), ('2024-01-05'), ('2024-01-10');",
+    "example_output_columns": [
+      "activity_type",
+      "start_date",
+      "end_date",
+      "day_count"
+    ],
+    "example_output_rows": [
+      [
+        "active",
+        "2024-01-01",
+        "2024-01-03",
+        3
+      ],
+      [
+        "idle",
+        "2024-01-04",
+        "2024-01-05",
+        2
+      ],
+      [
+        "active",
+        "2024-01-06",
+        "2024-01-09",
+        4
+      ],
+      [
+        "idle",
+        "2024-01-10",
+        "2024-01-10",
+        1
+      ],
+      [
+        "active",
+        "2024-01-11",
+        "2024-01-11",
+        1
+      ]
+    ],
+    "test_data": "INSERT INTO active_trial_days (activity_date) VALUES ('2024-01-01'), ('2024-01-04'), ('2024-01-05'), ('2024-01-06'), ('2024-01-07'), ('2024-01-08'), ('2024-01-09'), ('2024-01-10'), ('2024-01-13'), ('2024-01-14'), ('2024-01-15'), ('2024-01-18'), ('2024-01-21'), ('2024-01-22'), ('2024-01-23'), ('2024-01-24'), ('2024-01-25'), ('2024-01-26'), ('2024-01-27'), ('2024-01-28'), ('2024-01-29'), ('2024-01-30'), ('2024-01-31'); INSERT INTO idle_trial_days (activity_date) VALUES ('2024-01-02'), ('2024-01-03'), ('2024-01-11'), ('2024-01-12'), ('2024-01-16'), ('2024-01-17'), ('2024-01-19'), ('2024-01-20');",
+    "test_expected_columns": [
+      "activity_type",
+      "start_date",
+      "end_date",
+      "day_count"
+    ],
+    "test_expected_rows": [
+      [
+        "active",
+        "2024-01-01",
+        "2024-01-01",
+        1
+      ],
+      [
+        "idle",
+        "2024-01-02",
+        "2024-01-03",
+        2
+      ],
+      [
+        "active",
+        "2024-01-04",
+        "2024-01-10",
+        7
+      ],
+      [
+        "idle",
+        "2024-01-11",
+        "2024-01-12",
+        2
+      ],
+      [
+        "active",
+        "2024-01-13",
+        "2024-01-15",
+        3
+      ],
+      [
+        "idle",
+        "2024-01-16",
+        "2024-01-17",
+        2
+      ],
+      [
+        "active",
+        "2024-01-18",
+        "2024-01-18",
+        1
+      ],
+      [
+        "idle",
+        "2024-01-19",
+        "2024-01-20",
+        2
+      ],
+      [
+        "active",
+        "2024-01-21",
+        "2024-01-31",
+        11
+      ]
+    ],
+    "classification": {
+      "input_arrival": "union",
+      "output_shape": "fewer_rows",
+      "recipe": "gaps-and-islands",
+      "composite_moves": [
+        "UNION two tables with state labels",
+        "date-minus-rownumber grouping within each state",
+        "GROUP BY state and grp",
+        "MIN/MAX aggregation for start/end",
+        "COUNT for day_count",
+        "ORDER BY start_date"
+      ]
+    },
+    "hints": [
+      "Combine the two activity tables with UNION ALL, adding a column to identify the activity type.",
+      "Use ROW_NUMBER() partitioned by activity type and ordered by date, then subtract that row number from the date to find groups of consecutive days.",
+      "Group by activity type and the computed grouping value, then use MIN and MAX on the date to find the start and end of each streak."
+    ],
+    "answer_key": "WITH combined AS (\n  SELECT 'active' AS activity_type, activity_date FROM active_trial_days WHERE activity_date BETWEEN DATE '2024-01-01' AND DATE '2024-01-31'\n  UNION ALL\n  SELECT 'idle' AS activity_type, activity_date FROM idle_trial_days WHERE activity_date BETWEEN DATE '2024-01-01' AND DATE '2024-01-31'\n),\nwith_grp AS (\n  SELECT \n    activity_type,\n    activity_date,\n    activity_date - (ROW_NUMBER() OVER (PARTITION BY activity_type ORDER BY activity_date))::INT AS grp\n  FROM combined\n)\nSELECT \n  activity_type,\n  MIN(activity_date) AS start_date,\n  MAX(activity_date) AS end_date,\n  COUNT(*) AS day_count\nFROM with_grp\nGROUP BY activity_type, grp\nORDER BY start_date;",
+    "_meta": {
+      "question_type": "union_islands",
+      "original_qtype": "union_islands",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-23T20:07:16.676574",
+      "problem_id": "56b2bf5a72e0",
+      "validation_attempts": 4,
+      "scenario": "a developer tools company tracking trial-to-paid conversion and seat expansion",
+      "dml_op": null,
+      "islands_flavor": "date_calendar",
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\n\nWITH base AS (\n    SELECT\n        'active' AS activity_type,\n        activity_date\n    FROM active_trial_days \n\n    UNION ALL\n    SELECT\n        'idle' AS activity_type,\n        activity_date\n    FROM idle_trial_days \n),\nbase_labeled as (\nSELECT *,\n    activity_date - (ROW_NUMBER() OVER (\n                        PARTITION BY activity_type \n                        ORDER BY activity_date\n                    ))::int AS grp\nFROM base\n)\nSELECT\n    activity_type,\n    MIN(activity_date) AS start_date,\n    MAX(activity_date) AS end_date,\n    COUNT(*) AS day_count\nFROM base_labeled\nGROUP BY activity_type, grp\nORDER BY MIN(activity_date);",
+  "solved_at": "2026-05-23T20:16:23.465819"
+}

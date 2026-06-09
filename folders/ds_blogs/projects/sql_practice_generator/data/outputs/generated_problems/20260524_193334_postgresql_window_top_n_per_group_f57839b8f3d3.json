@@ -1,0 +1,116 @@
+{
+  "title": "Most Recent Two Benefits Enrollments Per Employee",
+  "prompt": "Your HR platform tracks benefits enrollment events for employees. Each enrollment has a timestamp and a benefit type. Write a query to retrieve the two most recent benefit enrollments for each employee, ordered by enrollment timestamp descending. If an employee has fewer than two enrollments, return all available enrollments for that employee. If two enrollments occur at the exact same timestamp for the same employee, use the benefit_type alphabetically (A-Z) as a tie-breaker to ensure consistent ordering. Your result should include employee_id, benefit_type, and enrolled_at columns, ordered first by employee_id ascending, then by enrolled_at descending within each employee.",
+  "schema_ddl": "CREATE TABLE employees (employee_id INT PRIMARY KEY, first_name VARCHAR(50), last_name VARCHAR(50), department VARCHAR(50)); CREATE TABLE benefit_enrollments (enrollment_id INT PRIMARY KEY, employee_id INT, benefit_type VARCHAR(50), enrolled_at TIMESTAMP);",
+  "example_input_data": "INSERT INTO employees (employee_id, first_name, last_name, department) VALUES (101, 'Alice', 'Chen', 'Engineering'), (102, 'Bob', 'Martinez', 'Sales'), (103, 'Carol', 'Thompson', 'HR'); INSERT INTO benefit_enrollments (enrollment_id, employee_id, benefit_type, enrolled_at) VALUES (1, 101, 'Health Insurance', '2024-01-15 10:00:00'), (2, 101, 'Dental Insurance', '2024-02-20 14:30:00'), (3, 101, '401k Plan', '2024-03-10 09:15:00'), (4, 101, 'Vision Insurance', '2024-03-10 09:15:00'), (5, 102, 'Health Insurance', '2024-01-18 11:00:00'), (6, 103, 'Dental Insurance', '2024-02-01 16:00:00');",
+  "example_output_columns": [
+    "employee_id",
+    "benefit_type",
+    "enrolled_at"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "401k Plan",
+      "2024-03-10 09:15:00"
+    ],
+    [
+      101,
+      "Vision Insurance",
+      "2024-03-10 09:15:00"
+    ],
+    [
+      102,
+      "Health Insurance",
+      "2024-01-18 11:00:00"
+    ],
+    [
+      103,
+      "Dental Insurance",
+      "2024-02-01 16:00:00"
+    ]
+  ],
+  "test_data": "INSERT INTO employees (employee_id, first_name, last_name, department) VALUES (201, 'David', 'Lee', 'Engineering'), (202, 'Emma', 'Wilson', 'Sales'), (203, 'Frank', 'Garcia', 'HR'), (204, 'Grace', 'Taylor', 'Finance'), (205, 'Henry', 'Brown', 'Marketing'), (206, 'Iris', 'Davis', 'Legal'); INSERT INTO benefit_enrollments (enrollment_id, employee_id, benefit_type, enrolled_at) VALUES (101, 201, 'Health Insurance', '2023-11-01 08:00:00'), (102, 201, 'Dental Insurance', '2023-12-15 10:00:00'), (103, 201, '401k Plan', '2024-01-20 12:00:00'), (104, 201, 'Vision Insurance', '2024-02-25 14:00:00'), (105, 201, 'FSA Account', '2024-03-30 16:00:00'), (106, 202, 'Health Insurance', '2024-01-10 09:00:00'), (107, 202, 'Life Insurance', '2024-01-10 09:00:00'), (108, 202, 'Dental Insurance', '2024-02-15 11:00:00'), (109, 202, '401k Plan', '2024-03-20 13:00:00'), (110, 203, 'Health Insurance', '2024-02-01 10:30:00'), (111, 203, 'Dental Insurance', '2024-02-01 10:30:00'), (112, 203, 'Vision Insurance', '2024-02-01 10:30:00'), (113, 204, '401k Plan', '2024-01-05 08:15:00'), (114, 205, 'Health Insurance', '2023-12-20 15:00:00'), (115, 205, 'Dental Insurance', '2024-01-25 17:00:00'), (116, 205, 'Vision Insurance', '2024-02-28 09:30:00'), (117, 205, 'Life Insurance', '2024-03-15 11:45:00');",
+  "test_expected_columns": [
+    "employee_id",
+    "benefit_type",
+    "enrolled_at"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "FSA Account",
+      "2024-03-30 16:00:00"
+    ],
+    [
+      201,
+      "Vision Insurance",
+      "2024-02-25 14:00:00"
+    ],
+    [
+      202,
+      "401k Plan",
+      "2024-03-20 13:00:00"
+    ],
+    [
+      202,
+      "Dental Insurance",
+      "2024-02-15 11:00:00"
+    ],
+    [
+      203,
+      "Dental Insurance",
+      "2024-02-01 10:30:00"
+    ],
+    [
+      203,
+      "Health Insurance",
+      "2024-02-01 10:30:00"
+    ],
+    [
+      204,
+      "401k Plan",
+      "2024-01-05 08:15:00"
+    ],
+    [
+      205,
+      "Life Insurance",
+      "2024-03-15 11:45:00"
+    ],
+    [
+      205,
+      "Vision Insurance",
+      "2024-02-28 09:30:00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "rank-partition",
+    "composite_moves": [
+      "window-function-CTE: ROW_NUMBER OVER (PARTITION BY employee_id ORDER BY enrolled_at DESC, benefit_type ASC)",
+      "filter: rn <= 2",
+      "final-order: employee_id ASC, enrolled_at DESC"
+    ]
+  },
+  "hints": [
+    "Consider using a window function to assign a ranking to each enrollment within an employee's history.",
+    "ROW_NUMBER() with PARTITION BY employee_id and ORDER BY enrolled_at DESC will number enrollments from most recent to oldest. Don't forget the tie-breaker in the ORDER BY clause.",
+    "Wrap the window function in a CTE or subquery, then filter WHERE rn <= 2 in the outer query. Window functions cannot be used directly in a WHERE clause."
+  ],
+  "answer_key": "WITH ranked_enrollments AS (SELECT employee_id, benefit_type, enrolled_at, ROW_NUMBER() OVER (PARTITION BY employee_id ORDER BY enrolled_at DESC, benefit_type ASC) AS rn FROM benefit_enrollments) SELECT employee_id, benefit_type, enrolled_at FROM ranked_enrollments WHERE rn <= 2 ORDER BY employee_id ASC, enrolled_at DESC;",
+  "_meta": {
+    "question_type": "window_top_n_per_group",
+    "original_qtype": "window_top_n_per_group",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-24T19:33:34.238780",
+    "problem_id": "f57839b8f3d3",
+    "validation_attempts": 1,
+    "scenario": "an HR platform tracking onboarding completion and benefits enrollment",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

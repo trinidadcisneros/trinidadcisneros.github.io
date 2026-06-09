@@ -1,0 +1,75 @@
+{
+  "title": "Sleep Quality Streaks Report Function",
+  "prompt": "You are building a sleep tracking app that monitors nightly sleep scores and goal achievement. Write a PostgreSQL function named `get_goal_streak_summary` that takes two parameters: `p_user_id INTEGER` and `p_min_streak_days INTEGER`. The function should return a table with columns: `goal_name VARCHAR(100)`, `total_nights INTEGER`, `avg_score DECIMAL(5,2)`, `longest_streak INTEGER`. For the specified user, return one row per sleep goal they have tracked, showing: the goal name; `total_nights` = the count of sleep_logs rows for that goal with a NON-NULL sleep_score; `avg_score` = the average of those same non-NULL sleep_score values rounded to 2 decimals; and `longest_streak` = the longest run of consecutive calendar days on which the user met or exceeded the goal's `target_score` (NULL scores are excluded; only nights at or above the target count toward the streak). Only include goals where the longest streak is at least `p_min_streak_days`. Order results by `longest_streak` descending, then by `goal_name` ascending. Handle cases where a user has nights with NULL scores (exclude them from averages and streak calculations) and where ties in streak length exist. Test your function by calling: `SELECT * FROM get_goal_streak_summary(101, 3);`",
+  "schema_ddl": "CREATE TABLE users (user_id INTEGER PRIMARY KEY, username VARCHAR(50) NOT NULL, signup_date DATE NOT NULL); CREATE TABLE sleep_goals (goal_id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, goal_name VARCHAR(100) NOT NULL, target_score INTEGER NOT NULL, FOREIGN KEY (user_id) REFERENCES users(user_id)); CREATE TABLE sleep_logs (log_id INTEGER PRIMARY KEY, goal_id INTEGER NOT NULL, log_date DATE NOT NULL, sleep_score INTEGER, FOREIGN KEY (goal_id) REFERENCES sleep_goals(goal_id));",
+  "example_input_data": "INSERT INTO users (user_id, username, signup_date) VALUES (101, 'alice_sleeper', '2024-01-15'), (102, 'bob_dreams', '2024-02-01'); INSERT INTO sleep_goals (goal_id, user_id, goal_name, target_score) VALUES (1, 101, 'Deep Sleep', 80), (2, 101, 'Consistent Bedtime', 70), (3, 102, 'Early Riser', 75); INSERT INTO sleep_logs (log_id, goal_id, log_date, sleep_score) VALUES (1, 1, '2024-03-01', 85), (2, 1, '2024-03-02', 90), (3, 1, '2024-03-03', 88), (4, 1, '2024-03-04', 75), (5, 1, '2024-03-05', 82), (6, 1, '2024-03-06', 81), (7, 2, '2024-03-01', 72), (8, 2, '2024-03-02', 68), (9, 2, '2024-03-03', 74), (10, 2, '2024-03-04', 76);",
+  "example_output_columns": [
+    "goal_name",
+    "total_nights",
+    "avg_score",
+    "longest_streak"
+  ],
+  "example_output_rows": [
+    [
+      "Deep Sleep",
+      6,
+      "83.50",
+      3
+    ]
+  ],
+  "test_data": "INSERT INTO users (user_id, username, signup_date) VALUES (101, 'alice_sleeper', '2024-01-15'), (102, 'bob_dreams', '2024-02-01'), (103, 'charlie_night', '2024-01-20'); INSERT INTO sleep_goals (goal_id, user_id, goal_name, target_score) VALUES (1, 101, 'Deep Sleep', 80), (2, 101, 'Consistent Bedtime', 70), (3, 101, 'REM Optimization', 85), (4, 102, 'Early Riser', 75), (5, 103, 'Recovery Mode', 65); INSERT INTO sleep_logs (log_id, goal_id, log_date, sleep_score) VALUES (1, 1, '2024-03-01', 85), (2, 1, '2024-03-02', 90), (3, 1, '2024-03-03', 88), (4, 1, '2024-03-04', 82), (5, 1, '2024-03-05', 81), (6, 1, '2024-03-06', 79), (7, 1, '2024-03-07', 83), (8, 1, '2024-03-08', 86), (9, 1, '2024-03-09', NULL), (10, 1, '2024-03-10', 84), (11, 1, '2024-03-11', 87), (12, 2, '2024-03-01', 72), (13, 2, '2024-03-02', 68), (14, 2, '2024-03-03', 74), (15, 2, '2024-03-04', 76), (16, 2, '2024-03-05', 71), (17, 2, '2024-03-06', 73), (18, 2, '2024-03-07', 69), (19, 2, '2024-03-08', 77), (20, 3, '2024-03-01', 88), (21, 3, '2024-03-02', 90), (22, 3, '2024-03-03', 82), (23, 3, '2024-03-04', 84), (24, 4, '2024-03-01', 78), (25, 4, '2024-03-02', 76), (26, 4, '2024-03-03', 74), (27, 5, '2024-03-01', 70), (28, 5, '2024-03-02', 68);",
+  "test_expected_columns": [
+    "goal_name",
+    "total_nights",
+    "avg_score",
+    "longest_streak"
+  ],
+  "test_expected_rows": [
+    [
+      "Deep Sleep",
+      10,
+      "84.50",
+      5
+    ],
+    [
+      "Consistent Bedtime",
+      8,
+      "72.50",
+      4
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "function-wrapped",
+    "composite_moves": [
+      "enrich-join (sleep_goals to sleep_logs)",
+      "row-filter (by user_id, exclude NULL scores)",
+      "time-window (consecutive streak calculation)",
+      "group-aggregate (per goal_name with AVG, COUNT, MAX streak)",
+      "row-filter (HAVING longest_streak >= p_min_streak_days)",
+      "row-transform (format output columns)"
+    ]
+  },
+  "hints": [
+    "You'll need to join sleep_goals with sleep_logs and filter by the user_id parameter to get relevant sleep records.",
+    "To calculate consecutive streaks, consider using window functions like LAG to detect breaks in the sequence where the score drops below the target, then group consecutive qualifying days.",
+    "Use a CTE to compute streak groups by comparing each log_date with the previous date and score against target, then aggregate with COUNT(*) partitioned by streak group to find the longest streak per goal."
+  ],
+  "answer_key": "CREATE OR REPLACE FUNCTION get_goal_streak_summary(p_user_id INTEGER, p_min_streak_days INTEGER)\nRETURNS TABLE (\n  goal_name VARCHAR(100),\n  total_nights INTEGER,\n  avg_score DECIMAL(5,2),\n  longest_streak INTEGER\n)\nAS $$\nBEGIN\n  RETURN QUERY (\n    WITH streak_data AS (\n      SELECT\n        sg.goal_id,\n        sg.goal_name AS gname,\n        sg.target_score,\n        sl.log_date,\n        sl.sleep_score,\n        CASE\n          WHEN sl.sleep_score >= sg.target_score THEN 1\n          ELSE 0\n        END AS meets_goal,\n        LAG(CASE WHEN sl.sleep_score >= sg.target_score THEN 1 ELSE 0 END, 1, 0)\n          OVER (PARTITION BY sg.goal_id ORDER BY sl.log_date) AS prev_meets_goal,\n        LAG(sl.log_date, 1, sl.log_date - INTERVAL '999 days')\n          OVER (PARTITION BY sg.goal_id ORDER BY sl.log_date) AS prev_date\n      FROM sleep_goals sg\n      JOIN sleep_logs sl ON sg.goal_id = sl.goal_id\n      WHERE sg.user_id = p_user_id\n        AND sl.sleep_score IS NOT NULL\n    ),\n    streak_groups AS (\n      SELECT\n        goal_id,\n        gname,\n        sleep_score,\n        meets_goal,\n        SUM(CASE\n          WHEN meets_goal = 1 AND (prev_meets_goal = 0 OR log_date != prev_date + INTERVAL '1 day') THEN 1\n          ELSE 0\n        END) OVER (PARTITION BY goal_id ORDER BY log_date) AS streak_id\n      FROM streak_data\n    ),\n    streak_lengths AS (\n      SELECT\n        goal_id,\n        gname,\n        streak_id,\n        COUNT(*) AS streak_length\n      FROM streak_groups\n      WHERE meets_goal = 1\n      GROUP BY goal_id, gname, streak_id\n    ),\n    goal_summary AS (\n      SELECT\n        sd.goal_id,\n        sd.gname,\n        COUNT(*) AS total_nights,\n        AVG(sd.sleep_score) AS avg_score,\n        COALESCE(MAX(sl.streak_length), 0) AS longest_streak\n      FROM streak_data sd\n      LEFT JOIN streak_lengths sl ON sd.goal_id = sl.goal_id\n      GROUP BY sd.goal_id, sd.gname\n    )\n    SELECT\n      gs.gname::VARCHAR(100),\n      gs.total_nights::INTEGER,\n      ROUND(gs.avg_score, 2)::DECIMAL(5,2),\n      gs.longest_streak::INTEGER\n    FROM goal_summary gs\n    WHERE gs.longest_streak >= p_min_streak_days\n    ORDER BY gs.longest_streak DESC, gs.gname ASC\n  );\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT * FROM get_goal_streak_summary(101, 3);",
+  "_meta": {
+    "question_type": "returns_table",
+    "original_qtype": "returns_table",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-30T14:27:53.864870",
+    "problem_id": "6ebb8d6b6738",
+    "validation_attempts": 1,
+    "scenario": "a sleep tracking app tracking sleep score and goal achievement",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "fix_notes": "Manual fix 2026-05-30: example_output_rows[0][1] 12->6 and test_expected_rows total_nights values corrected (30->10, 24->8). Prompt wording tightened to define total_nights / avg_score / longest_streak unambiguously. Verified in DuckDB against both example_input_data and test_data."
+  }
+}

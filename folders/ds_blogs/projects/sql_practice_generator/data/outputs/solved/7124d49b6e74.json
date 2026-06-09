@@ -1,0 +1,223 @@
+{
+  "problem": {
+    "title": "Group Student App Sessions by Idle Gap",
+    "prompt": "A K-12 homework app logs every time a student opens an assignment. Your task is to group these events into *sessions* where a session ends when the student has been idle for more than 20 minutes. Write a query that assigns a unique session identifier to each event and then returns a summary showing: student_id, session_id, session_start (timestamp of first event in that session), session_end (timestamp of last event in that session), and event_count (number of assignment opens in that session). A new session begins whenever the gap between consecutive events for the same student exceeds 20 minutes, or when it is the student's very first event. Order the output by student_id ascending, then session_start ascending. Your solution must use LAG to detect gaps and a cumulative SUM of a new-session flag to assign session IDs.",
+    "schema_ddl": "CREATE TABLE assignment_opens (\n  open_id SERIAL PRIMARY KEY,\n  student_id INTEGER NOT NULL,\n  assignment_name VARCHAR(100) NOT NULL,\n  opened_at TIMESTAMP NOT NULL\n);",
+    "example_input_data": "INSERT INTO assignment_opens (student_id, assignment_name, opened_at) VALUES\n(101, 'Math Chapter 3', '2024-03-15 14:00:00'),\n(101, 'Math Chapter 3', '2024-03-15 14:10:00'),\n(101, 'Science Lab 2', '2024-03-15 14:45:00'),\n(101, 'History Essay', '2024-03-15 15:30:00'),\n(102, 'Math Chapter 3', '2024-03-15 09:00:00'),\n(102, 'Math Chapter 4', '2024-03-15 09:15:00'),\n(102, 'Science Lab 2', '2024-03-15 10:00:00'),\n(102, 'English Reading', '2024-03-15 10:10:00');",
+    "example_output_columns": [
+      "student_id",
+      "session_id",
+      "session_start",
+      "session_end",
+      "event_count"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        1,
+        "2024-03-15 14:00:00",
+        "2024-03-15 14:10:00",
+        2
+      ],
+      [
+        101,
+        2,
+        "2024-03-15 14:45:00",
+        "2024-03-15 14:45:00",
+        1
+      ],
+      [
+        101,
+        3,
+        "2024-03-15 15:30:00",
+        "2024-03-15 15:30:00",
+        1
+      ],
+      [
+        102,
+        1,
+        "2024-03-15 09:00:00",
+        "2024-03-15 09:15:00",
+        2
+      ],
+      [
+        102,
+        2,
+        "2024-03-15 10:00:00",
+        "2024-03-15 10:10:00",
+        2
+      ]
+    ],
+    "test_data": "INSERT INTO assignment_opens (student_id, assignment_name, opened_at) VALUES\n(201, 'Algebra Homework', '2024-04-01 08:00:00'),\n(201, 'Algebra Homework', '2024-04-01 08:05:00'),\n(201, 'Algebra Homework', '2024-04-01 08:18:00'),\n(201, 'Geometry Quiz', '2024-04-01 09:00:00'),\n(201, 'Geometry Quiz', '2024-04-01 09:10:00'),\n(201, 'Biology Notes', '2024-04-01 10:45:00'),\n(202, 'English Essay', '2024-04-01 07:30:00'),\n(202, 'Spanish Vocab', '2024-04-01 08:00:00'),\n(202, 'Spanish Vocab', '2024-04-01 08:25:00'),\n(202, 'Chemistry Lab', '2024-04-01 11:00:00'),\n(203, 'History Project', '2024-04-01 13:00:00'),\n(203, 'History Project', '2024-04-01 13:15:00'),\n(203, 'History Project', '2024-04-01 13:20:00'),\n(203, 'History Project', '2024-04-01 13:42:00'),\n(203, 'Math Review', '2024-04-01 15:10:00'),\n(204, 'Physics Problems', '2024-04-01 16:00:00'),\n(205, 'Art Assignment', '2024-04-01 10:00:00'),\n(205, 'Art Assignment', '2024-04-01 10:05:00'),\n(205, 'Music Theory', '2024-04-01 10:30:00'),\n(205, 'Music Theory', '2024-04-01 11:15:00'),\n(205, 'PE Reflection', '2024-04-01 14:00:00'),\n(206, 'Coding Exercise', '2024-04-01 09:00:00'),\n(206, 'Coding Exercise', '2024-04-01 09:18:00'),\n(206, 'Coding Exercise', '2024-04-01 09:40:00'),\n(206, 'Coding Exercise', '2024-04-01 10:05:00');",
+    "test_expected_columns": [
+      "student_id",
+      "session_id",
+      "session_start",
+      "session_end",
+      "event_count"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        1,
+        "2024-04-01 08:00:00",
+        "2024-04-01 08:18:00",
+        3
+      ],
+      [
+        201,
+        2,
+        "2024-04-01 09:00:00",
+        "2024-04-01 09:10:00",
+        2
+      ],
+      [
+        201,
+        3,
+        "2024-04-01 10:45:00",
+        "2024-04-01 10:45:00",
+        1
+      ],
+      [
+        202,
+        1,
+        "2024-04-01 07:30:00",
+        "2024-04-01 07:30:00",
+        1
+      ],
+      [
+        202,
+        2,
+        "2024-04-01 08:00:00",
+        "2024-04-01 08:00:00",
+        1
+      ],
+      [
+        202,
+        3,
+        "2024-04-01 08:25:00",
+        "2024-04-01 08:25:00",
+        1
+      ],
+      [
+        202,
+        4,
+        "2024-04-01 11:00:00",
+        "2024-04-01 11:00:00",
+        1
+      ],
+      [
+        203,
+        1,
+        "2024-04-01 13:00:00",
+        "2024-04-01 13:20:00",
+        3
+      ],
+      [
+        203,
+        2,
+        "2024-04-01 13:42:00",
+        "2024-04-01 13:42:00",
+        1
+      ],
+      [
+        203,
+        3,
+        "2024-04-01 15:10:00",
+        "2024-04-01 15:10:00",
+        1
+      ],
+      [
+        204,
+        1,
+        "2024-04-01 16:00:00",
+        "2024-04-01 16:00:00",
+        1
+      ],
+      [
+        205,
+        1,
+        "2024-04-01 10:00:00",
+        "2024-04-01 10:05:00",
+        2
+      ],
+      [
+        205,
+        2,
+        "2024-04-01 10:30:00",
+        "2024-04-01 10:30:00",
+        1
+      ],
+      [
+        205,
+        3,
+        "2024-04-01 11:15:00",
+        "2024-04-01 11:15:00",
+        1
+      ],
+      [
+        205,
+        4,
+        "2024-04-01 14:00:00",
+        "2024-04-01 14:00:00",
+        1
+      ],
+      [
+        206,
+        1,
+        "2024-04-01 09:00:00",
+        "2024-04-01 09:18:00",
+        2
+      ],
+      [
+        206,
+        2,
+        "2024-04-01 09:40:00",
+        "2024-04-01 09:40:00",
+        1
+      ],
+      [
+        206,
+        3,
+        "2024-04-01 10:05:00",
+        "2024-04-01 10:05:00",
+        1
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "CTE-1: LAG(opened_at) OVER (PARTITION BY student_id ORDER BY opened_at) to get previous timestamp per student",
+        "CTE-1: CASE WHEN previous_ts IS NULL OR opened_at - previous_ts > INTERVAL '20 minutes' THEN 1 ELSE 0 END as new_session_flag",
+        "CTE-2: SUM(new_session_flag) OVER (PARTITION BY student_id ORDER BY opened_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) as session_id",
+        "GROUP BY student_id, session_id",
+        "Aggregate: MIN(opened_at) as session_start, MAX(opened_at) as session_end, COUNT(*) as event_count",
+        "ORDER BY student_id, session_start"
+      ]
+    },
+    "hints": [
+      "Think about how to identify when a new session starts for each student by comparing timestamps.",
+      "Use LAG to look at the previous event's timestamp within each student's sequence, then check if the gap exceeds 20 minutes.",
+      "Create a flag that is 1 when a new session begins (first event or gap > 20 minutes), then use SUM() OVER with ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW to assign a running session number."
+    ],
+    "answer_key": "WITH gaps AS (\n  SELECT\n    student_id,\n    assignment_name,\n    opened_at,\n    LAG(opened_at) OVER (PARTITION BY student_id ORDER BY opened_at) AS prev_opened_at\n  FROM assignment_opens\n),\nsession_flags AS (\n  SELECT\n    student_id,\n    assignment_name,\n    opened_at,\n    CASE\n      WHEN prev_opened_at IS NULL OR opened_at - prev_opened_at > INTERVAL '20 minutes'\n      THEN 1\n      ELSE 0\n    END AS new_session_flag\n  FROM gaps\n),\nsession_ids AS (\n  SELECT\n    student_id,\n    opened_at,\n    SUM(new_session_flag) OVER (\n      PARTITION BY student_id\n      ORDER BY opened_at\n      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n    ) AS session_id\n  FROM session_flags\n)\nSELECT\n  student_id,\n  session_id,\n  MIN(opened_at) AS session_start,\n  MAX(opened_at) AS session_end,\n  COUNT(*) AS event_count\nFROM session_ids\nGROUP BY student_id, session_id\nORDER BY student_id, session_start;",
+    "_meta": {
+      "question_type": "window_sessionization",
+      "original_qtype": "window_sessionization",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-31T19:14:33.339390",
+      "problem_id": "7124d49b6e74",
+      "validation_attempts": 1,
+      "scenario": "a K-12 homework app tracking assignment turn-in and grade improvement",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* \nGroup Student App Sessions by Idle Gap\n\n- app logs every time a student opens an assignment\n\n\nTASK\n- query that assigns a unique session identifier to each event and then returns a summary showing\nstudent_id, \nsession_id, \nsession_start (timestamp of first event in that session)\nsession_end (timestamp of last event in that session)\nevent_count (number of assignment opens in that session)\n\n- group events into 20 minute sessions, where >20 is a new session or student first event\n\nORDER BY student_id, session_start\n\nYour solution must use LAG to detect gaps and a cumulative SUM of a new-session flag to assign session IDs.\n\nSchema\nTable: assignment_opens\nopen_id\t            SERIAL PRIMARY KEY\nstudent_id\t        INTEGER NOT NULL\nassignment_name    \tVARCHAR(100) NOT NULL\nopened_at\t        TIMESTAMP NOT NULL\n\n1. calculate the time difference between rows by student id\n2. pivot with start and end sessions\n3. count events \n\n*/\nWITH flagged AS (\n    SELECT\n        student_id,\n        opened_at,\n        CASE WHEN \n            opened_at - LAG(opened_at) OVER (PARTITION BY student_id ORDER BY opened_at)\n            > INTERVAL '20 minutes' THEN 1 ELSE 0 END AS is_new_session\n    FROM assignment_opens\n),\nsessions AS (\n    SELECT\n        student_id,\n        opened_at,\n        SUM(is_new_session) OVER (PARTITION BY student_id ORDER BY opened_at) + 1 AS session_id\n    FROM flagged\n)\nSELECT\n    student_id,\n    session_id,\n    MIN(opened_at) AS session_start,\n    MAX(opened_at) AS session_end,\n    COUNT(*) AS event_count\nFROM sessions\nGROUP BY student_id, session_id\nORDER BY student_id, session_id\n\n\n\n\n\n\n\n",
+  "solved_at": "2026-05-31T19:49:01.290989"
+}

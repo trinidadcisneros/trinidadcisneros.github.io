@@ -1,0 +1,90 @@
+{
+  "problem": {
+    "title": "Trial Duration Percentiles by Plan Tier",
+    "prompt": "A B2B SaaS company tracks trial signups and wants to understand trial duration patterns across different plan tiers. Write a query that computes the **median (50th percentile)**, **75th percentile**, and **90th percentile** of trial duration in days for each plan tier. Use `PERCENTILE_CONT` to allow interpolated values when the percentile falls between two data points. The output should include columns `plan_tier`, `p50_duration`, `p75_duration`, and `p90_duration`, ordered by `plan_tier` ascending. Trial durations are measured in whole days from signup to either conversion or trial expiration.",
+    "schema_ddl": "CREATE TABLE trial_signups (signup_id INT PRIMARY KEY, company_name VARCHAR(100), plan_tier VARCHAR(20), trial_duration_days INT, converted_to_paid BOOLEAN, signup_date DATE);",
+    "example_input_data": "INSERT INTO trial_signups (signup_id, company_name, plan_tier, trial_duration_days, converted_to_paid, signup_date) VALUES (1, 'Acme Corp', 'starter', 14, true, '2024-01-05'), (2, 'Beta Inc', 'starter', 7, false, '2024-01-08'), (3, 'Gamma Ltd', 'starter', 21, true, '2024-01-10'), (4, 'Delta LLC', 'starter', 10, false, '2024-01-12'), (5, 'Epsilon Co', 'professional', 28, true, '2024-01-15'), (6, 'Zeta Corp', 'professional', 14, false, '2024-01-18'), (7, 'Eta Systems', 'professional', 30, true, '2024-01-20'), (8, 'Theta Tech', 'enterprise', 45, true, '2024-01-22');",
+    "example_output_columns": [
+      "plan_tier",
+      "p50_duration",
+      "p75_duration",
+      "p90_duration"
+    ],
+    "example_output_rows": [
+      [
+        "enterprise",
+        45.0,
+        45.0,
+        45.0
+      ],
+      [
+        "professional",
+        28.0,
+        29.0,
+        29.6
+      ],
+      [
+        "starter",
+        12.0,
+        15.75,
+        18.900000000000002
+      ]
+    ],
+    "test_data": "INSERT INTO trial_signups (signup_id, company_name, plan_tier, trial_duration_days, converted_to_paid, signup_date) VALUES (101, 'Alpha Systems', 'starter', 5, false, '2024-02-01'), (102, 'Bravo Tech', 'starter', 7, false, '2024-02-02'), (103, 'Charlie Co', 'starter', 9, true, '2024-02-03'), (104, 'Delta Innovations', 'starter', 12, true, '2024-02-04'), (105, 'Echo Enterprises', 'starter', 14, false, '2024-02-05'), (106, 'Foxtrot Labs', 'starter', 15, true, '2024-02-06'), (107, 'Golf Solutions', 'starter', 18, true, '2024-02-07'), (108, 'Hotel Industries', 'starter', 21, false, '2024-02-08'), (109, 'India Corp', 'starter', 23, true, '2024-02-09'), (110, 'Juliet LLC', 'starter', 28, false, '2024-02-10'), (111, 'Kilo Partners', 'professional', 10, false, '2024-02-11'), (112, 'Lima Group', 'professional', 14, false, '2024-02-12'), (113, 'Mike Systems', 'professional', 18, true, '2024-02-13'), (114, 'November Tech', 'professional', 21, true, '2024-02-14'), (115, 'Oscar Co', 'professional', 25, true, '2024-02-15'), (116, 'Papa Industries', 'professional', 28, false, '2024-02-16'), (117, 'Quebec Corp', 'professional', 30, true, '2024-02-17'), (118, 'Romeo Ltd', 'professional', 35, true, '2024-02-18'), (119, 'Sierra Innovations', 'professional', 40, false, '2024-02-19'), (120, 'Tango Systems', 'professional', 42, true, '2024-02-20'), (121, 'Uniform Enterprises', 'enterprise', 30, false, '2024-02-21'), (122, 'Victor Labs', 'enterprise', 35, true, '2024-02-22'), (123, 'Whiskey Solutions', 'enterprise', 42, true, '2024-02-23'), (124, 'Xray Industries', 'enterprise', 45, true, '2024-02-24'), (125, 'Yankee Corp', 'enterprise', 50, true, '2024-02-25'), (126, 'Zulu Partners', 'enterprise', 55, false, '2024-02-26'), (127, 'Apex Group', 'enterprise', 60, true, '2024-02-27'), (128, 'Nexus Tech', 'enterprise', 60, false, '2024-02-28');",
+    "test_expected_columns": [
+      "plan_tier",
+      "p50_duration",
+      "p75_duration",
+      "p90_duration"
+    ],
+    "test_expected_rows": [
+      [
+        "enterprise",
+        47.5,
+        56.25,
+        60.0
+      ],
+      [
+        "professional",
+        26.5,
+        33.75,
+        40.2
+      ],
+      [
+        "starter",
+        14.5,
+        20.25,
+        23.5
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "rank-partition",
+      "composite_moves": [
+        "group-by plan_tier",
+        "percentile-aggregate using PERCENTILE_CONT for p50, p75, p90",
+        "order final output by plan_tier"
+      ]
+    },
+    "hints": [
+      "You need to compute multiple percentiles for each group in a single query using an ordered-set aggregate function.",
+      "Use PERCENTILE_CONT with a WITHIN GROUP (ORDER BY ...) clause, and you can compute multiple percentiles in the same SELECT by calling the function three times with different percentile values (0.5, 0.75, 0.9).",
+      "The solution is: SELECT plan_tier, PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY trial_duration_days) AS p50_duration, PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY trial_duration_days) AS p75_duration, PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY trial_duration_days) AS p90_duration FROM trial_signups GROUP BY plan_tier ORDER BY plan_tier;"
+    ],
+    "answer_key": "SELECT plan_tier, PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY trial_duration_days) AS p50_duration, PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY trial_duration_days) AS p75_duration, PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY trial_duration_days) AS p90_duration FROM trial_signups GROUP BY plan_tier ORDER BY plan_tier;",
+    "_meta": {
+      "question_type": "percentile_metrics",
+      "dialect": "postgresql",
+      "generated_at": "2026-05-09T18:57:07.180010",
+      "problem_id": "8ec2648d9cee",
+      "validation_attempts": 1,
+      "scenario": "a B2B SaaS company tracking trial signups and conversion to paid plans",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": "percentile_aggregate"
+    }
+  },
+  "user_solution": "/* notes */\n\nSELECT\n    plan_tier,\n    percentile_cont(0.5) WITHIN GROUP (ORDER BY trial_duration_days) AS p50_duration,\n    percentile_cont(0.75) WITHIN GROUP (ORDER BY trial_duration_days) AS p75_duration,\n    percentile_cont(0.9) WITHIN GROUP (ORDER BY trial_duration_days) AS p90_duration\nFROM trial_signups\nGROUP BY plan_tier;",
+  "solved_at": "2026-05-11T19:26:36.743822"
+}

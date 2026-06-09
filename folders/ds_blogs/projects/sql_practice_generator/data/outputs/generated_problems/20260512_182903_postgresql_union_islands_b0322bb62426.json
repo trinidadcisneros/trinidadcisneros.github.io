@@ -1,0 +1,121 @@
+{
+  "title": "Collapse SLA Breach Periods by Status",
+  "prompt": "Your support platform tracks ticket SLA status in two tables: `breached_days` (dates when at least one ticket was in breach) and `compliant_days` (dates when all tickets met SLA). Every day from 2024-01-01 through 2024-01-31 appears in exactly one table\u2014no missing days. Collapse consecutive same-status days into range periods. Output columns `status` (either 'breached' or 'compliant'), `start_date`, and `end_date`. Order the result by `start_date` ascending. Use the date-minus-rownumber technique to identify islands.",
+  "schema_ddl": "CREATE TABLE breached_days (breach_date DATE NOT NULL); CREATE TABLE compliant_days (comply_date DATE NOT NULL);",
+  "example_input_data": "INSERT INTO breached_days (breach_date) VALUES ('2024-01-01'), ('2024-01-02'), ('2024-01-03'), ('2024-01-07'), ('2024-01-11'), ('2024-01-12'); INSERT INTO compliant_days (comply_date) VALUES ('2024-01-04'), ('2024-01-05'), ('2024-01-06'), ('2024-01-08'), ('2024-01-09'), ('2024-01-10');",
+  "example_output_columns": [
+    "status",
+    "start_date",
+    "end_date"
+  ],
+  "example_output_rows": [
+    [
+      "breached",
+      "2024-01-01",
+      "2024-01-03"
+    ],
+    [
+      "compliant",
+      "2024-01-04",
+      "2024-01-06"
+    ],
+    [
+      "breached",
+      "2024-01-07",
+      "2024-01-07"
+    ],
+    [
+      "compliant",
+      "2024-01-08",
+      "2024-01-10"
+    ],
+    [
+      "breached",
+      "2024-01-11",
+      "2024-01-12"
+    ]
+  ],
+  "test_data": "INSERT INTO breached_days (breach_date) VALUES ('2024-01-01'), ('2024-01-02'), ('2024-01-03'), ('2024-01-04'), ('2024-01-09'), ('2024-01-10'), ('2024-01-15'), ('2024-01-20'), ('2024-01-21'), ('2024-01-22'), ('2024-01-23'), ('2024-01-24'), ('2024-01-25'), ('2024-01-26'), ('2024-01-31'); INSERT INTO compliant_days (comply_date) VALUES ('2024-01-05'), ('2024-01-06'), ('2024-01-07'), ('2024-01-08'), ('2024-01-11'), ('2024-01-12'), ('2024-01-13'), ('2024-01-14'), ('2024-01-16'), ('2024-01-17'), ('2024-01-18'), ('2024-01-19'), ('2024-01-27'), ('2024-01-28'), ('2024-01-29'), ('2024-01-30');",
+  "test_expected_columns": [
+    "status",
+    "start_date",
+    "end_date"
+  ],
+  "test_expected_rows": [
+    [
+      "breached",
+      "2024-01-01",
+      "2024-01-04"
+    ],
+    [
+      "compliant",
+      "2024-01-05",
+      "2024-01-08"
+    ],
+    [
+      "breached",
+      "2024-01-09",
+      "2024-01-10"
+    ],
+    [
+      "compliant",
+      "2024-01-11",
+      "2024-01-14"
+    ],
+    [
+      "breached",
+      "2024-01-15",
+      "2024-01-15"
+    ],
+    [
+      "compliant",
+      "2024-01-16",
+      "2024-01-19"
+    ],
+    [
+      "breached",
+      "2024-01-20",
+      "2024-01-26"
+    ],
+    [
+      "compliant",
+      "2024-01-27",
+      "2024-01-30"
+    ],
+    [
+      "breached",
+      "2024-01-31",
+      "2024-01-31"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "union",
+    "output_shape": "fewer_rows",
+    "recipe": "gaps-and-islands",
+    "composite_moves": [
+      "UNION two tables with state labels",
+      "ROW_NUMBER partitioned by state ordered by date",
+      "date minus rownumber cast to integer for island group",
+      "GROUP BY state and island group",
+      "MIN date as start, MAX date as end",
+      "ORDER BY start ascending"
+    ]
+  },
+  "hints": [
+    "Combine both tables into one result set with a status label for each row.",
+    "Use ROW_NUMBER() partitioned by status and ordered by date to assign sequential integers within each status.",
+    "Subtract the row number from the date (cast to integer) to create an island group identifier\u2014consecutive dates with the same status will produce the same group value."
+  ],
+  "answer_key": "WITH combined AS (\n  SELECT 'breached' AS status, breach_date AS d\n  FROM breached_days\n  WHERE breach_date BETWEEN '2024-01-01' AND '2024-01-31'\n  UNION ALL\n  SELECT 'compliant', comply_date\n  FROM compliant_days\n  WHERE comply_date BETWEEN '2024-01-01' AND '2024-01-31'\n),\nislands AS (\n  SELECT\n    status,\n    d,\n    d - (ROW_NUMBER() OVER (PARTITION BY status ORDER BY d))::INT AS grp\n  FROM combined\n)\nSELECT\n  status,\n  MIN(d) AS start_date,\n  MAX(d) AS end_date\nFROM islands\nGROUP BY status, grp\nORDER BY start_date;",
+  "_meta": {
+    "question_type": "union_islands",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-12T18:29:03.470058",
+    "problem_id": "b0322bb62426",
+    "validation_attempts": 1,
+    "scenario": "a customer support tool tracking ticket SLA breaches and reassignments",
+    "dml_op": null,
+    "islands_flavor": "date_calendar",
+    "percentile_flavor": null
+  }
+}

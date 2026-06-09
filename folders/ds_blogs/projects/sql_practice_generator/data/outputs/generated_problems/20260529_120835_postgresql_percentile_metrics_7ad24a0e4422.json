@@ -1,0 +1,147 @@
+{
+  "title": "Quartile Bucketing by Grade Improvement Rate",
+  "prompt": "Your K-12 homework app tracks students' grade improvement across multiple assignments. Write a query that buckets each student into 4 quartiles based on their improvement_rate (highest improvement in quartile 1, lowest in quartile 4). The improvement_rate is calculated as `((final_grade - initial_grade) / initial_grade) * 100`. Return three columns: student_name, improvement_rate (rounded to 2 decimal places), and quartile. Order the output by quartile ascending, then by improvement_rate descending within each quartile. Students with NULL initial_grade should be excluded from the analysis. Note that with an odd number of students, NTILE will distribute rows as evenly as possible, placing extra rows in the lower-numbered quartiles.",
+  "schema_ddl": "CREATE TABLE students (student_id INT PRIMARY KEY, student_name VARCHAR(100)); CREATE TABLE grade_tracking (tracking_id INT PRIMARY KEY, student_id INT, subject VARCHAR(50), initial_grade DECIMAL(5,2), final_grade DECIMAL(5,2));",
+  "example_input_data": "INSERT INTO students (student_id, student_name) VALUES (1, 'Alice Johnson'), (2, 'Bob Chen'), (3, 'Carol Martinez'), (4, 'David Kim'), (5, 'Emma Wilson'), (6, 'Frank Brown'), (7, 'Grace Lee'); INSERT INTO grade_tracking (tracking_id, student_id, subject, initial_grade, final_grade) VALUES (1, 1, 'Math', 70.00, 92.00), (2, 2, 'Math', 80.00, 88.00), (3, 3, 'Math', 60.00, 75.00), (4, 4, 'Math', NULL, 85.00), (5, 5, 'Math', 90.00, 95.00), (6, 6, 'Math', 65.00, 78.00), (7, 7, 'Math', 75.00, 81.00);",
+  "example_output_columns": [
+    "student_name",
+    "improvement_rate",
+    "quartile"
+  ],
+  "example_output_rows": [
+    [
+      "Alice Johnson",
+      "31.43",
+      "1"
+    ],
+    [
+      "Carol Martinez",
+      "25.00",
+      "1"
+    ],
+    [
+      "Frank Brown",
+      "20.00",
+      "2"
+    ],
+    [
+      "Bob Chen",
+      "10.00",
+      "2"
+    ],
+    [
+      "Grace Lee",
+      "8.00",
+      "3"
+    ],
+    [
+      "Emma Wilson",
+      "5.56",
+      "4"
+    ]
+  ],
+  "test_data": "INSERT INTO students (student_id, student_name) VALUES (1, 'Alice Johnson'), (2, 'Bob Chen'), (3, 'Carol Martinez'), (4, 'David Kim'), (5, 'Emma Wilson'), (6, 'Frank Brown'), (7, 'Grace Lee'), (8, 'Henry Davis'), (9, 'Iris Taylor'), (10, 'Jack Anderson'), (11, 'Kelly White'), (12, 'Liam Harris'), (13, 'Maya Clark'), (14, 'Noah Lewis'), (15, 'Olivia Walker'); INSERT INTO grade_tracking (tracking_id, student_id, subject, initial_grade, final_grade) VALUES (1, 1, 'Math', 70.00, 95.00), (2, 2, 'Math', 85.00, 90.00), (3, 3, 'Math', 55.00, 82.00), (4, 4, 'Math', NULL, 88.00), (5, 5, 'Math', 92.00, 94.00), (6, 6, 'Math', 60.00, 84.00), (7, 7, 'Math', 78.00, 85.00), (8, 8, 'Math', 50.00, 85.00), (9, 9, 'Math', 88.00, 92.00), (10, 10, 'Math', NULL, 75.00), (11, 11, 'Math', 65.00, 78.00), (12, 12, 'Math', 72.00, 79.00), (13, 13, 'Math', 80.00, 88.00), (14, 14, 'Math', 90.00, 90.00), (15, 15, 'Math', 58.00, 70.00);",
+  "test_expected_columns": [
+    "student_name",
+    "improvement_rate",
+    "quartile"
+  ],
+  "test_expected_rows": [
+    [
+      "Henry Davis",
+      "70.00",
+      "1"
+    ],
+    [
+      "Carol Martinez",
+      "49.09",
+      "1"
+    ],
+    [
+      "Frank Brown",
+      "40.00",
+      "1"
+    ],
+    [
+      "Alice Johnson",
+      "35.71",
+      "1"
+    ],
+    [
+      "Olivia Walker",
+      "20.69",
+      "2"
+    ],
+    [
+      "Kelly White",
+      "20.00",
+      "2"
+    ],
+    [
+      "Maya Clark",
+      "10.00",
+      "2"
+    ],
+    [
+      "Liam Harris",
+      "9.72",
+      "3"
+    ],
+    [
+      "Grace Lee",
+      "8.97",
+      "3"
+    ],
+    [
+      "Bob Chen",
+      "5.88",
+      "3"
+    ],
+    [
+      "Iris Taylor",
+      "4.55",
+      "4"
+    ],
+    [
+      "Emma Wilson",
+      "2.17",
+      "4"
+    ],
+    [
+      "Noah Lewis",
+      "0.00",
+      "4"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "rank-partition",
+    "composite_moves": [
+      "row-filter (exclude NULL initial_grade)",
+      "row-transform (calculate improvement_rate)",
+      "rank-partition (NTILE quartile assignment)",
+      "sort output"
+    ]
+  },
+  "hints": [
+    "You'll need to calculate a percentage change and then assign buckets to those values.",
+    "Use NTILE(4) OVER (ORDER BY ...) to split the students into four equal-sized groups based on their improvement rate. Remember to filter out NULL initial grades first.",
+    "Calculate improvement_rate as ((final_grade - initial_grade) / initial_grade) * 100, then use NTILE(4) OVER (ORDER BY improvement_rate DESC) to assign quartiles. A CTE makes this cleaner. Filter WHERE initial_grade IS NOT NULL, and order the final output by quartile ASC, improvement_rate DESC."
+  ],
+  "answer_key": "WITH improvement_calc AS (\n  SELECT \n    s.student_name,\n    ROUND(((g.final_grade - g.initial_grade) / g.initial_grade) * 100, 2) AS improvement_rate\n  FROM students s\n  JOIN grade_tracking g ON s.student_id = g.student_id\n  WHERE g.initial_grade IS NOT NULL\n),\nquartile_assignment AS (\n  SELECT \n    student_name,\n    improvement_rate,\n    NTILE(4) OVER (ORDER BY improvement_rate DESC) AS quartile\n  FROM improvement_calc\n)\nSELECT \n  student_name,\n  improvement_rate::TEXT,\n  quartile::TEXT\nFROM quartile_assignment\nORDER BY quartile ASC, improvement_rate DESC;",
+  "_meta": {
+    "question_type": "percentile_metrics",
+    "original_qtype": "percentile_metrics",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-29T12:08:35.567330",
+    "problem_id": "7ad24a0e4422",
+    "validation_attempts": 1,
+    "scenario": "a K-12 homework app tracking assignment turn-in and grade improvement",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": "ntile_buckets"
+  }
+}

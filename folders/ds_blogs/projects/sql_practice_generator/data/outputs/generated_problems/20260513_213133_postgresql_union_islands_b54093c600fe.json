@@ -1,0 +1,109 @@
+{
+  "title": "Collapse Telehealth Appointment Status Periods",
+  "prompt": "A telehealth platform tracks appointment statuses across two tables: `appointments_completed` records dates when appointments were successfully completed, and `appointments_missed` records dates when appointments were missed (no-shows or cancellations). Every day in the analysis period falls into exactly one state\u2014either at least one appointment was completed that day, or at least one was missed. Your task is to collapse consecutive days of the same status into contiguous periods. Write a query that returns three columns: `status` (either 'completed' or 'missed'), `start_date`, and `end_date`. Each row represents a maximal run of consecutive calendar days in the same status. The date range to analyze is '2024-01-01' through '2024-01-31' inclusive, and every day in this range is covered by exactly one status (no missing days). Order the output by `start_date` ASC.",
+  "schema_ddl": "CREATE TABLE appointments_completed (appointment_id INT PRIMARY KEY, completed_date DATE NOT NULL); CREATE TABLE appointments_missed (appointment_id INT PRIMARY KEY, missed_date DATE NOT NULL);",
+  "example_input_data": "INSERT INTO appointments_completed (appointment_id, completed_date) VALUES (1, '2024-01-01'), (2, '2024-01-02'), (3, '2024-01-03'), (4, '2024-01-07'), (5, '2024-01-10'), (6, '2024-01-11'); INSERT INTO appointments_missed (appointment_id, missed_date) VALUES (101, '2024-01-04'), (102, '2024-01-05'), (103, '2024-01-06'), (104, '2024-01-08'), (105, '2024-01-09');",
+  "example_output_columns": [
+    "status",
+    "start_date",
+    "end_date"
+  ],
+  "example_output_rows": [
+    [
+      "completed",
+      "2024-01-01",
+      "2024-01-03"
+    ],
+    [
+      "missed",
+      "2024-01-04",
+      "2024-01-06"
+    ],
+    [
+      "completed",
+      "2024-01-07",
+      "2024-01-07"
+    ],
+    [
+      "missed",
+      "2024-01-08",
+      "2024-01-09"
+    ],
+    [
+      "completed",
+      "2024-01-10",
+      "2024-01-11"
+    ]
+  ],
+  "test_data": "INSERT INTO appointments_completed (appointment_id, completed_date) VALUES (1, '2024-01-01'), (2, '2024-01-02'), (3, '2024-01-03'), (4, '2024-01-04'), (5, '2024-01-05'), (6, '2024-01-06'), (7, '2024-01-07'), (8, '2024-01-08'), (9, '2024-01-13'), (10, '2024-01-14'), (11, '2024-01-15'), (12, '2024-01-16'), (13, '2024-01-17'), (14, '2024-01-18'), (15, '2024-01-19'), (16, '2024-01-20'), (17, '2024-01-24'), (18, '2024-01-28'), (19, '2024-01-29'), (20, '2024-01-30'), (21, '2024-01-31'); INSERT INTO appointments_missed (appointment_id, missed_date) VALUES (101, '2024-01-09'), (102, '2024-01-10'), (103, '2024-01-11'), (104, '2024-01-12'), (105, '2024-01-21'), (106, '2024-01-22'), (107, '2024-01-23'), (108, '2024-01-25'), (109, '2024-01-26'), (110, '2024-01-27');",
+  "test_expected_columns": [
+    "status",
+    "start_date",
+    "end_date"
+  ],
+  "test_expected_rows": [
+    [
+      "completed",
+      "2024-01-01",
+      "2024-01-08"
+    ],
+    [
+      "missed",
+      "2024-01-09",
+      "2024-01-12"
+    ],
+    [
+      "completed",
+      "2024-01-13",
+      "2024-01-20"
+    ],
+    [
+      "missed",
+      "2024-01-21",
+      "2024-01-23"
+    ],
+    [
+      "completed",
+      "2024-01-24",
+      "2024-01-24"
+    ],
+    [
+      "missed",
+      "2024-01-25",
+      "2024-01-27"
+    ],
+    [
+      "completed",
+      "2024-01-28",
+      "2024-01-31"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "union",
+    "output_shape": "fewer_rows",
+    "recipe": "gaps-and-islands",
+    "composite_moves": [
+      "UNION two source tables (one per state) with status literal and date column",
+      "date-minus-rownumber form: (date - ROW_NUMBER() OVER (PARTITION BY status ORDER BY date))::INT AS grp",
+      "GROUP BY status, grp; aggregate MIN(date) AS start_date, MAX(date) AS end_date",
+      "ORDER BY start_date ASC"
+    ]
+  },
+  "hints": [
+    "Combine both tables with a UNION ALL, adding a status label to each branch. Filter each branch to the date range.",
+    "Assign a row number to each row within its status partition, ordered by date. The difference between the date and the row number will be constant for consecutive dates in the same status.",
+    "Group by status and the date-minus-rownumber value, then take the MIN and MAX date in each group to get the start and end of each contiguous period."
+  ],
+  "answer_key": "WITH combined AS (\n  SELECT 'completed' AS status, completed_date AS d\n  FROM appointments_completed\n  WHERE completed_date BETWEEN '2024-01-01' AND '2024-01-31'\n  UNION ALL\n  SELECT 'missed' AS status, missed_date AS d\n  FROM appointments_missed\n  WHERE missed_date BETWEEN '2024-01-01' AND '2024-01-31'\n),\nranked AS (\n  SELECT status, d,\n         d - (ROW_NUMBER() OVER (PARTITION BY status ORDER BY d))::INT AS grp\n  FROM combined\n)\nSELECT status,\n       MIN(d) AS start_date,\n       MAX(d) AS end_date\nFROM ranked\nGROUP BY status, grp\nORDER BY start_date ASC;",
+  "_meta": {
+    "question_type": "union_islands",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-13T21:31:33.575589",
+    "problem_id": "b54093c600fe",
+    "validation_attempts": 1,
+    "scenario": "a telehealth platform tracking appointment scheduling and no-shows",
+    "dml_op": null,
+    "islands_flavor": "date_calendar",
+    "percentile_flavor": null
+  }
+}

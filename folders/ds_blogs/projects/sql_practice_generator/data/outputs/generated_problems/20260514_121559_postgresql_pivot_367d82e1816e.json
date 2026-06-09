@@ -1,0 +1,168 @@
+{
+  "title": "Pivot Patient Visit Counts by Department",
+  "prompt": "Write a query that pivots patient visit counts from long format to wide format. The `visit_records` table stores one row per visit with columns `patient_id`, `department`, and `visit_count`. Transform this into one row per patient with separate columns for each department's total visits. The departments to pivot are: 'Cardiology', 'Neurology', 'Orthopedics', and 'Pediatrics'. For each department, use `SUM` to aggregate the `visit_count` values into columns named `cardiology_visits`, `neurology_visits`, `orthopedics_visits`, and `pediatrics_visits`. If a patient has no visits in a department, return `0` (not NULL) for that column. Join with the `patients` table to include the patient's full name. Order the output by `patient_id` ascending. Output columns: `patient_id`, `patient_name`, `cardiology_visits`, `neurology_visits`, `orthopedics_visits`, `pediatrics_visits`.",
+  "schema_ddl": "CREATE TABLE patients (patient_id INT PRIMARY KEY, patient_name VARCHAR(100)); CREATE TABLE visit_records (record_id SERIAL PRIMARY KEY, patient_id INT, department VARCHAR(50), visit_count INT);",
+  "example_input_data": "INSERT INTO patients (patient_id, patient_name) VALUES (101, 'Alice Johnson'), (102, 'Bob Martinez'), (103, 'Carol White'), (104, 'David Lee'); INSERT INTO visit_records (patient_id, department, visit_count) VALUES (101, 'Cardiology', 2), (101, 'Neurology', 1), (102, 'Orthopedics', 3), (102, 'Cardiology', 1), (103, 'Pediatrics', 2), (104, 'Cardiology', 4), (104, 'Neurology', 2), (104, 'Orthopedics', 1);",
+  "example_output_columns": [
+    "patient_id",
+    "patient_name",
+    "cardiology_visits",
+    "neurology_visits",
+    "orthopedics_visits",
+    "pediatrics_visits"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Alice Johnson",
+      2,
+      1,
+      0,
+      0
+    ],
+    [
+      102,
+      "Bob Martinez",
+      1,
+      0,
+      3,
+      0
+    ],
+    [
+      103,
+      "Carol White",
+      0,
+      0,
+      0,
+      2
+    ],
+    [
+      104,
+      "David Lee",
+      4,
+      2,
+      1,
+      0
+    ]
+  ],
+  "test_data": "INSERT INTO patients (patient_id, patient_name) VALUES (201, 'Emma Taylor'), (202, 'Frank Robinson'), (203, 'Grace Kim'), (204, 'Henry Patel'), (205, 'Iris Chen'), (206, 'Jack Wilson'), (207, 'Kelly Brown'), (208, 'Leo Garcia'), (209, 'Maya Singh'), (210, 'Noah Davis'); INSERT INTO visit_records (patient_id, department, visit_count) VALUES (201, 'Cardiology', 5), (201, 'Cardiology', 3), (201, 'Neurology', 2), (202, 'Pediatrics', 4), (202, 'Pediatrics', 1), (203, 'Orthopedics', 6), (203, 'Cardiology', 2), (204, 'Neurology', 3), (204, 'Neurology', 1), (204, 'Orthopedics', 2), (205, 'Cardiology', 1), (205, 'Neurology', 1), (205, 'Orthopedics', 1), (205, 'Pediatrics', 1), (206, 'Pediatrics', 7), (207, 'Cardiology', 9), (207, 'Orthopedics', 4), (208, 'Neurology', 5), (208, 'Pediatrics', 3), (209, 'Cardiology', 2), (209, 'Neurology', 2), (209, 'Orthopedics', 2), (209, 'Pediatrics', 2), (210, 'Orthopedics', 8), (210, 'Orthopedics', 2);",
+  "test_expected_columns": [
+    "patient_id",
+    "patient_name",
+    "cardiology_visits",
+    "neurology_visits",
+    "orthopedics_visits",
+    "pediatrics_visits"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Emma Taylor",
+      8,
+      2,
+      0,
+      0
+    ],
+    [
+      202,
+      "Frank Robinson",
+      0,
+      0,
+      0,
+      5
+    ],
+    [
+      203,
+      "Grace Kim",
+      2,
+      0,
+      6,
+      0
+    ],
+    [
+      204,
+      "Henry Patel",
+      0,
+      4,
+      2,
+      0
+    ],
+    [
+      205,
+      "Iris Chen",
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      206,
+      "Jack Wilson",
+      0,
+      0,
+      0,
+      7
+    ],
+    [
+      207,
+      "Kelly Brown",
+      9,
+      0,
+      4,
+      0
+    ],
+    [
+      208,
+      "Leo Garcia",
+      0,
+      5,
+      0,
+      3
+    ],
+    [
+      209,
+      "Maya Singh",
+      2,
+      2,
+      2,
+      2
+    ],
+    [
+      210,
+      "Noah Davis",
+      0,
+      0,
+      10,
+      0
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "reshape",
+    "composite_moves": [
+      "join patients and visit_records",
+      "pivot department column using SUM(CASE WHEN) for each target department",
+      "COALESCE aggregations to 0 for missing departments",
+      "group by patient_id and patient_name",
+      "order by patient_id"
+    ]
+  },
+  "hints": [
+    "You need to transform rows grouped by department into columns, one per department.",
+    "Use CASE WHEN inside SUM to conditionally accumulate visit_count only when the department matches the target column.",
+    "Wrap each SUM(CASE...) with COALESCE(..., 0) to replace NULL with 0 when a patient has no visits in that department, then GROUP BY patient_id and patient_name."
+  ],
+  "answer_key": "SELECT p.patient_id, p.patient_name, COALESCE(SUM(CASE WHEN vr.department = 'Cardiology' THEN vr.visit_count END), 0) AS cardiology_visits, COALESCE(SUM(CASE WHEN vr.department = 'Neurology' THEN vr.visit_count END), 0) AS neurology_visits, COALESCE(SUM(CASE WHEN vr.department = 'Orthopedics' THEN vr.visit_count END), 0) AS orthopedics_visits, COALESCE(SUM(CASE WHEN vr.department = 'Pediatrics' THEN vr.visit_count END), 0) AS pediatrics_visits FROM patients p LEFT JOIN visit_records vr ON p.patient_id = vr.patient_id GROUP BY p.patient_id, p.patient_name ORDER BY p.patient_id;",
+  "_meta": {
+    "question_type": "pivot",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-14T12:15:59.393721",
+    "problem_id": "367d82e1816e",
+    "validation_attempts": 1,
+    "scenario": "a hospital system tracking patient admissions, discharges, and readmissions",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

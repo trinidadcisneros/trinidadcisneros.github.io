@@ -1,0 +1,120 @@
+{
+  "title": "Consolidate Gig Worker Activity Streaks",
+  "prompt": "You manage a gig labor marketplace that tracks when workers are actively accepting jobs versus when they are offline. The `active_shifts` table records dates when a worker accepted at least one job; the `offline_days` table records dates when a worker explicitly marked themselves unavailable. Some days may have no record at all (the worker did not accept jobs and did not mark themselves offline). Your task is to collapse consecutive days into streaks, where 'consecutive' means consecutive among all dates present in either table (ignoring days with no record). For example, if a worker is active on Jan 1, Jan 2, offline on Jan 4, and active again on Jan 5, you should produce two active streaks (Jan 1\u20132 and Jan 5) and one offline streak (Jan 4), even though Jan 3 has no record. Write a query that unions both tables (labeling each row's state as 'active' or 'offline'), identifies consecutive streaks using the row-number difference technique that handles missing days, and outputs one row per streak showing `state`, `start_date`, and `end_date`. Order the output by `start_date` ascending. Note: use the two-row-number-difference form that partitions by state, because dates may have gaps.",
+  "schema_ddl": "CREATE TABLE active_shifts (worker_id INT, shift_date DATE); CREATE TABLE offline_days (worker_id INT, offline_date DATE);",
+  "example_input_data": "INSERT INTO active_shifts (worker_id, shift_date) VALUES (101, '2024-01-01'), (101, '2024-01-02'), (101, '2024-01-05'), (101, '2024-01-06'); INSERT INTO offline_days (worker_id, offline_date) VALUES (101, '2024-01-04'), (101, '2024-01-08'), (101, '2024-01-09');",
+  "example_output_columns": [
+    "state",
+    "start_date",
+    "end_date"
+  ],
+  "example_output_rows": [
+    [
+      "active",
+      "2024-01-01",
+      "2024-01-02"
+    ],
+    [
+      "offline",
+      "2024-01-04",
+      "2024-01-04"
+    ],
+    [
+      "active",
+      "2024-01-05",
+      "2024-01-06"
+    ],
+    [
+      "offline",
+      "2024-01-08",
+      "2024-01-09"
+    ]
+  ],
+  "test_data": "INSERT INTO active_shifts (worker_id, shift_date) VALUES (101, '2024-01-01'), (101, '2024-01-02'), (101, '2024-01-03'), (101, '2024-01-07'), (101, '2024-01-08'), (101, '2024-01-12'), (101, '2024-01-13'), (101, '2024-01-14'), (101, '2024-01-18'), (101, '2024-01-22'), (101, '2024-01-23'), (101, '2024-01-24'), (101, '2024-01-25'); INSERT INTO offline_days (worker_id, offline_date) VALUES (101, '2024-01-05'), (101, '2024-01-10'), (101, '2024-01-11'), (101, '2024-01-16'), (101, '2024-01-17'), (101, '2024-01-19'), (101, '2024-01-20'), (101, '2024-01-21');",
+  "test_expected_columns": [
+    "state",
+    "start_date",
+    "end_date"
+  ],
+  "test_expected_rows": [
+    [
+      "active",
+      "2024-01-01",
+      "2024-01-03"
+    ],
+    [
+      "offline",
+      "2024-01-05",
+      "2024-01-05"
+    ],
+    [
+      "active",
+      "2024-01-07",
+      "2024-01-08"
+    ],
+    [
+      "offline",
+      "2024-01-10",
+      "2024-01-11"
+    ],
+    [
+      "active",
+      "2024-01-12",
+      "2024-01-14"
+    ],
+    [
+      "offline",
+      "2024-01-16",
+      "2024-01-17"
+    ],
+    [
+      "active",
+      "2024-01-18",
+      "2024-01-18"
+    ],
+    [
+      "offline",
+      "2024-01-19",
+      "2024-01-21"
+    ],
+    [
+      "active",
+      "2024-01-22",
+      "2024-01-25"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "union",
+    "output_shape": "fewer_rows",
+    "recipe": "gaps-and-islands",
+    "composite_moves": [
+      "UNION all dates from both tables with state labels",
+      "Compute ROW_NUMBER() OVER (ORDER BY date) as overall sequence",
+      "Compute ROW_NUMBER() OVER (PARTITION BY state ORDER BY date) as per-state sequence",
+      "Calculate grp = overall_rn - state_rn",
+      "GROUP BY state, grp",
+      "Aggregate MIN(date) as start_date, MAX(date) as end_date",
+      "ORDER BY start_date ASC"
+    ]
+  },
+  "hints": [
+    "Start by combining both tables into a single result set, tagging each date with its state.",
+    "Use two ROW_NUMBER window functions: one ordered by date only, another partitioned by state and ordered by date. Their difference reveals consecutive groups.",
+    "Group by state and the difference value, then aggregate to find the start and end of each streak."
+  ],
+  "answer_key": "WITH combined AS (\n  SELECT shift_date AS d, 'active' AS state FROM active_shifts WHERE worker_id = 101\n  UNION ALL\n  SELECT offline_date AS d, 'offline' AS state FROM offline_days WHERE worker_id = 101\n),\nranked AS (\n  SELECT\n    d,\n    state,\n    ROW_NUMBER() OVER (ORDER BY d) - ROW_NUMBER() OVER (PARTITION BY state ORDER BY d) AS grp\n  FROM combined\n)\nSELECT\n  state,\n  MIN(d) AS start_date,\n  MAX(d) AS end_date\nFROM ranked\nGROUP BY state, grp\nORDER BY start_date;",
+  "_meta": {
+    "question_type": "union_islands",
+    "original_qtype": "union_islands",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-29T20:28:55.689048",
+    "problem_id": "3d27af32999d",
+    "validation_attempts": 1,
+    "scenario": "a gig labor marketplace tracking job acceptance and completion rates",
+    "dml_op": null,
+    "islands_flavor": "date_sequence",
+    "percentile_flavor": null
+  }
+}

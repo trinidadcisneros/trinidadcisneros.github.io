@@ -1,0 +1,160 @@
+{
+  "title": "Archive Won Opportunities Above Quota",
+  "prompt": "Your CRM tracks sales opportunities in the `opportunities` table. When deals close above a certain threshold, the finance team wants them archived into `high_value_archive` for annual reporting. Write a single INSERT statement that copies all won opportunities with `deal_value >= 50000` into the `high_value_archive` table. The archive should store `opportunity_id`, `account_id`, `deal_value`, `close_date`, and a computed `revenue_tier` column: set `revenue_tier` to 'enterprise' if `deal_value >= 100000`, otherwise 'mid-market'. After the INSERT, write a SELECT statement that returns all rows from `high_value_archive` ordered by `deal_value` DESC, then `opportunity_id` ASC.",
+  "schema_ddl": "CREATE TABLE opportunities (opportunity_id INT PRIMARY KEY, account_id INT NOT NULL, deal_value DECIMAL(12,2) NOT NULL, stage VARCHAR(20) NOT NULL, close_date DATE); CREATE TABLE high_value_archive (opportunity_id INT PRIMARY KEY, account_id INT NOT NULL, deal_value DECIMAL(12,2) NOT NULL, close_date DATE NOT NULL, revenue_tier VARCHAR(20) NOT NULL);",
+  "example_input_data": "INSERT INTO opportunities (opportunity_id, account_id, deal_value, stage, close_date) VALUES (101, 201, 45000.00, 'won', '2024-01-15'), (102, 202, 120000.00, 'won', '2024-01-18'), (103, 203, 75000.00, 'won', '2024-01-20'), (104, 204, 30000.00, 'won', '2024-01-22'), (105, 205, 95000.00, 'negotiation', '2024-01-25'), (106, 206, 150000.00, 'won', '2024-01-28');",
+  "example_output_columns": [
+    "opportunity_id",
+    "account_id",
+    "deal_value",
+    "close_date",
+    "revenue_tier"
+  ],
+  "example_output_rows": [
+    [
+      106,
+      206,
+      "150000.00",
+      "2024-01-28",
+      "enterprise"
+    ],
+    [
+      102,
+      202,
+      "120000.00",
+      "2024-01-18",
+      "enterprise"
+    ],
+    [
+      103,
+      203,
+      "75000.00",
+      "2024-01-20",
+      "mid-market"
+    ]
+  ],
+  "test_data": "INSERT INTO opportunities (opportunity_id, account_id, deal_value, stage, close_date) VALUES (111, 211, 49999.99, 'won', '2024-01-10'), (112, 212, 50000.00, 'won', '2024-01-11'), (113, 213, 50000.01, 'won', '2024-01-12'), (114, 214, 99999.99, 'won', '2024-01-13'), (115, 215, 100000.00, 'won', '2024-01-14'), (116, 216, 100000.01, 'won', '2024-01-15'), (117, 217, 200000.00, 'won', '2024-01-16'), (118, 218, 75000.00, 'lost', '2024-01-17'), (119, 219, 80000.00, 'won', '2024-01-18'), (120, 220, 60000.00, 'negotiation', '2024-01-19'), (121, 221, 55000.00, 'won', '2024-01-20'), (122, 222, 110000.00, 'won', '2024-01-21'), (123, 223, 90000.00, 'won', '2024-01-22'), (124, 224, 150000.00, 'proposal', '2024-01-23'), (125, 225, 250000.00, 'won', '2024-01-24'), (126, 226, 85000.00, 'won', '2024-01-25');",
+  "test_expected_columns": [
+    "opportunity_id",
+    "account_id",
+    "deal_value",
+    "close_date",
+    "revenue_tier"
+  ],
+  "test_expected_rows": [
+    [
+      125,
+      225,
+      "250000.00",
+      "2024-01-24",
+      "enterprise"
+    ],
+    [
+      117,
+      217,
+      "200000.00",
+      "2024-01-16",
+      "enterprise"
+    ],
+    [
+      122,
+      222,
+      "110000.00",
+      "2024-01-21",
+      "enterprise"
+    ],
+    [
+      116,
+      216,
+      "100000.01",
+      "2024-01-15",
+      "enterprise"
+    ],
+    [
+      115,
+      215,
+      "100000.00",
+      "2024-01-14",
+      "enterprise"
+    ],
+    [
+      114,
+      214,
+      "99999.99",
+      "2024-01-13",
+      "mid-market"
+    ],
+    [
+      123,
+      223,
+      "90000.00",
+      "2024-01-22",
+      "mid-market"
+    ],
+    [
+      126,
+      226,
+      "85000.00",
+      "2024-01-25",
+      "mid-market"
+    ],
+    [
+      119,
+      219,
+      "80000.00",
+      "2024-01-18",
+      "mid-market"
+    ],
+    [
+      121,
+      221,
+      "55000.00",
+      "2024-01-20",
+      "mid-market"
+    ],
+    [
+      113,
+      213,
+      "50000.01",
+      "2024-01-12",
+      "mid-market"
+    ],
+    [
+      112,
+      212,
+      "50000.00",
+      "2024-01-11",
+      "mid-market"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "state_mutation",
+    "recipe": "row-filter",
+    "composite_moves": [
+      "row-filter: stage = 'won' AND deal_value >= 50000",
+      "row-transform: compute revenue_tier using CASE",
+      "INSERT into high_value_archive",
+      "confirming SELECT"
+    ]
+  },
+  "hints": [
+    "You need to filter opportunities by both stage and deal value threshold.",
+    "Use a CASE expression in the SELECT clause to compute the revenue_tier column based on deal_value thresholds.",
+    "The INSERT ... SELECT pattern lets you transform and filter source rows in a single statement; remember to order the final confirming SELECT by deal_value DESC, then opportunity_id ASC."
+  ],
+  "answer_key": "INSERT INTO high_value_archive (opportunity_id, account_id, deal_value, close_date, revenue_tier)\nSELECT \n  opportunity_id,\n  account_id,\n  deal_value,\n  close_date,\n  CASE WHEN deal_value >= 100000 THEN 'enterprise' ELSE 'mid-market' END\nFROM opportunities\nWHERE stage = 'won' AND deal_value >= 50000;\n\nSELECT * FROM high_value_archive ORDER BY deal_value DESC, opportunity_id ASC;",
+  "_meta": {
+    "question_type": "dml_insert",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-16T19:50:39.245751",
+    "problem_id": "cbe22ef09444",
+    "validation_attempts": 2,
+    "scenario": "a CRM tracking pipeline coverage and won opportunity rates",
+    "dml_op": "INSERT",
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

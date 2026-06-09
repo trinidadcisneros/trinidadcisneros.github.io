@@ -1,0 +1,119 @@
+{
+  "title": "Loan Application Stage Processor with State Guards",
+  "prompt": "A lending platform tracks loan applications and their lifecycle events. The `applications` table stores each application's current stage, assigned underwriter, and approval timestamp. The `stage_events` log contains chronological requests to advance or reassign applications, each with a monotonically increasing `event_id`. Write a DO block that processes the events in chronological order (event_id ascending). Each event must read the application's current state before deciding whether to act. Subsequent events in the same run must see the prior event's updates. After processing all events, select the final application states ordered by application_id.\n\nEvent type rules (refer to the schema's `event_type` column and the application's current `stage` and `underwriter_id`):\n\n\u2022 When `event_type` = 1 ('submit_for_review') applies:\n  - Preconditions:\n    + current `stage` must be 'draft'.\n  - Actions:\n    + set `stage` to 'under_review'.\n    + set `underwriter_id` to the event's `assigned_underwriter_id`.\n\n\u2022 When `event_type` = 2 ('request_docs') applies:\n  - Preconditions:\n    + current `stage` must be 'under_review'.\n    + the event's `underwriter_id` must equal the current `underwriter_id`.\n  - Actions:\n    + set `stage` to 'awaiting_docs'.\n\n\u2022 When `event_type` = 3 ('docs_received') applies:\n  - Preconditions:\n    + current `stage` must be 'awaiting_docs'.\n  - Actions:\n    + set `stage` to 'under_review'.\n\n\u2022 When `event_type` = 4 ('approve') applies:\n  - Preconditions:\n    + current `stage` must be 'under_review'.\n    + the event's `underwriter_id` must equal the current `underwriter_id`.\n  - Actions:\n    + set `stage` to 'approved'.\n    + set `approved_at` to the event's `event_timestamp`.\n\n\u2022 Events that fail their preconditions are no-ops (the application row is unchanged).\n\nYour DO block must declare a RECORD variable for the event row, scalar variables for the current stage/underwriter/timestamp, use a FOR loop over stage_events ordered by event_id, SELECT current values into variables each iteration, branch with IF/ELSIF on both event_type and current state, and conditionally UPDATE applications. End with `SELECT * FROM applications ORDER BY application_id;` so the result shows the final state snapshot.",
+  "schema_ddl": "CREATE TABLE applications (application_id INT PRIMARY KEY, stage VARCHAR(20) NOT NULL, underwriter_id INT, approved_at TIMESTAMP); CREATE TABLE stage_events (event_id INT PRIMARY KEY, application_id INT NOT NULL REFERENCES applications(application_id), event_type INT NOT NULL, underwriter_id INT, assigned_underwriter_id INT, event_timestamp TIMESTAMP NOT NULL);",
+  "example_input_data": "INSERT INTO applications (application_id, stage, underwriter_id, approved_at) VALUES (101, 'draft', NULL, NULL), (102, 'draft', NULL, NULL), (103, 'under_review', 5, NULL); INSERT INTO stage_events (event_id, application_id, event_type, underwriter_id, assigned_underwriter_id, event_timestamp) VALUES (1, 101, 1, NULL, 3, '2024-01-10 09:00:00'), (2, 101, 2, 3, NULL, '2024-01-10 10:00:00'), (3, 102, 1, NULL, 4, '2024-01-10 09:30:00'), (4, 101, 3, NULL, NULL, '2024-01-10 11:00:00'), (5, 101, 4, 3, NULL, '2024-01-10 12:00:00'), (6, 103, 4, 3, NULL, '2024-01-10 12:30:00');",
+  "example_output_columns": [
+    "application_id",
+    "stage",
+    "underwriter_id",
+    "approved_at"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "approved",
+      3,
+      "2024-01-10 12:00:00"
+    ],
+    [
+      102,
+      "under_review",
+      4,
+      null
+    ],
+    [
+      103,
+      "under_review",
+      5,
+      null
+    ]
+  ],
+  "test_data": "INSERT INTO applications (application_id, stage, underwriter_id, approved_at) VALUES (201, 'draft', NULL, NULL), (202, 'draft', NULL, NULL), (203, 'under_review', 10, NULL), (204, 'draft', NULL, NULL), (205, 'awaiting_docs', 12, NULL), (206, 'under_review', 13, NULL), (207, 'draft', NULL, NULL), (208, 'under_review', 15, NULL); INSERT INTO stage_events (event_id, application_id, event_type, underwriter_id, assigned_underwriter_id, event_timestamp) VALUES (10, 201, 1, NULL, 20, '2024-02-01 08:00:00'), (11, 201, 2, 20, NULL, '2024-02-01 09:00:00'), (12, 202, 1, NULL, 21, '2024-02-01 08:15:00'), (13, 201, 3, NULL, NULL, '2024-02-01 10:00:00'), (14, 203, 2, 10, NULL, '2024-02-01 08:30:00'), (15, 204, 2, 22, NULL, '2024-02-01 09:00:00'), (16, 201, 4, 20, NULL, '2024-02-01 11:00:00'), (17, 202, 4, 99, NULL, '2024-02-01 10:00:00'), (18, 203, 3, NULL, NULL, '2024-02-01 09:30:00'), (19, 205, 3, NULL, NULL, '2024-02-01 08:45:00'), (20, 205, 4, 12, NULL, '2024-02-01 11:30:00'), (21, 206, 4, 13, NULL, '2024-02-01 10:30:00'), (22, 207, 1, NULL, 23, '2024-02-01 09:15:00'), (23, 207, 2, 23, NULL, '2024-02-01 10:15:00'), (24, 208, 2, 15, NULL, '2024-02-01 09:45:00'), (25, 208, 3, NULL, NULL, '2024-02-01 10:45:00'), (26, 208, 4, 15, NULL, '2024-02-01 11:45:00'), (27, 202, 2, 21, NULL, '2024-02-01 11:00:00'), (28, 202, 3, NULL, NULL, '2024-02-01 12:00:00'), (29, 202, 4, 21, NULL, '2024-02-01 13:00:00'), (30, 203, 4, 10, NULL, '2024-02-01 12:15:00');",
+  "test_expected_columns": [
+    "application_id",
+    "stage",
+    "underwriter_id",
+    "approved_at"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "approved",
+      20.0,
+      "2024-02-01 11:00:00"
+    ],
+    [
+      202,
+      "approved",
+      21.0,
+      "2024-02-01 13:00:00"
+    ],
+    [
+      203,
+      "approved",
+      10.0,
+      "2024-02-01 12:15:00"
+    ],
+    [
+      204,
+      "draft",
+      null,
+      null
+    ],
+    [
+      205,
+      "approved",
+      12.0,
+      "2024-02-01 11:30:00"
+    ],
+    [
+      206,
+      "approved",
+      13.0,
+      "2024-02-01 10:30:00"
+    ],
+    [
+      207,
+      "awaiting_docs",
+      23.0,
+      null
+    ],
+    [
+      208,
+      "approved",
+      15.0,
+      "2024-02-01 11:45:00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "procedural",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "declare RECORD for event row and scalars for current stage/underwriter/timestamp",
+      "FOR loop over stage_events ORDER BY event_id",
+      "per-iteration SELECT current values INTO variables",
+      "IF/ELSIF branches on event_type AND current state",
+      "conditional UPDATE applications per branch",
+      "trailing SELECT * FROM applications ORDER BY application_id"
+    ]
+  },
+  "hints": [
+    "You need a DO block with a FOR loop that reads stage_events in event_id order and a SELECT inside the loop to fetch the application's current state before each decision.",
+    "Declare variables to hold the current stage, underwriter_id, and approved_at. Use IF/ELSIF to check both the event_type and whether the current state satisfies the preconditions (e.g., stage = 'under_review' AND underwriter_id matches the event's underwriter_id for approval).",
+    "Each branch should UPDATE applications SET ... WHERE application_id = rec.application_id only when both the event_type and all preconditions match. Event 6 in the example (approve on app 103) is a no-op because the event's underwriter_id (3) doesn't match the current underwriter_id (5). The final SELECT * FROM applications ORDER BY application_id; shows the post-mutation snapshot."
+  ],
+  "answer_key": "DO $$\nDECLARE\n  rec RECORD;\n  cur_stage VARCHAR(20);\n  cur_underwriter INT;\n  cur_approved TIMESTAMP;\nBEGIN\n  FOR rec IN SELECT * FROM stage_events ORDER BY event_id LOOP\n    SELECT stage, underwriter_id, approved_at INTO cur_stage, cur_underwriter, cur_approved\n    FROM applications WHERE application_id = rec.application_id;\n\n    IF rec.event_type = 1 AND cur_stage = 'draft' THEN\n      UPDATE applications\n      SET stage = 'under_review', underwriter_id = rec.assigned_underwriter_id\n      WHERE application_id = rec.application_id;\n    ELSIF rec.event_type = 2 AND cur_stage = 'under_review' AND rec.underwriter_id = cur_underwriter THEN\n      UPDATE applications\n      SET stage = 'awaiting_docs'\n      WHERE application_id = rec.application_id;\n    ELSIF rec.event_type = 3 AND cur_stage = 'awaiting_docs' THEN\n      UPDATE applications\n      SET stage = 'under_review'\n      WHERE application_id = rec.application_id;\n    ELSIF rec.event_type = 4 AND cur_stage = 'under_review' AND rec.underwriter_id = cur_underwriter THEN\n      UPDATE applications\n      SET stage = 'approved', approved_at = rec.event_timestamp\n      WHERE application_id = rec.application_id;\n    END IF;\n  END LOOP;\nEND $$;\n\nSELECT * FROM applications ORDER BY application_id;",
+  "_meta": {
+    "question_type": "do_block_queue",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-11T20:24:10.298743",
+    "problem_id": "1d46bd6f1869",
+    "validation_attempts": 1,
+    "scenario": "a lending platform tracking loan application stages and approval times",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

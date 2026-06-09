@@ -1,0 +1,131 @@
+{
+  "problem": {
+    "title": "Reimbursement Cap by Vendor Status",
+    "prompt": "Write a query that returns the lowest pending reimbursement amount for each vendor, but only if the vendor has an active compliance certification. For vendors WITHOUT active certification, output NULL for the reimbursement amount (but still include the vendor row). Your result should show `vendor_id`, `vendor_name`, and `min_pending_amount`. A vendor's certification is active if `certification_status = 'active'`. If a vendor has no pending reimbursements in the receipts table, they should still appear with NULL for `min_pending_amount`. Order the result by `vendor_id` ascending.",
+    "schema_ddl": "CREATE TABLE vendors (vendor_id INT PRIMARY KEY, vendor_name VARCHAR(100), certification_status VARCHAR(20)); CREATE TABLE receipts (receipt_id INT PRIMARY KEY, vendor_id INT, amount DECIMAL(10,2), reimbursement_status VARCHAR(20));",
+    "example_input_data": "INSERT INTO vendors (vendor_id, vendor_name, certification_status) VALUES (1, 'Office Depot', 'active'), (2, 'Staples', 'active'), (3, 'Amazon Business', 'suspended'), (4, 'FedEx', 'active'), (5, 'UPS', 'suspended'); INSERT INTO receipts (receipt_id, vendor_id, amount, reimbursement_status) VALUES (101, 1, 45.00, 'pending'), (102, 1, 32.50, 'pending'), (103, 1, 78.00, 'approved'), (104, 2, 120.00, 'pending'), (105, 3, 15.00, 'pending'), (106, 3, 22.00, 'pending'), (107, 4, 60.00, 'approved');",
+    "example_output_columns": [
+      "vendor_id",
+      "vendor_name",
+      "min_pending_amount"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "Office Depot",
+        "32.50"
+      ],
+      [
+        2,
+        "Staples",
+        "120.00"
+      ],
+      [
+        3,
+        "Amazon Business",
+        null
+      ],
+      [
+        4,
+        "FedEx",
+        null
+      ],
+      [
+        5,
+        "UPS",
+        null
+      ]
+    ],
+    "test_data": "INSERT INTO vendors (vendor_id, vendor_name, certification_status) VALUES (1, 'Office Depot', 'active'), (2, 'Staples', 'active'), (3, 'Amazon Business', 'suspended'), (4, 'FedEx', 'active'), (5, 'UPS', 'suspended'), (6, 'Best Buy', 'active'), (7, 'Costco', 'expired'), (8, 'Target', 'active'), (9, 'Walmart', 'active'), (10, 'Home Depot', 'suspended'); INSERT INTO receipts (receipt_id, vendor_id, amount, reimbursement_status) VALUES (101, 1, 45.00, 'pending'), (102, 1, 32.50, 'pending'), (103, 1, 78.00, 'approved'), (104, 1, 29.99, 'pending'), (105, 2, 120.00, 'pending'), (106, 2, 95.50, 'pending'), (107, 2, 200.00, 'approved'), (108, 3, 15.00, 'pending'), (109, 3, 22.00, 'pending'), (110, 3, 8.75, 'pending'), (111, 4, 60.00, 'approved'), (112, 4, 55.00, 'approved'), (113, 5, 100.00, 'pending'), (114, 5, 75.00, 'pending'), (115, 6, 299.99, 'pending'), (116, 7, 50.00, 'pending'), (117, 7, 35.00, 'pending'), (118, 8, 12.50, 'pending'), (119, 8, 18.75, 'pending'), (120, 8, 25.00, 'approved'), (121, 9, 88.88, 'pending'), (122, 10, 150.00, 'pending'), (123, 10, 125.00, 'pending'), (124, 10, 99.99, 'pending');",
+    "test_expected_columns": [
+      "vendor_id",
+      "vendor_name",
+      "min_pending_amount"
+    ],
+    "test_expected_rows": [
+      [
+        1,
+        "Office Depot",
+        "29.99"
+      ],
+      [
+        2,
+        "Staples",
+        "95.50"
+      ],
+      [
+        3,
+        "Amazon Business",
+        null
+      ],
+      [
+        4,
+        "FedEx",
+        null
+      ],
+      [
+        5,
+        "UPS",
+        null
+      ],
+      [
+        6,
+        "Best Buy",
+        "299.99"
+      ],
+      [
+        7,
+        "Costco",
+        null
+      ],
+      [
+        8,
+        "Target",
+        "12.50"
+      ],
+      [
+        9,
+        "Walmart",
+        "88.88"
+      ],
+      [
+        10,
+        "Home Depot",
+        null
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "same_rows",
+      "recipe": "enrich-join",
+      "composite_moves": [
+        "lookup gate attribute (certification_status) from vendors table",
+        "per-entity pick: compute MIN(amount) WHERE reimbursement_status = 'pending' for each vendor_id",
+        "gate with CASE: if certification_status = 'active' return min_pending_amount else NULL",
+        "left join vendors to ensure all vendors appear in output"
+      ]
+    },
+    "hints": [
+      "You need information from both tables: one tells you whether the vendor is certified, the other holds the amounts.",
+      "Find the smallest pending amount for each vendor first, then decide whether to show it based on the vendor's certification status.",
+      "Use a LEFT JOIN from vendors to a subquery that computes MIN(amount) grouped by vendor_id (filtering to pending only), then wrap the amount in a CASE that checks certification_status."
+    ],
+    "answer_key": "WITH pending_min AS (SELECT vendor_id, MIN(amount) AS min_amt FROM receipts WHERE reimbursement_status = 'pending' GROUP BY vendor_id) SELECT v.vendor_id, v.vendor_name, CASE WHEN v.certification_status = 'active' THEN pm.min_amt ELSE NULL END AS min_pending_amount FROM vendors v LEFT JOIN pending_min pm ON v.vendor_id = pm.vendor_id ORDER BY v.vendor_id;",
+    "_meta": {
+      "question_type": "gated_lookup",
+      "original_qtype": "gated_lookup",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-29T17:56:58.229458",
+      "problem_id": "1844716a6223",
+      "validation_attempts": 1,
+      "scenario": "an expense management app tracking receipt capture and policy compliance",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\nReimbursement Cap by Vendor Status\n\nPrompt\n- returns the MIN(amount) for vendor certification_status = 'active' ELSE NULL\n\nSchema\nTable: vendors\nvendor_id\t            INT PRIMARY KEY\nvendor_name\t            VARCHAR(100)\ncertification_status\tVARCHAR(20)\n\nTable: receipts\nreceipt_id\t            INT PRIMARY KEY\nvendor_id\t            INT\namount\t                DECIMAL(10,2)\nreimbursement_status\tVARCHAR(20)\n\nORDER BY vendor_id\n*/\n\nSELECT\n    v.vendor_id,\n    v.vendor_name,\n    MIN(r.amount) min_pending_amount\nFROM vendors AS v\nLEFT JOIN receipts AS r\nON v.vendor_id = r.vendor_id AND r.reimbursement_status = 'pending' AND v.certification_status = 'active'\nGROUP BY v.vendor_id, v.vendor_name\nORDER BY vendor_id;\n\n\n\n\n\n\n\n\n",
+  "solved_at": "2026-05-29T18:32:58.332592"
+}

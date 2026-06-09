@@ -1,0 +1,179 @@
+{
+  "title": "7-Day Rolling Average of Daily Submissions",
+  "prompt": "The K-12 homework app tracks when students submit assignments each day. Write a query that computes a 7-day rolling average of daily submission counts, ordered by date ascending. For each date in the `daily_submissions` table, calculate the average number of submissions over that date and the 6 preceding days (up to 7 days total). Dates at the start of the dataset will average over fewer than 7 days if there aren't enough prior records. The output should have columns `submission_date` and `rolling_avg_submissions` (rounded to 2 decimal places). Use an explicit window frame clause with `ROWS BETWEEN 6 PRECEDING AND CURRENT ROW`.",
+  "schema_ddl": "CREATE TABLE daily_submissions (submission_date DATE NOT NULL, submission_count INTEGER NOT NULL);",
+  "example_input_data": "INSERT INTO daily_submissions (submission_date, submission_count) VALUES ('2024-03-01', 12), ('2024-03-02', 15), ('2024-03-03', 10), ('2024-03-04', 18), ('2024-03-05', 14), ('2024-03-06', 20), ('2024-03-07', 16), ('2024-03-08', 22);",
+  "example_output_columns": [
+    "submission_date",
+    "rolling_avg_submissions"
+  ],
+  "example_output_rows": [
+    [
+      "2024-03-01",
+      "12.00"
+    ],
+    [
+      "2024-03-02",
+      "13.50"
+    ],
+    [
+      "2024-03-03",
+      "12.33"
+    ],
+    [
+      "2024-03-04",
+      "13.75"
+    ],
+    [
+      "2024-03-05",
+      "13.80"
+    ],
+    [
+      "2024-03-06",
+      "14.83"
+    ],
+    [
+      "2024-03-07",
+      "15.00"
+    ],
+    [
+      "2024-03-08",
+      "16.43"
+    ]
+  ],
+  "test_data": "INSERT INTO daily_submissions (submission_date, submission_count) VALUES ('2024-02-15', 5), ('2024-02-16', 8), ('2024-02-17', 6), ('2024-02-18', 10), ('2024-02-19', 12), ('2024-02-20', 9), ('2024-02-21', 11), ('2024-02-22', 13), ('2024-02-23', 15), ('2024-02-24', 14), ('2024-02-25', 16), ('2024-02-26', 18), ('2024-02-27', 20), ('2024-02-28', 17), ('2024-02-29', 19), ('2024-03-01', 21), ('2024-03-02', 23), ('2024-03-03', 22), ('2024-03-04', 25), ('2024-03-05', 24), ('2024-03-06', 26), ('2024-03-07', 28), ('2024-03-08', 30), ('2024-03-09', 27), ('2024-03-10', 29);",
+  "test_expected_columns": [
+    "submission_date",
+    "rolling_avg_submissions"
+  ],
+  "test_expected_rows": [
+    [
+      "2024-02-15",
+      "5.00"
+    ],
+    [
+      "2024-02-16",
+      "6.50"
+    ],
+    [
+      "2024-02-17",
+      "6.33"
+    ],
+    [
+      "2024-02-18",
+      "7.25"
+    ],
+    [
+      "2024-02-19",
+      "8.20"
+    ],
+    [
+      "2024-02-20",
+      "8.33"
+    ],
+    [
+      "2024-02-21",
+      "8.71"
+    ],
+    [
+      "2024-02-22",
+      "9.86"
+    ],
+    [
+      "2024-02-23",
+      "10.86"
+    ],
+    [
+      "2024-02-24",
+      "12.00"
+    ],
+    [
+      "2024-02-25",
+      "12.86"
+    ],
+    [
+      "2024-02-26",
+      "13.71"
+    ],
+    [
+      "2024-02-27",
+      "15.29"
+    ],
+    [
+      "2024-02-28",
+      "16.14"
+    ],
+    [
+      "2024-02-29",
+      "17.00"
+    ],
+    [
+      "2024-03-01",
+      "17.86"
+    ],
+    [
+      "2024-03-02",
+      "19.14"
+    ],
+    [
+      "2024-03-03",
+      "20.00"
+    ],
+    [
+      "2024-03-04",
+      "21.00"
+    ],
+    [
+      "2024-03-05",
+      "21.57"
+    ],
+    [
+      "2024-03-06",
+      "22.86"
+    ],
+    [
+      "2024-03-07",
+      "24.14"
+    ],
+    [
+      "2024-03-08",
+      "25.43"
+    ],
+    [
+      "2024-03-09",
+      "26.00"
+    ],
+    [
+      "2024-03-10",
+      "27.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "time-window: order by date, apply ROWS BETWEEN 6 PRECEDING AND CURRENT ROW frame for AVG aggregate"
+    ]
+  },
+  "hints": [
+    "You need a window function that computes an average over a moving set of rows.",
+    "Use AVG() OVER with an ORDER BY on the date column and a ROWS BETWEEN frame clause.",
+    "The frame should include the current row and the 6 preceding rows: ROWS BETWEEN 6 PRECEDING AND CURRENT ROW. Round the result to 2 decimal places."
+  ],
+  "answer_key": "SELECT submission_date, ROUND(AVG(submission_count) OVER (ORDER BY submission_date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW), 2) AS rolling_avg_submissions FROM daily_submissions ORDER BY submission_date;",
+  "_meta": {
+    "question_type": "window_sliding",
+    "original_qtype": "window_sliding",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-24T20:01:40.498416",
+    "problem_id": "80d4432a330b",
+    "validation_attempts": 1,
+    "scenario": "a K-12 homework app tracking assignment turn-in and grade improvement",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

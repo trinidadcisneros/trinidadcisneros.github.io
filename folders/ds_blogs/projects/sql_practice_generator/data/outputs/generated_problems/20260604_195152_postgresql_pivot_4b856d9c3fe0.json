@@ -1,0 +1,151 @@
+{
+  "title": "Pivot Delivery Times by Status",
+  "prompt": "You are analyzing a food delivery service's order completion data. The `delivery_events` table records each status transition for an order in long format: each row captures one status change with the minutes elapsed since order placement. Write a query that pivots this data into wide format, showing one row per order with separate columns for the time spent in each status. Specifically, compute the MAXIMUM minutes for each status ('preparing', 'in_transit', 'delivered') and output columns `order_id`, `preparing_minutes`, `in_transit_minutes`, and `delivered_minutes`. If an order has no recorded event for a particular status, show NULL for that column. Join with the `orders` table to include only orders placed in January 2024 (order_date >= '2024-01-01' AND order_date < '2024-02-01'). Order the final result by `order_id` ascending. The output columns must be: order_id, preparing_minutes, in_transit_minutes, delivered_minutes.",
+  "schema_ddl": "CREATE TABLE orders (order_id INTEGER PRIMARY KEY, customer_id INTEGER NOT NULL, order_date DATE NOT NULL, total_amount DECIMAL(10,2) NOT NULL); CREATE TABLE delivery_events (event_id INTEGER PRIMARY KEY, order_id INTEGER NOT NULL REFERENCES orders(order_id), status VARCHAR(50) NOT NULL, minutes_elapsed INTEGER NOT NULL);",
+  "example_input_data": "INSERT INTO orders (order_id, customer_id, order_date, total_amount) VALUES (101, 1, '2024-01-05', 42.50), (102, 2, '2024-01-10', 28.00), (103, 3, '2024-01-15', 55.75), (104, 4, '2024-01-20', 33.20), (105, 5, '2023-12-28', 40.00); INSERT INTO delivery_events (event_id, order_id, status, minutes_elapsed) VALUES (1, 101, 'preparing', 12), (2, 101, 'preparing', 18), (3, 101, 'in_transit', 35), (4, 101, 'delivered', 50), (5, 102, 'preparing', 10), (6, 102, 'delivered', 45), (7, 103, 'preparing', 22), (8, 103, 'in_transit', 40), (9, 103, 'delivered', 62), (10, 104, 'preparing', 15);",
+  "example_output_columns": [
+    "order_id",
+    "preparing_minutes",
+    "in_transit_minutes",
+    "delivered_minutes"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      18,
+      35.0,
+      50.0
+    ],
+    [
+      102,
+      10,
+      null,
+      45.0
+    ],
+    [
+      103,
+      22,
+      40.0,
+      62.0
+    ],
+    [
+      104,
+      15,
+      null,
+      null
+    ]
+  ],
+  "test_data": "INSERT INTO orders (order_id, customer_id, order_date, total_amount) VALUES (201, 11, '2024-01-02', 45.00), (202, 12, '2024-01-03', 52.00), (203, 13, '2024-01-04', 38.50), (204, 14, '2024-01-06', 29.75), (205, 15, '2024-01-08', 61.00), (206, 16, '2024-01-12', 44.25), (207, 17, '2024-01-14', 50.00), (208, 18, '2024-01-18', 35.50), (209, 19, '2024-01-22', 48.00), (210, 20, '2024-01-25', 55.00), (211, 21, '2024-01-28', 42.00), (212, 22, '2024-01-30', 39.00), (213, 23, '2023-12-15', 47.00), (214, 24, '2024-02-02', 53.00); INSERT INTO delivery_events (event_id, order_id, status, minutes_elapsed) VALUES (101, 201, 'preparing', 8), (102, 201, 'preparing', 14), (103, 201, 'preparing', 20), (104, 201, 'in_transit', 28), (105, 201, 'in_transit', 35), (106, 201, 'delivered', 55), (107, 202, 'preparing', 25), (108, 202, 'in_transit', 42), (109, 202, 'delivered', 68), (110, 203, 'preparing', 12), (111, 203, 'delivered', 50), (112, 204, 'preparing', 18), (113, 204, 'in_transit', 30), (114, 205, 'preparing', 10), (115, 205, 'preparing', 15), (116, 205, 'in_transit', 22), (117, 205, 'in_transit', 28), (118, 205, 'delivered', 45), (119, 205, 'delivered', 50), (120, 206, 'preparing', 16), (121, 207, 'preparing', 14), (122, 207, 'in_transit', 26), (123, 207, 'in_transit', 32), (124, 207, 'delivered', 58), (125, 208, 'preparing', 9), (126, 208, 'preparing', 12), (127, 209, 'preparing', 11), (128, 209, 'in_transit', 24), (129, 209, 'delivered', 48), (130, 210, 'delivered', 52), (131, 211, 'preparing', 13), (132, 211, 'in_transit', 29), (133, 212, 'preparing', 17), (134, 212, 'in_transit', 33), (135, 212, 'delivered', 60), (136, 213, 'preparing', 19), (137, 213, 'delivered', 65), (138, 214, 'preparing', 21), (139, 214, 'in_transit', 38);",
+  "test_expected_columns": [
+    "order_id",
+    "preparing_minutes",
+    "in_transit_minutes",
+    "delivered_minutes"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      20.0,
+      35.0,
+      55.0
+    ],
+    [
+      202,
+      25.0,
+      42.0,
+      68.0
+    ],
+    [
+      203,
+      12.0,
+      null,
+      50.0
+    ],
+    [
+      204,
+      18.0,
+      30.0,
+      null
+    ],
+    [
+      205,
+      15.0,
+      28.0,
+      50.0
+    ],
+    [
+      206,
+      16.0,
+      null,
+      null
+    ],
+    [
+      207,
+      14.0,
+      32.0,
+      58.0
+    ],
+    [
+      208,
+      12.0,
+      null,
+      null
+    ],
+    [
+      209,
+      11.0,
+      24.0,
+      48.0
+    ],
+    [
+      210,
+      null,
+      null,
+      52.0
+    ],
+    [
+      211,
+      13.0,
+      29.0,
+      null
+    ],
+    [
+      212,
+      17.0,
+      33.0,
+      60.0
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "reshape",
+    "composite_moves": [
+      "join orders and delivery_events on order_id",
+      "filter orders by date range (January 2024)",
+      "group by order_id",
+      "pivot status values (preparing, in_transit, delivered) into columns using MAX(CASE WHEN status = 'X' THEN minutes_elapsed END)",
+      "order by order_id"
+    ]
+  },
+  "hints": [
+    "You need to transform rows grouped by status into separate columns for each status value.",
+    "Use MAX with a CASE expression for each target status: MAX(CASE WHEN status = 'preparing' THEN minutes_elapsed END) AS preparing_minutes.",
+    "Join orders with delivery_events, filter by the January 2024 date range, then GROUP BY order_id and pivot the three status values into columns. Order by order_id."
+  ],
+  "answer_key": "SELECT o.order_id, MAX(CASE WHEN de.status = 'preparing' THEN de.minutes_elapsed END) AS preparing_minutes, MAX(CASE WHEN de.status = 'in_transit' THEN de.minutes_elapsed END) AS in_transit_minutes, MAX(CASE WHEN de.status = 'delivered' THEN de.minutes_elapsed END) AS delivered_minutes FROM orders o LEFT JOIN delivery_events de ON o.order_id = de.order_id WHERE o.order_date >= '2024-01-01' AND o.order_date < '2024-02-01' GROUP BY o.order_id ORDER BY o.order_id;",
+  "_meta": {
+    "question_type": "pivot",
+    "original_qtype": "pivot",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-04T19:51:52.784457",
+    "problem_id": "4b856d9c3fe0",
+    "validation_attempts": 1,
+    "scenario": "a food delivery service tracking order completion and delivery time",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

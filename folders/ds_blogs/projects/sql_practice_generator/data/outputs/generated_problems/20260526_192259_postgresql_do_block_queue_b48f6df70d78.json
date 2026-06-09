@@ -1,0 +1,140 @@
+{
+  "title": "Process Subscription Box Renewal Events in Order",
+  "prompt": "You manage a D2C subscription box service. The `subscriptions` table tracks each customer's current renewal status and next billing date. The `renewal_events` log records chronological events (auto-renewals, customer-initiated pauses, manual reactivations) that modify subscription state. Write a DO block that processes the events in chronological order by `event_id`. Each event must read the subscription's current `renewal_status` and `next_bill_date` before deciding whether to apply the event's state change. Subsequent events in the same run must see the prior event's updates.\n\n\u2022 When `event_type` = 1 ('auto_renew') applies:\n  - Preconditions:\n    + current `renewal_status` must be 'active'.\n    + current `next_bill_date` must be less than or equal to the event's `process_date`.\n  - Actions:\n    + set `renewal_status` to 'active'.\n    + set `next_bill_date` to the event's `new_bill_date`.\n    + increment `renewal_count` by 1.\n\u2022 When `event_type` = 2 ('customer_pause') applies:\n  - Preconditions:\n    + current `renewal_status` must be 'active'.\n  - Actions:\n    + set `renewal_status` to 'paused'.\n    + set `paused_at` to the event's `process_date`.\n\u2022 When `event_type` = 3 ('reactivate') applies:\n  - Preconditions:\n    + current `renewal_status` must be 'paused'.\n  - Actions:\n    + set `renewal_status` to 'active'.\n    + set `next_bill_date` to the event's `new_bill_date`.\n    + set `paused_at` to NULL.\n\u2022 Events that fail their preconditions are no-ops (the subscription row is unchanged).\n\nAfter the DO block completes, include a trailing statement `SELECT * FROM subscriptions ORDER BY subscription_id;` to return the final state of all subscriptions.",
+  "schema_ddl": "CREATE TABLE subscriptions (subscription_id INT PRIMARY KEY, customer_name VARCHAR(100), renewal_status VARCHAR(20), next_bill_date DATE, renewal_count INT, paused_at DATE); CREATE TABLE renewal_events (event_id INT PRIMARY KEY, subscription_id INT REFERENCES subscriptions(subscription_id), event_type INT, process_date DATE, new_bill_date DATE);",
+  "example_input_data": "INSERT INTO subscriptions (subscription_id, customer_name, renewal_status, next_bill_date, renewal_count, paused_at) VALUES (1, 'Alice Brown', 'active', '2024-01-15', 2, NULL), (2, 'Bob Chen', 'active', '2024-01-20', 1, NULL), (3, 'Carol Davis', 'paused', '2024-01-10', 3, '2023-12-20'); INSERT INTO renewal_events (event_id, subscription_id, event_type, process_date, new_bill_date) VALUES (1, 1, 1, '2024-01-15', '2024-02-15'), (2, 2, 2, '2024-01-18', NULL), (3, 1, 2, '2024-01-22', NULL), (4, 3, 3, '2024-01-25', '2024-02-25'), (5, 2, 3, '2024-01-28', '2024-02-28'), (6, 1, 1, '2024-02-01', '2024-03-01');",
+  "example_output_columns": [
+    "subscription_id",
+    "customer_name",
+    "renewal_status",
+    "next_bill_date",
+    "renewal_count",
+    "paused_at"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Alice Brown",
+      "paused",
+      "2024-02-15",
+      3,
+      "2024-01-22"
+    ],
+    [
+      2,
+      "Bob Chen",
+      "active",
+      "2024-02-28",
+      1,
+      null
+    ],
+    [
+      3,
+      "Carol Davis",
+      "active",
+      "2024-02-25",
+      3,
+      null
+    ]
+  ],
+  "test_data": "INSERT INTO subscriptions (subscription_id, customer_name, renewal_status, next_bill_date, renewal_count, paused_at) VALUES (1, 'Alice Brown', 'active', '2024-01-15', 2, NULL), (2, 'Bob Chen', 'active', '2024-01-20', 1, NULL), (3, 'Carol Davis', 'paused', '2024-01-10', 3, '2023-12-20'), (4, 'David Evans', 'active', '2024-01-25', 0, NULL), (5, 'Eve Fischer', 'active', '2024-02-01', 5, NULL), (6, 'Frank Garcia', 'paused', '2024-01-05', 2, '2024-01-01'), (7, 'Grace Harris', 'active', '2024-01-30', 1, NULL); INSERT INTO renewal_events (event_id, subscription_id, event_type, process_date, new_bill_date) VALUES (1, 1, 1, '2024-01-15', '2024-02-15'), (2, 2, 2, '2024-01-18', NULL), (3, 1, 2, '2024-01-22', NULL), (4, 3, 3, '2024-01-25', '2024-02-25'), (5, 4, 1, '2024-01-24', '2024-02-24'), (6, 2, 3, '2024-01-28', '2024-02-28'), (7, 1, 1, '2024-02-01', '2024-03-01'), (8, 5, 1, '2024-02-02', '2024-03-02'), (9, 6, 3, '2024-02-05', '2024-03-05'), (10, 7, 2, '2024-02-10', NULL), (11, 4, 2, '2024-02-12', NULL), (12, 3, 1, '2024-02-25', '2024-03-25'), (13, 6, 1, '2024-03-06', '2024-04-06'), (14, 2, 1, '2024-02-29', '2024-03-29'), (15, 5, 2, '2024-02-15', NULL), (16, 7, 3, '2024-02-20', '2024-03-20'), (17, 1, 3, '2024-02-25', '2024-03-25'), (18, 4, 3, '2024-02-28', '2024-03-28'), (19, 3, 2, '2024-03-01', NULL), (20, 5, 3, '2024-03-01', '2024-04-01');",
+  "test_expected_columns": [
+    "subscription_id",
+    "customer_name",
+    "renewal_status",
+    "next_bill_date",
+    "renewal_count",
+    "paused_at"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "Alice Brown",
+      "active",
+      "2024-03-25",
+      3,
+      null
+    ],
+    [
+      2,
+      "Bob Chen",
+      "active",
+      "2024-03-29",
+      2,
+      null
+    ],
+    [
+      3,
+      "Carol Davis",
+      "paused",
+      "2024-03-25",
+      4,
+      "2024-03-01"
+    ],
+    [
+      4,
+      "David Evans",
+      "active",
+      "2024-03-28",
+      0,
+      null
+    ],
+    [
+      5,
+      "Eve Fischer",
+      "active",
+      "2024-04-01",
+      6,
+      null
+    ],
+    [
+      6,
+      "Frank Garcia",
+      "active",
+      "2024-04-06",
+      3,
+      null
+    ],
+    [
+      7,
+      "Grace Harris",
+      "active",
+      "2024-03-20",
+      1,
+      null
+    ]
+  ],
+  "classification": {
+    "input_arrival": "procedural",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "FOR-loop over renewal_events ORDER BY event_id",
+      "per iteration: SELECT current renewal_status, next_bill_date INTO variables",
+      "IF event_type = 1 AND renewal_status = 'active' AND next_bill_date <= process_date THEN UPDATE SET renewal_status='active', next_bill_date=new_bill_date, renewal_count=renewal_count+1",
+      "ELSIF event_type = 2 AND renewal_status = 'active' THEN UPDATE SET renewal_status='paused', paused_at=process_date",
+      "ELSIF event_type = 3 AND renewal_status = 'paused' THEN UPDATE SET renewal_status='active', next_bill_date=new_bill_date, paused_at=NULL",
+      "trailing SELECT * FROM subscriptions ORDER BY subscription_id"
+    ]
+  },
+  "hints": [
+    "You will need a FOR loop over the renewal_events table ordered by event_id, reading the current subscription state inside each iteration.",
+    "Declare a RECORD variable for the event row and scalar variables (renewal_status, next_bill_date) to hold the subscription's current values. Use SELECT ... INTO to refresh them each iteration.",
+    "Use IF ... ELSIF ... END IF to branch on both the event_type and the current renewal_status. Event type 1 also checks whether next_bill_date is due. Remember to end with a SELECT statement to return the final subscription state."
+  ],
+  "answer_key": "DO $$\nDECLARE\n  evt RECORD;\n  cur_status VARCHAR(20);\n  cur_bill_date DATE;\nBEGIN\n  FOR evt IN SELECT * FROM renewal_events ORDER BY event_id LOOP\n    SELECT renewal_status, next_bill_date INTO cur_status, cur_bill_date\n    FROM subscriptions WHERE subscription_id = evt.subscription_id;\n    \n    IF evt.event_type = 1 AND cur_status = 'active' AND cur_bill_date <= evt.process_date THEN\n      UPDATE subscriptions\n      SET renewal_status = 'active',\n          next_bill_date = evt.new_bill_date,\n          renewal_count = renewal_count + 1\n      WHERE subscription_id = evt.subscription_id;\n    ELSIF evt.event_type = 2 AND cur_status = 'active' THEN\n      UPDATE subscriptions\n      SET renewal_status = 'paused',\n          paused_at = evt.process_date\n      WHERE subscription_id = evt.subscription_id;\n    ELSIF evt.event_type = 3 AND cur_status = 'paused' THEN\n      UPDATE subscriptions\n      SET renewal_status = 'active',\n          next_bill_date = evt.new_bill_date,\n          paused_at = NULL\n      WHERE subscription_id = evt.subscription_id;\n    END IF;\n  END LOOP;\nEND $$;\n\nSELECT * FROM subscriptions ORDER BY subscription_id;",
+  "_meta": {
+    "question_type": "do_block_queue",
+    "original_qtype": "do_block_queue",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-26T19:22:58.998361",
+    "problem_id": "b48f6df70d78",
+    "validation_attempts": 1,
+    "scenario": "a D2C subscription box service tracking renewal and churn",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

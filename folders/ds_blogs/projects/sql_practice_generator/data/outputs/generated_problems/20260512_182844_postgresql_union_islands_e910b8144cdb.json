@@ -1,0 +1,137 @@
+{
+  "title": "Collapse Job Status Periods into Ranges",
+  "prompt": "A workflow automation tool logs job execution outcomes in two tables: `job_failures` records dates when jobs failed, and `job_successes` records dates when jobs succeeded. Each day in the observation period falls into exactly one state (no missing days). Your task is to collapse consecutive calendar days of the same status into contiguous periods. Write a query that unions both tables with a `status` label ('failed' or 'succeeded'), then uses the row-number-minus-date technique to identify islands of consecutive days. Return columns `status`, `start_date`, and `end_date` for each contiguous period. Filter results to the date range '2024-01-01' through '2024-01-31' inclusive. Order output by `start_date` ascending. The example input covers every day from Jan 1 through Jan 15, with no gaps.",
+  "schema_ddl": "CREATE TABLE job_failures (fail_date DATE NOT NULL); CREATE TABLE job_successes (success_date DATE NOT NULL);",
+  "example_input_data": "INSERT INTO job_failures (fail_date) VALUES ('2024-01-01'), ('2024-01-02'), ('2024-01-03'), ('2024-01-06'), ('2024-01-10'), ('2024-01-11'), ('2024-01-12'), ('2024-01-15'); INSERT INTO job_successes (success_date) VALUES ('2024-01-04'), ('2024-01-05'), ('2024-01-07'), ('2024-01-08'), ('2024-01-09'), ('2024-01-13'), ('2024-01-14');",
+  "example_output_columns": [
+    "status",
+    "start_date",
+    "end_date"
+  ],
+  "example_output_rows": [
+    [
+      "failed",
+      "2024-01-01",
+      "2024-01-03"
+    ],
+    [
+      "succeeded",
+      "2024-01-04",
+      "2024-01-05"
+    ],
+    [
+      "failed",
+      "2024-01-06",
+      "2024-01-06"
+    ],
+    [
+      "succeeded",
+      "2024-01-07",
+      "2024-01-09"
+    ],
+    [
+      "failed",
+      "2024-01-10",
+      "2024-01-12"
+    ],
+    [
+      "succeeded",
+      "2024-01-13",
+      "2024-01-14"
+    ],
+    [
+      "failed",
+      "2024-01-15",
+      "2024-01-15"
+    ]
+  ],
+  "test_data": "INSERT INTO job_failures (fail_date) VALUES ('2024-01-01'), ('2024-01-02'), ('2024-01-05'), ('2024-01-06'), ('2024-01-07'), ('2024-01-08'), ('2024-01-09'), ('2024-01-10'), ('2024-01-13'), ('2024-01-18'), ('2024-01-19'), ('2024-01-20'), ('2024-01-21'), ('2024-01-22'), ('2024-01-23'), ('2024-01-24'), ('2024-01-25'), ('2024-01-26'), ('2024-01-27'), ('2024-01-30'); INSERT INTO job_successes (success_date) VALUES ('2024-01-03'), ('2024-01-04'), ('2024-01-11'), ('2024-01-12'), ('2024-01-14'), ('2024-01-15'), ('2024-01-16'), ('2024-01-17'), ('2024-01-28'), ('2024-01-29'), ('2024-01-31');",
+  "test_expected_columns": [
+    "status",
+    "start_date",
+    "end_date"
+  ],
+  "test_expected_rows": [
+    [
+      "failed",
+      "2024-01-01",
+      "2024-01-02"
+    ],
+    [
+      "succeeded",
+      "2024-01-03",
+      "2024-01-04"
+    ],
+    [
+      "failed",
+      "2024-01-05",
+      "2024-01-10"
+    ],
+    [
+      "succeeded",
+      "2024-01-11",
+      "2024-01-12"
+    ],
+    [
+      "failed",
+      "2024-01-13",
+      "2024-01-13"
+    ],
+    [
+      "succeeded",
+      "2024-01-14",
+      "2024-01-17"
+    ],
+    [
+      "failed",
+      "2024-01-18",
+      "2024-01-27"
+    ],
+    [
+      "succeeded",
+      "2024-01-28",
+      "2024-01-29"
+    ],
+    [
+      "failed",
+      "2024-01-30",
+      "2024-01-30"
+    ],
+    [
+      "succeeded",
+      "2024-01-31",
+      "2024-01-31"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "union",
+    "output_shape": "fewer_rows",
+    "recipe": "gaps-and-islands",
+    "composite_moves": [
+      "UNION two tables with status label",
+      "date-range filter in each branch WHERE",
+      "ROW_NUMBER() OVER (PARTITION BY status ORDER BY date)",
+      "date - rn::INT AS grp",
+      "GROUP BY status, grp",
+      "MIN(date) AS start_date, MAX(date) AS end_date",
+      "ORDER BY start_date"
+    ]
+  },
+  "hints": [
+    "Combine both tables into a single result set where each row has a status label and a date column.",
+    "Use ROW_NUMBER partitioned by status to number consecutive days within each status group, then subtract that row number from the date to create a grouping identifier.",
+    "Group by the status and the (date - row_number) expression, then take MIN and MAX of the date to get the start and end of each contiguous period."
+  ],
+  "answer_key": "WITH combined AS (\n  SELECT 'failed'::TEXT AS status, fail_date AS d\n  FROM job_failures\n  WHERE fail_date BETWEEN '2024-01-01' AND '2024-01-31'\n  UNION ALL\n  SELECT 'succeeded'::TEXT AS status, success_date AS d\n  FROM job_successes\n  WHERE success_date BETWEEN '2024-01-01' AND '2024-01-31'\n),\nranked AS (\n  SELECT\n    status,\n    d,\n    d - (ROW_NUMBER() OVER (PARTITION BY status ORDER BY d))::INT AS grp\n  FROM combined\n)\nSELECT\n  status,\n  MIN(d) AS start_date,\n  MAX(d) AS end_date\nFROM ranked\nGROUP BY status, grp\nORDER BY start_date;",
+  "_meta": {
+    "question_type": "union_islands",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-12T18:28:44.131922",
+    "problem_id": "e910b8144cdb",
+    "validation_attempts": 1,
+    "scenario": "a workflow automation tool tracking job runs, retries, and failures",
+    "dml_op": null,
+    "islands_flavor": "date_calendar",
+    "percentile_flavor": null
+  }
+}

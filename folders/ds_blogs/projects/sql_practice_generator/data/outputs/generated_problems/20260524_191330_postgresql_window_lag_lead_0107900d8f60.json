@@ -1,0 +1,238 @@
+{
+  "title": "Detect Binge Session Gaps Per User",
+  "prompt": "You are analyzing viewer behavior for a streaming video platform. The `watch_events` table logs when each user starts watching an episode, recording the user, episode ID, and timestamp. A \"binge session\" is defined as consecutive episodes watched within 2 hours of each other; if a user waits more than 2 hours before their next episode, that starts a new session. Write a query that returns one row per watch event showing the `user_id`, `episode_id`, `watch_started_at`, and two calculated columns: `minutes_since_last_episode` (the number of minutes between this event's `watch_started_at` and the previous event's `watch_started_at` for the same user, or NULL for the user's first watch) and `new_session_flag` (a boolean that is TRUE if this event starts a new binge session\u2014either it's the user's first watch or more than 120 minutes have elapsed since the last watch\u2014and FALSE otherwise). Order the result by `user_id`, then `watch_started_at`.",
+  "schema_ddl": "CREATE TABLE watch_events (user_id INTEGER NOT NULL, episode_id VARCHAR(20) NOT NULL, watch_started_at TIMESTAMP NOT NULL);",
+  "example_input_data": "INSERT INTO watch_events (user_id, episode_id, watch_started_at) VALUES (101, 'S01E01', '2024-01-15 19:00:00'), (101, 'S01E02', '2024-01-15 19:45:00'), (101, 'S01E03', '2024-01-15 22:30:00'), (102, 'S02E01', '2024-01-15 20:00:00'), (102, 'S02E02', '2024-01-15 20:50:00'), (103, 'S01E01', '2024-01-16 10:00:00');",
+  "example_output_columns": [
+    "user_id",
+    "episode_id",
+    "watch_started_at",
+    "minutes_since_last_episode",
+    "new_session_flag"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "S01E01",
+      "2024-01-15 19:00:00",
+      null,
+      true
+    ],
+    [
+      101,
+      "S01E02",
+      "2024-01-15 19:45:00",
+      "45.0000000000000000",
+      false
+    ],
+    [
+      101,
+      "S01E03",
+      "2024-01-15 22:30:00",
+      "165.0000000000000000",
+      true
+    ],
+    [
+      102,
+      "S02E01",
+      "2024-01-15 20:00:00",
+      null,
+      true
+    ],
+    [
+      102,
+      "S02E02",
+      "2024-01-15 20:50:00",
+      "50.0000000000000000",
+      false
+    ],
+    [
+      103,
+      "S01E01",
+      "2024-01-16 10:00:00",
+      null,
+      true
+    ]
+  ],
+  "test_data": "INSERT INTO watch_events (user_id, episode_id, watch_started_at) VALUES (201, 'S01E01', '2024-02-01 08:00:00'), (201, 'S01E02', '2024-02-01 08:30:00'), (201, 'S01E03', '2024-02-01 09:15:00'), (201, 'S01E04', '2024-02-01 11:20:00'), (201, 'S01E05', '2024-02-01 12:10:00'), (202, 'S03E01', '2024-02-01 14:00:00'), (202, 'S03E02', '2024-02-01 14:45:00'), (202, 'S03E03', '2024-02-01 17:50:00'), (203, 'S02E01', '2024-02-01 09:00:00'), (203, 'S02E02', '2024-02-01 09:55:00'), (203, 'S02E03', '2024-02-01 11:00:00'), (203, 'S02E04', '2024-02-01 13:05:00'), (204, 'S01E01', '2024-02-01 18:00:00'), (205, 'S04E01', '2024-02-01 07:00:00'), (205, 'S04E02', '2024-02-01 07:22:00'), (205, 'S04E03', '2024-02-01 09:30:00'), (206, 'S01E01', '2024-02-02 20:00:00'), (206, 'S01E02', '2024-02-02 22:05:00'), (206, 'S01E03', '2024-02-03 00:10:00'), (207, 'S05E01', '2024-02-02 15:00:00');",
+  "test_expected_columns": [
+    "user_id",
+    "episode_id",
+    "watch_started_at",
+    "minutes_since_last_episode",
+    "new_session_flag"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "S01E01",
+      "2024-02-01 08:00:00",
+      null,
+      true
+    ],
+    [
+      201,
+      "S01E02",
+      "2024-02-01 08:30:00",
+      "30.0000000000000000",
+      false
+    ],
+    [
+      201,
+      "S01E03",
+      "2024-02-01 09:15:00",
+      "45.0000000000000000",
+      false
+    ],
+    [
+      201,
+      "S01E04",
+      "2024-02-01 11:20:00",
+      "125.0000000000000000",
+      true
+    ],
+    [
+      201,
+      "S01E05",
+      "2024-02-01 12:10:00",
+      "50.0000000000000000",
+      false
+    ],
+    [
+      202,
+      "S03E01",
+      "2024-02-01 14:00:00",
+      null,
+      true
+    ],
+    [
+      202,
+      "S03E02",
+      "2024-02-01 14:45:00",
+      "45.0000000000000000",
+      false
+    ],
+    [
+      202,
+      "S03E03",
+      "2024-02-01 17:50:00",
+      "185.0000000000000000",
+      true
+    ],
+    [
+      203,
+      "S02E01",
+      "2024-02-01 09:00:00",
+      null,
+      true
+    ],
+    [
+      203,
+      "S02E02",
+      "2024-02-01 09:55:00",
+      "55.0000000000000000",
+      false
+    ],
+    [
+      203,
+      "S02E03",
+      "2024-02-01 11:00:00",
+      "65.0000000000000000",
+      false
+    ],
+    [
+      203,
+      "S02E04",
+      "2024-02-01 13:05:00",
+      "125.0000000000000000",
+      true
+    ],
+    [
+      204,
+      "S01E01",
+      "2024-02-01 18:00:00",
+      null,
+      true
+    ],
+    [
+      205,
+      "S04E01",
+      "2024-02-01 07:00:00",
+      null,
+      true
+    ],
+    [
+      205,
+      "S04E02",
+      "2024-02-01 07:22:00",
+      "22.0000000000000000",
+      false
+    ],
+    [
+      205,
+      "S04E03",
+      "2024-02-01 09:30:00",
+      "128.0000000000000000",
+      true
+    ],
+    [
+      206,
+      "S01E01",
+      "2024-02-02 20:00:00",
+      null,
+      true
+    ],
+    [
+      206,
+      "S01E02",
+      "2024-02-02 22:05:00",
+      "125.0000000000000000",
+      true
+    ],
+    [
+      206,
+      "S01E03",
+      "2024-02-03 00:10:00",
+      "125.0000000000000000",
+      true
+    ],
+    [
+      207,
+      "S05E01",
+      "2024-02-02 15:00:00",
+      null,
+      true
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "row-compare",
+    "composite_moves": [
+      "LAG(watch_started_at) OVER (PARTITION BY user_id ORDER BY watch_started_at)",
+      "EXTRACT(EPOCH FROM (current - previous)) / 60",
+      "COALESCE for NULL handling",
+      "CASE to set boolean flag > 120 minutes or NULL"
+    ]
+  },
+  "hints": [
+    "You need to compare each row's timestamp to the previous row's timestamp within the same user's history.",
+    "Use LAG() with PARTITION BY user_id and ORDER BY watch_started_at to retrieve the previous watch timestamp. Remember to handle the case where there is no previous event (the first watch for each user).",
+    "Calculate the difference in minutes using EXTRACT(EPOCH FROM (current_timestamp - lag_timestamp)) / 60. The new_session_flag is TRUE when minutes_since_last_episode IS NULL OR minutes_since_last_episode > 120."
+  ],
+  "answer_key": "SELECT user_id, episode_id, watch_started_at, EXTRACT(EPOCH FROM (watch_started_at - LAG(watch_started_at) OVER (PARTITION BY user_id ORDER BY watch_started_at))) / 60 AS minutes_since_last_episode, CASE WHEN LAG(watch_started_at) OVER (PARTITION BY user_id ORDER BY watch_started_at) IS NULL OR EXTRACT(EPOCH FROM (watch_started_at - LAG(watch_started_at) OVER (PARTITION BY user_id ORDER BY watch_started_at))) / 60 > 120 THEN TRUE ELSE FALSE END AS new_session_flag FROM watch_events ORDER BY user_id, watch_started_at;",
+  "_meta": {
+    "question_type": "window_lag_lead",
+    "original_qtype": "window_lag_lead",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-24T19:13:30.783774",
+    "problem_id": "0107900d8f60",
+    "validation_attempts": 1,
+    "scenario": "a streaming video service tracking watch time and binge depth",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

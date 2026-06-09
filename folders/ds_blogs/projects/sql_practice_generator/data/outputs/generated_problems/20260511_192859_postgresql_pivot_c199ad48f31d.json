@@ -1,0 +1,122 @@
+{
+  "title": "Pivot Transaction Approval Rates by Channel",
+  "prompt": "You are analyzing transaction approval patterns across payment channels for a fintech platform. The `transaction_metrics` table stores daily approval counts in long format: each row represents one channel on one date for one merchant, recording how many transactions were approved. Write a query that pivots this data into wide format, showing one row per merchant with separate columns for total approved transactions in each channel. Specifically, create columns `card_approved`, `ach_approved`, and `wire_approved` by summing the `approved_count` for each respective `channel` value ('card', 'ach', 'wire'). If a merchant has no transactions in a given channel, display 0 instead of NULL in that channel's column. Include the `merchant_id` and `merchant_name` columns (join with the `merchants` lookup table). Order the final result by `merchant_id` ascending. The output columns must be: merchant_id, merchant_name, card_approved, ach_approved, wire_approved.",
+  "schema_ddl": "CREATE TABLE merchants (merchant_id INT PRIMARY KEY, merchant_name VARCHAR(100)); CREATE TABLE transaction_metrics (metric_id SERIAL PRIMARY KEY, merchant_id INT, channel VARCHAR(20), approved_count INT, metric_date DATE);",
+  "example_input_data": "INSERT INTO merchants (merchant_id, merchant_name) VALUES (1, 'ShopFast'), (2, 'PayEase'), (3, 'QuickBuy'); INSERT INTO transaction_metrics (merchant_id, channel, approved_count, metric_date) VALUES (1, 'card', 50, '2024-01-15'), (1, 'card', 30, '2024-01-16'), (1, 'ach', 20, '2024-01-15'), (2, 'card', 100, '2024-01-15'), (2, 'wire', 15, '2024-01-15'), (2, 'wire', 10, '2024-01-16'), (3, 'ach', 40, '2024-01-15');",
+  "example_output_columns": [
+    "merchant_id",
+    "merchant_name",
+    "card_approved",
+    "ach_approved",
+    "wire_approved"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "ShopFast",
+      80,
+      20,
+      0
+    ],
+    [
+      2,
+      "PayEase",
+      100,
+      0,
+      25
+    ],
+    [
+      3,
+      "QuickBuy",
+      0,
+      40,
+      0
+    ]
+  ],
+  "test_data": "INSERT INTO merchants (merchant_id, merchant_name) VALUES (101, 'GlobalPay'), (102, 'FastTransfer'), (103, 'SecureCheckout'), (104, 'MobileMoney'), (105, 'InstantPay'), (106, 'TrustPay'), (107, 'SwiftSettle'); INSERT INTO transaction_metrics (merchant_id, channel, approved_count, metric_date) VALUES (101, 'card', 200, '2024-02-01'), (101, 'card', 150, '2024-02-02'), (101, 'card', 100, '2024-02-03'), (101, 'ach', 80, '2024-02-01'), (101, 'ach', 90, '2024-02-02'), (101, 'wire', 50, '2024-02-01'), (102, 'ach', 300, '2024-02-01'), (102, 'ach', 250, '2024-02-02'), (102, 'wire', 120, '2024-02-01'), (102, 'wire', 130, '2024-02-02'), (102, 'wire', 100, '2024-02-03'), (103, 'card', 500, '2024-02-01'), (103, 'card', 480, '2024-02-02'), (104, 'wire', 75, '2024-02-01'), (104, 'wire', 85, '2024-02-02'), (104, 'wire', 90, '2024-02-03'), (104, 'wire', 60, '2024-02-04'), (105, 'card', 220, '2024-02-01'), (105, 'ach', 110, '2024-02-01'), (105, 'ach', 105, '2024-02-02'), (105, 'wire', 95, '2024-02-01'), (106, 'card', 0, '2024-02-01'), (106, 'card', 0, '2024-02-02'), (106, 'ach', 0, '2024-02-01'), (107, 'card', 1, '2024-02-01');",
+  "test_expected_columns": [
+    "merchant_id",
+    "merchant_name",
+    "card_approved",
+    "ach_approved",
+    "wire_approved"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      "GlobalPay",
+      450,
+      170,
+      50
+    ],
+    [
+      102,
+      "FastTransfer",
+      0,
+      550,
+      350
+    ],
+    [
+      103,
+      "SecureCheckout",
+      980,
+      0,
+      0
+    ],
+    [
+      104,
+      "MobileMoney",
+      0,
+      0,
+      310
+    ],
+    [
+      105,
+      "InstantPay",
+      220,
+      215,
+      95
+    ],
+    [
+      106,
+      "TrustPay",
+      0,
+      0,
+      0
+    ],
+    [
+      107,
+      "SwiftSettle",
+      1,
+      0,
+      0
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "reshape",
+    "composite_moves": [
+      "join merchants to transaction_metrics on merchant_id",
+      "group by merchant entity",
+      "pivot categories (card, ach, wire) using CASE WHEN inside SUM, coalesce to 0"
+    ]
+  },
+  "hints": [
+    "Think about how to transform rows representing different channels into separate columns for each channel.",
+    "Use CASE WHEN expressions inside an aggregation function to conditionally sum values for each channel type.",
+    "Group by the merchant identifier and use COALESCE to replace NULL with 0 when a merchant has no transactions in a particular channel."
+  ],
+  "answer_key": "SELECT m.merchant_id, m.merchant_name, COALESCE(SUM(CASE WHEN tm.channel = 'card' THEN tm.approved_count END), 0) AS card_approved, COALESCE(SUM(CASE WHEN tm.channel = 'ach' THEN tm.approved_count END), 0) AS ach_approved, COALESCE(SUM(CASE WHEN tm.channel = 'wire' THEN tm.approved_count END), 0) AS wire_approved FROM merchants m LEFT JOIN transaction_metrics tm ON m.merchant_id = tm.merchant_id GROUP BY m.merchant_id, m.merchant_name ORDER BY m.merchant_id;",
+  "_meta": {
+    "question_type": "pivot",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-11T19:28:59.089094",
+    "problem_id": "c199ad48f31d",
+    "validation_attempts": 1,
+    "scenario": "a fintech app tracking transaction approvals and fraud flags",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

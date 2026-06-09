@@ -778,10 +778,12 @@
 
         code {
             background-color: #f0f0f0;
+            color: #115E59;
             padding: 2px 6px;
             border-radius: 3px;
             font-family: 'Courier New', monospace;
             font-size: 0.9rem;
+            font-weight: 600;
         }
 
         ul, ol {
@@ -883,13 +885,48 @@
                 <summary>Purpose of This Analysis</summary>
                 <div class="model-section-body">
                     <p>
-                        This blog post compares 15 classification models applied to the Home Equity (HMEQ) loan default dataset. Rather than declaring a single "winner," we explore a central thesis: <strong>every model lives on a spectrum from deny leaning (catching every possible defaulter) to approve leaning (predicting default only for the safest bets).</strong>
+                        This blog post compares 15 classification models applied to a Home Equity (HMEQ) loan default dataset.
                     </p>
                     <p>
-                        The business context determines which model wins. If the cost of missing a default is high relative to the cost of incorrectly rejecting a good loan, the lender wants a model on the deny leaning end (high recall, lower precision). If false rejections are very expensive, the approve leaning end (lower recall, higher precision) makes more sense. Most real problems live somewhere in between.
+                        This post explores a central thesis:
+                    </p>
+                    <ul>
+                        <li>
+                            <strong>Every model lives on a spectrum.</strong>
+                            <ul>
+                                <li>At one end, <strong>deny leaning</strong> models recommend doing less of something. For this project, a deny leaning model flags more borrowers as likely to default on their loan, including some borrowers that wouldn't actually default on their loan.
+                                    <ul>
+                                        <li>So the lender would approve fewer loans overall.</li>
+                                    </ul>
+                                </li>
+                                <li>At the other end, <strong>approve leaning</strong> models recommend doing more of something. For this project, an approve leaning model flags fewer borrowers as likely to default on their loan, even when some of those borrowers will actually default on their loan.
+                                    <ul>
+                                        <li>So the lender would approve more loans overall.</li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                    <p>
+                        The business context determines which model wins. A lender's decision process takes two costs into account:
+                    </p>
+                    <ul>
+                        <li><strong>Case 1: Money lost when a borrower defaults on their loan.</strong> The lender loses the principal and the interest that borrower would have paid back.</li>
+                        <li><strong>Case 2: Money lost when the lender turns away a borrower who would have paid.</strong> The model flags the borrower as risky, so the lender rejects the application and misses out on the interest income that borrower would have generated.</li>
+                    </ul>
+                    <p>
+                        The lender then compares Case 1 and Case 2:
+                    </p>
+                    <ul>
+                        <li><strong>If Case 1 is greater than Case 2:</strong> A loan default costs the lender more than turning away a borrower who would have paid. The lender prefers a <strong>deny leaning</strong> model that catches as many loan defaults as possible, accepting that some good borrowers will be rejected along the way.</li>
+                        <li><strong>If Case 2 is greater than Case 1:</strong> Turning away a borrower who would have paid costs the lender more than a loan default. The lender prefers an <strong>approve leaning</strong> model that approves as many borrowers as possible, accepting that some loans will default along the way.</li>
+                        <li><strong>If Case 1 and Case 2 are roughly equal:</strong> Most real problems live here. The lender wants a balanced model that doesn't lean strongly toward either end of the spectrum.</li>
+                    </ul>
+                    <p>
+                        This is not just a model shootout. The goal is to build a <strong>transferable framework</strong> for thinking about the tradeoff between deny leaning and approve leaning models and how to choose the right classifier for a given business context.
                     </p>
                     <p>
-                        This is not just a model shootout. Rather, we build a <strong>transferable framework</strong> for thinking about the recall-precision tradeoff and how to choose the right classifier for a given business context. The specific numbers on HMEQ are less important than understanding the patterns and decision logic that can be applied to any dataset.
+                        The specific numbers on HMEQ are less important than the underlying patterns and decision logic, which can be applied to any classification dataset.
                     </p>
                 </div>
             </details>
@@ -1084,6 +1121,7 @@
                         Recall measures how completely the model finds the cases it should find.
                     </p>
                     <ul>
+                        <li>Recall is about completeness.</li>
                         <li>Recall is about catching all the true positive cases.</li>
                         <li>A high recall score means the model identified the true cases and does not let true cases be classified as false negatives.</li>
                     </ul>
@@ -1094,11 +1132,14 @@
                         Recall = True Positives / (True Positives + False Negatives)
                     </div>
                     <ul>
-                        <li>The denominator is every borrower who actually defaulted.</li>
-                        <li>Some of them the model caught (true positives).</li>
-                        <li>Some of them the model missed (false negatives).</li>
-                        <li>When the model catches all of them, false negatives equals 0 and the formula becomes TP / TP = 1, a perfect score.</li>
-                        <li>When the model misses many of them, false negatives grows large and the score drops toward 0.</li>
+                        <li>The denominator is every borrower who actually defaulted on their loan. This group splits into two parts:
+                            <ul>
+                                <li><strong>True positives:</strong> borrowers who defaulted on their loan, and the model correctly predicted they would default on their loan.</li>
+                                <li><strong>False negatives:</strong> borrowers who defaulted on their loan, but the model predicted they would pay back their loan.</li>
+                            </ul>
+                        </li>
+                        <li>When the model catches every borrower in this group, false negatives equals 0 and the formula becomes TP / TP = 1, a perfect score.</li>
+                        <li>When the model misses many borrowers in this group, false negatives grows large and the score drops toward 0.</li>
                     </ul>
                     <details class="model-section">
                         <summary>Sample calculations: how recall changes as missed defaults increase</summary>
@@ -1128,6 +1169,7 @@
                         Precision measures how accurate the model's positive predictions are.
                     </p>
                     <ul>
+                        <li>Precision is about correctness.</li>
                         <li>Precision is about avoiding false positives on the cases the model predicts as positive.</li>
                         <li>A high precision score means the model's positive predictions are almost always correct and rarely mislabels a true negative as a positive.</li>
                     </ul>
@@ -1138,11 +1180,14 @@
                         Precision = True Positives / (True Positives + False Positives)
                     </div>
                     <ul>
-                        <li>The denominator is every borrower the model predicted would default.</li>
-                        <li>Some of those predictions were correct (true positives).</li>
-                        <li>Some of those predictions were wrong (false positives).</li>
-                        <li>When every positive prediction is correct, false positives equals 0 and the formula becomes TP / TP = 1, a perfect score.</li>
-                        <li>When many positive predictions are wrong, false positives grows large and the score drops toward 0.</li>
+                        <li>The denominator is every borrower the model predicted would default on their loan. This group splits into two parts:
+                            <ul>
+                                <li><strong>True positives:</strong> borrowers the model predicted would default on their loan, and they actually defaulted on their loan.</li>
+                                <li><strong>False positives:</strong> borrowers the model predicted would default on their loan, but they actually paid back their loan.</li>
+                            </ul>
+                        </li>
+                        <li>When every prediction in this group is correct, false positives equals 0 and the formula becomes TP / TP = 1, a perfect score.</li>
+                        <li>When many predictions in this group are wrong, false positives grows large and the score drops toward 0.</li>
                     </ul>
                     <details class="model-section">
                         <summary>Sample calculations: how precision changes as false positives increase</summary>
@@ -1174,16 +1219,18 @@
                 <summary>The Tradeoff Between Recall and Precision</summary>
                 <div class="model-section-body">
 
-                    <h3>Why We Compare Both</h3>
+                    <details class="model-section">
+                        <summary>Why We Compare Both</summary>
+                        <div class="model-section-body">
                     <p>
                         Recall and precision each describe a different part of how the model is performing.
                     </p>
                     <ul>
-                        <li>Recall describes how well the model catches the actual defaults that exist in the data.</li>
-                        <li>Precision describes how accurate the model's positive predictions are when it does predict a default.</li>
+                        <li>Recall describes how well the model catches the actual loan defaults that exist in the data.</li>
+                        <li>Precision describes how accurate the model's positive predictions are when it does predict a loan default.</li>
                         <li>One metric alone cannot capture both of these.</li>
                         <li>A model can score perfectly on one metric while failing badly on the other because each formula only looks at a narrow slice of the results.</li>
-                        <li>Recall only looks at what happened to the actual defaults.
+                        <li>Recall only looks at what happened to the actual loan defaults.
                             <ul>
                                 <li>Did the model catch all the true positives, or did it miss some true positives because it classified them as negatives, making them false negatives?</li>
                             </ul>
@@ -1195,15 +1242,186 @@
                         </li>
                         <li>Neither formula looks at the full picture.</li>
                     </ul>
+                        </div>
+                    </details>
 
-                    <h3>The Strictness Dial</h3>
+                    <details class="model-section">
+                        <summary>What Connects the Two Metrics</summary>
+                        <div class="model-section-body">
                     <p>
-                        Every model gives each loan application a confidence score for how likely it is to default. But the model does not stop there. It also has to pick a cutoff: above this score, predict default; below it, predict no default. That cutoff is the strictness dial, and turning it changes both recall and precision at the same time but in opposite directions.
+                        Knowing that both metrics matter is only half the picture. The other half:
                     </p>
                     <ul>
-                        <li><strong>Deny leaning dial (turned left):</strong> the model predicts default for anything even mildly risky. It catches almost every real defaulter (high recall) but the wide net also scoops up good borrowers who happened to look a little risky (low precision). Those good borrowers do not become true negatives, they become false positives.</li>
-                        <li><strong>Approve leaning dial (turned right):</strong> the model only predicts default when it is very confident. It is almost always right when it does predict a default (high precision) but it refuses to call borderline cases a default, and some of those borderline cases are real defaulters who now get missed (low recall). Those missed defaulters do not disappear, they become false negatives.</li>
-                        <li>The same dial controls both metrics, but they move in opposite directions. Loosen the dial to boost recall and precision falls. Tighten the dial to boost precision and recall falls.</li>
+                        <li>The model itself comes with a knob.</li>
+                        <li>The knob decides which metric gets favored.</li>
+                        <li>Turning the knob in one direction always trades off against the other.</li>
+                    </ul>
+                    <p>
+                        The next section makes that knob visible.
+                    </p>
+                        </div>
+                    </details>
+
+                    <details class="model-section">
+                        <summary>The Strictness Dial</summary>
+                        <div class="model-section-body">
+                    <p>
+                        Every model gives each loan application a confidence score for how likely it is to result in a loan default. The confidence score is a number between 0% and 100% that the model assigns to each loan application, where the higher the number, the more the model thinks that borrower will default on their loan.
+                    </p>
+                    <p>
+                        But the model does not stop there. The model also has to pick a cutoff:
+                    </p>
+                    <ul>
+                        <li>Above the cutoff: predict a loan default.</li>
+                        <li>Below the cutoff: predict no loan default.</li>
+                    </ul>
+
+                    <details class="model-section">
+                        <summary>An Analogy: The Cutoff as a Height Requirement</summary>
+                        <div class="model-section-body">
+                    <ul>
+                        <li>Think of the cutoff like a height requirement at an amusement park ride.</li>
+                        <li>A borrower's "height" is their confidence score, which is a number from 0% to 100% for how likely the model thinks they are to default on their loan.</li>
+                        <li>Set the cutoff at "3 feet" (a low cutoff):
+                            <ul>
+                                <li>Any borrower taller than 3 feet (score above the cutoff) gets flagged by the model as a likely loan defaulter.</li>
+                                <li>Any borrower shorter than 3 feet (score below the cutoff) gets approved by the model.</li>
+                                <li>Most borrowers are taller than 3 feet, so most get flagged.</li>
+                            </ul>
+                        </li>
+                        <li>Set the cutoff at "5 feet" (a high cutoff):
+                            <ul>
+                                <li>Any borrower taller than 5 feet (score above the cutoff) gets flagged by the model as a likely loan defaulter.</li>
+                                <li>Any borrower shorter than 5 feet (score below the cutoff) gets approved by the model.</li>
+                                <li>Few borrowers are taller than 5 feet, so few get flagged.</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <div style="margin: 16px 0; text-align: center;">
+                        <svg viewBox="0 0 720 380" xmlns="http://www.w3.org/2000/svg" style="display: block; max-width: 100%; height: auto; margin: 0 auto;">
+                            <style>
+                                .ca-panel-title { font-family: 'Segoe UI', sans-serif; font-size: 14px; font-weight: 700; fill: #1E2761; }
+                                .ca-panel-subtitle { font-family: 'Segoe UI', sans-serif; font-size: 11px; fill: #4b5563; }
+                                .ca-axis-label { font-family: 'Segoe UI', sans-serif; font-size: 10px; fill: #6b7280; }
+                                .ca-cutoff-label { font-family: 'Segoe UI', sans-serif; font-size: 11px; font-weight: 600; fill: #1E2761; }
+                                .ca-legend-label { font-family: 'Segoe UI', sans-serif; font-size: 11px; fill: #4b5563; }
+                                .ca-bar-flagged { fill: #dc2626; }
+                                .ca-bar-approved { fill: #94a3b8; }
+                                .ca-axis-line { stroke: #d1d5db; stroke-width: 1; }
+                                .ca-cutoff-line { stroke: #1E2761; stroke-width: 2; stroke-dasharray: 5,3; }
+                            </style>
+
+                            <!-- LEFT PANEL: Low cutoff (3 ft) -->
+                            <text x="170" y="20" text-anchor="middle" class="ca-panel-title">Low cutoff (3 ft)</text>
+                            <text x="170" y="38" text-anchor="middle" class="ca-panel-subtitle">8 of 10 borrowers flagged</text>
+
+                            <line x1="50" y1="60" x2="50" y2="320" class="ca-axis-line" />
+                            <text x="45" y="114" text-anchor="end" class="ca-axis-label">6 ft</text>
+                            <text x="45" y="149" text-anchor="end" class="ca-axis-label">5 ft</text>
+                            <text x="45" y="184" text-anchor="end" class="ca-axis-label">4 ft</text>
+                            <text x="45" y="219" text-anchor="end" class="ca-axis-label">3 ft</text>
+                            <text x="45" y="254" text-anchor="end" class="ca-axis-label">2 ft</text>
+                            <text x="45" y="289" text-anchor="end" class="ca-axis-label">1 ft</text>
+                            <text x="45" y="324" text-anchor="end" class="ca-axis-label">0 ft</text>
+
+                            <line x1="50" y1="320" x2="320" y2="320" class="ca-axis-line" />
+
+                            <!-- Cutoff line at 3 ft (y=215) -->
+                            <line x1="50" y1="215" x2="320" y2="215" class="ca-cutoff-line" />
+                            <text x="55" y="210" class="ca-cutoff-label">cutoff: 3 ft</text>
+
+                            <!-- 10 borrowers, scale 1 ft = 35 px, baseline y=320 -->
+                            <rect x="61" y="240" width="18" height="80" class="ca-bar-approved" />
+                            <rect x="86" y="226" width="18" height="94" class="ca-bar-approved" />
+                            <rect x="111" y="208" width="18" height="112" class="ca-bar-flagged" />
+                            <rect x="136" y="198" width="18" height="122" class="ca-bar-flagged" />
+                            <rect x="161" y="187" width="18" height="133" class="ca-bar-flagged" />
+                            <rect x="186" y="173" width="18" height="147" class="ca-bar-flagged" />
+                            <rect x="211" y="163" width="18" height="157" class="ca-bar-flagged" />
+                            <rect x="236" y="142" width="18" height="178" class="ca-bar-flagged" />
+                            <rect x="261" y="131" width="18" height="189" class="ca-bar-flagged" />
+                            <rect x="286" y="121" width="18" height="199" class="ca-bar-flagged" />
+
+                            <!-- RIGHT PANEL: High cutoff (5 ft) -->
+                            <text x="540" y="20" text-anchor="middle" class="ca-panel-title">High cutoff (5 ft)</text>
+                            <text x="540" y="38" text-anchor="middle" class="ca-panel-subtitle">3 of 10 borrowers flagged</text>
+
+                            <line x1="420" y1="60" x2="420" y2="320" class="ca-axis-line" />
+                            <text x="415" y="114" text-anchor="end" class="ca-axis-label">6 ft</text>
+                            <text x="415" y="149" text-anchor="end" class="ca-axis-label">5 ft</text>
+                            <text x="415" y="184" text-anchor="end" class="ca-axis-label">4 ft</text>
+                            <text x="415" y="219" text-anchor="end" class="ca-axis-label">3 ft</text>
+                            <text x="415" y="254" text-anchor="end" class="ca-axis-label">2 ft</text>
+                            <text x="415" y="289" text-anchor="end" class="ca-axis-label">1 ft</text>
+                            <text x="415" y="324" text-anchor="end" class="ca-axis-label">0 ft</text>
+
+                            <line x1="420" y1="320" x2="690" y2="320" class="ca-axis-line" />
+
+                            <!-- Cutoff line at 5 ft (y=145) -->
+                            <line x1="420" y1="145" x2="690" y2="145" class="ca-cutoff-line" />
+                            <text x="425" y="140" class="ca-cutoff-label">cutoff: 5 ft</text>
+
+                            <!-- Same 10 borrowers, but now cutoff at 5 ft -->
+                            <rect x="431" y="240" width="18" height="80" class="ca-bar-approved" />
+                            <rect x="456" y="226" width="18" height="94" class="ca-bar-approved" />
+                            <rect x="481" y="208" width="18" height="112" class="ca-bar-approved" />
+                            <rect x="506" y="198" width="18" height="122" class="ca-bar-approved" />
+                            <rect x="531" y="187" width="18" height="133" class="ca-bar-approved" />
+                            <rect x="556" y="173" width="18" height="147" class="ca-bar-approved" />
+                            <rect x="581" y="163" width="18" height="157" class="ca-bar-approved" />
+                            <rect x="606" y="142" width="18" height="178" class="ca-bar-flagged" />
+                            <rect x="631" y="131" width="18" height="189" class="ca-bar-flagged" />
+                            <rect x="656" y="121" width="18" height="199" class="ca-bar-flagged" />
+
+                            <!-- Legend -->
+                            <rect x="220" y="350" width="14" height="14" class="ca-bar-flagged" />
+                            <text x="240" y="362" class="ca-legend-label">Flagged (above cutoff)</text>
+                            <rect x="400" y="350" width="14" height="14" class="ca-bar-approved" />
+                            <text x="420" y="362" class="ca-legend-label">Approved (below cutoff)</text>
+                        </svg>
+                    </div>
+
+                    <ul>
+                        <li>The intuition trick: a LOW cutoff means MORE borrowers get flagged because the bar is easier to clear.</li>
+                    </ul>
+                        </div>
+                    </details>
+
+                    <p>
+                        A few things about the cutoff:
+                    </p>
+                    <ul>
+                        <li>The cutoff isn't part of the model's math. The model only produces the confidence score; the cutoff is a separate setting applied to that score.</li>
+                        <li>By convention, the cutoff usually starts at 50%, meaning the model treats anything above 50% as a likely loan default.</li>
+                        <li>The data scientist or business can move it lower to catch more loan defaults, or higher to flag only the most certain ones, depending on which type of error costs more.</li>
+                    </ul>
+                    <p>
+                        That cutoff is the strictness dial. Turning the dial changes both recall and precision at the same time, but in opposite directions:
+                    </p>
+                    <ul>
+                        <li><strong>Deny leaning dial (turned left):</strong> the model predicts a loan default for anything even mildly risky.
+                            <ul>
+                                <li>Catches almost every borrower who actually defaulted on their loan (high recall).</li>
+                                <li>But the wide net also scoops up good borrowers who happened to look a little risky (low precision).</li>
+                                <li>Those good borrowers do not become true negatives. They become false positives.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Approve leaning dial (turned right):</strong> the model only predicts a loan default when it is very confident.
+                            <ul>
+                                <li>When the model does predict a loan default, the borrower really does default on their loan most of the time (high precision).</li>
+                                <li>But it refuses to call borderline cases a loan default.</li>
+                                <li>Some of those borderline cases are borrowers who actually defaulted on their loan and now get missed (low recall).</li>
+                                <li>Those missed loan defaulters do not disappear. They become false negatives.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                    <p>
+                        In short, the dial trades one metric for the other:
+                    </p>
+                    <ul>
+                        <li>Loosen the dial to boost recall, and precision falls.</li>
+                        <li>Tighten the dial to boost precision, and recall falls.</li>
                     </ul>
 
                     <div class="strictness-dial" id="strictness-dial-widget">
@@ -1243,7 +1461,22 @@
 
                         <div class="sd-title">Move the dial to see the tradeoff in action</div>
                         <div class="sd-intro">
-                            Each cell below is a loan application from a pool of 100, sorted left to right by the model's confidence score for that application. The confidence score is the probability the model assigns to default, so cells on the left are applications the model thinks are almost certainly safe, and cells on the right are applications the model thinks are almost certainly defaults. The strictness dial sets a cutoff: every cell to the right of the dial gets predicted as a default, every cell to the left gets predicted as no default. Move the dial and watch recall and precision shift at the same time. Use the toggle below to switch between a perfect model (clean separation between classes) and a realistic model (overlap in the middle).
+                            <p style="margin: 0 0 8px;">Each cell below is a loan application from a pool of 100, sorted left to right by the model's confidence score:</p>
+                            <ul style="margin: 0 0 10px; padding-left: 22px;">
+                                <li>The confidence score is the probability the model assigns to a loan default.</li>
+                                <li>Cells on the left: applications the model thinks are almost certainly safe.</li>
+                                <li>Cells on the right: applications the model thinks are almost certainly loan defaults.</li>
+                            </ul>
+                            <p style="margin: 0 0 8px;">The strictness dial sets a cutoff:</p>
+                            <ul style="margin: 0 0 10px; padding-left: 22px;">
+                                <li>Every cell to the right of the dial gets predicted as a loan default.</li>
+                                <li>Every cell to the left gets predicted as no loan default.</li>
+                            </ul>
+                            <p style="margin: 0 0 8px;">Move the dial and watch recall and precision shift at the same time. Use the toggle below to switch between:</p>
+                            <ul style="margin: 0; padding-left: 22px;">
+                                <li><strong>Perfect model:</strong> clean separation between classes.</li>
+                                <li><strong>Realistic model:</strong> overlap in the middle.</li>
+                            </ul>
                         </div>
 
                         <div class="sd-mode-toggle" id="sd-mode-toggle">
@@ -1252,9 +1485,9 @@
                         </div>
 
                         <div class="sd-legend">
-                            <span><span class="sd-legend-swatch" style="background: #dc2626;"></span>Real defaulter (20 total)</span>
+                            <span><span class="sd-legend-swatch" style="background: #dc2626;"></span>Real loan defaulter (20 total)</span>
                             <span><span class="sd-legend-swatch" style="background: #94a3b8;"></span>Real good borrower (80 total)</span>
-                            <span><span class="sd-legend-swatch" style="background: #dc2626; opacity: 0.22;"></span>Faded = predicted as no default</span>
+                            <span><span class="sd-legend-swatch" style="background: #dc2626; opacity: 0.22;"></span>Faded = predicted as no loan default</span>
                         </div>
 
                         <div class="sd-bar-wrap">
@@ -1345,23 +1578,23 @@
                                 function getDescription(threshold, tp, fp, fn, tn) {
                                     if (currentMode === 'perfect') {
                                         if (threshold === 80) {
-                                            return '<strong>Perfect separation reached.</strong> The dial is parked exactly at the boundary between the two classes. Every real defaulter is on the default side (20 true positives, recall = 100%) and every good borrower is on the no default side (0 false positives, precision = 100%). This is the idealized case where both metrics hit 100% at the same time, with no tradeoff.';
+                                            return '<strong>Perfect separation reached.</strong> The dial is parked exactly at the boundary between the two classes. Every real loan defaulter is on the loan default side (20 true positives, recall = 100%) and every good borrower is on the no loan default side (0 false positives, precision = 100%). This is the idealized case where both metrics hit 100% at the same time, with no tradeoff.';
                                         } else if (threshold < 80) {
-                                            return '<strong>Dial is too deny leaning for the perfect model.</strong> All 20 real defaulters are still being caught (recall = 100%) but the dial has slipped to the left of the class boundary, so ' + fp + ' good borrowers are now on the default side as false positives. Slide the dial back to position 80 to recover 100% precision.';
+                                            return '<strong>Dial is too deny leaning for the perfect model.</strong> All 20 real loan defaulters are still being caught (recall = 100%) but the dial has slipped to the left of the class boundary, so ' + fp + ' good borrowers are now on the loan default side as false positives. Slide the dial back to position 80 to recover 100% precision.';
                                         } else {
-                                            return '<strong>Dial is too approve leaning for the perfect model.</strong> Every positive prediction is still correct (precision = 100%) but ' + fn + ' real defaulters have slipped below the dial and become false negatives. Slide the dial back to position 80 to recover 100% recall.';
+                                            return '<strong>Dial is too approve leaning for the perfect model.</strong> Every positive prediction is still correct (precision = 100%) but ' + fn + ' real loan defaulters have slipped below the dial and become false negatives. Slide the dial back to position 80 to recover 100% recall.';
                                         }
                                     }
                                     if (threshold <= 5) {
-                                        return '<strong>Extreme deny leaning dial.</strong> The model predicts default for nearly every application. Every real defaulter is caught (recall ≈ 100%) but the wide net sweeps in ' + fp + ' good borrowers as false positives, which crushes precision. Those good borrowers did not become true negatives, they became false positives on the default side of the dial.';
+                                        return '<strong>Extreme deny leaning dial.</strong> The model predicts a loan default for nearly every application. Every real loan defaulter is caught (recall ≈ 100%) but the wide net sweeps in ' + fp + ' good borrowers as false positives, which crushes precision. Those good borrowers did not become true negatives, they became false positives on the loan default side of the dial.';
                                     } else if (threshold <= 35) {
-                                        return '<strong>Deny leaning dial.</strong> The model predicts default for a large share of applications. Recall stays high because most real defaulters are still on the default side of the dial. Precision is climbing as some obvious good borrowers now fall on the no default side, but ' + fp + ' good borrowers are still being wrongly predicted as defaults.';
+                                        return '<strong>Deny leaning dial.</strong> The model predicts a loan default for a large share of applications. Recall stays high because most real loan defaulters are still on the loan default side of the dial. Precision is climbing as some obvious good borrowers now fall on the no loan default side, but ' + fp + ' good borrowers are still being wrongly predicted as loan defaults.';
                                     } else if (threshold <= 75) {
-                                        return '<strong>Balanced dial.</strong> The model only predicts default for applications with moderate to high confidence. ' + fn + ' real defaulters are being missed (false negatives) and ' + fp + ' good borrowers are still being classified as defaults (false positives). Both metrics sit in a mid range because the dial is tolerating some of each error type.';
+                                        return '<strong>Balanced dial.</strong> The model only predicts a loan default for applications with moderate to high confidence. ' + fn + ' real loan defaulters are being missed (false negatives) and ' + fp + ' good borrowers are still being classified as loan defaults (false positives). Both metrics sit in a mid range because the dial is tolerating some of each error type.';
                                     } else if (threshold <= 92) {
-                                        return '<strong>Approve leaning dial.</strong> The model only predicts default when it is quite confident. Precision is high because most positive predictions are correct, but recall is dropping because ' + fn + ' real defaulters fell below the dial and got predicted as no default, turning them into false negatives.';
+                                        return '<strong>Approve leaning dial.</strong> The model only predicts a loan default when it is quite confident. Precision is high because most positive predictions are correct, but recall is dropping because ' + fn + ' real loan defaulters fell below the dial and got predicted as no loan default, turning them into false negatives.';
                                     } else {
-                                        return '<strong>Extreme approve leaning dial.</strong> The model only predicts default for the most certain cases. Precision is very high (nearly every positive prediction is correct) but recall is very low because ' + fn + ' real defaulters are now being missed. Those missed defaulters did not disappear, they became false negatives on the no default side.';
+                                        return '<strong>Extreme approve leaning dial.</strong> The model only predicts a loan default for the most certain cases. Precision is very high (nearly every positive prediction is correct) but recall is very low because ' + fn + ' real loan defaulters are now being missed. Those missed loan defaulters did not disappear, they became false negatives on the no loan default side.';
                                     }
                                 }
 
@@ -1442,21 +1675,79 @@
                             })();
                         </script>
                     </div>
+                        </div>
+                    </details>
 
-                    <h4>Why the Tradeoff Exists: Perfect Separation vs Real World Overlap</h4>
+                    <details class="model-section">
+                        <summary>Why the Tradeoff Exists: Perfect Separation vs Real World Overlap</summary>
+                        <div class="model-section-body">
                     <p>
-                        In the <strong>perfect model</strong>, the scale shows two clean blocks: every good borrower sits to the left of position 80 and every defaulter sits to the right. The model has ordered the two classes with no mixing. Parking the dial exactly at the boundary sends all 20 defaulters to the default side and all 80 good borrowers to the no default side, so recall and precision both hit 100% at the same dial position. There is no tradeoff because there is no overlap.
+                        In the <strong>perfect model</strong>, the scale shows two clean blocks:
+                    </p>
+                    <ul>
+                        <li>Every good borrower sits to the left of position 80.</li>
+                        <li>Every loan defaulter sits to the right.</li>
+                        <li>The model has ordered the two classes with no mixing.</li>
+                    </ul>
+                    <p>
+                        Parking the dial exactly at the boundary:
+                    </p>
+                    <ul>
+                        <li>Sends all 20 loan defaulters to the loan default side.</li>
+                        <li>Sends all 80 good borrowers to the no loan default side.</li>
+                        <li>Recall and precision both hit 100% at the same dial position.</li>
+                    </ul>
+                    <p>
+                        There is no tradeoff because there is no overlap.
                     </p>
                     <p>
-                        Real world data almost never looks like this. The <strong>realistic model</strong> still orders the applications by confidence score, but the two classes overlap in the middle of the scale. Some defaulters carry confidence scores that resemble good borrowers, and some good borrowers carry confidence scores that resemble defaulters, because the features in the dataset (debt to income, delinquencies, credit history, and so on) cannot perfectly distinguish between the two classes. Once the classes overlap, no single dial position separates them cleanly. Every dial setting either lets some good borrowers slip into the default side (false positives) or pushes some defaulters into the no default side (false negatives). That overlap is what makes the recall and precision tradeoff real.
+                        Real world data almost never looks like this. The <strong>realistic model</strong> still orders the applications by confidence score, but the two classes overlap in the middle of the scale:
                     </p>
-                    <h4>Do Different Models Arrange the Scale Differently?</h4>
+                    <ul>
+                        <li>Some loan defaulters carry confidence scores that resemble good borrowers.</li>
+                        <li>Some good borrowers carry confidence scores that resemble loan defaulters.</li>
+                        <li>The features in the dataset (debt to income, delinquencies, credit history, and so on) cannot perfectly distinguish between the two classes.</li>
+                    </ul>
                     <p>
-                        Yes, and this is exactly what the model comparison later in this post measures. Every classifier produces its own ordering of the 100 applications. A strong classifier pushes real defaulters toward the right end of the scale and real good borrowers toward the left end, shrinking the overlap in the middle. A weak classifier produces a more jumbled ordering where the two classes bleed into each other across a wider stretch of the scale. The width of that overlap region drives everything: a narrow overlap means recall and precision stay high together across a wide range of dial positions, and a wide overlap means the tradeoff is steep and painful.
+                        Once the classes overlap, no single dial position separates them cleanly. Every dial setting either:
                     </p>
+                    <ul>
+                        <li>Lets some good borrowers slip into the loan default side (false positives), or</li>
+                        <li>Pushes some loan defaulters into the no loan default side (false negatives).</li>
+                    </ul>
                     <p>
-                        When the 15 classifiers in this post are compared, the underlying question is which model produces the cleanest ordering of the HMEQ applications. A model that arranges the scale closer to the perfect layout will deliver better recall and precision at whatever dial position the business picks, which is why picking the right model matters just as much as picking the right dial.
+                        That overlap is what makes the recall and precision tradeoff real.
                     </p>
+                        </div>
+                    </details>
+
+                    <details class="model-section">
+                        <summary>Do Different Models Arrange the Scale Differently?</summary>
+                        <div class="model-section-body">
+                    <p>
+                        Yes, and this is exactly what the model comparison later in this post measures. Every classifier produces its own ordering of the 100 applications:
+                    </p>
+                    <ul>
+                        <li><strong>A strong classifier</strong> pushes real loan defaulters toward the right end of the scale and real good borrowers toward the left end, shrinking the overlap in the middle.</li>
+                        <li><strong>A weak classifier</strong> produces a more jumbled ordering where the two classes bleed into each other across a wider stretch of the scale.</li>
+                    </ul>
+                    <p>
+                        The width of that overlap region drives everything:
+                    </p>
+                    <ul>
+                        <li><strong>Narrow overlap:</strong> recall and precision stay high together across a wide range of dial positions.</li>
+                        <li><strong>Wide overlap:</strong> the tradeoff is steep and painful.</li>
+                    </ul>
+                    <p>
+                        Why this matters for the model comparison ahead:
+                    </p>
+                    <ul>
+                        <li>When comparing the 15 classifiers in this post, the underlying question is: which model produces the cleanest ordering of the HMEQ applications?</li>
+                        <li>A model that arranges the scale closer to the perfect layout will deliver better recall and precision at whatever dial position the business picks.</li>
+                        <li>This is why picking the right model matters just as much as picking the right dial.</li>
+                    </ul>
+                        </div>
+                    </details>
                 </div>
             </details>
 
@@ -1465,54 +1756,228 @@
                 <summary>From the Strictness Dial to the Model Spectrum</summary>
                 <div class="model-section-body">
 
-                    <p>
-                        The strictness dial shows one model adjusting its cutoff across a single ordering of applications. The model spectrum zooms out one level: it summarizes, at a glance, the kind of ordering a classifier tends to produce once it has been trained on the HMEQ data. Instead of asking "where does the dial sit," this spectrum asks "where does this model's behavior as a whole sit." Each of the 15 classifiers later in this post will land at its own spot on this same spectrum.
-                    </p>
+                    <ul>
+                        <li>The strictness dial shows one model adjusting its cutoff across a single ordering of applications.</li>
+                        <li>The model spectrum zooms out one level. It summarizes the kind of ordering a classifier tends to produce once it has been trained on the HMEQ data.</li>
+                        <li>Instead of asking "where does the dial sit," this spectrum asks "where does this model's behavior as a whole sit."</li>
+                        <li>Each of the 15 classifiers later in this post will land at its own spot on this same spectrum.</li>
+                    </ul>
 
-                    <h3>The Spectrum Visualization</h3>
-                    <p>
-                        Every model tab in this post includes a spectrum marker like the one below. The marker is a shorthand for the model's disposition at its default operating point: how aggressively or conservatively it predicts default on HMEQ, and therefore the balance of recall and precision a reader should expect before reading the detailed metrics.
-                    </p>
+                    <details class="model-section">
+                        <summary>The Spectrum Visualization</summary>
+                        <div class="model-section-body">
+                    <ul>
+                        <li>Every model tab in this post includes a spectrum marker like the one below.</li>
+                        <li>The marker is a shorthand for the model's disposition at its default operating point.</li>
+                        <li>It shows how aggressively or conservatively the model predicts a loan default on HMEQ.</li>
+                        <li>It also signals the balance of recall and precision a reader should expect before reading the detailed metrics.</li>
+                    </ul>
                     <div class="spectrum-wrapper">
-                        <div class="spectrum-legend">Where does this model land between denying more risky borrowers and approving more safe borrowers?</div>
+                        <div class="spectrum-legend">Where does this model land between deny leaning (denies more loans) and approve leaning (approves more loans)?</div>
                         <div class="spectrum-bar">
                             <div class="spectrum-marker" style="left: 75%;"></div>
                         </div>
                         <div class="spectrum-endpoints">
-                            <span class="endpoint-left">Denies more risky borrowers, but also denies some safe ones</span>
-                            <span class="endpoint-right">Approves more safe borrowers, but also approves some risky ones</span>
+                            <span class="endpoint-left">Deny leaning: denies more loans, catching more loan defaults but rejecting some good borrowers too</span>
+                            <span class="endpoint-right">Approve leaning: approves more loans, keeping more good borrowers but letting some loan defaults through</span>
                         </div>
                     </div>
+                        </div>
+                    </details>
 
-                    <h4>What Each Side Means</h4>
-                    <p>
-                        <strong>Left side (deny leaning):</strong> the model leans toward predicting default. Recall runs high because most real defaulters are caught, but precision runs lower because more good borrowers get swept in as false positives. Useful when missing a default is the expensive error.
-                    </p>
-                    <p>
-                        <strong>Right side (approve leaning):</strong> the model leans toward predicting no default. Precision runs high because most positive predictions are correct, but recall runs lower because more real defaulters slip through as false negatives. Useful when rejecting a good borrower is the expensive error.
-                    </p>
+                    <details class="model-section">
+                        <summary>Deny vs Approve Leaning: What Each Side of the Spectrum Does</summary>
+                        <div class="model-section-body">
+                    <ul>
+                        <li><strong>Left side (deny leaning):</strong> the model denies more loans, catching more loan defaults but rejecting some good borrowers too.
+                            <ul>
+                                <li>Recall runs high because most real loan defaulters are caught.</li>
+                                <li>Precision runs lower because more good borrowers get swept in as false positives.</li>
+                                <li>Useful when missing a loan default is the expensive error.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Right side (approve leaning):</strong> the model approves more loans, keeping more good borrowers but letting some loan defaults through.
+                            <ul>
+                                <li>Precision runs high because most positive predictions are correct.</li>
+                                <li>Recall runs lower because more real loan defaulters slip through as false negatives.</li>
+                                <li>Useful when rejecting a good borrower is the expensive error.</li>
+                            </ul>
+                        </li>
+                    </ul>
 
-                    <h3>How the 15 Models Will Differ on This Spectrum</h3>
-                    <p>
-                        As covered in the prior section, different classifiers arrange the applications on the scale differently. A strong classifier produces a clean ordering with defaulters packed to the right and good borrowers to the left, which keeps recall and precision both reasonably high across a wide range of dial positions. A weaker classifier produces a more jumbled ordering, forcing a sharper tradeoff between the two metrics. The spectrum marker captures the net result of that arrangement at the model's default cutoff.
-                    </p>
+                        </div>
+                    </details>
+
+                    <details class="model-section">
+                        <summary>How the 15 Models Will Differ on This Spectrum</summary>
+                        <div class="model-section-body">
+                    <ul>
+                        <li>Different classifiers arrange the applications on the scale differently (covered in the prior section).</li>
+                        <li><strong>A strong classifier:</strong>
+                            <ul>
+                                <li>Produces a clean ordering with loan defaulters packed to the right and good borrowers to the left.</li>
+                                <li>Keeps recall and precision both reasonably high across a wide range of dial positions.</li>
+                            </ul>
+                        </li>
+                        <li><strong>A weaker classifier:</strong>
+                            <ul>
+                                <li>Produces a more jumbled ordering.</li>
+                                <li>Forces a sharper tradeoff between the two metrics.</li>
+                            </ul>
+                        </li>
+                        <li>The spectrum marker captures the net result of that arrangement at the model's default cutoff.</li>
+                    </ul>
+                    <div style="margin: 16px 0; text-align: center;">
+                        <svg viewBox="0 0 720 380" xmlns="http://www.w3.org/2000/svg" style="display: block; max-width: 100%; height: auto; margin: 0 auto;">
+                            <style>
+                                .ss-title { font-family: 'Segoe UI', sans-serif; font-size: 14px; font-weight: 700; fill: #1E2761; }
+                                .ss-subtitle { font-family: 'Segoe UI', sans-serif; font-size: 11px; fill: #4b5563; }
+                                .ss-axis-label { font-family: 'Segoe UI', sans-serif; font-size: 11px; font-weight: 600; fill: #1E2761; }
+                                .ss-tick { font-family: 'Segoe UI', sans-serif; font-size: 9px; fill: #6b7280; }
+                                .ss-model-label { font-family: 'Segoe UI', sans-serif; font-size: 10px; font-weight: 600; }
+                                .ss-legend-label { font-family: 'Segoe UI', sans-serif; font-size: 10px; fill: #4b5563; }
+                                .ss-spectrum-bar { fill: #e5e7eb; stroke: #9ca3af; stroke-width: 0.5; }
+                                .ss-leader-line { stroke: #9ca3af; stroke-width: 0.5; }
+                                .ss-tree { fill: #dc2626; }
+                                .ss-linear { fill: #1E2761; }
+                                .ss-distance { fill: #2E7D32; }
+                                .ss-bayes { fill: #F18F01; }
+                                .ss-neural { fill: #7B1FA2; }
+                            </style>
+
+                            <text x="360" y="22" text-anchor="middle" class="ss-title">Where the 15 models land on the spectrum</text>
+                            <text x="360" y="40" text-anchor="middle" class="ss-subtitle">Position at the default 0.5 cutoff (pulled from each model tab's spectrum marker)</text>
+
+                            <rect x="80" y="218" width="600" height="6" class="ss-spectrum-bar" rx="3" />
+
+                            <line x1="80" y1="224" x2="80" y2="232" stroke="#9ca3af" stroke-width="0.5" />
+                            <text x="80" y="244" text-anchor="middle" class="ss-tick">0</text>
+                            <line x1="230" y1="224" x2="230" y2="232" stroke="#9ca3af" stroke-width="0.5" />
+                            <text x="230" y="244" text-anchor="middle" class="ss-tick">25</text>
+                            <line x1="380" y1="224" x2="380" y2="232" stroke="#9ca3af" stroke-width="0.5" />
+                            <text x="380" y="244" text-anchor="middle" class="ss-tick">50</text>
+                            <line x1="530" y1="224" x2="530" y2="232" stroke="#9ca3af" stroke-width="0.5" />
+                            <text x="530" y="244" text-anchor="middle" class="ss-tick">75</text>
+                            <line x1="680" y1="224" x2="680" y2="232" stroke="#9ca3af" stroke-width="0.5" />
+                            <text x="680" y="244" text-anchor="middle" class="ss-tick">100</text>
+
+                            <text x="80" y="262" text-anchor="start" class="ss-axis-label">&#8592; Deny leaning</text>
+                            <text x="680" y="262" text-anchor="end" class="ss-axis-label">Approve leaning &#8594;</text>
+
+                            <line x1="260" y1="218" x2="260" y2="200" class="ss-leader-line" />
+                            <circle cx="260" cy="221" r="5" class="ss-linear" />
+                            <text x="260" y="196" text-anchor="middle" class="ss-model-label" fill="#1E2761">LR</text>
+
+                            <line x1="272" y1="218" x2="272" y2="180" class="ss-leader-line" />
+                            <circle cx="272" cy="221" r="5" class="ss-bayes" />
+                            <text x="272" y="176" text-anchor="middle" class="ss-model-label" fill="#F18F01">NB</text>
+
+                            <line x1="296" y1="218" x2="296" y2="200" class="ss-leader-line" />
+                            <circle cx="296" cy="221" r="5" class="ss-tree" />
+                            <text x="296" y="196" text-anchor="middle" class="ss-model-label" fill="#dc2626">DT</text>
+
+                            <line x1="308" y1="218" x2="308" y2="180" class="ss-leader-line" />
+                            <circle cx="308" cy="221" r="5" class="ss-distance" />
+                            <text x="308" y="176" text-anchor="middle" class="ss-model-label" fill="#2E7D32">SVM</text>
+
+                            <line x1="332" y1="218" x2="332" y2="200" class="ss-leader-line" />
+                            <circle cx="332" cy="221" r="5" class="ss-tree" />
+                            <text x="332" y="196" text-anchor="middle" class="ss-model-label" fill="#dc2626">RF</text>
+
+                            <line x1="338" y1="218" x2="338" y2="180" class="ss-leader-line" />
+                            <circle cx="338" cy="221" r="5" class="ss-tree" />
+                            <text x="338" y="176" text-anchor="middle" class="ss-model-label" fill="#dc2626">AB</text>
+
+                            <line x1="344" y1="218" x2="344" y2="160" class="ss-leader-line" />
+                            <circle cx="344" cy="221" r="5" class="ss-tree" />
+                            <text x="344" y="156" text-anchor="middle" class="ss-model-label" fill="#dc2626">GB</text>
+
+                            <line x1="356" y1="218" x2="356" y2="200" class="ss-leader-line" />
+                            <circle cx="356" cy="221" r="5" class="ss-tree" />
+                            <text x="356" y="196" text-anchor="middle" class="ss-model-label" fill="#dc2626">XGB</text>
+
+                            <line x1="368" y1="218" x2="358" y2="180" class="ss-leader-line" />
+                            <circle cx="368" cy="221" r="5" class="ss-linear" />
+                            <text x="358" y="176" text-anchor="middle" class="ss-model-label" fill="#1E2761">LDA</text>
+
+                            <line x1="380" y1="216" x2="380" y2="152" class="ss-leader-line" />
+                            <circle cx="376" cy="219" r="4" class="ss-linear" />
+                            <circle cx="384" cy="219" r="4" class="ss-distance" />
+                            <circle cx="376" cy="225" r="4" class="ss-tree" />
+                            <circle cx="384" cy="225" r="4" class="ss-neural" />
+                            <text x="380" y="148" text-anchor="middle" class="ss-model-label" fill="#1E2761">QDA</text>
+                            <text x="380" y="132" text-anchor="middle" class="ss-model-label" fill="#2E7D32">KNN</text>
+                            <text x="380" y="116" text-anchor="middle" class="ss-model-label" fill="#dc2626">Bag</text>
+                            <text x="380" y="100" text-anchor="middle" class="ss-model-label" fill="#7B1FA2">MLP</text>
+
+                            <line x1="392" y1="218" x2="402" y2="180" class="ss-leader-line" />
+                            <circle cx="392" cy="221" r="5" class="ss-tree" />
+                            <text x="402" y="176" text-anchor="middle" class="ss-model-label" fill="#dc2626">LGB</text>
+
+                            <line x1="404" y1="218" x2="404" y2="200" class="ss-leader-line" />
+                            <circle cx="404" cy="221" r="5" class="ss-tree" />
+                            <text x="404" y="196" text-anchor="middle" class="ss-model-label" fill="#dc2626">CB</text>
+
+                            <text x="80" y="290" class="ss-axis-label">Legend:</text>
+                            <circle cx="90" cy="305" r="5" class="ss-tree" />
+                            <text x="100" y="309" class="ss-legend-label">Tree based / Boosting (DT, RF, AB, GB, XGB, Bag, LGB, CB)</text>
+                            <circle cx="90" cy="322" r="5" class="ss-linear" />
+                            <text x="100" y="326" class="ss-legend-label">Linear (LR, LDA, QDA)</text>
+                            <circle cx="90" cy="339" r="5" class="ss-distance" />
+                            <text x="100" y="343" class="ss-legend-label">Distance based (KNN, SVM)</text>
+                            <circle cx="430" cy="322" r="5" class="ss-bayes" />
+                            <text x="440" y="326" class="ss-legend-label">Naive Bayes (NB)</text>
+                            <circle cx="430" cy="339" r="5" class="ss-neural" />
+                            <text x="440" y="343" class="ss-legend-label">Neural Network (MLP)</text>
+                        </svg>
+                    </div>
+
                     <p>
                         Some patterns to watch for across the 15 model tabs:
                     </p>
                     <ul>
-                        <li><strong>Tree based and boosting models</strong> (random forest, XGBoost, LightGBM, CatBoost) tend to land toward the center or right of the spectrum on HMEQ because they capture nonlinear interactions that separate the classes more cleanly.</li>
+                        <li><strong>Tree based and boosting models</strong> (random forest, XGBoost, LightGBM, CatBoost) cluster in the middle of the spectrum on HMEQ (positions 36 to 54) because they capture nonlinear interactions that separate the classes more cleanly, with the boosting libraries (LightGBM at 52, CatBoost at 54) landing slightly right of center.</li>
                         <li><strong>Linear models</strong> (logistic regression, LDA, QDA) often land further left or more variable because they rely on simpler decision boundaries and can struggle with the overlap that the HMEQ features produce.</li>
                         <li><strong>Distance based models</strong> (KNN, SVM) land differently depending on scaling and kernel choice, and tend to be more sensitive to the class imbalance in the dataset.</li>
                         <li><strong>Naive Bayes</strong> tends to land on the deny leaning side because its independence assumption inflates probability estimates for marginal cases.</li>
                     </ul>
 
-                    <h3>The Business Context Decision</h3>
-                    <p>
-                        The right position on the spectrum is set by the business cost ratio, not by the model alone. If missing a default costs $20,000 and rejecting a good borrower costs $5,000, the business should pick a model and cutoff that land on the deny leaning side of the spectrum. If the cost ratio flips, the business should pick a model and cutoff that land on the approve leaning side. The same model can be moved along the spectrum by adjusting its probability threshold, but models that produce cleaner orderings will deliver better results at whatever position the business picks.
-                    </p>
+                        </div>
+                    </details>
+
+                    <details class="model-section">
+                        <summary>The Business Context Decision</summary>
+                        <div class="model-section-body">
+                    <ul>
+                        <li>The right position on the spectrum is set by the business cost ratio, not by the model alone.</li>
+                        <li>If missing a loan default costs $20,000 and rejecting a good borrower costs $5,000:
+                            <ul>
+                                <li>The business should pick a model and cutoff that land on the deny leaning side of the spectrum.</li>
+                            </ul>
+                        </li>
+                        <li>If the cost ratio flips:
+                            <ul>
+                                <li>The business should pick a model and cutoff that land on the approve leaning side.</li>
+                            </ul>
+                        </li>
+                        <li>The same model can be moved along the spectrum by adjusting its probability threshold.</li>
+                        <li>But models that produce cleaner orderings will deliver better results at whatever position the business picks.</li>
+                    </ul>
+                        </div>
+                    </details>
 
                     <div class="callout callout-info">
-                        <strong>Key takeaway:</strong> There is no universally "best" model on this spectrum. The right choice depends on two questions: which classifier produces the cleanest ordering of HMEQ applications, and where on the spectrum the business cost ratio says the operating point should sit. The 15 model tabs answer the first question; the business answers the second.
+                        <strong>Key takeaway:</strong>
+                        <ul>
+                            <li>There is no universally "best" model on this spectrum.</li>
+                            <li>The right choice depends on two questions:
+                                <ul>
+                                    <li>Which classifier produces the cleanest ordering of HMEQ applications?</li>
+                                    <li>Where on the spectrum should the operating point sit, based on the business cost ratio?</li>
+                                </ul>
+                            </li>
+                            <li>The 15 model tabs answer the first question; the business answers the second.</li>
+                        </ul>
                     </div>
                 </div>
             </details>
@@ -1521,39 +1986,719 @@
             <details class="model-section">
                 <summary>Methodology</summary>
                 <div class="model-section-body">
-                    <p>
-                        To ensure fair comparison across all 15 models, we apply a standardized experimental protocol:
-                    </p>
-
-                    <h3>Train-Test Split</h3>
                     <ul>
-                        <li>75% training data, 25% test data</li>
-                        <li>Stratified split to preserve class distribution in both sets</li>
-                        <li>Random seed = 42 for reproducibility</li>
+                        <li>All 15 models are evaluated using the same standardized experimental protocol.</li>
+                        <li>This ensures any performance differences reflect the models themselves, not random variation in how each model was tested.</li>
                     </ul>
 
-                    <h3>Preprocessing</h3>
+                    <details class="model-section">
+                        <summary>Train-Test Split</summary>
+                        <div class="model-section-body">
                     <ul>
-                        <li><strong>Missing values:</strong> Median imputation for numeric features, mode imputation for categorical</li>
-                        <li><strong>Scaling:</strong> Standard scaler applied to numeric features for linear models; not applied for tree based or boosting models</li>
-                        <li><strong>Encoding:</strong> One hot encoding for categorical features (REASON, JOB)</li>
+                        <li>The full dataset is split into two parts before any model training begins.</li>
+                        <li>This split is the foundation for fair, repeatable model evaluation.</li>
                     </ul>
 
-                    <h3>Hyperparameter Tuning</h3>
+                    <details class="model-section">
+                        <summary>75% Training, 25% Test</summary>
+                        <div class="model-section-body">
                     <ul>
-                        <li>5 fold stratified cross validation</li>
-                        <li>GridSearchCV to explore the hyperparameter space for each model</li>
-                        <li>Primary optimization metric: <strong>recall</strong> (to maximize default detection)</li>
+                        <li>What this means:
+                            <ul>
+                                <li>75% of the data is used to TRAIN the models. This is what each model "learns from."</li>
+                                <li>25% is held back and only used at the END to TEST how well each model performs on data it has never seen.</li>
+                                <li>All final conclusions about model performance (recall, precision, F1) come from the 25% test set, not the training set.</li>
+                            </ul>
+                        </li>
+                        <li>Why 75/25:
+                            <ul>
+                                <li>It is a standard split that gives enough data for the model to learn AND keeps a meaningful test set to evaluate on.</li>
+                            </ul>
+                        </li>
+                        <li>Other methods that could have been used (compared in the table below).</li>
                     </ul>
 
-                    <h3>Class Balance</h3>
+                    <div style="overflow-x: auto; margin: 16px 0;">
+                        <table class="styled-table">
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>What would be different from these results</th>
+                                    <th>Pros</th>
+                                    <th>Cons</th>
+                                    <th>When to use</th>
+                                    <th>When not to use</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Simple 75/25 split<br/>(used in this study)</strong></td>
+                                    <td>This is the method that produced the recall, precision, and F1 numbers reported in this post.</td>
+                                    <td>Fast (1 training per model). Simple. Clear single result.</td>
+                                    <td>Result depends on which specific 25% landed in the test set.</td>
+                                    <td>Large datasets, many models to compare, time constrained experiments.</td>
+                                    <td>Very small datasets where every sample matters.</td>
+                                </tr>
+                                <tr>
+                                    <td>80/20 split</td>
+                                    <td>Models would have slightly more training data; test metrics slightly more variable due to smaller test set.</td>
+                                    <td>Model gets more data to learn from.</td>
+                                    <td>Smaller test set means less reliable performance estimate.</td>
+                                    <td>When training data feels insufficient.</td>
+                                    <td>When precise test metrics matter most.</td>
+                                </tr>
+                                <tr>
+                                    <td>70/30 split</td>
+                                    <td>Models would have less training data; test metrics more stable from larger test set.</td>
+                                    <td>Larger test set gives more reliable performance estimate.</td>
+                                    <td>Less training data; model may underperform.</td>
+                                    <td>Smaller datasets where test reliability matters.</td>
+                                    <td>Already have plenty of training data.</td>
+                                </tr>
+                                <tr>
+                                    <td>K fold cross validation<br/>(e.g., 5 fold)</td>
+                                    <td>Performance reported as an average across K splits, with a range showing variability across folds.</td>
+                                    <td>More robust estimate. Uses all data for both training and testing.</td>
+                                    <td>K times slower than a single split (used here for hyperparameter tuning, not final evaluation).</td>
+                                    <td>Smaller datasets, or when a robust performance range matters more than speed.</td>
+                                    <td>When many models combined with many hyperparameters and K folds makes total training cost too high.</td>
+                                </tr>
+                                <tr>
+                                    <td>Leave one out cross validation<br/>(LOOCV)</td>
+                                    <td>Performance estimated by training one model per sample (5,960 trainings per model).</td>
+                                    <td>Maximum use of data. Lowest bias estimate.</td>
+                                    <td>Computationally extreme: would require 89,400+ trainings for 15 models.</td>
+                                    <td>Very small datasets where every sample matters.</td>
+                                    <td>Medium to large datasets, especially with many models.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p><strong>Why this study chose the simple 75/25 split:</strong></p>
                     <ul>
-                        <li>All models use <code>class_weight="balanced"</code> or an equivalent mechanism</li>
-                        <li>This prevents models from simply predicting the majority class</li>
+                        <li>This study compares 15 different classifiers; 11 of them were tuned with 5 fold cross validation across multiple hyperparameter combinations (the other 4 were fit directly with their default settings — see the Hyperparameter Tuning section for the full per model breakdown).</li>
+                        <li>Adding K fold or LOOCV on top of that for final evaluation would have multiplied the training time by 5x or more, making the experiment impractical.</li>
+                        <li>The HMEQ dataset (5,960 rows) is large enough that a 75/25 split gives a stable performance estimate.</li>
+                        <li>The simpler 75/25 split was the right tradeoff between rigor and feasibility for this study.</li>
                     </ul>
+                        </div>
+                    </details>
+
+                    <details class="model-section">
+                        <summary>Stratified Split</summary>
+                        <div class="model-section-body">
+                    <ul>
+                        <li>What this means:
+                            <ul>
+                                <li>A stratified split makes sure both the training set and the test set have the same percentage of borrowers who defaulted on their loan (about 20% in HMEQ).</li>
+                                <li>Without stratification, a random split could accidentally put more loan defaulters in one set than the other.</li>
+                            </ul>
+                        </li>
+                        <li>Why this matters:
+                            <ul>
+                                <li>The dataset is imbalanced — only about 1 in 5 borrowers actually defaulted on their loan.</li>
+                                <li>An unbalanced split could give the model a misleading picture of how often loan defaults happen, hurting both training and evaluation.</li>
+                            </ul>
+                        </li>
+                        <li>Why this method over others:
+                            <ul>
+                                <li><strong>Plain random split:</strong> faster but risks unequal representation of loan defaulters in train vs test.</li>
+                                <li><strong>Time based split:</strong> useful when data has a meaningful time component, but HMEQ does not.</li>
+                                <li><strong>Cluster based split:</strong> preserves natural groups of similar borrowers but may not preserve the loan default rate.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                        </div>
+                    </details>
+
+                    <details class="model-section">
+                        <summary>Random Seed = 42</summary>
+                        <div class="model-section-body">
+                    <ul>
+                        <li>What it does:
+                            <ul>
+                                <li>A random seed is a fixed starting point for the random number generator that decides which 75% goes into training and which 25% goes into testing.</li>
+                                <li>Without a seed, the split would be different every time the code runs, giving slightly different results each time.</li>
+                            </ul>
+                        </li>
+                        <li>Why it matters:
+                            <ul>
+                                <li>With seed=42, anyone who runs the same code gets the EXACT same train/test split and the EXACT same final results.</li>
+                                <li>This is what makes the experiment reproducible, a key requirement for honest data science work.</li>
+                            </ul>
+                        </li>
+                        <li>Why 42:
+                            <ul>
+                                <li>It is a convention in data science, popularized by "The Hitchhiker's Guide to the Galaxy" where 42 is "the answer to life, the universe, and everything."</li>
+                                <li>Any number works (0, 7, 12345). The specific value does not change the quality of results, only WHETHER a seed is set matters.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                        </div>
+                    </details>
+                        </div>
+                    </details>
+
+                    <details class="model-section">
+                        <summary>Preprocessing</summary>
+                        <div class="model-section-body">
+                    <ul>
+                        <li><strong>Missing values:</strong> Median imputation for numeric features, mode imputation for categorical.</li>
+                        <li><strong>Scaling:</strong> Standard scaler applied to numeric features for linear models; not applied for tree based or boosting models.</li>
+                        <li><strong>Encoding:</strong> One hot encoding for categorical features (REASON, JOB).</li>
+                    </ul>
+                        </div>
+                    </details>
+
+                    <details class="model-section">
+                        <summary>Hyperparameter Tuning</summary>
+                        <div class="model-section-body">
+                    <ul>
+                        <li>Hyperparameter tuning is the process of finding the best settings for a model before training it on the full data.</li>
+                        <li>Hyperparameters are the "dials" of a model that you (the data scientist) set MANUALLY before training begins (e.g., how many trees in a random forest, how deep each tree grows).</li>
+                        <li>The word "parameter" in machine learning means something different from a function argument in programming.</li>
+                        <li>A "parameter" in machine learning is a value the model figures out for itself DURING training by looking at the data (e.g., the weight on each feature in logistic regression).</li>
+                        <li>In short: you SET the hyperparameters, the model LEARNS the parameters from the data.</li>
+                        <li>The right hyperparameter values can significantly improve performance; the wrong ones can leave good performance on the table.</li>
+                        <li>This study tuned 11 of 15 models using grid search with 5 fold stratified cross validation. The remaining 4 models were fit directly with their default settings.</li>
+                        <li>Primary optimization metric for tuning: <strong>recall</strong> (to maximize loan default detection).</li>
+                    </ul>
+
+                    <details class="model-section">
+                        <summary>What is Grid Search?</summary>
+                        <div class="model-section-body">
+                    <ul>
+                        <li>What it is:
+                            <ul>
+                                <li>A systematic way to find the best hyperparameter values by trying EVERY combination from a defined "grid" of options.</li>
+                                <li>Example: if 4 values are tested for <code>n_neighbors</code> and 2 values for <code>weights</code>, grid search trains 4 × 2 = 8 different model versions.</li>
+                            </ul>
+                        </li>
+                        <li>How it works:
+                            <ul>
+                                <li>Step 1: the data scientist defines the values to try for each hyperparameter (e.g., <code>max_depth: [5, 10, 15, None]</code>).</li>
+                                <li>Step 2: grid search trains a model for every combination of those values.</li>
+                                <li>Step 3: each combination is evaluated using cross validation (see next section).</li>
+                                <li>Step 4: the combination with the best score wins and is used for the final model.</li>
+                            </ul>
+                        </li>
+                        <li>Why use it:
+                            <ul>
+                                <li><strong>Reliable:</strong> tests all combinations systematically, no guessing.</li>
+                                <li><strong>Reproducible:</strong> anyone running the same grid gets the same results.</li>
+                                <li><strong>Easy to understand:</strong> just "try everything in the list."</li>
+                            </ul>
+                        </li>
+                        <li>Trade offs:
+                            <ul>
+                                <li><strong>Slow:</strong> training cost = (number of combinations) × (number of CV folds) per model.</li>
+                                <li><strong>Limited:</strong> only tries values you specified; will not discover values outside the grid.</li>
+                            </ul>
+                        </li>
+                        <li>Alternative methods:
+                            <ul>
+                                <li><strong>Random search:</strong> randomly samples combinations instead of trying all. Faster but less thorough.</li>
+                                <li><strong>Bayesian optimization:</strong> uses past results to guess which combinations to try next. More efficient but more complex to set up.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                        </div>
+                    </details>
+
+                    <details class="model-section">
+                        <summary>What is 5 Fold Stratified Cross Validation?</summary>
+                        <div class="model-section-body">
+                    <ul>
+                        <li>What it is:
+                            <ul>
+                                <li>A way to evaluate a model's performance using ALL the training data, by rotating which subset acts as the "validation" set.</li>
+                                <li>"5 fold" means the training data is split into 5 equal parts (folds).</li>
+                                <li>The model is trained on 4 folds and evaluated on the 5th. This rotates 5 times so each fold gets a turn as the validation set.</li>
+                                <li>The final score is the average across all 5 rotations.</li>
+                            </ul>
+                        </li>
+                        <li>How it works:
+                            <ul>
+                                <li>Step 1: split the training data into 5 equal folds.</li>
+                                <li>Step 2: train the model on folds 1-4, evaluate on fold 5. Save the score.</li>
+                                <li>Step 3: train on folds 1, 2, 3, 5; evaluate on fold 4. Save the score.</li>
+                                <li>Step 4: rotate until each fold has been the evaluation set once.</li>
+                                <li>Step 5: average the 5 scores to get the final cross validation score.</li>
+                            </ul>
+                        </li>
+                        <li>What "stratified" means:
+                            <ul>
+                                <li>A regular cross validation might accidentally put more loan defaulters in some folds than others.</li>
+                                <li>"Stratified" makes sure each fold has the SAME percentage of loan defaulters as the original training data (about 20%).</li>
+                                <li>This matters because the HMEQ dataset is imbalanced (about 1 in 5 borrowers actually defaulted on their loan).</li>
+                            </ul>
+                        </li>
+                        <li>Why use it:
+                            <ul>
+                                <li>Reduces the risk of getting a misleading score from one lucky or unlucky data split.</li>
+                                <li>Gives a more reliable estimate of how the model will perform on new data.</li>
+                            </ul>
+                        </li>
+                        <li>Why over other methods:
+                            <ul>
+                                <li><strong>Single train/validation split:</strong> faster but less reliable; one bad split can mislead the tuning result.</li>
+                                <li><strong>Leave one out cross validation:</strong> most thorough but extremely slow at this dataset size.</li>
+                                <li><strong>Non stratified K fold:</strong> fine for balanced datasets but risks unequal class distribution on imbalanced data like HMEQ.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                        </div>
+                    </details>
+
+                    <details class="model-section">
+                        <summary>Models That Do NOT Require Tuning</summary>
+                        <div class="model-section-body">
+                    <ul>
+                        <li>4 of 15 models were fit directly with their default settings — no grid search needed.</li>
+                        <li><strong>Logistic Regression:</strong>
+                            <ul>
+                                <li>Has a few hyperparameters (regularization strength <code>C</code>, solver) but the defaults are well tested and reliable for most datasets.</li>
+                                <li><code>class_weight="balanced"</code> was set explicitly to handle the HMEQ imbalance, but no grid was searched.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Gaussian Naive Bayes:</strong>
+                            <ul>
+                                <li>Has essentially no hyperparameters worth tuning. The only one (<code>var_smoothing</code>) rarely changes the result meaningfully.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Linear Discriminant Analysis (LDA):</strong>
+                            <ul>
+                                <li>The defaults work well for most datasets.</li>
+                                <li>The few hyperparameters (solver, shrinkage) do not usually require tuning unless the data has specific quirks.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Quadratic Discriminant Analysis (QDA):</strong>
+                            <ul>
+                                <li>Same situation as LDA. Few hyperparameters worth searching.</li>
+                            </ul>
+                        </li>
+                        <li>General principle:
+                            <ul>
+                                <li>Linear models with closed form solutions do not have many "knobs to turn."</li>
+                                <li>Naive Bayes makes strong assumptions and has very few flexible hyperparameters.</li>
+                                <li>Skipping tuning for these models saves compute time without sacrificing performance.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                        </div>
+                    </details>
+
+                    <details class="model-section">
+                        <summary>Per Model Tuning Approach</summary>
+                        <div class="model-section-body">
+                    <ul>
+                        <li>The table below shows the tuning approach, cross validation, and hyperparameters explored for each of the 15 models.</li>
+                    </ul>
+
+                    <div style="overflow-x: auto; margin: 16px 0;">
+                        <table class="styled-table">
+                            <thead>
+                                <tr>
+                                    <th>Model</th>
+                                    <th>Tuning</th>
+                                    <th>Cross Validation</th>
+                                    <th>Hyperparameters Explored</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Logistic Regression</td>
+                                    <td>None</td>
+                                    <td>None</td>
+                                    <td>None (fixed: <code>class_weight="balanced"</code>, <code>max_iter=2000</code>)</td>
+                                </tr>
+                                <tr>
+                                    <td>K Nearest Neighbors</td>
+                                    <td>Grid search</td>
+                                    <td>5 fold stratified</td>
+                                    <td><code>n_neighbors</code>: [5, 15, 25, 51], <code>weights</code>: [uniform, distance] (8 combos)</td>
+                                </tr>
+                                <tr>
+                                    <td>Gaussian Naive Bayes</td>
+                                    <td>None</td>
+                                    <td>None</td>
+                                    <td>None (no tunable hyperparameters worth searching)</td>
+                                </tr>
+                                <tr>
+                                    <td>Linear Discriminant Analysis</td>
+                                    <td>None</td>
+                                    <td>None</td>
+                                    <td>None (fixed defaults)</td>
+                                </tr>
+                                <tr>
+                                    <td>Quadratic Discriminant Analysis</td>
+                                    <td>None</td>
+                                    <td>None</td>
+                                    <td>None (fixed defaults)</td>
+                                </tr>
+                                <tr>
+                                    <td>Decision Tree</td>
+                                    <td>Grid search</td>
+                                    <td>5 fold stratified</td>
+                                    <td><code>max_depth</code>: [5, 8, 12, None], <code>min_samples_leaf</code>: [1, 5, 10] (12 combos)</td>
+                                </tr>
+                                <tr>
+                                    <td>Random Forest</td>
+                                    <td>Grid search</td>
+                                    <td>5 fold stratified</td>
+                                    <td><code>n_estimators</code>: [300, 500], <code>max_depth</code>: [None, 15], <code>min_samples_leaf</code>: [1, 3] (8 combos)</td>
+                                </tr>
+                                <tr>
+                                    <td>Bagging Classifier</td>
+                                    <td>Grid search</td>
+                                    <td>5 fold stratified</td>
+                                    <td><code>n_estimators</code>: [100, 200] (2 combos)</td>
+                                </tr>
+                                <tr>
+                                    <td>AdaBoost</td>
+                                    <td>Grid search</td>
+                                    <td>5 fold stratified</td>
+                                    <td><code>n_estimators</code>: [200, 400], <code>learning_rate</code>: [0.3, 0.6, 1.0] (6 combos)</td>
+                                </tr>
+                                <tr>
+                                    <td>Gradient Boosting</td>
+                                    <td>Grid search</td>
+                                    <td>5 fold stratified</td>
+                                    <td><code>n_estimators</code>: [200, 400], <code>max_depth</code>: [3, 5], <code>learning_rate</code>: [0.05, 0.1] (8 combos)</td>
+                                </tr>
+                                <tr>
+                                    <td>XGBoost</td>
+                                    <td>Grid search</td>
+                                    <td>5 fold stratified</td>
+                                    <td><code>n_estimators</code>: [300, 500], <code>max_depth</code>: [4, 6], <code>learning_rate</code>: [0.05, 0.1] (8 combos)</td>
+                                </tr>
+                                <tr>
+                                    <td>LightGBM</td>
+                                    <td>Grid search</td>
+                                    <td>5 fold stratified</td>
+                                    <td><code>n_estimators</code>: [300, 500], <code>num_leaves</code>: [31, 63], <code>learning_rate</code>: [0.05, 0.1] (8 combos)</td>
+                                </tr>
+                                <tr>
+                                    <td>CatBoost</td>
+                                    <td>Manual grid (custom loop)</td>
+                                    <td>5 fold stratified</td>
+                                    <td><code>depth</code>: [5, 7], <code>learning_rate</code>: [0.03, 0.05, 0.08] (6 combos)</td>
+                                </tr>
+                                <tr>
+                                    <td>Support Vector Machine</td>
+                                    <td>Grid search</td>
+                                    <td>5 fold stratified</td>
+                                    <td><code>C</code>: [0.5, 1.0, 2.0] (3 combos)</td>
+                                </tr>
+                                <tr>
+                                    <td>MLP Neural Network</td>
+                                    <td>Grid search</td>
+                                    <td>5 fold stratified</td>
+                                    <td><code>hidden_layer_sizes</code>: [(64,), (64, 32)], <code>alpha</code>: [1e-4, 1e-3] (4 combos)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                        </div>
+                    </details>
+                        </div>
+                    </details>
+
+                    <details class="model-section">
+                        <summary>Evaluation Metrics</summary>
+                        <div class="model-section-body">
+                    <ul>
+                        <li>Recall and precision are the headline metrics for this study, but the analysis also reports F1 score, ROC AUC, and PR AUC because each captures a different aspect of model performance.</li>
+                        <li>The three metrics relate to the strictness dial differently:
+                            <ul>
+                                <li><strong>F1 score:</strong> depends on the cutoff. Changes as the strictness dial moves.</li>
+                                <li><strong>ROC AUC and PR AUC:</strong> independent of the cutoff. Each is a single number that summarizes performance across ALL possible cutoffs.</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <details class="model-section">
+                        <summary>F1 Score</summary>
+                        <div class="model-section-body">
+                    <ul>
+                        <li>What it is:
+                            <ul>
+                                <li>A single number that balances precision and recall using their harmonic mean.</li>
+                                <li>Formula: F1 = 2 × (precision × recall) / (precision + recall)</li>
+                                <li>Range: 0 to 1 (or 0% to 100%), where higher is better.</li>
+                            </ul>
+                        </li>
+                        <li>Why "harmonic mean" instead of regular average:
+                            <ul>
+                                <li>The harmonic mean punishes extreme imbalances between precision and recall.</li>
+                                <li>Example: if precision = 1.0 and recall = 0.1, the regular average is 0.55 but F1 is 0.18.</li>
+                                <li>F1 will not give credit to a model that is great at one metric but terrible at the other.</li>
+                            </ul>
+                        </li>
+                        <li>Why use F1:
+                            <ul>
+                                <li>Useful when a single number is needed to compare models, especially on imbalanced data like HMEQ.</li>
+                                <li>Particularly useful when both precision and recall matter equally to the business.</li>
+                            </ul>
+                        </li>
+                        <li>How to interpret:
+                            <ul>
+                                <li>F1 = 1.0: perfect precision AND perfect recall.</li>
+                                <li>F1 = 0.5: meaningful middle ground (often acceptable for imbalanced data).</li>
+                                <li>F1 close to 0: at least one of precision or recall is failing badly.</li>
+                            </ul>
+                        </li>
+                        <li>What to expect on the deny leaning vs approve leaning spectrum:
+                            <ul>
+                                <li>Quick recap (see the Recall and Precision sections at the top of this tab for full definitions):
+                                    <ul>
+                                        <li><strong>Recall</strong> measures completeness: of all the borrowers who actually defaulted on their loan, how many did the model catch?</li>
+                                        <li><strong>Precision</strong> measures correctness: of all the borrowers the model flagged as risky, how many actually defaulted on their loan?</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Deny leaning models (high recall, low precision):</strong>
+                                    <ul>
+                                        <li><strong>High recall</strong> means the model catches almost every borrower who actually defaults on their loan.</li>
+                                        <li><strong>Low precision</strong> means many borrowers the model flags as risky will NOT actually default on their loan.</li>
+                                        <li>F1 is held back by the low precision, because F1 punishes models that are great at one metric but poor at the other.</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Approve leaning models (low recall, high precision):</strong>
+                                    <ul>
+                                        <li><strong>High precision</strong> means almost every borrower the model flags as risky really does default on their loan.</li>
+                                        <li><strong>Low recall</strong> means the model misses many borrowers who actually default on their loan.</li>
+                                        <li>F1 is held back by the low recall, for the same reason: F1 punishes models that lean too far in either direction.</li>
+                                    </ul>
+                                </li>
+                                <li>The cutoff that maximizes F1 usually sits somewhere in the middle of the spectrum, where recall and precision are both reasonably high.</li>
+                            </ul>
+                        </li>
+                        <li>How it relates to recall and precision:
+                            <ul>
+                                <li>F1 is a direct combination of both metrics.</li>
+                                <li>Improving recall often hurts precision (and vice versa), so F1 captures both effects in one score.</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <div style="margin: 16px 0; text-align: center;">
+                        <svg viewBox="0 0 600 360" xmlns="http://www.w3.org/2000/svg" style="display: block; max-width: 100%; height: auto; margin: 0 auto;">
+                            <style>
+                                .f1-title { font-family: 'Segoe UI', sans-serif; font-size: 13px; font-weight: 700; fill: #1E2761; }
+                                .f1-axis-label { font-family: 'Segoe UI', sans-serif; font-size: 10px; fill: #4b5563; }
+                                .f1-tick { font-family: 'Segoe UI', sans-serif; font-size: 9px; fill: #6b7280; }
+                                .f1-line-label { font-family: 'Segoe UI', sans-serif; font-size: 10px; font-weight: 600; }
+                                .f1-axis-line { stroke: #d1d5db; stroke-width: 1; }
+                                .f1-recall { stroke: #dc2626; stroke-width: 2; fill: none; }
+                                .f1-precision { stroke: #1E2761; stroke-width: 2; fill: none; }
+                                .f1-f1 { stroke: #115E59; stroke-width: 2.5; fill: none; }
+                            </style>
+                            <text x="300" y="22" text-anchor="middle" class="f1-title">F1 score peaks where recall and precision balance</text>
+                            <line x1="60" y1="50" x2="60" y2="290" class="f1-axis-line" />
+                            <text x="50" y="293" text-anchor="end" class="f1-tick">0</text>
+                            <text x="50" y="233" text-anchor="end" class="f1-tick">0.25</text>
+                            <text x="50" y="173" text-anchor="end" class="f1-tick">0.50</text>
+                            <text x="50" y="113" text-anchor="end" class="f1-tick">0.75</text>
+                            <text x="50" y="55" text-anchor="end" class="f1-tick">1.00</text>
+                            <text x="20" y="170" text-anchor="middle" class="f1-axis-label" transform="rotate(-90 20 170)">Score</text>
+                            <line x1="60" y1="290" x2="540" y2="290" class="f1-axis-line" />
+                            <text x="60" y="305" text-anchor="middle" class="f1-tick">0.0</text>
+                            <text x="180" y="305" text-anchor="middle" class="f1-tick">0.25</text>
+                            <text x="300" y="305" text-anchor="middle" class="f1-tick">0.50</text>
+                            <text x="420" y="305" text-anchor="middle" class="f1-tick">0.75</text>
+                            <text x="540" y="305" text-anchor="middle" class="f1-tick">1.00</text>
+                            <text x="60" y="328" text-anchor="middle" class="f1-axis-label">Deny leaning</text>
+                            <text x="540" y="328" text-anchor="middle" class="f1-axis-label">Approve leaning</text>
+                            <text x="300" y="348" text-anchor="middle" class="f1-axis-label">Cutoff (strictness dial position)</text>
+                            <polyline points="60,50 156,62 252,86 300,122 348,170 444,242 540,290" class="f1-recall" />
+                            <text x="80" y="48" class="f1-line-label" fill="#dc2626">Recall</text>
+                            <polyline points="60,242 156,194 252,146 300,122 348,98 444,74 540,50" class="f1-precision" />
+                            <text x="540" y="48" text-anchor="end" class="f1-line-label" fill="#1E2761">Precision</text>
+                            <polyline points="60,211 156,156 252,122 300,122 348,141 444,211 540,290" class="f1-f1" />
+                            <text x="276" y="115" text-anchor="middle" class="f1-line-label" fill="#115E59">F1 peak</text>
+                            <circle cx="276" cy="122" r="4" fill="#115E59" />
+                        </svg>
+                    </div>
+                        </div>
+                    </details>
+
+                    <details class="model-section">
+                        <summary>ROC AUC</summary>
+                        <div class="model-section-body">
+                    <ul>
+                        <li>What it is:
+                            <ul>
+                                <li>ROC AUC stands for "Area Under the Receiver Operating Characteristic Curve." (The name comes from radar signal detection in WWII.)</li>
+                                <li>The ROC curve plots True Positive Rate (which is the same as recall) on the Y axis vs False Positive Rate on the X axis, at every possible cutoff.</li>
+                                <li>AUC is the area under that curve, summarized as a single number from 0.5 to 1.0.</li>
+                            </ul>
+                        </li>
+                        <li>What True Positive Rate vs False Positive Rate mean:
+                            <ul>
+                                <li><strong>True Positive Rate (TPR) = recall:</strong> the fraction of actual loan defaulters the model caught.</li>
+                                <li><strong>False Positive Rate (FPR):</strong> the fraction of good borrowers the model wrongly flagged as risky.</li>
+                            </ul>
+                        </li>
+                        <li>Range and how to interpret:
+                            <ul>
+                                <li>0.5 = random guessing (model is no better than a coin flip).</li>
+                                <li>1.0 = perfect ranking (the model always ranks loan defaulters above non-defaulters).</li>
+                                <li>AUC = 0.8 means the model correctly ranks a random loan defaulter ABOVE a random non-defaulter 80% of the time.</li>
+                            </ul>
+                        </li>
+                        <li>Why use ROC AUC:
+                            <ul>
+                                <li>Independent of the cutoff. Allows comparing models without committing to a cutoff position first.</li>
+                                <li>Good for getting a sense of the model's overall ranking quality.</li>
+                            </ul>
+                        </li>
+                        <li>What to expect on the deny leaning vs approve leaning spectrum:
+                            <ul>
+                                <li>ROC AUC is the SAME for any cutoff position. It does not change as the strictness dial moves.</li>
+                                <li>Different deny leaning or approve leaning cutoffs change recall, precision, and F1, but NOT ROC AUC.</li>
+                            </ul>
+                        </li>
+                        <li>How it relates to recall and precision:
+                            <ul>
+                                <li>TPR is recall, so ROC AUC summarizes recall across all possible cutoffs.</li>
+                                <li>It does NOT directly involve precision.</li>
+                                <li>Caveat: ROC AUC can look misleadingly high on imbalanced datasets like HMEQ. PR AUC (next section) is often more honest in those cases.</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <div style="margin: 16px 0; text-align: center;">
+                        <svg viewBox="0 0 480 380" xmlns="http://www.w3.org/2000/svg" style="display: block; max-width: 100%; height: auto; margin: 0 auto;">
+                            <style>
+                                .roc-title { font-family: 'Segoe UI', sans-serif; font-size: 13px; font-weight: 700; fill: #1E2761; }
+                                .roc-axis-label { font-family: 'Segoe UI', sans-serif; font-size: 10px; fill: #4b5563; }
+                                .roc-tick { font-family: 'Segoe UI', sans-serif; font-size: 9px; fill: #6b7280; }
+                                .roc-line-label { font-family: 'Segoe UI', sans-serif; font-size: 10px; font-weight: 600; }
+                                .roc-axis-line { stroke: #d1d5db; stroke-width: 1; }
+                                .roc-curve { stroke: #115E59; stroke-width: 2.5; fill: none; }
+                                .roc-random { stroke: #9ca3af; stroke-width: 1; stroke-dasharray: 4,4; }
+                                .roc-fill { fill: #115E59; fill-opacity: 0.15; }
+                            </style>
+                            <text x="240" y="22" text-anchor="middle" class="roc-title">ROC Curve: True Positive Rate vs False Positive Rate</text>
+                            <line x1="60" y1="60" x2="60" y2="320" class="roc-axis-line" />
+                            <text x="50" y="323" text-anchor="end" class="roc-tick">0</text>
+                            <text x="50" y="260" text-anchor="end" class="roc-tick">0.25</text>
+                            <text x="50" y="195" text-anchor="end" class="roc-tick">0.5</text>
+                            <text x="50" y="132" text-anchor="end" class="roc-tick">0.75</text>
+                            <text x="50" y="65" text-anchor="end" class="roc-tick">1.0</text>
+                            <text x="20" y="190" text-anchor="middle" class="roc-axis-label" transform="rotate(-90 20 190)">True Positive Rate (Recall)</text>
+                            <line x1="60" y1="320" x2="380" y2="320" class="roc-axis-line" />
+                            <text x="60" y="335" text-anchor="middle" class="roc-tick">0</text>
+                            <text x="140" y="335" text-anchor="middle" class="roc-tick">0.25</text>
+                            <text x="220" y="335" text-anchor="middle" class="roc-tick">0.5</text>
+                            <text x="300" y="335" text-anchor="middle" class="roc-tick">0.75</text>
+                            <text x="380" y="335" text-anchor="middle" class="roc-tick">1.0</text>
+                            <text x="220" y="357" text-anchor="middle" class="roc-axis-label">False Positive Rate</text>
+                            <line x1="60" y1="320" x2="380" y2="60" class="roc-random" />
+                            <text x="370" y="195" text-anchor="end" class="roc-line-label" fill="#6b7280">Random model (AUC = 0.5)</text>
+                            <path d="M 60,320 Q 80,120 200,80 Q 320,65 380,60 L 380,320 Z" class="roc-fill" />
+                            <path d="M 60,320 Q 80,120 200,80 Q 320,65 380,60" class="roc-curve" />
+                            <text x="200" y="100" class="roc-line-label" fill="#115E59">Good model (AUC = 0.85)</text>
+                        </svg>
+                    </div>
+                        </div>
+                    </details>
+
+                    <details class="model-section">
+                        <summary>PR AUC (Precision-Recall AUC)</summary>
+                        <div class="model-section-body">
+                    <ul>
+                        <li>What it is:
+                            <ul>
+                                <li>PR AUC stands for "Area Under the Precision-Recall Curve."</li>
+                                <li>The PR curve plots precision on the Y axis vs recall on the X axis, at every possible cutoff.</li>
+                                <li>AUC is the area under that curve, summarized as a single number.</li>
+                            </ul>
+                        </li>
+                        <li>Range and how to interpret:
+                            <ul>
+                                <li>Baseline = the positive class rate. For HMEQ, baseline = 0.20 (since about 20% of borrowers actually defaulted on their loan).</li>
+                                <li>Perfect = 1.0.</li>
+                                <li>A PR AUC above the baseline means the model is doing meaningfully better than random for this dataset.</li>
+                            </ul>
+                        </li>
+                        <li>Why use PR AUC:
+                            <ul>
+                                <li>Specifically designed for IMBALANCED datasets like HMEQ.</li>
+                                <li>ROC AUC can look misleadingly high on imbalanced data because the FPR denominator is dominated by the majority class.</li>
+                                <li>PR AUC focuses on the minority class (loan defaulters), which is what matters in detection problems.</li>
+                            </ul>
+                        </li>
+                        <li>What to expect on the deny leaning vs approve leaning spectrum:
+                            <ul>
+                                <li>Like ROC AUC, PR AUC is independent of the cutoff.</li>
+                                <li>A model with high PR AUC has a good precision-recall curve overall, regardless of where the strictness dial sits.</li>
+                            </ul>
+                        </li>
+                        <li>How it relates to recall and precision:
+                            <ul>
+                                <li>PR AUC DIRECTLY summarizes the precision-recall tradeoff across all cutoffs.</li>
+                                <li>The shape of the curve shows whether high precision AND high recall can coexist, or whether they trade off sharply.</li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <div style="margin: 16px 0; text-align: center;">
+                        <svg viewBox="0 0 480 380" xmlns="http://www.w3.org/2000/svg" style="display: block; max-width: 100%; height: auto; margin: 0 auto;">
+                            <style>
+                                .pr-title { font-family: 'Segoe UI', sans-serif; font-size: 13px; font-weight: 700; fill: #1E2761; }
+                                .pr-axis-label { font-family: 'Segoe UI', sans-serif; font-size: 10px; fill: #4b5563; }
+                                .pr-tick { font-family: 'Segoe UI', sans-serif; font-size: 9px; fill: #6b7280; }
+                                .pr-line-label { font-family: 'Segoe UI', sans-serif; font-size: 10px; font-weight: 600; }
+                                .pr-axis-line { stroke: #d1d5db; stroke-width: 1; }
+                                .pr-curve { stroke: #115E59; stroke-width: 2.5; fill: none; }
+                                .pr-baseline { stroke: #9ca3af; stroke-width: 1; stroke-dasharray: 4,4; }
+                                .pr-fill { fill: #115E59; fill-opacity: 0.15; }
+                            </style>
+                            <text x="240" y="22" text-anchor="middle" class="pr-title">Precision-Recall Curve: precision vs recall at every cutoff</text>
+                            <line x1="60" y1="60" x2="60" y2="320" class="pr-axis-line" />
+                            <text x="50" y="323" text-anchor="end" class="pr-tick">0</text>
+                            <text x="50" y="260" text-anchor="end" class="pr-tick">0.25</text>
+                            <text x="50" y="195" text-anchor="end" class="pr-tick">0.5</text>
+                            <text x="50" y="132" text-anchor="end" class="pr-tick">0.75</text>
+                            <text x="50" y="65" text-anchor="end" class="pr-tick">1.0</text>
+                            <text x="20" y="190" text-anchor="middle" class="pr-axis-label" transform="rotate(-90 20 190)">Precision</text>
+                            <line x1="60" y1="320" x2="380" y2="320" class="pr-axis-line" />
+                            <text x="60" y="335" text-anchor="middle" class="pr-tick">0</text>
+                            <text x="140" y="335" text-anchor="middle" class="pr-tick">0.25</text>
+                            <text x="220" y="335" text-anchor="middle" class="pr-tick">0.5</text>
+                            <text x="300" y="335" text-anchor="middle" class="pr-tick">0.75</text>
+                            <text x="380" y="335" text-anchor="middle" class="pr-tick">1.0</text>
+                            <text x="220" y="357" text-anchor="middle" class="pr-axis-label">Recall</text>
+                            <line x1="60" y1="268" x2="380" y2="268" class="pr-baseline" />
+                            <text x="375" y="262" text-anchor="end" class="pr-line-label" fill="#6b7280">Baseline (0.20 = HMEQ loan default rate)</text>
+                            <path d="M 60,80 Q 200,90 280,150 Q 350,210 380,265 L 380,320 L 60,320 Z" class="pr-fill" />
+                            <path d="M 60,80 Q 200,90 280,150 Q 350,210 380,265" class="pr-curve" />
+                            <text x="180" y="80" class="pr-line-label" fill="#115E59">Good model</text>
+                        </svg>
+                    </div>
+                        </div>
+                    </details>
+                        </div>
+                    </details>
+
+                    <details class="model-section">
+                        <summary>Class Balance</summary>
+                        <div class="model-section-body">
+                    <ul>
+                        <li>All models use <code>class_weight="balanced"</code> or an equivalent mechanism.</li>
+                        <li>This prevents models from simply predicting the majority class (borrowers who did not default on their loan).</li>
+                    </ul>
+                        </div>
+                    </details>
 
                     <div class="callout callout-success">
-                        <strong>Reproducibility:</strong> All experiments use the same seed, split, and preprocessing pipeline. Differences in results reflect genuine differences in model behavior, not experimental variation.
+                        <strong>Reproducibility:</strong>
+                        <ul>
+                            <li>All experiments use the same seed, split, and preprocessing pipeline.</li>
+                            <li>Differences in results reflect genuine differences in model behavior, not experimental variation.</li>
+                        </ul>
                     </div>
                 </div>
             </details>

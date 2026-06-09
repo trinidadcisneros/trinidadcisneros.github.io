@@ -1,0 +1,158 @@
+{
+  "title": "Minimum Qualifying Creator Ad Rate",
+  "prompt": "You manage a short video platform where creators can sell ad slots in their videos. Each creator has a `creator_rating` (1-5 scale) stored in the `creators` table. Ad slot offers for each creator are stored in the `ad_offers` table with one row per offer. Management wants a report showing each creator's LOWEST offered ad rate, but ONLY if the creator has a rating of 4 or higher. For creators with rating below 4, output `NULL` for the `min_ad_rate`. The result should include every creator, showing `creator_id`, `creator_name`, and `min_ad_rate`. Order the output by `creator_id` ascending. If a creator has multiple ad offers, pick the one with the lowest `rate_per_view`. If a creator has no ad offers at all, treat their min_ad_rate as NULL regardless of rating.",
+  "schema_ddl": "CREATE TABLE creators (creator_id INT PRIMARY KEY, creator_name VARCHAR(100), creator_rating INT); CREATE TABLE ad_offers (offer_id INT PRIMARY KEY, creator_id INT, rate_per_view DECIMAL(6,4), offer_date DATE);",
+  "example_input_data": "INSERT INTO creators (creator_id, creator_name, creator_rating) VALUES (1, 'Alice', 5), (2, 'Bob', 3), (3, 'Charlie', 4), (4, 'Dana', 2), (5, 'Eve', 5), (6, 'Frank', 4); INSERT INTO ad_offers (offer_id, creator_id, rate_per_view, offer_date) VALUES (101, 1, 0.0250, '2024-01-10'), (102, 1, 0.0200, '2024-01-12'), (103, 2, 0.0150, '2024-01-11'), (104, 3, 0.0300, '2024-01-09'), (105, 3, 0.0280, '2024-01-15'), (106, 4, 0.0100, '2024-01-08'), (107, 5, 0.0350, '2024-01-14');",
+  "example_output_columns": [
+    "creator_id",
+    "creator_name",
+    "min_ad_rate"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Alice",
+      "0.0200"
+    ],
+    [
+      2,
+      "Bob",
+      null
+    ],
+    [
+      3,
+      "Charlie",
+      "0.0280"
+    ],
+    [
+      4,
+      "Dana",
+      null
+    ],
+    [
+      5,
+      "Eve",
+      "0.0350"
+    ],
+    [
+      6,
+      "Frank",
+      null
+    ]
+  ],
+  "test_data": "INSERT INTO creators (creator_id, creator_name, creator_rating) VALUES (1, 'Alice', 5), (2, 'Bob', 3), (3, 'Charlie', 4), (4, 'Dana', 2), (5, 'Eve', 5), (6, 'Frank', 4), (7, 'Grace', 1), (8, 'Hank', 5), (9, 'Ivy', 4), (10, 'Jake', 3), (11, 'Kim', 5), (12, 'Leo', 2), (13, 'Mia', 4), (14, 'Nina', 3), (15, 'Oscar', 5); INSERT INTO ad_offers (offer_id, creator_id, rate_per_view, offer_date) VALUES (101, 1, 0.0250, '2024-01-10'), (102, 1, 0.0200, '2024-01-12'), (103, 1, 0.0220, '2024-01-14'), (104, 2, 0.0150, '2024-01-11'), (105, 2, 0.0140, '2024-01-13'), (106, 3, 0.0300, '2024-01-09'), (107, 3, 0.0280, '2024-01-15'), (108, 3, 0.0290, '2024-01-16'), (109, 4, 0.0100, '2024-01-08'), (110, 5, 0.0350, '2024-01-14'), (111, 7, 0.0050, '2024-01-05'), (112, 7, 0.0060, '2024-01-07'), (113, 8, 0.0400, '2024-01-12'), (114, 9, 0.0320, '2024-01-11'), (115, 9, 0.0310, '2024-01-13'), (116, 9, 0.0330, '2024-01-15'), (117, 10, 0.0180, '2024-01-10'), (118, 11, 0.0450, '2024-01-09'), (119, 11, 0.0420, '2024-01-11'), (120, 11, 0.0440, '2024-01-13'), (121, 12, 0.0090, '2024-01-06'), (122, 13, 0.0270, '2024-01-08'), (123, 14, 0.0160, '2024-01-12'), (124, 14, 0.0155, '2024-01-14'), (125, 15, 0.0500, '2024-01-15'), (126, 15, 0.0480, '2024-01-17');",
+  "test_expected_columns": [
+    "creator_id",
+    "creator_name",
+    "min_ad_rate"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "Alice",
+      "0.0200"
+    ],
+    [
+      2,
+      "Bob",
+      null
+    ],
+    [
+      3,
+      "Charlie",
+      "0.0280"
+    ],
+    [
+      4,
+      "Dana",
+      null
+    ],
+    [
+      5,
+      "Eve",
+      "0.0350"
+    ],
+    [
+      6,
+      "Frank",
+      null
+    ],
+    [
+      7,
+      "Grace",
+      null
+    ],
+    [
+      8,
+      "Hank",
+      "0.0400"
+    ],
+    [
+      9,
+      "Ivy",
+      "0.0310"
+    ],
+    [
+      10,
+      "Jake",
+      null
+    ],
+    [
+      11,
+      "Kim",
+      "0.0420"
+    ],
+    [
+      12,
+      "Leo",
+      null
+    ],
+    [
+      13,
+      "Mia",
+      "0.0270"
+    ],
+    [
+      14,
+      "Nina",
+      null
+    ],
+    [
+      15,
+      "Oscar",
+      "0.0480"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "same_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "join creators to ad_offers on creator_id",
+      "per-creator pick: MIN(rate_per_view) grouped by creator_id",
+      "gate: CASE WHEN creator_rating >= 4 THEN min_rate ELSE NULL END",
+      "left join back to creators to preserve all creators",
+      "order by creator_id"
+    ]
+  },
+  "hints": [
+    "You need to combine information from both tables\u2014one holds the rating gate, the other holds the rates to choose from.",
+    "First find the minimum rate_per_view for each creator (GROUP BY), then apply the rating threshold to decide whether to show that minimum or NULL.",
+    "Use a LEFT JOIN from creators to a subquery that computes MIN(rate_per_view) per creator_id, then wrap the min value in a CASE that checks creator_rating >= 4."
+  ],
+  "answer_key": "SELECT c.creator_id, c.creator_name, CASE WHEN c.creator_rating >= 4 THEN m.min_rate ELSE NULL END AS min_ad_rate FROM creators c LEFT JOIN (SELECT creator_id, MIN(rate_per_view) AS min_rate FROM ad_offers GROUP BY creator_id) m ON c.creator_id = m.creator_id ORDER BY c.creator_id;",
+  "_meta": {
+    "question_type": "gated_lookup",
+    "original_qtype": "gated_lookup",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-28T20:42:21.158476",
+    "problem_id": "bf3fbbbd44cb",
+    "validation_attempts": 1,
+    "scenario": "a short video platform tracking watch time and completion rates",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

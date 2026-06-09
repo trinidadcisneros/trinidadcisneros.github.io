@@ -1,0 +1,165 @@
+{
+  "problem": {
+    "title": "Cumulative Matches Per User by Day",
+    "prompt": "The BooedUp dating app tracks when users receive new matches. Management wants to see each user's cumulative match count over time to understand engagement momentum. Write a query that returns one row per user per day (for days they received matches), showing the date, user_id, the number of matches received that day, and the running total of matches for that user up to and including that date. Order the results by user_id, then by match_date. Handle cases where a user may have no matches on certain days (those days simply won't appear in the output). The cumulative count should reset for each user.",
+    "schema_ddl": "CREATE TABLE users (user_id INT PRIMARY KEY, username VARCHAR(50), signup_date DATE); CREATE TABLE matches (match_id INT PRIMARY KEY, user_id INT, matched_with_user_id INT, match_date DATE, FOREIGN KEY (user_id) REFERENCES users(user_id));",
+    "example_input_data": "INSERT INTO users (user_id, username, signup_date) VALUES (101, 'alice_wonder', '2024-01-05'), (102, 'bob_builder', '2024-01-06'), (103, 'charlie_day', '2024-01-07'); INSERT INTO matches (match_id, user_id, matched_with_user_id, match_date) VALUES (1, 101, 201, '2024-01-10'), (2, 101, 202, '2024-01-10'), (3, 101, 203, '2024-01-12'), (4, 102, 204, '2024-01-11'), (5, 102, 205, '2024-01-11'), (6, 102, 206, '2024-01-13'), (7, 103, 207, '2024-01-10'), (8, 103, 208, '2024-01-14');",
+    "example_output_columns": [
+      "match_date",
+      "user_id",
+      "daily_matches",
+      "cumulative_matches"
+    ],
+    "example_output_rows": [
+      [
+        "2024-01-10",
+        101,
+        2,
+        "2"
+      ],
+      [
+        "2024-01-12",
+        101,
+        1,
+        "3"
+      ],
+      [
+        "2024-01-11",
+        102,
+        2,
+        "2"
+      ],
+      [
+        "2024-01-13",
+        102,
+        1,
+        "3"
+      ],
+      [
+        "2024-01-10",
+        103,
+        1,
+        "1"
+      ],
+      [
+        "2024-01-14",
+        103,
+        1,
+        "2"
+      ]
+    ],
+    "test_data": "INSERT INTO users (user_id, username, signup_date) VALUES (101, 'alice_wonder', '2024-01-05'), (102, 'bob_builder', '2024-01-06'), (103, 'charlie_day', '2024-01-07'), (104, 'diana_prince', '2024-01-08'), (105, 'eve_online', '2024-01-09'); INSERT INTO matches (match_id, user_id, matched_with_user_id, match_date) VALUES (1, 101, 201, '2024-01-10'), (2, 101, 202, '2024-01-10'), (3, 101, 203, '2024-01-10'), (4, 101, 204, '2024-01-12'), (5, 101, 205, '2024-01-15'), (6, 101, 206, '2024-01-15'), (7, 102, 207, '2024-01-11'), (8, 102, 208, '2024-01-11'), (9, 102, 209, '2024-01-13'), (10, 102, 210, '2024-01-13'), (11, 102, 211, '2024-01-13'), (12, 102, 212, '2024-01-16'), (13, 103, 213, '2024-01-10'), (14, 103, 214, '2024-01-14'), (15, 103, 215, '2024-01-14'), (16, 103, 216, '2024-01-17'), (17, 104, 217, '2024-01-12'), (18, 105, 218, '2024-01-11'), (19, 105, 219, '2024-01-11'), (20, 105, 220, '2024-01-18');",
+    "test_expected_columns": [
+      "match_date",
+      "user_id",
+      "daily_matches",
+      "cumulative_matches"
+    ],
+    "test_expected_rows": [
+      [
+        "2024-01-10",
+        101,
+        3,
+        "3"
+      ],
+      [
+        "2024-01-12",
+        101,
+        1,
+        "4"
+      ],
+      [
+        "2024-01-15",
+        101,
+        2,
+        "6"
+      ],
+      [
+        "2024-01-11",
+        102,
+        2,
+        "2"
+      ],
+      [
+        "2024-01-13",
+        102,
+        3,
+        "5"
+      ],
+      [
+        "2024-01-16",
+        102,
+        1,
+        "6"
+      ],
+      [
+        "2024-01-10",
+        103,
+        1,
+        "1"
+      ],
+      [
+        "2024-01-14",
+        103,
+        2,
+        "3"
+      ],
+      [
+        "2024-01-17",
+        103,
+        1,
+        "4"
+      ],
+      [
+        "2024-01-12",
+        104,
+        1,
+        "1"
+      ],
+      [
+        "2024-01-11",
+        105,
+        2,
+        "2"
+      ],
+      [
+        "2024-01-18",
+        105,
+        1,
+        "3"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "same_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "aggregate daily_matches per (user_id, match_date) using GROUP BY",
+        "apply SUM(daily_matches) OVER (PARTITION BY user_id ORDER BY match_date) for cumulative_matches",
+        "ORDER BY user_id, match_date"
+      ]
+    },
+    "hints": [
+      "You need to first aggregate matches by user and date to get daily counts.",
+      "Use a window function with PARTITION BY user_id and ORDER BY match_date to compute the running total.",
+      "The frame specification ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW (or its default shorthand when using ORDER BY) will give you the cumulative sum that resets per user."
+    ],
+    "answer_key": "WITH daily_counts AS (\n  SELECT \n    match_date,\n    user_id,\n    COUNT(*) AS daily_matches\n  FROM matches\n  GROUP BY user_id, match_date\n)\nSELECT \n  match_date,\n  user_id,\n  daily_matches,\n  SUM(daily_matches) OVER (PARTITION BY user_id ORDER BY match_date) AS cumulative_matches\nFROM daily_counts\nORDER BY user_id, match_date;",
+    "_meta": {
+      "question_type": "window_running_total",
+      "original_qtype": "window_running_total",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "booedup",
+      "generated_at": "2026-05-17T13:30:37.564785",
+      "problem_id": "bfabce54e0cd",
+      "validation_attempts": 1,
+      "scenario": "the BooedUp dating app",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* \n\n1. group by match_id, user_id\n2. number of daily matches\n3. number of cumulative matches\n */\n\nWITH base AS (\n    SELECT \n        match_date,\n        user_id,\n        COUNT(matched_with_user_id) AS daily_matches\n    FROM matches\n    GROUP BY 1, 2\n    ORDER BY 1, 2\n)\nSELECT *,\n        SUM(daily_matches) OVER (PARTITION BY user_id ORDER BY match_date) AS cumulative_matches\nFROM base;",
+  "solved_at": "2026-05-17T13:41:37.484917"
+}

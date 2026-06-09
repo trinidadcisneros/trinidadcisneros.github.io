@@ -1,0 +1,128 @@
+{
+  "title": "Pivot PBM Adjudication Statuses by Pharmacy",
+  "prompt": "You are analyzing prescription submissions routed through a Pharmacy Benefit Manager (PBM) adjudication system. The `adjudication_log` table records each submission attempt in long format: one row per (pharmacy_id, adjudication_status, attempt_count). Each pharmacy may submit prescriptions that end in different statuses ('approved', 'rejected', 'pending'). Pivot this data into wide format with one row per pharmacy. Create columns `approved_attempts`, `rejected_attempts`, and `pending_attempts`, each showing the SUM of `attempt_count` for that status. If a pharmacy has no submissions in a given status, the column should display `0` (not NULL). Include the `pharmacy_name` from the `pharmacies` lookup table in the output. Order the result by `pharmacy_id` ascending. Output columns in order: `pharmacy_id`, `pharmacy_name`, `approved_attempts`, `rejected_attempts`, `pending_attempts`.",
+  "schema_ddl": "CREATE TABLE pharmacies (pharmacy_id INT PRIMARY KEY, pharmacy_name VARCHAR(100)); CREATE TABLE adjudication_log (log_id SERIAL PRIMARY KEY, pharmacy_id INT, adjudication_status VARCHAR(20), attempt_count INT);",
+  "example_input_data": "INSERT INTO pharmacies (pharmacy_id, pharmacy_name) VALUES (101, 'HealthPlus Rx'), (102, 'MediCare Pharmacy'), (103, 'QuickScript'); INSERT INTO adjudication_log (pharmacy_id, adjudication_status, attempt_count) VALUES (101, 'approved', 15), (101, 'rejected', 3), (101, 'approved', 10), (102, 'approved', 22), (102, 'pending', 5), (103, 'rejected', 8), (103, 'rejected', 4), (103, 'pending', 2);",
+  "example_output_columns": [
+    "pharmacy_id",
+    "pharmacy_name",
+    "approved_attempts",
+    "rejected_attempts",
+    "pending_attempts"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "HealthPlus Rx",
+      25,
+      3,
+      0
+    ],
+    [
+      102,
+      "MediCare Pharmacy",
+      22,
+      0,
+      5
+    ],
+    [
+      103,
+      "QuickScript",
+      0,
+      12,
+      2
+    ]
+  ],
+  "test_data": "INSERT INTO pharmacies (pharmacy_id, pharmacy_name) VALUES (101, 'HealthPlus Rx'), (102, 'MediCare Pharmacy'), (103, 'QuickScript'), (104, 'Corner Drug'), (105, 'Wellness Rx'), (106, 'CityCare Pharmacy'), (107, 'Town Square Rx'); INSERT INTO adjudication_log (pharmacy_id, adjudication_status, attempt_count) VALUES (101, 'approved', 15), (101, 'rejected', 3), (101, 'approved', 10), (101, 'pending', 7), (101, 'rejected', 2), (102, 'approved', 22), (102, 'pending', 5), (102, 'approved', 8), (102, 'approved', 14), (103, 'rejected', 8), (103, 'rejected', 4), (103, 'pending', 2), (103, 'rejected', 6), (104, 'approved', 30), (104, 'approved', 12), (105, 'rejected', 10), (105, 'rejected', 5), (105, 'rejected', 3), (106, 'pending', 9), (106, 'pending', 11), (107, 'approved', 25), (107, 'rejected', 7), (107, 'pending', 4), (107, 'approved', 5), (107, 'rejected', 3), (107, 'pending', 6);",
+  "test_expected_columns": [
+    "pharmacy_id",
+    "pharmacy_name",
+    "approved_attempts",
+    "rejected_attempts",
+    "pending_attempts"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      "HealthPlus Rx",
+      25,
+      5,
+      7
+    ],
+    [
+      102,
+      "MediCare Pharmacy",
+      44,
+      0,
+      5
+    ],
+    [
+      103,
+      "QuickScript",
+      0,
+      18,
+      2
+    ],
+    [
+      104,
+      "Corner Drug",
+      42,
+      0,
+      0
+    ],
+    [
+      105,
+      "Wellness Rx",
+      0,
+      18,
+      0
+    ],
+    [
+      106,
+      "CityCare Pharmacy",
+      0,
+      0,
+      20
+    ],
+    [
+      107,
+      "Town Square Rx",
+      30,
+      10,
+      10
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "reshape",
+    "composite_moves": [
+      "join pharmacies with adjudication_log on pharmacy_id",
+      "GROUP BY pharmacy_id, pharmacy_name",
+      "COALESCE(SUM(CASE WHEN adjudication_status = 'approved' THEN attempt_count END), 0) AS approved_attempts",
+      "COALESCE(SUM(CASE WHEN adjudication_status = 'rejected' THEN attempt_count END), 0) AS rejected_attempts",
+      "COALESCE(SUM(CASE WHEN adjudication_status = 'pending' THEN attempt_count END), 0) AS pending_attempts",
+      "ORDER BY pharmacy_id"
+    ]
+  },
+  "hints": [
+    "You'll need to join the pharmacies table with the log table, then group by pharmacy to collapse multiple rows per pharmacy into one.",
+    "Use CASE expressions inside a SUM aggregation to separate the attempt_count values by adjudication_status into different output columns.",
+    "Wrap each SUM(CASE ...) with COALESCE(..., 0) to ensure missing statuses show as 0 instead of NULL."
+  ],
+  "answer_key": "SELECT p.pharmacy_id, p.pharmacy_name, COALESCE(SUM(CASE WHEN a.adjudication_status = 'approved' THEN a.attempt_count END), 0) AS approved_attempts, COALESCE(SUM(CASE WHEN a.adjudication_status = 'rejected' THEN a.attempt_count END), 0) AS rejected_attempts, COALESCE(SUM(CASE WHEN a.adjudication_status = 'pending' THEN a.attempt_count END), 0) AS pending_attempts FROM pharmacies p LEFT JOIN adjudication_log a ON p.pharmacy_id = a.pharmacy_id GROUP BY p.pharmacy_id, p.pharmacy_name ORDER BY p.pharmacy_id;",
+  "_meta": {
+    "question_type": "pivot",
+    "original_qtype": "pivot",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-24T09:39:59.061538",
+    "problem_id": "5c0a5f4d8c3f",
+    "validation_attempts": 1,
+    "scenario": "a digital pharmacy tracking prescription submissions through PBM adjudication",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

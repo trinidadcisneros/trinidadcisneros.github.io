@@ -1,0 +1,154 @@
+{
+  "title": "Process Diagnosis Code Review Events in Order",
+  "prompt": "You are building a clinical documentation tool that tracks diagnosis code reviews and denials. Each diagnosis claim line can be in one of several statuses, and clinicians submit events to change those statuses. You must **process the events in chronological order** (by `event_id`), because **each event must read the row's current state** and **subsequent events see the prior event's update**. Write a DO block that iterates `review_events` in `event_id` order, reads the current state of the referenced `claim_lines` row, and applies the following rules:\n\n\u2022 When `event_type` = 1 ('assign_reviewer') applies:\n  - Preconditions:\n    + current `status` must be 'pending'.\n  - Actions:\n    + set `status` to 'under_review'.\n    + set `reviewer_id` to the event's `clinician_id`.\n\n\u2022 When `event_type` = 2 ('approve_code') applies:\n  - Preconditions:\n    + current `status` must be 'under_review'.\n    + the event's `clinician_id` must equal the current `reviewer_id`.\n  - Actions:\n    + set `status` to 'approved'.\n    + set `approved_code` to the event's `diag_code`.\n\n\u2022 When `event_type` = 3 ('deny_code') applies:\n  - Preconditions:\n    + current `status` must be 'under_review'.\n    + the event's `clinician_id` must equal the current `reviewer_id`.\n  - Actions:\n    + set `status` to 'denied'.\n    + set `denial_reason` to the event's `reason_text`.\n\n\u2022 When `event_type` = 4 ('reopen_claim') applies:\n  - Preconditions:\n    + current `status` must be 'denied'.\n  - Actions:\n    + set `status` to 'pending'.\n    + set `reviewer_id` to NULL.\n    + set `denial_reason` to NULL.\n\n\u2022 Events that fail their preconditions are no-ops (the state row is unchanged).\n\nAfter the DO block, include a trailing `SELECT * FROM claim_lines ORDER BY line_id;` to show the final state.",
+  "schema_ddl": "CREATE TABLE claim_lines (line_id INTEGER PRIMARY KEY, status VARCHAR(20) NOT NULL, reviewer_id INTEGER, approved_code VARCHAR(10), denial_reason TEXT); CREATE TABLE review_events (event_id INTEGER PRIMARY KEY, event_type INTEGER NOT NULL, line_id INTEGER NOT NULL REFERENCES claim_lines(line_id), clinician_id INTEGER, diag_code VARCHAR(10), reason_text TEXT);",
+  "example_input_data": "INSERT INTO claim_lines (line_id, status, reviewer_id, approved_code, denial_reason) VALUES (1, 'pending', NULL, NULL, NULL), (2, 'pending', NULL, NULL, NULL), (3, 'under_review', 101, NULL, NULL), (4, 'denied', 102, NULL, 'Insufficient documentation'); INSERT INTO review_events (event_id, event_type, line_id, clinician_id, diag_code, reason_text) VALUES (1, 1, 1, 101, NULL, NULL), (2, 2, 1, 101, 'J44.0', NULL), (3, 1, 2, 102, NULL, NULL), (4, 3, 2, 999, NULL, 'Coding error'), (5, 4, 4, NULL, NULL, NULL), (6, 1, 4, 103, NULL, NULL);",
+  "example_output_columns": [
+    "line_id",
+    "status",
+    "reviewer_id",
+    "approved_code",
+    "denial_reason"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "approved",
+      101,
+      "J44.0",
+      null
+    ],
+    [
+      2,
+      "under_review",
+      102,
+      null,
+      null
+    ],
+    [
+      3,
+      "under_review",
+      101,
+      null,
+      null
+    ],
+    [
+      4,
+      "under_review",
+      103,
+      null,
+      null
+    ]
+  ],
+  "test_data": "INSERT INTO claim_lines (line_id, status, reviewer_id, approved_code, denial_reason) VALUES (10, 'pending', NULL, NULL, NULL), (11, 'pending', NULL, NULL, NULL), (12, 'under_review', 201, NULL, NULL), (13, 'under_review', 202, NULL, NULL), (14, 'approved', 203, 'E11.9', NULL), (15, 'denied', 204, NULL, 'Missing encounter notes'), (16, 'pending', NULL, NULL, NULL), (17, 'under_review', 205, NULL, NULL), (18, 'pending', NULL, NULL, NULL), (19, 'denied', 206, NULL, 'Duplicate claim'); INSERT INTO review_events (event_id, event_type, line_id, clinician_id, diag_code, reason_text) VALUES (101, 1, 10, 201, NULL, NULL), (102, 2, 10, 201, 'I10', NULL), (103, 1, 11, 202, NULL, NULL), (104, 3, 11, 202, NULL, 'Invalid modifier'), (105, 2, 12, 999, 'Z79.4', NULL), (106, 3, 12, 201, NULL, 'Code not covered'), (107, 1, 14, 207, NULL, NULL), (108, 4, 15, NULL, NULL, NULL), (109, 1, 15, 208, NULL, NULL), (110, 2, 15, 208, 'M79.3', NULL), (111, 1, 16, 209, NULL, NULL), (112, 3, 16, 209, NULL, 'Requires prior auth'), (113, 4, 16, NULL, NULL, NULL), (114, 1, 16, 210, NULL, NULL), (115, 2, 13, 202, 'F32.9', NULL), (116, 4, 11, NULL, NULL, NULL), (117, 1, 11, 211, NULL, NULL), (118, 2, 11, 211, 'G43.909', NULL), (119, 3, 17, 999, NULL, 'Incomplete history'), (120, 3, 17, 205, NULL, 'Documentation gap'), (121, 1, 18, 212, NULL, NULL), (122, 2, 18, 212, 'N18.3', NULL), (123, 4, 19, NULL, NULL, NULL), (124, 1, 19, 213, NULL, NULL), (125, 3, 19, 213, NULL, 'Policy exclusion');",
+  "test_expected_columns": [
+    "line_id",
+    "status",
+    "reviewer_id",
+    "approved_code",
+    "denial_reason"
+  ],
+  "test_expected_rows": [
+    [
+      10,
+      "approved",
+      201,
+      "I10",
+      null
+    ],
+    [
+      11,
+      "approved",
+      211,
+      "G43.909",
+      null
+    ],
+    [
+      12,
+      "denied",
+      201,
+      null,
+      "Code not covered"
+    ],
+    [
+      13,
+      "approved",
+      202,
+      "F32.9",
+      null
+    ],
+    [
+      14,
+      "approved",
+      203,
+      "E11.9",
+      null
+    ],
+    [
+      15,
+      "approved",
+      208,
+      "M79.3",
+      null
+    ],
+    [
+      16,
+      "under_review",
+      210,
+      null,
+      null
+    ],
+    [
+      17,
+      "denied",
+      205,
+      null,
+      "Documentation gap"
+    ],
+    [
+      18,
+      "approved",
+      212,
+      "N18.3",
+      null
+    ],
+    [
+      19,
+      "denied",
+      213,
+      null,
+      "Policy exclusion"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "procedural",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "declare RECORD variable for event row",
+      "declare scalar variables for current status, reviewer_id",
+      "FOR loop over review_events ORDER BY event_id",
+      "SELECT current state INTO variables",
+      "IF/ELSIF branches on event_type AND current state",
+      "conditional UPDATE inside matching branch",
+      "trailing SELECT * FROM claim_lines ORDER BY line_id"
+    ]
+  },
+  "hints": [
+    "Use a FOR loop to iterate review_events in event_id order, reading the current state of each claim_lines row inside the loop.",
+    "Declare variables to hold the current status and reviewer_id, then use SELECT INTO to read them fresh each iteration before deciding which branch to execute.",
+    "Each event_type rule has both a type check (event_type = N) and state checks (current status, reviewer match). If any check fails, the UPDATE is skipped for that event."
+  ],
+  "answer_key": "DO $$\nDECLARE\n  rec RECORD;\n  cur_status VARCHAR(20);\n  cur_reviewer INTEGER;\nBEGIN\n  FOR rec IN SELECT * FROM review_events ORDER BY event_id LOOP\n    SELECT status, reviewer_id INTO cur_status, cur_reviewer FROM claim_lines WHERE line_id = rec.line_id;\n    IF rec.event_type = 1 AND cur_status = 'pending' THEN\n      UPDATE claim_lines SET status = 'under_review', reviewer_id = rec.clinician_id WHERE line_id = rec.line_id;\n    ELSIF rec.event_type = 2 AND cur_status = 'under_review' AND cur_reviewer = rec.clinician_id THEN\n      UPDATE claim_lines SET status = 'approved', approved_code = rec.diag_code WHERE line_id = rec.line_id;\n    ELSIF rec.event_type = 3 AND cur_status = 'under_review' AND cur_reviewer = rec.clinician_id THEN\n      UPDATE claim_lines SET status = 'denied', denial_reason = rec.reason_text WHERE line_id = rec.line_id;\n    ELSIF rec.event_type = 4 AND cur_status = 'denied' THEN\n      UPDATE claim_lines SET status = 'pending', reviewer_id = NULL, denial_reason = NULL WHERE line_id = rec.line_id;\n    END IF;\n  END LOOP;\nEND $$;\nSELECT * FROM claim_lines ORDER BY line_id;",
+  "_meta": {
+    "question_type": "do_block_queue",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-15T19:06:24.825817",
+    "problem_id": "3c7a4633f673",
+    "validation_attempts": 1,
+    "scenario": "a clinical documentation tool tracking diagnosis code reviews and denials",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

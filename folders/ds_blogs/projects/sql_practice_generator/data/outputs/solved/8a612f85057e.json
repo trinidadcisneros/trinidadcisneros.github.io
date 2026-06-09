@@ -1,0 +1,155 @@
+{
+  "problem": {
+    "title": "7-Day Rolling Average of Story Points Completed",
+    "prompt": "Your team tracks daily story point completion in each sprint. Calculate a 7-day rolling average of `points_completed` for each day, ordered by `completion_date`. The rolling average should include the current day and the 6 preceding days (or fewer if fewer than 7 days of history exist). Return columns `completion_date` and `rolling_avg_points` (rounded to 2 decimal places). Order the result by `completion_date` ascending. Note that early rows will have partial windows (fewer than 7 days), and later rows should reflect the full 7-day trailing window.",
+    "schema_ddl": "CREATE TABLE daily_completions (completion_date DATE NOT NULL, points_completed INTEGER NOT NULL);",
+    "example_input_data": "INSERT INTO daily_completions (completion_date, points_completed) VALUES ('2024-01-01', 8), ('2024-01-02', 12), ('2024-01-03', 5), ('2024-01-04', 15), ('2024-01-05', 10), ('2024-01-06', 7), ('2024-01-07', 9), ('2024-01-08', 13);",
+    "example_output_columns": [
+      "completion_date",
+      "rolling_avg_points"
+    ],
+    "example_output_rows": [
+      [
+        "2024-01-01",
+        "8.00"
+      ],
+      [
+        "2024-01-02",
+        "10.00"
+      ],
+      [
+        "2024-01-03",
+        "8.33"
+      ],
+      [
+        "2024-01-04",
+        "10.00"
+      ],
+      [
+        "2024-01-05",
+        "10.00"
+      ],
+      [
+        "2024-01-06",
+        "9.50"
+      ],
+      [
+        "2024-01-07",
+        "9.43"
+      ],
+      [
+        "2024-01-08",
+        "10.14"
+      ]
+    ],
+    "test_data": "INSERT INTO daily_completions (completion_date, points_completed) VALUES ('2024-01-01', 5), ('2024-01-02', 8), ('2024-01-03', 12), ('2024-01-04', 6), ('2024-01-05', 9), ('2024-01-06', 11), ('2024-01-07', 7), ('2024-01-08', 10), ('2024-01-09', 14), ('2024-01-10', 8), ('2024-01-11', 13), ('2024-01-12', 9), ('2024-01-13', 15), ('2024-01-14', 6), ('2024-01-15', 11), ('2024-01-16', 12), ('2024-01-17', 10), ('2024-01-18', 7);",
+    "test_expected_columns": [
+      "completion_date",
+      "rolling_avg_points"
+    ],
+    "test_expected_rows": [
+      [
+        "2024-01-01",
+        "5.00"
+      ],
+      [
+        "2024-01-02",
+        "6.50"
+      ],
+      [
+        "2024-01-03",
+        "8.33"
+      ],
+      [
+        "2024-01-04",
+        "7.75"
+      ],
+      [
+        "2024-01-05",
+        "8.00"
+      ],
+      [
+        "2024-01-06",
+        "8.50"
+      ],
+      [
+        "2024-01-07",
+        "8.29"
+      ],
+      [
+        "2024-01-08",
+        "9.00"
+      ],
+      [
+        "2024-01-09",
+        "9.86"
+      ],
+      [
+        "2024-01-10",
+        "9.29"
+      ],
+      [
+        "2024-01-11",
+        "10.29"
+      ],
+      [
+        "2024-01-12",
+        "10.29"
+      ],
+      [
+        "2024-01-13",
+        "10.86"
+      ],
+      [
+        "2024-01-14",
+        "10.71"
+      ],
+      [
+        "2024-01-15",
+        "10.86"
+      ],
+      [
+        "2024-01-16",
+        "10.57"
+      ],
+      [
+        "2024-01-17",
+        "10.86"
+      ],
+      [
+        "2024-01-18",
+        "10.00"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "time-window: Apply ROWS BETWEEN 6 PRECEDING AND CURRENT ROW frame to AVG(points_completed) partitioned by nothing, ordered by completion_date"
+      ]
+    },
+    "hints": [
+      "You need a window function that computes an average over a sliding frame of rows.",
+      "Use AVG() with an ORDER BY completion_date and a ROWS BETWEEN clause that includes the current row and the 6 preceding rows.",
+      "The frame clause is ROWS BETWEEN 6 PRECEDING AND CURRENT ROW, and you'll want to ROUND the result to 2 decimal places."
+    ],
+    "answer_key": "SELECT completion_date, ROUND(AVG(points_completed) OVER (ORDER BY completion_date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW), 2) AS rolling_avg_points FROM daily_completions ORDER BY completion_date;",
+    "_meta": {
+      "question_type": "window_sliding",
+      "original_qtype": "window_sliding",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-24T19:55:04.125418",
+      "problem_id": "8a612f85057e",
+      "validation_attempts": 1,
+      "scenario": "a project management tool tracking sprint completion and task throughput",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\n\nSELECT\n    completion_date,\n    ROUND(AVG(points_completed) OVER (ORDER BY completion_date\n                                ROWS BETWEEN 6 PRECEDING AND CURRENT ROW),2) AS rolling_avg_points\nFROM daily_completions",
+  "solved_at": "2026-05-24T20:01:17.823379"
+}

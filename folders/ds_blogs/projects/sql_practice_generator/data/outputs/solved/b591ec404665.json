@@ -1,0 +1,122 @@
+{
+  "problem": {
+    "title": "League Standings from Debate Match Results",
+    "prompt": "The community forum runs a monthly debate league where members face off in structured arguments. Each debate match is recorded as one row with both participants and their scores. You need to produce the current league standings showing each member's total points. Award 3 points for a win (higher score), 1 point for a draw (equal scores), and 0 points for a loss. Every registered debater should appear in the output, even if they haven't participated in any matches yet (showing 0 points). Your output must have columns `debater_name`, `matches_played`, and `total_points`. Order the results by total_points descending, then by debater_name ascending. Note that a debater can appear as either the initiator or the respondent in different matches, and both roles must be counted.",
+    "schema_ddl": "CREATE TABLE debaters (debater_id INTEGER PRIMARY KEY, debater_name VARCHAR(100) NOT NULL); CREATE TABLE debate_matches (match_id INTEGER PRIMARY KEY, initiator_id INTEGER NOT NULL, respondent_id INTEGER NOT NULL, initiator_score INTEGER NOT NULL, respondent_score INTEGER NOT NULL, match_date DATE NOT NULL);",
+    "example_input_data": "INSERT INTO debaters (debater_id, debater_name) VALUES (1, 'Alice Chen'), (2, 'Bob Martinez'), (3, 'Carol Singh'), (4, 'David Park'), (5, 'Eva Kowalski'); INSERT INTO debate_matches (match_id, initiator_id, respondent_id, initiator_score, respondent_score, match_date) VALUES (101, 1, 2, 85, 72, '2024-01-15'), (102, 2, 3, 90, 90, '2024-01-16'), (103, 3, 1, 68, 88, '2024-01-17'), (104, 1, 4, 92, 78, '2024-01-18'), (105, 2, 1, 75, 80, '2024-01-19'), (106, 3, 4, 82, 70, '2024-01-20');",
+    "example_output_columns": [
+      "debater_name",
+      "matches_played",
+      "total_points"
+    ],
+    "example_output_rows": [
+      [
+        "Alice Chen",
+        "4",
+        "12"
+      ],
+      [
+        "Carol Singh",
+        "3",
+        "4"
+      ],
+      [
+        "Bob Martinez",
+        "3",
+        "1"
+      ],
+      [
+        "David Park",
+        "2",
+        "0"
+      ],
+      [
+        "Eva Kowalski",
+        "0",
+        "0"
+      ]
+    ],
+    "test_data": "INSERT INTO debaters (debater_id, debater_name) VALUES (1, 'Alice Chen'), (2, 'Bob Martinez'), (3, 'Carol Singh'), (4, 'David Park'), (5, 'Eva Kowalski'), (6, 'Frank Liu'), (7, 'Grace O''Connor'), (8, 'Henry Watson'); INSERT INTO debate_matches (match_id, initiator_id, respondent_id, initiator_score, respondent_score, match_date) VALUES (101, 1, 2, 85, 72, '2024-01-15'), (102, 2, 3, 90, 90, '2024-01-16'), (103, 3, 1, 68, 88, '2024-01-17'), (104, 1, 4, 92, 78, '2024-01-18'), (105, 2, 1, 75, 80, '2024-01-19'), (106, 3, 4, 82, 70, '2024-01-20'), (107, 4, 2, 88, 88, '2024-01-21'), (108, 1, 6, 95, 60, '2024-01-22'), (109, 6, 3, 77, 85, '2024-01-23'), (110, 2, 6, 91, 91, '2024-01-24'), (111, 1, 3, 80, 75, '2024-01-25'), (112, 4, 6, 70, 82, '2024-01-26'), (113, 2, 4, 89, 65, '2024-01-27'), (114, 3, 2, 92, 88, '2024-01-28'), (115, 6, 4, 78, 78, '2024-01-29'), (116, 1, 2, 87, 83, '2024-01-30'), (117, 3, 6, 95, 70, '2024-01-31'), (118, 4, 1, 72, 90, '2024-02-01'), (119, 2, 3, 85, 85, '2024-02-02'), (120, 6, 1, 68, 92, '2024-02-03');",
+    "test_expected_columns": [
+      "debater_name",
+      "matches_played",
+      "total_points"
+    ],
+    "test_expected_rows": [
+      [
+        "Alice Chen",
+        "9",
+        "27"
+      ],
+      [
+        "Carol Singh",
+        "8",
+        "14"
+      ],
+      [
+        "Bob Martinez",
+        "9",
+        "7"
+      ],
+      [
+        "Frank Liu",
+        "7",
+        "5"
+      ],
+      [
+        "David Park",
+        "7",
+        "2"
+      ],
+      [
+        "Eva Kowalski",
+        "0",
+        "0"
+      ],
+      [
+        "Grace O'Connor",
+        "0",
+        "0"
+      ],
+      [
+        "Henry Watson",
+        "0",
+        "0"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "normalize-bidirectional",
+      "composite_moves": [
+        "unpivot both sides of matchup via UNION ALL (initiator branch: debater=initiator_id, own=initiator_score, opp=respondent_score; respondent branch: debater=respondent_id, own=respondent_score, opp=initiator_score)",
+        "per-row CASE: own > opp -> 3, own = opp -> 1, own < opp -> 0",
+        "GROUP BY debater_id with SUM(points) and COUNT(*)",
+        "LEFT JOIN from debaters dimension to aggregated results",
+        "COALESCE metrics to 0 for debaters with no matches"
+      ]
+    },
+    "hints": [
+      "A debater can appear in either the initiator or respondent column of a match. You need to account for both roles.",
+      "Use UNION ALL to create two rows from each match: one for the initiator with their score vs. the respondent's score, and one for the respondent with their score vs. the initiator's score. Then use a CASE expression to award points based on the comparison.",
+      "First UNION ALL the two branches (SELECT initiator_id AS debater_id, initiator_score AS own_score, respondent_score AS opp_score \u2026 UNION ALL SELECT respondent_id, respondent_score, initiator_score \u2026), then wrap that in a CTE or subquery where you add a CASE column for points (WHEN own_score > opp_score THEN 3 WHEN own_score = opp_score THEN 1 ELSE 0 END). GROUP BY debater_id to SUM the points and COUNT the matches. Finally, LEFT JOIN from the debaters table so members with zero matches appear, and COALESCE the aggregated columns to 0."
+    ],
+    "answer_key": "WITH match_sides AS (\n  SELECT initiator_id AS debater_id, initiator_score AS own_score, respondent_score AS opp_score\n  FROM debate_matches\n  UNION ALL\n  SELECT respondent_id AS debater_id, respondent_score AS own_score, initiator_score AS opp_score\n  FROM debate_matches\n),\nscored AS (\n  SELECT \n    debater_id,\n    CASE \n      WHEN own_score > opp_score THEN 3\n      WHEN own_score = opp_score THEN 1\n      ELSE 0\n    END AS points\n  FROM match_sides\n),\naggregated AS (\n  SELECT \n    debater_id,\n    COUNT(*) AS matches_played,\n    SUM(points) AS total_points\n  FROM scored\n  GROUP BY debater_id\n)\nSELECT \n  d.debater_name,\n  COALESCE(a.matches_played, 0)::TEXT AS matches_played,\n  COALESCE(a.total_points, 0)::TEXT AS total_points\nFROM debaters d\nLEFT JOIN aggregated a ON d.debater_id = a.debater_id\nORDER BY COALESCE(a.total_points, 0) DESC, d.debater_name ASC;",
+    "_meta": {
+      "question_type": "matchup_unpivot",
+      "original_qtype": "matchup_unpivot",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-24T10:15:28.471474",
+      "problem_id": "b591ec404665",
+      "validation_attempts": 1,
+      "scenario": "a community forum tracking thread participation and member retention",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\n1. split sides\n2. union\n3. JOIN\n4. aggregate \nAward 3 points for a win (higher score), 1 point for a draw (equal scores), and 0 points for a loss.\n */\n\nWITH base AS (\n    SELECT \n        m.initiator_id AS team_id,\n        d.debater_name,\n        m.initiator_score,\n        m.match_id,\n        CASE WHEN m.initiator_score > m.respondent_score THEN 3\n             WHEN m.initiator_score = m.respondent_score THEN 1\n            WHEN m.initiator_score < m.respondent_score THEN 0\n        END AS team_score\n    FROM debaters AS d\n    LEFT JOIN debate_matches AS m\n    ON d.debater_id = m.initiator_id\n\n    UNION ALL\n\n    SELECT \n        m.respondent_id AS team_id,\n        d.debater_name,\n        m.respondent_score,\n        m.match_id,\n        CASE WHEN m.initiator_score < m.respondent_score THEN 3\n             WHEN m.initiator_score = m.respondent_score THEN 1\n            WHEN m.initiator_score > m.respondent_score THEN 0\n        END AS team_score\n    FROM debaters AS d\n    LEFT JOIN debate_matches AS m\n    ON d.debater_id = m.respondent_id\n\n)\nSELECT\n    debater_name,\n    COALESCE(COUNT(match_id),0) AS matches_played,\n    COALESCE(SUM(team_score),0) AS total_points\nFROM base\nGROUP BY debater_name\nORDER BY total_points DESC, debater_name;\n",
+  "solved_at": "2026-05-24T11:44:46.215854"
+}

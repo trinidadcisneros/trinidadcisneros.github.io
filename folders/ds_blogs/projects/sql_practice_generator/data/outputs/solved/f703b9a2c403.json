@@ -1,0 +1,123 @@
+{
+  "problem": {
+    "title": "Pivot User Engagement Metrics by Channel",
+    "prompt": "The BooedUp analytics team tracks user engagement events in a long-format table where each row records one event type for one user. Write a query to pivot this data into a wide-format report showing total engagement counts per user across three channels: 'app_open', 'message_sent', and 'profile_view'. For each user, compute the SUM of event counts for each channel as separate columns named `app_open_count`, `message_sent_count`, and `profile_view_count`. If a user has no events for a given channel, return 0 (not NULL) in that column. Include the user's display name from the users lookup table. Return columns in this exact order: user_id, display_name, app_open_count, message_sent_count, profile_view_count. Order the final result by user_id ascending.",
+    "schema_ddl": "CREATE TABLE users (user_id INT PRIMARY KEY, display_name VARCHAR(100) NOT NULL); CREATE TABLE user_engagement_events (event_id SERIAL PRIMARY KEY, user_id INT NOT NULL, event_type VARCHAR(50) NOT NULL, event_count INT NOT NULL);",
+    "example_input_data": "INSERT INTO users (user_id, display_name) VALUES (101, 'Alice Wonder'), (102, 'Bob Builder'), (103, 'Charlie Day'); INSERT INTO user_engagement_events (user_id, event_type, event_count) VALUES (101, 'app_open', 5), (101, 'message_sent', 12), (101, 'profile_view', 3), (102, 'app_open', 2), (102, 'app_open', 1), (102, 'profile_view', 7), (103, 'message_sent', 20);",
+    "example_output_columns": [
+      "user_id",
+      "display_name",
+      "app_open_count",
+      "message_sent_count",
+      "profile_view_count"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "Alice Wonder",
+        5,
+        12,
+        3
+      ],
+      [
+        102,
+        "Bob Builder",
+        3,
+        0,
+        7
+      ],
+      [
+        103,
+        "Charlie Day",
+        0,
+        20,
+        0
+      ]
+    ],
+    "test_data": "INSERT INTO users (user_id, display_name) VALUES (201, 'Dana Fox'), (202, 'Eli Storm'), (203, 'Fiona Green'), (204, 'George Hill'), (205, 'Hannah Lee'), (206, 'Ian Frost'); INSERT INTO user_engagement_events (user_id, event_type, event_count) VALUES (201, 'app_open', 10), (201, 'app_open', 5), (201, 'message_sent', 8), (201, 'profile_view', 2), (202, 'message_sent', 15), (202, 'message_sent', 10), (202, 'profile_view', 4), (203, 'app_open', 7), (203, 'profile_view', 9), (203, 'profile_view', 3), (204, 'app_open', 1), (204, 'message_sent', 25), (204, 'message_sent', 5), (204, 'profile_view', 1), (205, 'profile_view', 6), (206, 'app_open', 12), (206, 'app_open', 8), (206, 'app_open', 3), (206, 'message_sent', 14), (201, 'app_open', 3), (202, 'message_sent', 7), (203, 'profile_view', 5), (204, 'app_open', 2), (206, 'profile_view', 11);",
+    "test_expected_columns": [
+      "user_id",
+      "display_name",
+      "app_open_count",
+      "message_sent_count",
+      "profile_view_count"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "Dana Fox",
+        18,
+        8,
+        2
+      ],
+      [
+        202,
+        "Eli Storm",
+        0,
+        32,
+        4
+      ],
+      [
+        203,
+        "Fiona Green",
+        7,
+        0,
+        17
+      ],
+      [
+        204,
+        "George Hill",
+        3,
+        30,
+        1
+      ],
+      [
+        205,
+        "Hannah Lee",
+        0,
+        0,
+        6
+      ],
+      [
+        206,
+        "Ian Frost",
+        23,
+        14,
+        11
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "reshape",
+      "composite_moves": [
+        "join users lookup",
+        "group by user_id",
+        "pivot event_type with SUM(CASE WHEN...) for each channel",
+        "COALESCE to 0 for missing categories"
+      ]
+    },
+    "hints": [
+      "You need to transform rows with event_type values into separate columns.",
+      "Use SUM(CASE WHEN event_type = 'channel_name' THEN event_count END) for each target column, grouped by user_id.",
+      "Wrap each SUM(CASE...) with COALESCE(..., 0) to replace NULL with 0 when a user has no events for that channel, then join the users table for display_name."
+    ],
+    "answer_key": "SELECT u.user_id, u.display_name, COALESCE(SUM(CASE WHEN e.event_type = 'app_open' THEN e.event_count END), 0) AS app_open_count, COALESCE(SUM(CASE WHEN e.event_type = 'message_sent' THEN e.event_count END), 0) AS message_sent_count, COALESCE(SUM(CASE WHEN e.event_type = 'profile_view' THEN e.event_count END), 0) AS profile_view_count FROM users u LEFT JOIN user_engagement_events e ON u.user_id = e.user_id GROUP BY u.user_id, u.display_name ORDER BY u.user_id;",
+    "_meta": {
+      "question_type": "pivot",
+      "original_qtype": "pivot",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "booedup",
+      "generated_at": "2026-05-21T21:48:12.000434",
+      "problem_id": "f703b9a2c403",
+      "validation_attempts": 1,
+      "scenario": "the BooedUp dating app",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\n1. users x user_engagement_events user_id\n2. pivot\n\n */\n\nWITH base AS (\n    SELECT\n        u.user_id,\n        u.display_name,\n        ue.event_type,\n        ue.event_count\n    FROM user_engagement_events AS ue\n    JOIN users AS u\n    USING(user_id)\n)\nSELECT\n    user_id,\n    display_name,\n    COALESCE(SUM(CASE WHEN event_type = 'app_open' THEN event_count END), 0) AS app_open_count,\n    COALESCE(SUM(CASE WHEN event_type = 'message_sent' THEN event_count END), 0) AS message_sent_count,\n    COALESCE(SUM(CASE WHEN event_type = 'profile_view' THEN event_count END), 0) AS profile_view_count\nFROM base\nGROUP BY 1, 2\nORDER BY user_id;\n",
+  "solved_at": "2026-05-21T21:59:18.243259"
+}

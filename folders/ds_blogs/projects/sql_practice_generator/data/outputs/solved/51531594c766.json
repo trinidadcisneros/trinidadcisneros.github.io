@@ -1,0 +1,106 @@
+{
+  "problem": {
+    "title": "Mentorship Program Participation Leaderboard",
+    "prompt": "Your company runs a peer-mentorship program where employees are paired for structured sessions. Each session record captures the mentor, the mentee, and points awarded to each based on engagement and completion. A session row looks like: (session_id, mentor_employee_id, mentee_employee_id, mentor_points, mentee_points). Leadership wants a leaderboard showing total points earned by each employee across all sessions, whether they participated as mentor or mentee. The output should include every employee in the employees table (even those who never participated in a session, shown with 0 points). Return columns `employee_id`, `employee_name`, `total_points`. Standard scoring: each session awards 0-5 points to the mentor and 0-5 points to the mentee independently. Order results by total_points DESC, then employee_id ASC.",
+    "schema_ddl": "CREATE TABLE employees (employee_id INT PRIMARY KEY, employee_name VARCHAR(100)); CREATE TABLE mentorship_sessions (session_id INT PRIMARY KEY, mentor_employee_id INT, mentee_employee_id INT, mentor_points INT, mentee_points INT);",
+    "example_input_data": "INSERT INTO employees (employee_id, employee_name) VALUES (101, 'Alice Chen'), (102, 'Bob Martinez'), (103, 'Carol Singh'), (104, 'Dan Lee'); INSERT INTO mentorship_sessions (session_id, mentor_employee_id, mentee_employee_id, mentor_points, mentee_points) VALUES (1, 101, 102, 5, 4), (2, 102, 103, 3, 3), (3, 103, 101, 4, 5), (4, 101, 103, 5, 2), (5, 102, 101, 4, 3);",
+    "example_output_columns": [
+      "employee_id",
+      "employee_name",
+      "total_points"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "Alice Chen",
+        18
+      ],
+      [
+        102,
+        "Bob Martinez",
+        11
+      ],
+      [
+        103,
+        "Carol Singh",
+        9
+      ],
+      [
+        104,
+        "Dan Lee",
+        0
+      ]
+    ],
+    "test_data": "INSERT INTO employees (employee_id, employee_name) VALUES (201, 'Emma White'), (202, 'Frank Green'), (203, 'Grace Kim'), (204, 'Henry Patel'), (205, 'Iris Johnson'), (206, 'Jack Brown'); INSERT INTO mentorship_sessions (session_id, mentor_employee_id, mentee_employee_id, mentor_points, mentee_points) VALUES (10, 201, 202, 5, 5), (11, 202, 203, 4, 3), (12, 203, 204, 3, 4), (13, 204, 201, 5, 4), (14, 201, 203, 5, 2), (15, 203, 202, 4, 5), (16, 202, 204, 3, 3), (17, 204, 205, 4, 4), (18, 205, 201, 2, 5), (19, 201, 204, 5, 3), (20, 203, 205, 3, 2), (21, 202, 201, 4, 4), (22, 204, 203, 5, 1), (23, 205, 203, 3, 4), (24, 201, 205, 5, 3);",
+    "test_expected_columns": [
+      "employee_id",
+      "employee_name",
+      "total_points"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "Emma White",
+        33
+      ],
+      [
+        204,
+        "Henry Patel",
+        24
+      ],
+      [
+        202,
+        "Frank Green",
+        21
+      ],
+      [
+        203,
+        "Grace Kim",
+        20
+      ],
+      [
+        205,
+        "Iris Johnson",
+        14
+      ],
+      [
+        206,
+        "Jack Brown",
+        0
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "normalize-bidirectional",
+      "composite_moves": [
+        "unpivot mentorship_sessions via UNION ALL: one branch (mentor_employee_id, mentor_points), second branch (mentee_employee_id, mentee_points)",
+        "GROUP BY employee_id, SUM(points) to aggregate per participant",
+        "LEFT JOIN employees to dimension table to include employees with zero sessions",
+        "COALESCE summed points to 0 for employees with no sessions"
+      ]
+    },
+    "hints": [
+      "Each session row contains two participants. Think about how to transform the data so each participant's points appear in a single column.",
+      "Use UNION ALL to create one row per participant per session, carrying their points. Then aggregate these rows by employee.",
+      "LEFT JOIN the employees table to the aggregated points so employees who never participated still appear with 0 points. Use COALESCE to handle NULLs."
+    ],
+    "answer_key": "WITH participant_points AS (\n  SELECT mentor_employee_id AS employee_id, mentor_points AS points\n  FROM mentorship_sessions\n  UNION ALL\n  SELECT mentee_employee_id, mentee_points\n  FROM mentorship_sessions\n),\naggregated AS (\n  SELECT employee_id, SUM(points) AS total_points\n  FROM participant_points\n  GROUP BY employee_id\n)\nSELECT e.employee_id, e.employee_name, COALESCE(a.total_points, 0) AS total_points\nFROM employees e\nLEFT JOIN aggregated a ON e.employee_id = a.employee_id\nORDER BY total_points DESC, e.employee_id ASC;",
+    "_meta": {
+      "question_type": "matchup_unpivot",
+      "original_qtype": "matchup_unpivot",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-30T18:39:11.244418",
+      "problem_id": "51531594c766",
+      "validation_attempts": 2,
+      "scenario": "an HR platform tracking onboarding completion and benefits enrollment",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\nWITH base AS (\nSELECT\n    mentor_employee_id AS employee_id,\n    mentor_points AS points\nFROM mentorship_sessions\n\nUNION ALL\n\nSELECT\n    mentee_employee_id AS employee_id,\n    mentee_points AS points\nFROM mentorship_sessions\n)\nSELECT\n    e.employee_id,\n    e.employee_name,\n    COALESCE(SUM(b.points),0) AS total_points\nFROM employees AS e\nLEFT JOIN base AS b\nUSING(employee_id)\nGROUP BY employee_id\nORDER BY total_points DESC, employee_id;",
+  "solved_at": "2026-05-30T18:43:22.859424"
+}

@@ -1,0 +1,191 @@
+{
+  "title": "Quartile Segmentation of Customer Basket Spend",
+  "prompt": "An online grocery service wants to segment customers into spending quartiles based on their average basket value. Write a query that assigns each customer to a quartile (1-4) based on their `avg_basket_value`, where quartile 1 contains the customers with the highest average spend and quartile 4 contains those with the lowest. Return three columns: `customer_id`, `avg_basket_value`, and `spend_quartile`. Order the results by `spend_quartile` ascending, then by `avg_basket_value` descending. The `avg_basket_value` is already pre-calculated in the customer_metrics table and represents the mean order value across all of that customer's orders. Include all customers even if their average basket value is NULL (NULL values should be sorted last within their assigned quartile).",
+  "schema_ddl": "CREATE TABLE customer_metrics (customer_id INTEGER PRIMARY KEY, customer_name VARCHAR(100), avg_basket_value DECIMAL(10,2), total_orders INTEGER, last_order_date DATE);",
+  "example_input_data": "INSERT INTO customer_metrics (customer_id, customer_name, avg_basket_value, total_orders, last_order_date) VALUES (101, 'Alice Chen', 142.50, 8, '2024-03-15'), (102, 'Bob Martinez', 87.30, 12, '2024-03-10'), (103, 'Carol Wu', 215.80, 5, '2024-03-14'), (104, 'David Kim', 63.20, 15, '2024-03-12'), (105, 'Emma Singh', 198.40, 7, '2024-03-13'), (106, 'Frank Lee', 45.90, 9, '2024-03-11'), (107, 'Grace Park', NULL, 0, NULL), (108, 'Henry Zhao', 125.60, 6, '2024-03-09');",
+  "example_output_columns": [
+    "customer_id",
+    "avg_basket_value",
+    "spend_quartile"
+  ],
+  "example_output_rows": [
+    [
+      103,
+      "215.80",
+      1
+    ],
+    [
+      105,
+      "198.40",
+      1
+    ],
+    [
+      101,
+      "142.50",
+      2
+    ],
+    [
+      108,
+      "125.60",
+      2
+    ],
+    [
+      102,
+      "87.30",
+      3
+    ],
+    [
+      104,
+      "63.20",
+      3
+    ],
+    [
+      106,
+      "45.90",
+      4
+    ],
+    [
+      107,
+      null,
+      4
+    ]
+  ],
+  "test_data": "INSERT INTO customer_metrics (customer_id, customer_name, avg_basket_value, total_orders, last_order_date) VALUES (201, 'Ivy Johnson', 310.25, 14, '2024-03-20'), (202, 'Jack Brown', 89.50, 11, '2024-03-19'), (203, 'Kate Wilson', 245.00, 9, '2024-03-18'), (204, 'Liam Davis', 52.30, 22, '2024-03-17'), (205, 'Mia Garcia', 178.90, 8, '2024-03-16'), (206, 'Noah Miller', 135.40, 13, '2024-03-15'), (207, 'Olivia Moore', 67.80, 18, '2024-03-14'), (208, 'Paul Taylor', 412.60, 6, '2024-03-13'), (209, 'Quinn Anderson', 98.70, 10, '2024-03-12'), (210, 'Ryan Thomas', 156.20, 7, '2024-03-11'), (211, 'Sara Jackson', NULL, 0, NULL), (212, 'Tom White', 203.50, 12, '2024-03-10'), (213, 'Uma Harris', 71.40, 16, '2024-03-09'), (214, 'Victor Martin', 289.80, 5, '2024-03-08'), (215, 'Wendy Thompson', 45.60, 20, '2024-03-07'), (216, 'Xavier Garcia', 118.30, 9, '2024-03-06'), (217, 'Yara Martinez', 189.90, 11, '2024-03-05'), (218, 'Zane Robinson', 82.10, 15, '2024-03-04'), (219, 'Amy Clark', 225.70, 8, '2024-03-03'), (220, 'Ben Lewis', NULL, 0, NULL);",
+  "test_expected_columns": [
+    "customer_id",
+    "avg_basket_value",
+    "spend_quartile"
+  ],
+  "test_expected_rows": [
+    [
+      208,
+      "412.60",
+      1
+    ],
+    [
+      201,
+      "310.25",
+      1
+    ],
+    [
+      214,
+      "289.80",
+      1
+    ],
+    [
+      203,
+      "245.00",
+      1
+    ],
+    [
+      219,
+      "225.70",
+      1
+    ],
+    [
+      212,
+      "203.50",
+      2
+    ],
+    [
+      217,
+      "189.90",
+      2
+    ],
+    [
+      205,
+      "178.90",
+      2
+    ],
+    [
+      210,
+      "156.20",
+      2
+    ],
+    [
+      206,
+      "135.40",
+      2
+    ],
+    [
+      216,
+      "118.30",
+      3
+    ],
+    [
+      209,
+      "98.70",
+      3
+    ],
+    [
+      202,
+      "89.50",
+      3
+    ],
+    [
+      218,
+      "82.10",
+      3
+    ],
+    [
+      213,
+      "71.40",
+      3
+    ],
+    [
+      207,
+      "67.80",
+      4
+    ],
+    [
+      204,
+      "52.30",
+      4
+    ],
+    [
+      215,
+      "45.60",
+      4
+    ],
+    [
+      220,
+      null,
+      4
+    ],
+    [
+      211,
+      null,
+      4
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "rank-partition",
+    "composite_moves": [
+      "rank-partition: apply NTILE window function to assign quartile buckets based on avg_basket_value DESC with NULLS LAST",
+      "row-transform: select customer_id, avg_basket_value, and computed quartile",
+      "sort: order by spend_quartile ASC, avg_basket_value DESC NULLS LAST"
+    ]
+  },
+  "hints": [
+    "You need to divide customers into four equal-sized groups based on a ranking of their average basket values.",
+    "Use a window function that assigns bucket numbers (1 through 4) to rows ordered by the metric in descending order. NTILE is designed for this purpose.",
+    "The complete solution is: SELECT customer_id, avg_basket_value, NTILE(4) OVER (ORDER BY avg_basket_value DESC NULLS LAST) AS spend_quartile FROM customer_metrics ORDER BY spend_quartile, avg_basket_value DESC NULLS LAST;"
+  ],
+  "answer_key": "SELECT customer_id, avg_basket_value, NTILE(4) OVER (ORDER BY avg_basket_value DESC NULLS LAST) AS spend_quartile FROM customer_metrics ORDER BY spend_quartile, avg_basket_value DESC NULLS LAST;",
+  "_meta": {
+    "question_type": "percentile_metrics",
+    "original_qtype": "percentile_metrics",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-30T18:17:41.665186",
+    "problem_id": "e0c1626925db",
+    "validation_attempts": 1,
+    "scenario": "an online grocery service tracking basket size and reorder rates",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": "ntile_buckets"
+  }
+}

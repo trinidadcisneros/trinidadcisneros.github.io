@@ -1,0 +1,92 @@
+{
+  "title": "Pivot Monthly Box Shipment Counts by Subscription Tier",
+  "prompt": "The subscription-box retailer tracks monthly box shipments in a long-format table `monthly_shipments` with columns `subscription_tier` (text: 'basic', 'premium', 'deluxe'), `month_name` (text: 'January', 'February', 'March'), and `boxes_shipped` (integer count). Each row records the number of boxes shipped for a given tier in a given month. Multiple shipment batches may exist for the same tier-month combination. Write a query that pivots this data into wide format: one row per subscription tier with columns `subscription_tier`, `january_total`, `february_total`, `march_total`. Each month column should contain the SUM of `boxes_shipped` for that tier and month. If a tier has no shipments recorded for a month, display 0 (zero) instead of NULL. Order the output by `subscription_tier` ascending (alphabetically).",
+  "schema_ddl": "CREATE TABLE monthly_shipments (shipment_id SERIAL PRIMARY KEY, subscription_tier TEXT NOT NULL, month_name TEXT NOT NULL, boxes_shipped INTEGER NOT NULL);",
+  "example_input_data": "INSERT INTO monthly_shipments (subscription_tier, month_name, boxes_shipped) VALUES ('basic', 'January', 120), ('basic', 'February', 95), ('premium', 'January', 80), ('premium', 'January', 20), ('premium', 'March', 110), ('deluxe', 'February', 45), ('deluxe', 'March', 60);",
+  "example_output_columns": [
+    "subscription_tier",
+    "january_total",
+    "february_total",
+    "march_total"
+  ],
+  "example_output_rows": [
+    [
+      "basic",
+      120,
+      95,
+      0
+    ],
+    [
+      "deluxe",
+      0,
+      45,
+      60
+    ],
+    [
+      "premium",
+      100,
+      0,
+      110
+    ]
+  ],
+  "test_data": "INSERT INTO monthly_shipments (subscription_tier, month_name, boxes_shipped) VALUES ('basic', 'January', 150), ('basic', 'January', 75), ('basic', 'February', 110), ('basic', 'February', 40), ('basic', 'March', 95), ('premium', 'January', 60), ('premium', 'January', 30), ('premium', 'January', 10), ('premium', 'February', 85), ('premium', 'March', 120), ('premium', 'March', 55), ('deluxe', 'January', 40), ('deluxe', 'January', 25), ('deluxe', 'February', 70), ('deluxe', 'March', 90), ('deluxe', 'March', 30), ('deluxe', 'March', 15), ('elite', 'February', 20), ('elite', 'February', 15), ('elite', 'March', 50);",
+  "test_expected_columns": [
+    "subscription_tier",
+    "january_total",
+    "february_total",
+    "march_total"
+  ],
+  "test_expected_rows": [
+    [
+      "basic",
+      225,
+      150,
+      95
+    ],
+    [
+      "deluxe",
+      65,
+      70,
+      135
+    ],
+    [
+      "elite",
+      0,
+      35,
+      50
+    ],
+    [
+      "premium",
+      100,
+      85,
+      175
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "reshape",
+    "composite_moves": [
+      "group-aggregate",
+      "CASE-expression pivot per target column",
+      "COALESCE NULL to 0"
+    ]
+  },
+  "hints": [
+    "You need to transform rows into columns using aggregation grouped by subscription tier.",
+    "Use SUM with CASE WHEN to isolate each month's boxes_shipped into separate columns: SUM(CASE WHEN month_name = 'January' THEN boxes_shipped END) AS january_total.",
+    "Wrap each SUM(CASE ...) with COALESCE(..., 0) to replace NULL with 0 when no shipments exist for that tier-month combination."
+  ],
+  "answer_key": "SELECT\n  subscription_tier,\n  COALESCE(SUM(CASE WHEN month_name = 'January' THEN boxes_shipped END), 0) AS january_total,\n  COALESCE(SUM(CASE WHEN month_name = 'February' THEN boxes_shipped END), 0) AS february_total,\n  COALESCE(SUM(CASE WHEN month_name = 'March' THEN boxes_shipped END), 0) AS march_total\nFROM monthly_shipments\nGROUP BY subscription_tier\nORDER BY subscription_tier ASC;",
+  "_meta": {
+    "question_type": "pivot",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-09T18:29:08.097893",
+    "problem_id": "52bb71082fff",
+    "validation_attempts": 1,
+    "scenario": "a subscription-box retailer managing monthly box assembly and customer churn",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

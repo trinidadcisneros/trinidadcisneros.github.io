@@ -1,0 +1,121 @@
+{
+  "title": "Playlist Event Queue Processing",
+  "prompt": "You are building a music streaming service that processes user playlist events in chronological order. Each event references a `playlist_id` and has an `event_type` that determines what action to take. The playlist's current `status` and `owner_user_id` determine whether an event can proceed. Write a DO block that processes the events in `event_id` order. For each event, read the playlist's current state, then apply the event's rule if its preconditions are met.\n\n\u2022 When `event_type` = 1 ('create_playlist') applies:\n  - Preconditions:\n    + current `status` must be 'inactive'.\n  - Actions:\n    + set `status` to 'active'.\n    + set `owner_user_id` to the event's `user_id`.\n    + set `track_count` to `0`.\n\n\u2022 When `event_type` = 2 ('add_track') applies:\n  - Preconditions:\n    + current `status` must be 'active'.\n    + the event's `user_id` must equal the current `owner_user_id`.\n  - Actions:\n    + increment `track_count` by `1`.\n\n\u2022 When `event_type` = 3 ('archive_playlist') applies:\n  - Preconditions:\n    + current `status` must be 'active'.\n    + the event's `user_id` must equal the current `owner_user_id`.\n  - Actions:\n    + set `status` to 'archived'.\n\n\u2022 When `event_type` = 4 ('transfer_ownership') applies:\n  - Preconditions:\n    + current `status` must be 'active'.\n    + the event's `user_id` must equal the current `owner_user_id`.\n  - Actions:\n    + set `owner_user_id` to the event's `new_owner_id`.\n\n\u2022 Events that fail their preconditions are no-ops (the playlist row is unchanged).\n\nAfter processing all events, the DO block must be followed by a trailing SELECT statement: `SELECT * FROM playlists ORDER BY playlist_id;` to show the final state. Test your solution by running the DO block against the example data and verifying the final playlist states match the expected output.",
+  "schema_ddl": "CREATE TABLE playlists (playlist_id INT PRIMARY KEY, status VARCHAR(20) NOT NULL, owner_user_id INT, track_count INT NOT NULL); CREATE TABLE playlist_events (event_id INT PRIMARY KEY, playlist_id INT NOT NULL REFERENCES playlists(playlist_id), event_type INT NOT NULL, user_id INT NOT NULL, new_owner_id INT);",
+  "example_input_data": "INSERT INTO playlists (playlist_id, status, owner_user_id, track_count) VALUES (1, 'inactive', NULL, 0), (2, 'inactive', NULL, 0), (3, 'active', 101, 5); INSERT INTO playlist_events (event_id, playlist_id, event_type, user_id, new_owner_id) VALUES (1, 1, 1, 101, NULL), (2, 1, 2, 101, NULL), (3, 2, 1, 102, NULL), (4, 1, 4, 101, 103), (5, 1, 2, 103, NULL), (6, 3, 3, 101, NULL), (7, 3, 2, 101, NULL);",
+  "example_output_columns": [
+    "playlist_id",
+    "status",
+    "owner_user_id",
+    "track_count"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "active",
+      103,
+      2
+    ],
+    [
+      2,
+      "active",
+      102,
+      0
+    ],
+    [
+      3,
+      "archived",
+      101,
+      5
+    ]
+  ],
+  "test_data": "INSERT INTO playlists (playlist_id, status, owner_user_id, track_count) VALUES (10, 'inactive', NULL, 0), (11, 'inactive', NULL, 0), (12, 'active', 201, 3), (13, 'active', 202, 7), (14, 'inactive', NULL, 0), (15, 'active', 203, 2), (16, 'inactive', NULL, 0), (17, 'active', 204, 10); INSERT INTO playlist_events (event_id, playlist_id, event_type, user_id, new_owner_id) VALUES (10, 10, 1, 201, NULL), (11, 10, 2, 201, NULL), (12, 10, 2, 201, NULL), (13, 11, 1, 202, NULL), (14, 12, 2, 201, NULL), (15, 12, 4, 201, 205), (16, 12, 2, 205, NULL), (17, 12, 3, 205, NULL), (18, 13, 3, 999, NULL), (19, 13, 3, 202, NULL), (20, 14, 2, 203, NULL), (21, 14, 1, 203, NULL), (22, 14, 2, 203, NULL), (23, 15, 4, 203, 206), (24, 15, 2, 206, NULL), (25, 15, 2, 203, NULL), (26, 16, 1, 207, NULL), (27, 16, 3, 999, NULL), (28, 16, 3, 207, NULL), (29, 17, 2, 204, NULL), (30, 17, 4, 204, 208), (31, 17, 2, 208, NULL), (32, 17, 3, 999, NULL);",
+  "test_expected_columns": [
+    "playlist_id",
+    "status",
+    "owner_user_id",
+    "track_count"
+  ],
+  "test_expected_rows": [
+    [
+      10,
+      "active",
+      201,
+      2
+    ],
+    [
+      11,
+      "active",
+      202,
+      0
+    ],
+    [
+      12,
+      "archived",
+      205,
+      5
+    ],
+    [
+      13,
+      "archived",
+      202,
+      7
+    ],
+    [
+      14,
+      "active",
+      203,
+      1
+    ],
+    [
+      15,
+      "active",
+      206,
+      3
+    ],
+    [
+      16,
+      "archived",
+      207,
+      0
+    ],
+    [
+      17,
+      "active",
+      208,
+      12
+    ]
+  ],
+  "classification": {
+    "input_arrival": "procedural",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "declare-record-and-state-vars",
+      "for-loop-ordered-log",
+      "per-iteration-state-read",
+      "branch-on-type-and-state",
+      "conditional-update"
+    ]
+  },
+  "hints": [
+    "You need a DO block with a FOR loop that iterates the playlist_events table in event_id order.",
+    "Inside the loop, use SELECT ... INTO to read the playlist's current status, owner_user_id, and track_count before deciding whether to apply the event's action.",
+    "Use IF ... ELSIF ... END IF to branch on event_type, and within each branch check that the current state satisfies the preconditions before executing the UPDATE. For event_type = 2, increment track_count by 1 using SET track_count = track_count + 1."
+  ],
+  "answer_key": "DO $$\nDECLARE\n  rec RECORD;\n  cur_status VARCHAR(20);\n  cur_owner INT;\n  cur_count INT;\nBEGIN\n  FOR rec IN SELECT * FROM playlist_events ORDER BY event_id LOOP\n    SELECT status, owner_user_id, track_count INTO cur_status, cur_owner, cur_count\n      FROM playlists WHERE playlist_id = rec.playlist_id;\n    \n    IF rec.event_type = 1 AND cur_status = 'inactive' THEN\n      UPDATE playlists\n        SET status = 'active', owner_user_id = rec.user_id, track_count = 0\n        WHERE playlist_id = rec.playlist_id;\n    ELSIF rec.event_type = 2 AND cur_status = 'active' AND cur_owner = rec.user_id THEN\n      UPDATE playlists\n        SET track_count = track_count + 1\n        WHERE playlist_id = rec.playlist_id;\n    ELSIF rec.event_type = 3 AND cur_status = 'active' AND cur_owner = rec.user_id THEN\n      UPDATE playlists\n        SET status = 'archived'\n        WHERE playlist_id = rec.playlist_id;\n    ELSIF rec.event_type = 4 AND cur_status = 'active' AND cur_owner = rec.user_id THEN\n      UPDATE playlists\n        SET owner_user_id = rec.new_owner_id\n        WHERE playlist_id = rec.playlist_id;\n    END IF;\n  END LOOP;\nEND $$;\n\nSELECT * FROM playlists ORDER BY playlist_id;",
+  "_meta": {
+    "question_type": "do_block_queue",
+    "original_qtype": "do_block_queue",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-04T17:22:11.376453",
+    "problem_id": "a5f4b333d3fe",
+    "validation_attempts": 1,
+    "scenario": "a music streaming service tracking saved tracks and playlist creation",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

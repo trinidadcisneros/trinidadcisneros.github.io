@@ -1,0 +1,111 @@
+{
+  "title": "First and Last Adjudication Status Per Claim",
+  "prompt": "A digital pharmacy submits prescription claims to a PBM (pharmacy benefit manager) for adjudication. Each claim passes through multiple adjudication attempts, each recorded with a timestamp and status code. Write a query that returns one row per claim showing the claim ID, the status of the FIRST adjudication attempt, and the status of the LAST adjudication attempt (chronologically). Include all claims that have at least one adjudication record. Order the final result by `claim_id` ascending. Note: you must use window functions to determine first and last status within each claim's adjudication history; be careful with the window frame specification to ensure LAST_VALUE captures the true final attempt, not just the current row.",
+  "schema_ddl": "CREATE TABLE adjudication_log (adjudication_id SERIAL PRIMARY KEY, claim_id VARCHAR(20) NOT NULL, adjudication_timestamp TIMESTAMP NOT NULL, status_code VARCHAR(20) NOT NULL);",
+  "example_input_data": "INSERT INTO adjudication_log (claim_id, adjudication_timestamp, status_code) VALUES ('RX-1001', '2024-06-15 08:30:00', 'SUBMITTED'), ('RX-1001', '2024-06-15 08:31:12', 'PENDING'), ('RX-1001', '2024-06-15 08:35:45', 'APPROVED'), ('RX-1002', '2024-06-15 09:10:00', 'SUBMITTED'), ('RX-1002', '2024-06-15 09:12:00', 'REJECTED'), ('RX-1003', '2024-06-15 10:00:00', 'SUBMITTED'), ('RX-1003', '2024-06-15 10:02:00', 'PENDING'), ('RX-1003', '2024-06-15 10:05:00', 'APPROVED');",
+  "example_output_columns": [
+    "claim_id",
+    "first_status",
+    "last_status"
+  ],
+  "example_output_rows": [
+    [
+      "RX-1001",
+      "SUBMITTED",
+      "APPROVED"
+    ],
+    [
+      "RX-1002",
+      "SUBMITTED",
+      "REJECTED"
+    ],
+    [
+      "RX-1003",
+      "SUBMITTED",
+      "APPROVED"
+    ]
+  ],
+  "test_data": "INSERT INTO adjudication_log (claim_id, adjudication_timestamp, status_code) VALUES ('RX-2001', '2024-07-01 07:00:00', 'SUBMITTED'), ('RX-2001', '2024-07-01 07:01:00', 'PENDING'), ('RX-2001', '2024-07-01 07:02:00', 'APPROVED'), ('RX-2001', '2024-07-01 07:03:00', 'REVERSED'), ('RX-2002', '2024-07-01 08:00:00', 'SUBMITTED'), ('RX-2002', '2024-07-01 08:05:00', 'REJECTED'), ('RX-2002', '2024-07-01 08:10:00', 'RESUBMITTED'), ('RX-2002', '2024-07-01 08:15:00', 'APPROVED'), ('RX-2003', '2024-07-01 09:00:00', 'SUBMITTED'), ('RX-2004', '2024-07-01 10:00:00', 'SUBMITTED'), ('RX-2004', '2024-07-01 10:01:00', 'PENDING'), ('RX-2005', '2024-07-01 11:00:00', 'SUBMITTED'), ('RX-2005', '2024-07-01 11:01:00', 'PENDING'), ('RX-2005', '2024-07-01 11:02:00', 'PENDING'), ('RX-2005', '2024-07-01 11:03:00', 'PENDING'), ('RX-2005', '2024-07-01 11:04:00', 'REJECTED'), ('RX-2006', '2024-07-01 12:00:00', 'SUBMITTED'), ('RX-2006', '2024-07-01 12:05:00', 'APPROVED'), ('RX-2007', '2024-07-01 13:00:00', 'SUBMITTED'), ('RX-2007', '2024-07-01 13:01:00', 'REJECTED'), ('RX-2007', '2024-07-01 13:02:00', 'RESUBMITTED'), ('RX-2007', '2024-07-01 13:03:00', 'REJECTED'), ('RX-2008', '2024-07-01 14:00:00', 'SUBMITTED'), ('RX-2008', '2024-07-01 14:01:00', 'PENDING'), ('RX-2008', '2024-07-01 14:02:00', 'PENDING'), ('RX-2008', '2024-07-01 14:03:00', 'APPROVED'), ('RX-2009', '2024-07-01 15:00:00', 'SUBMITTED'), ('RX-2009', '2024-07-01 15:01:00', 'APPROVED'), ('RX-2009', '2024-07-01 15:02:00', 'REVERSED'), ('RX-2009', '2024-07-01 15:03:00', 'RESUBMITTED'), ('RX-2009', '2024-07-01 15:04:00', 'APPROVED');",
+  "test_expected_columns": [
+    "claim_id",
+    "first_status",
+    "last_status"
+  ],
+  "test_expected_rows": [
+    [
+      "RX-2001",
+      "SUBMITTED",
+      "REVERSED"
+    ],
+    [
+      "RX-2002",
+      "SUBMITTED",
+      "APPROVED"
+    ],
+    [
+      "RX-2003",
+      "SUBMITTED",
+      "SUBMITTED"
+    ],
+    [
+      "RX-2004",
+      "SUBMITTED",
+      "PENDING"
+    ],
+    [
+      "RX-2005",
+      "SUBMITTED",
+      "REJECTED"
+    ],
+    [
+      "RX-2006",
+      "SUBMITTED",
+      "APPROVED"
+    ],
+    [
+      "RX-2007",
+      "SUBMITTED",
+      "REJECTED"
+    ],
+    [
+      "RX-2008",
+      "SUBMITTED",
+      "APPROVED"
+    ],
+    [
+      "RX-2009",
+      "SUBMITTED",
+      "APPROVED"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "rank-partition",
+    "composite_moves": [
+      "window FIRST_VALUE OVER (PARTITION BY claim_id ORDER BY adjudication_timestamp)",
+      "window LAST_VALUE OVER (PARTITION BY claim_id ORDER BY adjudication_timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)",
+      "DISTINCT to collapse rows"
+    ]
+  },
+  "hints": [
+    "You need to use window functions to look at the entire history of adjudication attempts for each claim.",
+    "FIRST_VALUE with the default frame will work for finding the first status, but LAST_VALUE requires a frame specification to see beyond the current row.",
+    "Use FIRST_VALUE(status_code) OVER (PARTITION BY claim_id ORDER BY adjudication_timestamp) and LAST_VALUE(status_code) OVER (PARTITION BY claim_id ORDER BY adjudication_timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING), then SELECT DISTINCT to get one row per claim."
+  ],
+  "answer_key": "SELECT DISTINCT claim_id, FIRST_VALUE(status_code) OVER (PARTITION BY claim_id ORDER BY adjudication_timestamp) AS first_status, LAST_VALUE(status_code) OVER (PARTITION BY claim_id ORDER BY adjudication_timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_status FROM adjudication_log ORDER BY claim_id;",
+  "_meta": {
+    "question_type": "window_first_last",
+    "original_qtype": "window_first_last",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-24T20:07:41.859144",
+    "problem_id": "e1e5757580f0",
+    "validation_attempts": 1,
+    "scenario": "a digital pharmacy tracking prescription submissions through PBM adjudication",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

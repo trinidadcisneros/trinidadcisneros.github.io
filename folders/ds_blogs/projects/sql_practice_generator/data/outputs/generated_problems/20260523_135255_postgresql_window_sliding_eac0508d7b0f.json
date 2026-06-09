@@ -1,0 +1,189 @@
+{
+  "title": "7-Day Rolling Average of Daily Notes Created",
+  "prompt": "You are analyzing user engagement in a note-taking app. Write a query that calculates the 7-day rolling average of notes created per day, ordered by date ascending. The rolling average should include the current day and the previous 6 days (7 days total). For days at the beginning of the dataset where fewer than 7 days of history exist, calculate the average using only the available days up to and including the current day. Return columns: `activity_date`, `notes_created` (the count for that specific day), and `rolling_avg_7day` (rounded to 2 decimal places). Handle days with zero notes created appropriately\u2014they should appear in the output with `notes_created = 0` and contribute to the rolling calculation. Order the final result by `activity_date` ascending.",
+  "schema_ddl": "CREATE TABLE daily_note_activity (\n  activity_date DATE NOT NULL,\n  notes_created INTEGER NOT NULL,\n  PRIMARY KEY (activity_date)\n);",
+  "example_input_data": "INSERT INTO daily_note_activity (activity_date, notes_created) VALUES\n('2024-01-01', 5),\n('2024-01-02', 8),\n('2024-01-03', 3),\n('2024-01-04', 12),\n('2024-01-05', 7),\n('2024-01-06', 0),\n('2024-01-07', 9),\n('2024-01-08', 11);",
+  "example_output_columns": [
+    "activity_date",
+    "notes_created",
+    "rolling_avg_7day"
+  ],
+  "example_output_rows": [
+    [
+      "2024-01-01",
+      5,
+      "5.00"
+    ],
+    [
+      "2024-01-02",
+      8,
+      "6.50"
+    ],
+    [
+      "2024-01-03",
+      3,
+      "5.33"
+    ],
+    [
+      "2024-01-04",
+      12,
+      "7.00"
+    ],
+    [
+      "2024-01-05",
+      7,
+      "7.00"
+    ],
+    [
+      "2024-01-06",
+      0,
+      "5.83"
+    ],
+    [
+      "2024-01-07",
+      9,
+      "6.29"
+    ],
+    [
+      "2024-01-08",
+      11,
+      "7.14"
+    ]
+  ],
+  "test_data": "INSERT INTO daily_note_activity (activity_date, notes_created) VALUES\n('2024-02-01', 15),\n('2024-02-02', 0),\n('2024-02-03', 22),\n('2024-02-04', 18),\n('2024-02-05', 0),\n('2024-02-06', 9),\n('2024-02-07', 14),\n('2024-02-08', 21),\n('2024-02-09', 0),\n('2024-02-10', 17),\n('2024-02-11', 25),\n('2024-02-12', 11),\n('2024-02-13', 0),\n('2024-02-14', 19),\n('2024-02-15', 8),\n('2024-02-16', 0),\n('2024-02-17', 16),\n('2024-02-18', 23),\n('2024-02-19', 0),\n('2024-02-20', 12);",
+  "test_expected_columns": [
+    "activity_date",
+    "notes_created",
+    "rolling_avg_7day"
+  ],
+  "test_expected_rows": [
+    [
+      "2024-02-01",
+      15,
+      "15.00"
+    ],
+    [
+      "2024-02-02",
+      0,
+      "7.50"
+    ],
+    [
+      "2024-02-03",
+      22,
+      "12.33"
+    ],
+    [
+      "2024-02-04",
+      18,
+      "13.75"
+    ],
+    [
+      "2024-02-05",
+      0,
+      "11.00"
+    ],
+    [
+      "2024-02-06",
+      9,
+      "10.67"
+    ],
+    [
+      "2024-02-07",
+      14,
+      "11.14"
+    ],
+    [
+      "2024-02-08",
+      21,
+      "12.00"
+    ],
+    [
+      "2024-02-09",
+      0,
+      "12.00"
+    ],
+    [
+      "2024-02-10",
+      17,
+      "11.29"
+    ],
+    [
+      "2024-02-11",
+      25,
+      "12.29"
+    ],
+    [
+      "2024-02-12",
+      11,
+      "13.86"
+    ],
+    [
+      "2024-02-13",
+      0,
+      "12.57"
+    ],
+    [
+      "2024-02-14",
+      19,
+      "13.29"
+    ],
+    [
+      "2024-02-15",
+      8,
+      "11.43"
+    ],
+    [
+      "2024-02-16",
+      0,
+      "11.43"
+    ],
+    [
+      "2024-02-17",
+      16,
+      "11.29"
+    ],
+    [
+      "2024-02-18",
+      23,
+      "11.00"
+    ],
+    [
+      "2024-02-19",
+      0,
+      "9.43"
+    ],
+    [
+      "2024-02-20",
+      12,
+      "11.14"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "time-window: apply windowed aggregate with ROWS BETWEEN 6 PRECEDING AND CURRENT ROW frame clause to compute rolling 7-day average"
+    ]
+  },
+  "hints": [
+    "Consider using a window function to compute aggregates over a moving set of rows based on date order.",
+    "The AVG() window function can accept a ROWS BETWEEN clause to specify how many preceding rows to include in each calculation.",
+    "Use ROWS BETWEEN 6 PRECEDING AND CURRENT ROW to capture exactly 7 days (the current day plus 6 before it), and ROUND() to format the average to 2 decimal places."
+  ],
+  "answer_key": "SELECT\n  activity_date,\n  notes_created,\n  ROUND(AVG(notes_created) OVER (\n    ORDER BY activity_date\n    ROWS BETWEEN 6 PRECEDING AND CURRENT ROW\n  ), 2) AS rolling_avg_7day\nFROM daily_note_activity\nORDER BY activity_date;",
+  "_meta": {
+    "question_type": "window_sliding",
+    "original_qtype": "window_sliding",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-23T13:52:55.405827",
+    "problem_id": "eac0508d7b0f",
+    "validation_attempts": 1,
+    "scenario": "a note-taking app tracking notebook creation and daily writing streaks",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

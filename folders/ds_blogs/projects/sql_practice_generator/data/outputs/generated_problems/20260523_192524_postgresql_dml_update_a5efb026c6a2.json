@@ -1,0 +1,292 @@
+{
+  "title": "Update Squad Invite Status by Activity",
+  "prompt": "You are managing a battle royale mobile game where players send squad invites to form teams. Each invite has a `status` (either 'pending', 'accepted', or 'expired') and tracks when it was created and whether the invitee has been active recently. Write a single UPDATE statement that modifies the `squad_invites` table according to these rules: (1) For any invite with `status = 'pending'` where the invitee has `recent_login_days <= 3`, set `status` to 'accepted' and set `priority_score` to `priority_score * 1.5`. (2) For any invite with `status = 'pending'` where the invitee has `recent_login_days > 7`, set `status` to 'expired' and set `priority_score` to `0`. (3) For any invite with `status = 'pending'` where the invitee has `recent_login_days` between 4 and 7 (inclusive), leave `status` as 'pending' and set `priority_score` to `priority_score * 1.2`. (4) For all other invites (status not 'pending'), leave both `status` and `priority_score` unchanged. After the update, return all rows from `squad_invites` ordered by `invite_id`.",
+  "schema_ddl": "CREATE TABLE squad_invites (invite_id INT PRIMARY KEY, sender_id INT NOT NULL, invitee_id INT NOT NULL, status VARCHAR(20) NOT NULL, priority_score DECIMAL(10,2) NOT NULL, recent_login_days INT, created_at DATE NOT NULL); CREATE TABLE players (player_id INT PRIMARY KEY, username VARCHAR(50) NOT NULL, total_matches INT NOT NULL);",
+  "example_input_data": "INSERT INTO players (player_id, username, total_matches) VALUES (101, 'ShadowHunter', 45), (102, 'StormRider', 12), (103, 'PhantomAce', 8), (104, 'VortexKing', 30), (105, 'BlazeWolf', 22), (106, 'IronFist', 5); INSERT INTO squad_invites (invite_id, sender_id, invitee_id, status, priority_score, recent_login_days, created_at) VALUES (1, 101, 102, 'pending', 100.00, 2, '2024-01-15'), (2, 101, 103, 'pending', 80.00, 10, '2024-01-14'), (3, 104, 105, 'pending', 120.00, 5, '2024-01-16'), (4, 104, 106, 'accepted', 150.00, 1, '2024-01-13'), (5, 102, 104, 'pending', 90.00, 3, '2024-01-17'), (6, 103, 101, 'expired', 0.00, 15, '2024-01-10');",
+  "example_output_columns": [
+    "invite_id",
+    "sender_id",
+    "invitee_id",
+    "status",
+    "priority_score",
+    "recent_login_days",
+    "created_at"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      101,
+      102,
+      "accepted",
+      "150.00",
+      2,
+      "2024-01-15"
+    ],
+    [
+      2,
+      101,
+      103,
+      "expired",
+      "0.00",
+      10,
+      "2024-01-14"
+    ],
+    [
+      3,
+      104,
+      105,
+      "pending",
+      "144.00",
+      5,
+      "2024-01-16"
+    ],
+    [
+      4,
+      104,
+      106,
+      "accepted",
+      "150.00",
+      1,
+      "2024-01-13"
+    ],
+    [
+      5,
+      102,
+      104,
+      "accepted",
+      "135.00",
+      3,
+      "2024-01-17"
+    ],
+    [
+      6,
+      103,
+      101,
+      "expired",
+      "0.00",
+      15,
+      "2024-01-10"
+    ]
+  ],
+  "test_data": "INSERT INTO players (player_id, username, total_matches) VALUES (201, 'TitanSlayer', 60), (202, 'EclipseRogue', 25), (203, 'ThunderFang', 18), (204, 'CrimsonBlade', 42), (205, 'FrostNova', 9), (206, 'SilverHawk', 33), (207, 'DarkViper', 14), (208, 'GoldenEagle', 50), (209, 'IcePhoenix', 7), (210, 'SteelTiger', 28); INSERT INTO squad_invites (invite_id, sender_id, invitee_id, status, priority_score, recent_login_days, created_at) VALUES (101, 201, 202, 'pending', 110.00, 1, '2024-02-01'), (102, 201, 203, 'pending', 95.00, 8, '2024-02-02'), (103, 204, 205, 'pending', 130.00, 4, '2024-02-03'), (104, 204, 206, 'accepted', 160.00, 2, '2024-02-04'), (105, 202, 207, 'pending', 85.00, 7, '2024-02-05'), (106, 203, 208, 'expired', 0.00, 20, '2024-02-06'), (107, 205, 209, 'pending', 105.00, NULL, '2024-02-07'), (108, 206, 210, 'pending', 125.00, 3, '2024-02-08'), (109, 207, 201, 'pending', 100.00, 6, '2024-02-09'), (110, 208, 204, 'pending', 140.00, 0, '2024-02-10'), (111, 209, 202, 'accepted', 170.00, 1, '2024-02-11'), (112, 210, 203, 'pending', 90.00, 9, '2024-02-12'), (113, 201, 204, 'pending', 115.00, 5, '2024-02-13'), (114, 202, 205, 'expired', 50.00, 25, '2024-02-14'), (115, 203, 206, 'pending', 88.00, 4, '2024-02-15'), (116, 204, 207, 'pending', 92.00, 10, '2024-02-16'), (117, 205, 208, 'pending', 118.00, 2, '2024-02-17'), (118, 206, 209, 'pending', 97.00, 7, '2024-02-18'), (119, 207, 210, 'accepted', 155.00, 3, '2024-02-19'), (120, 208, 201, 'pending', 103.00, 11, '2024-02-20');",
+  "test_expected_columns": [
+    "invite_id",
+    "sender_id",
+    "invitee_id",
+    "status",
+    "priority_score",
+    "recent_login_days",
+    "created_at"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      201,
+      202,
+      "accepted",
+      "165.00",
+      1.0,
+      "2024-02-01"
+    ],
+    [
+      102,
+      201,
+      203,
+      "expired",
+      "0.00",
+      8.0,
+      "2024-02-02"
+    ],
+    [
+      103,
+      204,
+      205,
+      "pending",
+      "156.00",
+      4.0,
+      "2024-02-03"
+    ],
+    [
+      104,
+      204,
+      206,
+      "accepted",
+      "160.00",
+      2.0,
+      "2024-02-04"
+    ],
+    [
+      105,
+      202,
+      207,
+      "pending",
+      "102.00",
+      7.0,
+      "2024-02-05"
+    ],
+    [
+      106,
+      203,
+      208,
+      "expired",
+      "0.00",
+      20.0,
+      "2024-02-06"
+    ],
+    [
+      107,
+      205,
+      209,
+      "pending",
+      "105.00",
+      null,
+      "2024-02-07"
+    ],
+    [
+      108,
+      206,
+      210,
+      "accepted",
+      "187.50",
+      3.0,
+      "2024-02-08"
+    ],
+    [
+      109,
+      207,
+      201,
+      "pending",
+      "120.00",
+      6.0,
+      "2024-02-09"
+    ],
+    [
+      110,
+      208,
+      204,
+      "accepted",
+      "210.00",
+      0.0,
+      "2024-02-10"
+    ],
+    [
+      111,
+      209,
+      202,
+      "accepted",
+      "170.00",
+      1.0,
+      "2024-02-11"
+    ],
+    [
+      112,
+      210,
+      203,
+      "expired",
+      "0.00",
+      9.0,
+      "2024-02-12"
+    ],
+    [
+      113,
+      201,
+      204,
+      "pending",
+      "138.00",
+      5.0,
+      "2024-02-13"
+    ],
+    [
+      114,
+      202,
+      205,
+      "expired",
+      "50.00",
+      25.0,
+      "2024-02-14"
+    ],
+    [
+      115,
+      203,
+      206,
+      "pending",
+      "105.60",
+      4.0,
+      "2024-02-15"
+    ],
+    [
+      116,
+      204,
+      207,
+      "expired",
+      "0.00",
+      10.0,
+      "2024-02-16"
+    ],
+    [
+      117,
+      205,
+      208,
+      "accepted",
+      "177.00",
+      2.0,
+      "2024-02-17"
+    ],
+    [
+      118,
+      206,
+      209,
+      "pending",
+      "116.40",
+      7.0,
+      "2024-02-18"
+    ],
+    [
+      119,
+      207,
+      210,
+      "accepted",
+      "155.00",
+      3.0,
+      "2024-02-19"
+    ],
+    [
+      120,
+      208,
+      201,
+      "expired",
+      "0.00",
+      11.0,
+      "2024-02-20"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "state_mutation",
+    "recipe": "row-transform",
+    "composite_moves": [
+      "row-transform: conditional UPDATE with tiered CASE branches for status and priority_score",
+      "state_mutation: confirms result with SELECT"
+    ]
+  },
+  "hints": [
+    "You'll need to update two columns conditionally based on the current status and recent_login_days value.",
+    "Use a CASE expression inside SET for both status and priority_score, with branches that check the current status='pending' and different ranges of recent_login_days.",
+    "The CASE for status should handle three ranges: <=3 (accepted), >7 (expired), and 4-7 (pending). The CASE for priority_score should multiply by 1.5, set to 0, or multiply by 1.2 respectively, and preserve the current value for non-pending rows."
+  ],
+  "answer_key": "UPDATE squad_invites SET status = CASE WHEN status = 'pending' AND recent_login_days <= 3 THEN 'accepted' WHEN status = 'pending' AND recent_login_days > 7 THEN 'expired' ELSE status END, priority_score = CASE WHEN status = 'pending' AND recent_login_days <= 3 THEN priority_score * 1.5 WHEN status = 'pending' AND recent_login_days > 7 THEN 0 WHEN status = 'pending' AND recent_login_days BETWEEN 4 AND 7 THEN priority_score * 1.2 ELSE priority_score END; SELECT * FROM squad_invites ORDER BY invite_id;",
+  "_meta": {
+    "question_type": "dml_update",
+    "original_qtype": "dml_update",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-23T19:25:24.231515",
+    "problem_id": "a5efb026c6a2",
+    "validation_attempts": 1,
+    "scenario": "a battle royale mobile game tracking match completion and squad invites",
+    "dml_op": "UPDATE",
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

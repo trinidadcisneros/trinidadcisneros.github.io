@@ -1,0 +1,80 @@
+{
+  "title": "MTTR by Incident Severity Cohort",
+  "prompt": "You are analyzing an observability platform's alert data. The `incidents` table tracks when alerts fire and when engineers acknowledge them. Each incident has a `severity` level and timestamps for `fired_at` and `acknowledged_at`. Calculate the mean time to resolve (MTTR) in hours for each severity level, but ONLY for incidents fired during the month of February 2024 (use `DATE_TRUNC('month', ...)` to identify the cohort). MTTR is the duration from `fired_at` to `acknowledged_at` in hours; compute it using `EXTRACT(EPOCH FROM (acknowledged_at - fired_at)) / 3600`. Some incidents may not yet be acknowledged (`acknowledged_at IS NULL`)\u2014exclude those from your calculation. Return columns `severity` and `mttr_hours` (rounded to 2 decimal places), ordered by `severity` ascending.",
+  "schema_ddl": "CREATE TABLE incidents (incident_id INT PRIMARY KEY, severity VARCHAR(20) NOT NULL, fired_at TIMESTAMP NOT NULL, acknowledged_at TIMESTAMP);",
+  "example_input_data": "INSERT INTO incidents (incident_id, severity, fired_at, acknowledged_at) VALUES (1, 'critical', '2024-02-05 08:00:00', '2024-02-05 08:15:00'), (2, 'critical', '2024-02-10 14:30:00', '2024-02-10 14:45:00'), (3, 'high', '2024-02-12 09:00:00', '2024-02-12 10:30:00'), (4, 'high', '2024-02-15 16:00:00', NULL), (5, 'medium', '2024-02-20 11:00:00', '2024-02-20 12:00:00'), (6, 'low', '2024-01-28 07:00:00', '2024-01-28 07:10:00'), (7, 'critical', '2024-03-01 10:00:00', '2024-03-01 10:05:00');",
+  "example_output_columns": [
+    "severity",
+    "mttr_hours"
+  ],
+  "example_output_rows": [
+    [
+      "critical",
+      "0.25"
+    ],
+    [
+      "high",
+      "1.50"
+    ],
+    [
+      "medium",
+      "1.00"
+    ]
+  ],
+  "test_data": "INSERT INTO incidents (incident_id, severity, fired_at, acknowledged_at) VALUES (101, 'critical', '2024-02-01 00:00:00', '2024-02-01 00:30:00'), (102, 'critical', '2024-02-01 12:00:00', '2024-02-01 13:00:00'), (103, 'critical', '2024-02-29 23:00:00', '2024-02-29 23:45:00'), (104, 'high', '2024-02-03 08:00:00', '2024-02-03 09:15:00'), (105, 'high', '2024-02-10 14:00:00', '2024-02-10 16:30:00'), (106, 'high', '2024-02-18 10:00:00', NULL), (107, 'high', '2024-02-22 11:00:00', '2024-02-22 11:20:00'), (108, 'medium', '2024-02-05 09:00:00', '2024-02-05 09:45:00'), (109, 'medium', '2024-02-14 15:00:00', '2024-02-14 17:00:00'), (110, 'medium', '2024-02-25 08:00:00', '2024-02-25 10:30:00'), (111, 'low', '2024-02-08 07:00:00', '2024-02-08 09:00:00'), (112, 'low', '2024-02-11 13:00:00', '2024-02-11 14:30:00'), (113, 'low', '2024-02-16 10:00:00', '2024-02-16 11:00:00'), (114, 'low', '2024-02-20 16:00:00', NULL), (115, 'critical', '2024-01-31 23:00:00', '2024-01-31 23:10:00'), (116, 'critical', '2024-03-01 00:00:00', '2024-03-01 00:15:00'), (117, 'high', '2024-01-15 10:00:00', '2024-01-15 11:00:00'), (118, 'medium', '2024-03-05 12:00:00', '2024-03-05 13:00:00'), (119, 'low', '2024-02-28 22:00:00', '2024-02-28 23:00:00');",
+  "test_expected_columns": [
+    "severity",
+    "mttr_hours"
+  ],
+  "test_expected_rows": [
+    [
+      "critical",
+      "0.75"
+    ],
+    [
+      "high",
+      "1.36"
+    ],
+    [
+      "low",
+      "1.38"
+    ],
+    [
+      "medium",
+      "1.75"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "filter rows to February 2024 cohort using DATE_TRUNC('month', fired_at) = DATE '2024-02-01'",
+      "exclude rows where acknowledged_at IS NULL",
+      "compute duration in hours using EXTRACT(EPOCH FROM (acknowledged_at - fired_at)) / 3600",
+      "group by severity and calculate AVG(duration)",
+      "round result to 2 decimal places",
+      "order by severity ascending"
+    ]
+  },
+  "hints": [
+    "You need to isolate incidents that fired in a specific month; consider a function that truncates timestamps to the month level.",
+    "Duration in hours requires converting a timestamp interval to seconds first, then dividing by 3600. Look at EXTRACT(EPOCH FROM ...) for timestamp subtraction.",
+    "Use DATE_TRUNC('month', fired_at) = DATE '2024-02-01' to filter February 2024, exclude NULL acknowledged_at rows, compute EXTRACT(EPOCH FROM (acknowledged_at - fired_at)) / 3600, then GROUP BY severity and AVG(...), rounding with ROUND(..., 2)."
+  ],
+  "answer_key": "SELECT severity, ROUND(AVG(EXTRACT(EPOCH FROM (acknowledged_at - fired_at)) / 3600), 2) AS mttr_hours FROM incidents WHERE DATE_TRUNC('month', fired_at) = DATE '2024-02-01' AND acknowledged_at IS NOT NULL GROUP BY severity ORDER BY severity;",
+  "_meta": {
+    "question_type": "date_operations",
+    "original_qtype": "date_operations",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-24T15:17:51.747739",
+    "problem_id": "df4d84ff44ae",
+    "validation_attempts": 1,
+    "scenario": "an observability platform tracking alert acknowledge time and MTTR",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

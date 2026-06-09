@@ -1,0 +1,133 @@
+{
+  "problem": {
+    "title": "Pivot Match Responses by Status",
+    "prompt": "You are analyzing a multiplayer matchmaking service. The `match_responses` table logs each player's response to a match invitation in long format: each row records one player's action (`player_id`, `response_status`, `response_count`). The `response_status` column contains exactly three values: 'accepted', 'declined', 'timeout'. Your task is to pivot this data into wide format with one row per player showing the total count of each response type. Create a result set with columns `player_id`, `accepted_count`, `declined_count`, `timeout_count`. Use `SUM` to aggregate `response_count` for each status category. If a player has no rows for a particular status, show `0` (not NULL) for that column. Order the final result by `player_id` ascending. The output must contain exactly these four columns in this order.",
+    "schema_ddl": "CREATE TABLE match_responses (\n  player_id INTEGER NOT NULL,\n  response_status VARCHAR(20) NOT NULL,\n  response_count INTEGER NOT NULL\n);",
+    "example_input_data": "INSERT INTO match_responses (player_id, response_status, response_count) VALUES\n(101, 'accepted', 5),\n(101, 'declined', 2),\n(102, 'accepted', 3),\n(102, 'timeout', 1),\n(103, 'declined', 4),\n(103, 'timeout', 2),\n(103, 'accepted', 1);",
+    "example_output_columns": [
+      "player_id",
+      "accepted_count",
+      "declined_count",
+      "timeout_count"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        5,
+        2,
+        0
+      ],
+      [
+        102,
+        3,
+        0,
+        1
+      ],
+      [
+        103,
+        1,
+        4,
+        2
+      ]
+    ],
+    "test_data": "INSERT INTO match_responses (player_id, response_status, response_count) VALUES\n(201, 'accepted', 10),\n(201, 'accepted', 3),\n(201, 'declined', 1),\n(202, 'timeout', 5),\n(202, 'timeout', 2),\n(203, 'accepted', 7),\n(203, 'declined', 2),\n(203, 'timeout', 1),\n(204, 'declined', 8),\n(205, 'accepted', 4),\n(205, 'accepted', 2),\n(205, 'declined', 1),\n(205, 'declined', 1),\n(205, 'timeout', 3),\n(206, 'timeout', 6),\n(207, 'accepted', 1),\n(207, 'declined', 1),\n(207, 'timeout', 1),\n(208, 'accepted', 15),\n(209, 'declined', 5),\n(209, 'declined', 3),\n(210, 'accepted', 2),\n(210, 'declined', 2),\n(210, 'timeout', 2);",
+    "test_expected_columns": [
+      "player_id",
+      "accepted_count",
+      "declined_count",
+      "timeout_count"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        13,
+        1,
+        0
+      ],
+      [
+        202,
+        0,
+        0,
+        7
+      ],
+      [
+        203,
+        7,
+        2,
+        1
+      ],
+      [
+        204,
+        0,
+        8,
+        0
+      ],
+      [
+        205,
+        6,
+        2,
+        3
+      ],
+      [
+        206,
+        0,
+        0,
+        6
+      ],
+      [
+        207,
+        1,
+        1,
+        1
+      ],
+      [
+        208,
+        15,
+        0,
+        0
+      ],
+      [
+        209,
+        0,
+        8,
+        0
+      ],
+      [
+        210,
+        2,
+        2,
+        2
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "reshape",
+      "composite_moves": [
+        "reshape"
+      ]
+    },
+    "hints": [
+      "Think about how to transform rows into columns using conditional aggregation.",
+      "Use CASE WHEN inside an aggregate function like SUM to filter values for each category column.",
+      "Group by player_id and use COALESCE to convert NULL results to 0 when a status category is missing for a player."
+    ],
+    "answer_key": "SELECT\n  player_id,\n  COALESCE(SUM(CASE WHEN response_status = 'accepted' THEN response_count END), 0) AS accepted_count,\n  COALESCE(SUM(CASE WHEN response_status = 'declined' THEN response_count END), 0) AS declined_count,\n  COALESCE(SUM(CASE WHEN response_status = 'timeout' THEN response_count END), 0) AS timeout_count\nFROM match_responses\nGROUP BY player_id\nORDER BY player_id;",
+    "_meta": {
+      "question_type": "pivot",
+      "original_qtype": "pivot",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-03T21:04:27.629955",
+      "problem_id": "b47affe65741",
+      "validation_attempts": 1,
+      "scenario": "a console online service tracking multiplayer match acceptance",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\nPivot Match Responses by Status\nPrompt\n\nThe `match_responses` table logs each player's response to a match invitation in long format: each row records one player's action (`player_id`, `response_status`, `response_count`).\nThe `response_status` column contains exactly three values: 'accepted', 'declined', 'timeout'.\nYour task is to pivot this data into wide format with one row per player showing the total count of each response type.\nCreate a result set with columns `player_id`, `accepted_count`, `declined_count`, `timeout_count`.\nUse `SUM` to aggregate `response_count` for each status category.\nIf a player has no rows for a particular status, show `0` (not NULL) for that column.\nOrder the final result by `player_id` ascending.\nThe output must contain exactly these four columns in this order.\n\nSchema\nTable: match_responses\nplayer_id    \tINTEGER NOT NULL\nresponse_status\tVARCHAR(20) NOT NULL\nresponse_count\tINTEGER NOT NULL\n\n*/\nSELECT\n    player_id,\n    SUM(CASE WHEN response_status = 'accepted' THEN response_count ELSE 0 END) AS accepted_count,\n    SUM(CASE WHEN response_status = 'declined' THEN response_count ELSE 0 END) AS declined_count,\n    SUM(CASE WHEN response_status = 'timeout' THEN response_count ELSE 0 END) AS timeout_count\nFROM match_responses\nGROUP BY player_id\nORDER BY player_id;\n\n",
+  "solved_at": "2026-06-03T21:07:47.736171"
+}

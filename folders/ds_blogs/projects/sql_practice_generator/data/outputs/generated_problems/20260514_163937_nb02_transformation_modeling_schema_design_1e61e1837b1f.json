@@ -1,0 +1,128 @@
+{
+  "title": "Fact Table for Eligibility Check Latency",
+  "scenario": "A digital pharmacy built a payer integration service that performs real-time eligibility checks before submitting claims. The service logs every eligibility check request and response.",
+  "prompt": "STAKEHOLDER CONTEXT\n\nYou met with the Payer Integrations team. The fact table you're designing will populate a daily dashboard. The dashboard needs:\n\n- Average eligibility check latency: mean duration from request to response by payer\n- Success rate: count of successful responses divided by count of all requests by payer\n- Daily request volume: count of eligibility check requests by payer\n- P95 latency: 95th percentile of response time by payer\n\nVOLUME AND UPDATE FREQUENCY\n\n- Daily source volume: ~500K eligibility check events per day\n- Dashboard freshness need: every 15 minutes\n- Total fact rows after 1 year: ~180M rows (one row per eligibility_check_id)\n\nWHAT YOU HAVE IN SOURCE\n\n- Source event table: `eligibility_check_events` at event grain (one row per state change: request_sent, response_received, timeout).\n- dim_payer: payer_name, plan_type, network_tier, contract_start_date\n- dim_patient: patient_id, cohort, enrollment_date, primary_payer_id\n- dim_pharmacy: pharmacy_id, location_state, channel\n- dim_date: calendar attributes\n\nYOUR TASK\n\nDesign the FACT TABLE that the dashboard reads from. Dims are already built \u2014 you specify how to JOIN them and what SCD type each is. Use the response form in section 2 to record your design choices.",
+  "instructions": "Fill out each form field in section 2 (the schema design response form). Dropdowns are used where the answer set is finite (SCD types, idempotency strategies, late-arriving handling); text fields for grain, fact columns, and rationale. Click Get Schema Design Feedback to grade. Reference answer length: 200 to 400 words across 4 to 6 headed sections.",
+  "expected_themes": [
+    "grain: one row per eligibility_check_id",
+    "fact-dim split",
+    "SCD Type 2 for dim_payer",
+    "surrogate key for payer",
+    "dbt staging vs marts",
+    "conformed dim_payer across facts",
+    "idempotency under timeouts",
+    "late-arriving response events",
+    "dbt tests: unique, not_null, relationships",
+    "incremental materialization",
+    "latency measure: response_ts - request_ts"
+  ],
+  "reference_answer": "## Grain\n\nOne row per eligibility_check_id (~180M rows after 1 year). Each eligibility check request generates one fact row.\n\n## Fact Columns\n\n- eligibility_check_id (PK)\n- patient_id, payer_id, pharmacy_id (FKs)\n- request_ts, response_ts, timeout_ts (timestamps)\n- latency_seconds (response_ts - request_ts)\n- final_status (success, timeout, error)\n- error_code (NULL if success)\n\n## Dim Joins and SCD Types\n\n- dim_payer: Type 2 (plan_type and network_tier change quarterly; need history for trend analysis)\n- dim_patient: Type 1 (cohort rarely changes; enrollment_date is static)\n- dim_pharmacy: Type 1 (location is stable)\n- dim_date: Type 0 (immutable calendar)\n\n## dbt Models\n\n- stg_eligibility_check_events: dedupe, rename columns, no business logic\n- int_eligibility_checks_pivoted: pivot event_type to columns (request_ts, response_ts, timeout_ts)\n- fact_eligibility_checks: join to dims, derive latency_seconds and final_status\n- Materialization: incremental (500K events/day, 15-min refresh)\n\n## Edge Cases and Tests\n\n- Timeout without response: response_ts NULL, latency_seconds NULL, final_status = timeout\n- Late-arriving response after timeout logged: update existing row if response_ts arrives within 24h window\n- Tests: unique(eligibility_check_id), not_null(request_ts, payer_id), relationships(payer_id -> dim_payer.payer_id)",
+  "grading_rubric": [
+    {
+      "criterion": "Grain",
+      "description": "States output grain as 'one row per eligibility_check_id' with row-count justification (~180M rows after 1 year). Ties grain to the business question (dashboard aggregates UP from check-level to payer-level).",
+      "weight": 20
+    },
+    {
+      "criterion": "Fact-dim split and key strategy",
+      "description": "Assigns eligibility_check_id as PK, patient_id/payer_id/pharmacy_id as FKs. Includes request_ts, response_ts, timeout_ts, latency_seconds, final_status as fact columns. Names surrogate key strategy for dim_payer if Type 2.",
+      "weight": 20
+    },
+    {
+      "criterion": "SCD type reasoning",
+      "description": "dim_payer Type 2 (plan_type changes quarterly, history needed for trend analysis). dim_patient Type 1 (cohort rarely changes). dim_pharmacy Type 1 (location stable). Rationale references whether history is needed for the metric.",
+      "weight": 20
+    },
+    {
+      "criterion": "dbt layer placement",
+      "description": "Proposes stg_ for cleanup, int_ for pivoting event_type to columns, mart or fact_ for the final one-row-per-check table with business logic (latency_seconds, final_status). Names incremental materialization for 500K events/day at 15-min refresh.",
+      "weight": 20
+    },
+    {
+      "criterion": "Edge cases and tests",
+      "description": "Names at least one edge case: timeout without response (response_ts NULL), late-arriving response after timeout. Proposes at least 2 dbt tests with specific columns: unique(eligibility_check_id), not_null(request_ts, payer_id), relationships(payer_id).",
+      "weight": 20
+    }
+  ],
+  "hints": [
+    "The dashboard needs average latency and P95 latency \u2014 what timestamps do you need to compute latency_seconds?",
+    "Payer plan_type changes quarterly. Does that require Type 1 or Type 2 for dim_payer if you want to trend success rate over time by plan_type?",
+    "500K events/day at 15-min refresh \u2014 does that volume fit a table or incremental materialization?"
+  ],
+  "common_mistakes": [
+    "Declaring grain without justifying row count (~180M rows after 1 year) or tying it to the business question.",
+    "Ignoring the timeout edge case (response_ts NULL, latency_seconds NULL, final_status = timeout).",
+    "Treating dim_payer as Type 1 when plan_type changes quarterly and the dashboard trends over time.",
+    "Putting business rules (latency_seconds, final_status) in stg_ instead of int_ or mart.",
+    "Omitting dbt tests (unique, not_null, relationships).",
+    "Not naming surrogate key strategy for dim_payer if Type 2.",
+    "Conflating event grain (one row per state change) with fact grain (one row per eligibility_check_id)."
+  ],
+  "schema_ddl": "CREATE TABLE eligibility_check_events (\n  event_id VARCHAR PRIMARY KEY,\n  eligibility_check_id VARCHAR NOT NULL,\n  patient_id VARCHAR NOT NULL,\n  payer_id VARCHAR NOT NULL,\n  pharmacy_id VARCHAR NOT NULL,\n  event_type VARCHAR NOT NULL,\n  event_ts TIMESTAMP NOT NULL,\n  error_code VARCHAR\n);",
+  "candidate_dimensions": [
+    {
+      "name": "dim_payer",
+      "key": "payer_id",
+      "description": "payer name, plan_type, network_tier, contract_start_date"
+    },
+    {
+      "name": "dim_patient",
+      "key": "patient_id",
+      "description": "patient demographics, cohort, enrollment_date"
+    },
+    {
+      "name": "dim_pharmacy",
+      "key": "pharmacy_id",
+      "description": "pharmacy location_state, channel"
+    },
+    {
+      "name": "dim_date",
+      "key": "date_id",
+      "description": "calendar attributes for time-series rollups"
+    }
+  ],
+  "stakeholder_asks": [
+    "Average eligibility check latency: mean duration from request to response by payer",
+    "Success rate: count of successful responses divided by count of all requests by payer",
+    "Daily request volume: count of eligibility check requests by payer",
+    "P95 latency: 95th percentile of response time by payer"
+  ],
+  "field_hints": {
+    "business_process": "The business process is a real-time eligibility check lifecycle: request sent, response received (or timeout). Every fact column should describe the lifecycle of ONE eligibility check.",
+    "grain": "The prompt says ~180M rows after 1 year (one row per eligibility_check_id). That single sentence locks the grain.",
+    "fact_columns": "You need request_ts, response_ts, timeout_ts to compute latency_seconds. You need final_status (success, timeout, error) for success rate. You need error_code for debugging.",
+    "key_strategy": "eligibility_check_id is the PK. patient_id, payer_id, pharmacy_id are FKs. If dim_payer is Type 2, you need a surrogate key (payer_sk) to join to the correct plan_type version.",
+    "dim_joins": "The asks include by payer, so you need dim_payer. dim_patient adds cohort filtering. dim_pharmacy adds channel filtering. dim_date adds calendar context for daily rollups.",
+    "scd_per_dim": "dim_payer plan_type changes quarterly and the dashboard trends over time \u2014 Type 2. dim_patient cohort rarely changes \u2014 Type 1. dim_pharmacy location is stable \u2014 Type 1.",
+    "conformed_dims": "dim_payer is shared across fact_eligibility_checks and fact_claims (same payer_id, same plan_type history). This is a conformed dimension.",
+    "models": "stg_ for cleanup, int_ for pivoting event_type to columns (request_ts, response_ts, timeout_ts), fact_ for the final one-row-per-check table with business logic (latency_seconds, final_status).",
+    "tests": "unique(eligibility_check_id), not_null(request_ts, payer_id), relationships(payer_id -> dim_payer.payer_id). These catch dupes, missing keys, and orphaned FKs.",
+    "idempotency": "If the same eligibility_check_id arrives twice (reprocessed event log), the fact row should be updated, not duplicated. Use MERGE or dbt incremental unique_key=eligibility_check_id.",
+    "late_arriving": "If response_ts arrives hours after timeout_ts was logged, update the existing row (set response_ts, recompute latency_seconds, change final_status from timeout to success).",
+    "edge_cases": "Timeout without response: response_ts NULL, latency_seconds NULL, final_status = timeout. Late-arriving response after timeout: update existing row if response_ts arrives within 24h window."
+  },
+  "worked_example_per_field": {
+    "business_process": "Answer: The business process is a real-time eligibility check lifecycle: request sent, response received (or timeout). Every fact column should describe the lifecycle of ONE eligibility check.\n\nWhy: The prompt explicitly states the source table eligibility_check_events logs every request and response. Each eligibility_check_id has one request_sent event and zero or one response_received event (or timeout). The dashboard aggregates these checks UP to payer-level, so the fact grain must be one-row-per-check.",
+    "grain": "Answer: one row per eligibility_check_id (~180M rows after 1 year).\n\nWhy: The prompt explicitly says ~180M rows after 1 year (one row per unique eligibility_check_id) \u2014 that single sentence locks the grain. The dashboard aggregates UP from check-level (average latency by payer, success rate by payer), so storing pre-aggregated rows would freeze the slicing and waste flexibility.",
+    "fact_columns": "Answer: eligibility_check_id (PK), patient_id, payer_id, pharmacy_id (FKs), request_ts, response_ts, timeout_ts (timestamps), latency_seconds (response_ts - request_ts), final_status (success, timeout, error), error_code (NULL if success).\n\nWhy: Every metric the dashboard asked for can be computed from these raw ingredients. Average latency = AVG(latency_seconds). Success rate = SUM(final_status = success) / COUNT(*). P95 latency = PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_seconds). Storing the rates as columns would lock the slicing dimensions.",
+    "key_strategy": "Answer: eligibility_check_id is the PK. patient_id, payer_id, pharmacy_id are FKs. If dim_payer is Type 2, use a surrogate key (payer_sk) to join to the correct plan_type version at request_ts.\n\nWhy: The natural key eligibility_check_id uniquely identifies each check. FKs link to dims. If dim_payer is Type 2 (plan_type changes quarterly), you cannot join on payer_id alone \u2014 you need payer_sk to capture the plan_type effective at request_ts.",
+    "dim_joins": "Answer: dim_payer (for by payer), dim_patient (for cohort filtering), dim_pharmacy (for channel filtering), dim_date (for daily rollups).\n\nWhy: The asks explicitly filter by payer (average latency by payer, success rate by payer). dim_patient adds cohort context. dim_pharmacy adds channel context. dim_date adds calendar attributes for daily request volume rollups.",
+    "scd_per_dim": "Answer: dim_payer Type 2 (plan_type changes quarterly, history needed for trend analysis). dim_patient Type 1 (cohort rarely changes). dim_pharmacy Type 1 (location is stable). dim_date Type 0 (immutable calendar).\n\nWhy: The dashboard trends success rate over time by plan_type \u2014 if plan_type changes quarterly, you need Type 2 to capture the correct plan_type at request_ts. dim_patient cohort rarely changes and the dashboard does not trend by cohort over time, so Type 1 is sufficient. dim_pharmacy location is stable.",
+    "conformed_dims": "Answer: dim_payer is a conformed dimension shared across fact_eligibility_checks and fact_claims (same payer_id, same plan_type history).\n\nWhy: Both facts reference the same payer entity. If you build separate payer dims, plan_type changes would diverge and dashboards comparing eligibility success rate to claim acceptance rate would show inconsistent payer names.",
+    "models": "Answer: stg_eligibility_check_events (dedupe, rename columns, no business logic), int_eligibility_checks_pivoted (pivot event_type to columns: request_ts, response_ts, timeout_ts), fact_eligibility_checks (join to dims, derive latency_seconds and final_status). Materialization: incremental (500K events/day, 15-min refresh).\n\nWhy: stg_ cleans raw data without business rules. int_ does the reusable pivot so downstream models do not repeat the logic. fact_ applies business rules (latency_seconds = response_ts - request_ts, final_status derivation). Incremental handles 500K events/day at 15-min refresh without full table scans.",
+    "tests": "Answer: unique(eligibility_check_id), not_null(request_ts, payer_id), relationships(payer_id -> dim_payer.payer_id).\n\nWhy: unique catches dupes from reprocessed event logs. not_null catches missing keys that would orphan the fact row. relationships catches orphaned FKs (payer_id in fact but not in dim_payer).",
+    "idempotency": "Answer: Use dbt incremental with unique_key=eligibility_check_id. If the same eligibility_check_id arrives twice (reprocessed event log), MERGE updates the existing row instead of inserting a duplicate.\n\nWhy: The source event log may reprocess events (e.g., backfill after a bug fix). Without unique_key, dbt appends duplicate rows. With unique_key=eligibility_check_id, dbt issues a MERGE statement that updates the existing row.",
+    "late_arriving": "Answer: If response_ts arrives hours after timeout_ts was logged, update the existing row (set response_ts, recompute latency_seconds, change final_status from timeout to success). Use a 24h window: if response_ts arrives >24h after timeout_ts, log as a separate anomaly row.\n\nWhy: Real-time systems sometimes log timeout before the response arrives. If you freeze the fact row at timeout, late responses are lost. Updating the row within a 24h window preserves accuracy. Beyond 24h, the response is an anomaly worth tracking separately.",
+    "edge_cases": "Answer: Timeout without response: response_ts NULL, latency_seconds NULL, final_status = timeout. Late-arriving response after timeout logged: update existing row if response_ts arrives within 24h window.\n\nWhy: Timeouts are a legitimate terminal state (eligibility service did not respond in time). Setting response_ts NULL and latency_seconds NULL allows downstream queries to exclude timeouts from latency aggregations without hard-coding a magic number. Late responses update the row to preserve accuracy."
+  },
+  "_meta": {
+    "category": "transformation_modeling",
+    "subtopic": "schema_design",
+    "kind": "kpi",
+    "scenario": "a payer integration eligibility check service tracking real-time eligibility latency",
+    "generated_at": "2026-05-14T16:39:37.706665",
+    "problem_id": "1e61e1837b1f",
+    "validation_attempts": 2,
+    "notebook": "nb02_fuze_interview_drills"
+  }
+}

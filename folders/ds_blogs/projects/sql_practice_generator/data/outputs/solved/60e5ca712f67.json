@@ -1,0 +1,116 @@
+{
+  "problem": {
+    "title": "Installment Plan Payment Spread Analysis",
+    "prompt": "You are analyzing payment patterns in a buy-now-pay-later service. Each installment plan has multiple scheduled payments, and you need to compare the first scheduled payment amount with the last scheduled payment amount for each plan. Write a query that returns each plan_id, the first_payment_amount (the amount of the earliest scheduled payment by due_date), and the last_payment_amount (the amount of the latest scheduled payment by due_date). Some plans may have only one payment scheduled. Order results by plan_id ascending.",
+    "schema_ddl": "CREATE TABLE installment_payments (payment_id INT PRIMARY KEY, plan_id INT NOT NULL, due_date DATE NOT NULL, amount DECIMAL(10,2) NOT NULL, payment_status VARCHAR(20) NOT NULL);",
+    "example_input_data": "INSERT INTO installment_payments (payment_id, plan_id, due_date, amount, payment_status) VALUES (1, 101, '2024-01-15', 50.00, 'paid'), (2, 101, '2024-02-15', 50.00, 'paid'), (3, 101, '2024-03-15', 50.00, 'pending'), (4, 102, '2024-01-10', 100.00, 'paid'), (5, 102, '2024-02-10', 100.00, 'pending'), (6, 102, '2024-03-10', 75.00, 'pending'), (7, 103, '2024-01-20', 200.00, 'paid'), (8, 104, '2024-02-01', 80.00, 'paid'), (9, 104, '2024-03-01', 90.00, 'pending');",
+    "example_output_columns": [
+      "plan_id",
+      "first_payment_amount",
+      "last_payment_amount"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "50.00",
+        "50.00"
+      ],
+      [
+        102,
+        "100.00",
+        "75.00"
+      ],
+      [
+        103,
+        "200.00",
+        "200.00"
+      ],
+      [
+        104,
+        "80.00",
+        "90.00"
+      ]
+    ],
+    "test_data": "INSERT INTO installment_payments (payment_id, plan_id, due_date, amount, payment_status) VALUES (101, 201, '2024-01-05', 120.00, 'paid'), (102, 201, '2024-02-05', 120.00, 'paid'), (103, 201, '2024-03-05', 120.00, 'pending'), (104, 201, '2024-04-05', 120.00, 'pending'), (105, 202, '2024-01-12', 250.00, 'paid'), (106, 202, '2024-02-12', 250.00, 'paid'), (107, 202, '2024-03-12', 300.00, 'pending'), (108, 203, '2024-01-08', 75.50, 'paid'), (109, 203, '2024-02-08', 75.50, 'paid'), (110, 203, '2024-03-08', 75.50, 'paid'), (111, 203, '2024-04-08', 75.50, 'pending'), (112, 203, '2024-05-08', 60.00, 'pending'), (113, 204, '2024-02-20', 500.00, 'paid'), (114, 205, '2024-01-15', 40.00, 'paid'), (115, 205, '2024-02-15', 45.00, 'paid'), (116, 205, '2024-03-15', 50.00, 'pending'), (117, 206, '2024-03-01', 180.00, 'pending'), (118, 206, '2024-04-01', 180.00, 'pending'), (119, 206, '2024-05-01', 180.00, 'pending'), (120, 206, '2024-06-01', 180.00, 'pending'), (121, 206, '2024-07-01', 150.00, 'pending'), (122, 207, '2024-01-25', 95.25, 'paid'), (123, 207, '2024-02-25', 95.25, 'paid'), (124, 207, '2024-03-25', 110.50, 'pending'), (125, 208, '2024-02-10', 300.00, 'paid'), (126, 208, '2024-03-10', 300.00, 'pending'), (127, 208, '2024-04-10', 300.00, 'pending'), (128, 208, '2024-05-10', 275.00, 'pending');",
+    "test_expected_columns": [
+      "plan_id",
+      "first_payment_amount",
+      "last_payment_amount"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "120.00",
+        "120.00"
+      ],
+      [
+        202,
+        "250.00",
+        "300.00"
+      ],
+      [
+        203,
+        "75.50",
+        "60.00"
+      ],
+      [
+        204,
+        "500.00",
+        "500.00"
+      ],
+      [
+        205,
+        "40.00",
+        "50.00"
+      ],
+      [
+        206,
+        "180.00",
+        "150.00"
+      ],
+      [
+        207,
+        "95.25",
+        "110.50"
+      ],
+      [
+        208,
+        "300.00",
+        "275.00"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "rank-partition",
+      "composite_moves": [
+        "partition by plan_id",
+        "order by due_date",
+        "use FIRST_VALUE and LAST_VALUE with explicit frame",
+        "distinct or group to collapse rows"
+      ]
+    },
+    "hints": [
+      "You'll need to use window functions to find the first and last values within each partition.",
+      "FIRST_VALUE and LAST_VALUE are the right tools here. Remember that LAST_VALUE's default frame only goes to the current row.",
+      "Use FIRST_VALUE(amount) OVER (PARTITION BY plan_id ORDER BY due_date) and LAST_VALUE(amount) OVER (PARTITION BY plan_id ORDER BY due_date ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING). Then use DISTINCT to collapse duplicate rows."
+    ],
+    "answer_key": "SELECT DISTINCT plan_id, FIRST_VALUE(amount) OVER (PARTITION BY plan_id ORDER BY due_date) AS first_payment_amount, LAST_VALUE(amount) OVER (PARTITION BY plan_id ORDER BY due_date ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_payment_amount FROM installment_payments ORDER BY plan_id;",
+    "_meta": {
+      "question_type": "window_first_last",
+      "original_qtype": "window_first_last",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-19T16:52:48.271958",
+      "problem_id": "60e5ca712f67",
+      "validation_attempts": 1,
+      "scenario": "a buy-now-pay-later service tracking installment payment compliance",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\n\nWITH base AS (\n    SELECT\n        plan_id,\n        amount,\n        ROW_NUMBER() OVER (PARTITION BY plan_id ORDER BY due_date ASC) AS first_rn,\n        ROW_NUMBER() OVER (PARTITION BY plan_id ORDER BY due_date DESC) AS last_rn\n    FROM installment_payments\n)\nSELECT\n    plan_id,\n    MAX(CASE WHEN first_rn = 1 then amount END) AS first_payment_amount,\n    MAX(CASE WHEN last_rn = 1 then amount END) AS last_payment_amount\nFROM base\nGROUP BY plan_id\nORDER BY plan_id;",
+  "solved_at": "2026-05-19T17:18:21.826906"
+}

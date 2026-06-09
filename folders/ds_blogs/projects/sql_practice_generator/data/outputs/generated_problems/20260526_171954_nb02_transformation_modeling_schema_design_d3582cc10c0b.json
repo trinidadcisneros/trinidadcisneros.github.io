@@ -1,0 +1,131 @@
+{
+  "title": "Onboarding Fact Table for Daily HR Dashboard",
+  "scenario": "An HR platform tracks employee onboarding completion and benefits enrollment. Each employee progresses through multiple milestones (account created, profile completed, benefits selected, I-9 verified, payroll enrolled). The ops team wants a daily dashboard showing completion rates by department, location, and cohort.",
+  "prompt": "STAKEHOLDER CONTEXT\n\nYou met with the People Operations team. The fact table you're designing will populate a daily dashboard. The dashboard needs:\n\n- Onboarding completion rate: count of employees with all milestones complete divided by count of employees who started onboarding, by department\n- Benefits enrollment rate: count of employees with benefits_selected_ts not null divided by count of employees eligible for benefits, by location\n- Median time to complete onboarding: median of (final_milestone_ts minus account_created_ts), by hire cohort month\n- I-9 verification backlog: count of employees with profile_completed_ts not null but i9_verified_ts null for more than 5 business days, by department\n- Payroll enrollment lag: count of employees with benefits_selected_ts not null but payroll_enrolled_ts null, by location\n\nVOLUME AND UPDATE FREQUENCY\n\n- Daily source volume: ~200 milestone events per day (50 new hires \u00d7 4 avg milestones completed per day)\n- Dashboard freshness need: daily refresh at 6am\n- Total fact rows after 1 year: ~12,000 rows (one row per employee_id, ~50 new hires per weekday \u00d7 250 weekdays)\n\nWHAT YOU HAVE IN SOURCE\n\n- Source event table: `onboarding_milestone_events` at event grain (one row per milestone state change). Schema is in the DDL block below.\n- dim_employee: employee_id, full_name, hire_date, termination_date, is_benefits_eligible\n- dim_department: department_id, department_name, division, cost_center\n- dim_location: location_id, city, state, country, timezone\n- dim_date: date_day, month_name, quarter, fiscal_year, is_business_day\n\nYOUR TASK\n\nDesign the FACT TABLE that the dashboard reads from. Dims are already built \u2014 you specify how to JOIN them and what SCD type each is. Use the response form in section 2 to record your design choices.",
+  "instructions": "Fill out each form field in section 2 (the schema design response form). Dropdowns are used where the answer set is finite (SCD types, idempotency strategies, late-arriving handling); text fields for grain, fact columns, and rationale. Aim for 200 to 400 words total across all fields. Click Get Schema Design Feedback to grade.",
+  "schema_ddl": "CREATE TABLE onboarding_milestone_events (\n  event_id VARCHAR PRIMARY KEY,\n  employee_id VARCHAR NOT NULL,\n  milestone_type VARCHAR NOT NULL,\n  event_ts TIMESTAMP NOT NULL,\n  department_id VARCHAR,\n  location_id VARCHAR,\n  metadata JSONB\n);",
+  "candidate_dimensions": [
+    {
+      "name": "dim_employee",
+      "key": "employee_id",
+      "description": "employee demographics, hire_date, termination_date, is_benefits_eligible"
+    },
+    {
+      "name": "dim_department",
+      "key": "department_id",
+      "description": "department_name, division, cost_center"
+    },
+    {
+      "name": "dim_location",
+      "key": "location_id",
+      "description": "city, state, country, timezone"
+    },
+    {
+      "name": "dim_date",
+      "key": "date_day",
+      "description": "month_name, quarter, fiscal_year, is_business_day for calendar context"
+    }
+  ],
+  "stakeholder_asks": [
+    "Onboarding completion rate by department",
+    "Benefits enrollment rate by location",
+    "Median time to complete onboarding by hire cohort month",
+    "I-9 verification backlog count by department",
+    "Payroll enrollment lag count by location"
+  ],
+  "field_hints": {
+    "business_process": "For this problem, the business process is an employee progressing through onboarding milestones. Each fact row captures the full lifecycle of ONE employee's onboarding journey (all milestone timestamps in one row).",
+    "grain": "The dashboard aggregates counts and medians at employee level (e.g., 'count of employees who completed benefits' or 'median time per employee'). Your grain choice must support unique employee counts without double-counting.",
+    "fact_columns": "You need timestamp columns for each milestone (account_created_ts, profile_completed_ts, benefits_selected_ts, i9_verified_ts, payroll_enrolled_ts) plus derived columns like onboarding_complete (boolean), days_to_complete (integer), and backlog flags. Each measure the dashboard uses must come from these raw ingredients.",
+    "key_strategy": "The grain is one row per employee_id. State whether employee_id is the natural PK or if you need a surrogate key, and why.",
+    "dim_joins": "The asks filter by department, location, and hire cohort (month/quarter from hire_date). You need dim_employee (for hire_date and is_benefits_eligible), dim_department, dim_location, and dim_date (for the hire cohort rollup).",
+    "scd_per_dim": "dim_employee includes termination_date which changes if an employee leaves. dim_department could change if the employee transfers. dim_location could change if the employee relocates. Decide whether history matters for the onboarding metrics or not.",
+    "conformed_dims": "If the platform also has a payroll fact table or a benefits claims fact table, which dims should be conformed (same surrogate key) across those facts?",
+    "models": "The source is event grain. You need: (a) stg_onboarding_milestone_events (light cleanup), (b) int_onboarding_milestones_pivoted (pivot milestone_type into columns, one row per employee_id), (c) fct_employee_onboarding (add derived measures, join dim surrogate keys). State which layer does the grain shift and which layer adds business rules.",
+    "tests": "List at least 2 dbt tests with the column they apply to. Consider: employee_id uniqueness, not_null on account_created_ts (every fact row must have this), relationships to dim_employee/dim_department/dim_location, accepted_values for milestone_type in staging.",
+    "idempotency": "If the source re-sends the same milestone event twice (duplicate event_id), how do you ensure the fact table doesn't double-count that milestone? State your deduplication strategy.",
+    "late_arriving": "If an I-9 verification event arrives 3 days late (employee completed onboarding on Monday, I-9 event arrives Thursday), the fact row's i9_verified_ts updates. Does this re-open a closed reporting period (Monday's snapshot), or do you accept that Monday's dashboard showed incomplete data?",
+    "edge_cases": "Name at least one edge case specific to onboarding: rehires (same employee_id, new hire_date), partial onboarding (benefits waived, so benefits_selected_ts is null but that's valid), or milestone events arriving out of order."
+  },
+  "worked_example_per_field": {
+    "business_process": "Answer: An employee progressing through onboarding milestones from account creation to payroll enrollment.\n\nWhy: The prompt says 'each employee progresses through multiple milestones.' The dashboard measures completion rates and time-to-complete at the employee level (not at the milestone-event level). This scopes the fact to ONE employee's full journey, not individual milestone events.",
+    "grain": "Answer: One row per employee_id (~12,000 rows after 1 year).\n\nWhy: The prompt explicitly states '~12,000 rows (one row per employee_id)' and the dashboard needs unique employee counts ('count of employees with all milestones complete'). Event grain (one row per milestone) would have 4\u20135 rows per employee and break unique counts. Pre-aggregating by department would freeze slicing. Employee-level grain is the lowest that supports all requested slices without double-counting.",
+    "fact_columns": "Answer: employee_id (PK), department_id, location_id, hire_date_key (FKs), account_created_ts, profile_completed_ts, benefits_selected_ts, i9_verified_ts, payroll_enrolled_ts (milestone timestamps), onboarding_complete (boolean), days_to_complete (integer), is_benefits_eligible (boolean from dim_employee), i9_backlog_flag (boolean), payroll_lag_flag (boolean).\n\nWhy: Every dashboard metric can be computed from these columns. Completion rate = SUM(onboarding_complete) / COUNT(*). Median time = MEDIAN(days_to_complete). Backlog count = SUM(i9_backlog_flag WHERE DATEDIFF(CURRENT_DATE, profile_completed_ts) > 5 AND i9_verified_ts IS NULL). Storing raw timestamps instead of pre-computed rates lets the BI tool slice by any dim (department, location, cohort) at query time.",
+    "key_strategy": "Answer: employee_id is the natural PK (no surrogate key needed).\n\nWhy: The grain is one row per employee_id, and employee_id is already a stable unique identifier. A surrogate key (employee_sk) would add no value here because there's no SCD Type 2 history to version in the fact table. If dim_employee is Type 2 (tracking department transfers), the fact row still points to the employee_id and the dim's effective_date logic handles the lookup.",
+    "dim_joins": "Answer: dim_employee (for hire_date, is_benefits_eligible, termination_date), dim_department (for department_name, division), dim_location (for city, state), dim_date (for hire cohort rollups like month_name, quarter).\n\nWhy: The dashboard filters and groups by department (ask 1 and 4), location (asks 2 and 5), and hire cohort month (ask 3). dim_employee provides hire_date so dim_date can join on hire_date = date_day to get the cohort's month_name. dim_department and dim_location enable the requested slicing. All four dims are in the candidate list.",
+    "scd_per_dim": "Answer: dim_employee Type 2 (tracks department transfers, location changes via effective_date / end_date rows), dim_department Type 1 (department_name rarely changes, and if it does we overwrite), dim_location Type 1 (city and state are stable), dim_date Type 0 (calendar dimension, never changes).\n\nWhy: If an employee transfers from Engineering to Sales mid-onboarding, we want the dashboard to show onboarding progress under the department at hire (not the current department). dim_employee Type 2 means the fact's employee_id joins to the dim row where hire_date BETWEEN effective_date AND end_date. dim_department and dim_location are Type 1 because the onboarding metrics don't care about historical renames \u2014 we just want current names. dim_date is Type 0 (a calendar dimension never updates).",
+    "conformed_dims": "Answer: dim_employee, dim_department, dim_location, dim_date should be conformed across fct_employee_onboarding, fct_payroll, and fct_benefits_claims.\n\nWhy: If the platform also tracks payroll or benefits claims, the same employee_id, department_id, and location_id appear in those facts. Using conformed dims means one shared dim_employee table (with one set of SCD logic) instead of three separate employee dims. This ensures cross-fact drill-throughs (e.g., 'show me payroll records for employees who completed onboarding in Q1') join correctly.",
+    "models": "Answer: (1) source: onboarding_milestone_events, (2) stg_onboarding_milestone_events (rename columns, parse metadata JSONB, cast event_ts), (3) int_onboarding_milestones_pivoted (pivot milestone_type into columns using MAX(event_ts) GROUP BY employee_id \u2014 this is the grain shift from event-level to employee-level), (4) fct_employee_onboarding (add derived measures like onboarding_complete = CASE WHEN all milestone_ts IS NOT NULL, days_to_complete = payroll_enrolled_ts - account_created_ts, join dim surrogate keys).\n\nWhy: Staging does light cleanup only (no business rules). The intermediate model does the grain shift (event \u2192 employee) because that's reusable work (other marts might need the pivoted milestones). The mart layer adds business-specific logic (onboarding_complete, backlog flags) that the dashboard reads. This follows dbt best practice: stg_ = source-conformed, int_ = reusable joins/grain shifts, mart_ = business metrics.",
+    "tests": "Answer: (1) unique and not_null on employee_id in fct_employee_onboarding, (2) not_null on account_created_ts (every employee must have this milestone), (3) relationships(employee_id \u2192 dim_employee.employee_id), (4) relationships(department_id \u2192 dim_department.department_id), (5) accepted_values(milestone_type in ['account_created', 'profile_completed', 'benefits_selected', 'i9_verified', 'payroll_enrolled']) in stg_onboarding_milestone_events.\n\nWhy: The unique test on employee_id confirms the grain. not_null on account_created_ts catches bad pivots (every employee must start with account_created). Relationships tests catch orphaned FKs (e.g., a department_id in the fact that doesn't exist in dim_department). accepted_values in staging catches upstream data quality issues before they propagate to the fact.",
+    "idempotency": "Answer: Use QUALIFY ROW_NUMBER() OVER (PARTITION BY event_id ORDER BY ingestion_ts DESC) = 1 in stg_onboarding_milestone_events to deduplicate on event_id, keeping the latest ingestion_ts row.\n\nWhy: If the source re-sends the same event_id twice (e.g., a retry), the staging model deduplicates before the pivot. The pivot logic (MAX(event_ts) GROUP BY employee_id) is naturally idempotent for timestamp updates (MAX doesn't change if the same timestamp is seen twice), but deduplicating by event_id at staging is cleaner and prevents row-count bloat in downstream incremental models.",
+    "late_arriving": "Answer: Accept late arrivals and re-state the fact row (update i9_verified_ts in place). Do not version the fact row or preserve Monday's incomplete snapshot.\n\nWhy: The prompt says 'daily refresh at 6am' and the dashboard shows current-state metrics (backlog count as of today), not point-in-time snapshots. If an I-9 event arrives late, the employee's fact row updates and Monday's dashboard (if re-run) would show the corrected i9_verified_ts. Preserving incomplete snapshots would require a daily snapshot fact table (much larger, more complex), and the stakeholders didn't ask for point-in-time reporting.",
+    "edge_cases": "Answer: (1) Rehires: same employee_id, new hire_date \u2192 partition the fact by (employee_id, hire_date) so each onboarding journey gets its own row. (2) Benefits waived: is_benefits_eligible = FALSE \u2192 benefits_selected_ts can be null and that's valid, not a backlog. (3) Out-of-order events: profile_completed_ts arrives before account_created_ts \u2192 staging sorts by event_ts and the pivot's MAX handles this automatically.\n\nWhy: Rehires break the one-row-per-employee_id grain if not handled (the employee has two distinct onboarding journeys). Partitioning by (employee_id, hire_date) fixes this. Benefits waived is a valid null, so the backlog logic must exclude is_benefits_eligible = FALSE. Out-of-order events are common in event-driven systems; MAX(event_ts) in the pivot is idempotent and self-healing."
+  },
+  "expected_themes": [
+    "grain: one row per employee_id",
+    "fact-dim split",
+    "SCD Type 2 for dim_employee",
+    "natural PK (employee_id)",
+    "dbt staging vs intermediate vs mart layers",
+    "conformed dims across facts",
+    "idempotency via deduplication on event_id",
+    "late-arriving facts: update in place",
+    "dbt tests: unique, not_null, relationships",
+    "incremental materialization for daily refresh",
+    "pivot milestone_type into columns (grain shift)",
+    "edge case: rehires with same employee_id"
+  ],
+  "reference_answer": "## Grain\nOne row per (employee_id, hire_date). This handles rehires: an employee with two hire dates gets two fact rows, one per onboarding journey. ~12,000 rows after 1 year.\n\n## Fact Columns\n- **PKs/FKs**: employee_id, hire_date, department_id, location_id, hire_date_key (to dim_date)\n- **Milestone timestamps**: account_created_ts, profile_completed_ts, benefits_selected_ts, i9_verified_ts, payroll_enrolled_ts\n- **Derived measures**: onboarding_complete (boolean: all milestones not null), days_to_complete (payroll_enrolled_ts - account_created_ts in days), i9_backlog_flag (profile_completed_ts not null AND i9_verified_ts null AND DATEDIFF(days, profile_completed_ts, CURRENT_DATE) > 5), payroll_lag_flag (benefits_selected_ts not null AND payroll_enrolled_ts null)\n- **Attributes from dim_employee**: is_benefits_eligible (to filter benefits enrollment rate denominator)\n\n## Key Strategy\nComposite natural PK: (employee_id, hire_date). No surrogate key needed. Rehires get distinct rows.\n\n## Dim Joins\n- **dim_employee** (Type 2: tracks department/location changes via effective_date): join on employee_id WHERE hire_date BETWEEN effective_date AND end_date\n- **dim_department** (Type 1): join on department_id\n- **dim_location** (Type 1): join on location_id\n- **dim_date** (Type 0): join on hire_date = date_day for cohort month rollups\n\nConformed across fct_payroll and fct_benefits_claims.\n\n## dbt Models\n1. `stg_onboarding_milestone_events`: deduplicate on event_id (QUALIFY ROW_NUMBER() ... = 1), rename columns, cast types. No business logic.\n2. `int_onboarding_milestones_pivoted`: pivot milestone_type into columns using MAX(event_ts) GROUP BY employee_id, hire_date. Grain shift happens here.\n3. `fct_employee_onboarding`: add derived measures (onboarding_complete, days_to_complete, backlog flags), join dim surrogate keys. Incremental materialization (daily refresh, unique_key = [employee_id, hire_date]).\n\n## Tests\n- unique + not_null on (employee_id, hire_date) in fct_employee_onboarding\n- not_null on account_created_ts (every employee must have this)\n- relationships: employee_id \u2192 dim_employee, department_id \u2192 dim_department, location_id \u2192 dim_location\n- accepted_values: milestone_type in staging\n\n## Idempotency & Late Arrivals\n**Idempotency**: deduplicate on event_id in staging (QUALIFY ROW_NUMBER). Pivot MAX is naturally idempotent.\n**Late arrivals**: update fact row in place (no versioning). Dashboard shows current state, not point-in-time snapshots.\n\n## Edge Cases\n- **Rehires**: (employee_id, hire_date) grain captures multiple onboarding journeys\n- **Benefits waived**: is_benefits_eligible = FALSE \u2192 benefits_selected_ts = null is valid, exclude from enrollment rate denominator\n- **Out-of-order events**: MAX(event_ts) in pivot self-heals",
+  "grading_rubric": [
+    {
+      "criterion": "Grain definition and rehire handling",
+      "description": "States one row per (employee_id, hire_date) or equivalent composite key; explains why hire_date is needed (rehires); ties grain to the dashboard's need for unique employee counts without double-counting rehires",
+      "weight": 20
+    },
+    {
+      "criterion": "Fact columns and derived measures",
+      "description": "Includes milestone timestamp columns (account_created_ts, profile_completed_ts, benefits_selected_ts, i9_verified_ts, payroll_enrolled_ts); includes at least two derived measures (onboarding_complete, days_to_complete, or backlog flags); explains how these support the dashboard metrics (completion rate, median time, backlog count)",
+      "weight": 20
+    },
+    {
+      "criterion": "SCD type reasoning for dim_employee",
+      "description": "Assigns Type 2 to dim_employee; explains that hire_date or effective_date is used to look up the employee's department/location at onboarding start (not current values); correctly assigns Type 1 to dim_department and dim_location (no history needed) and Type 0 to dim_date",
+      "weight": 20
+    },
+    {
+      "criterion": "dbt layer placement and grain shift",
+      "description": "Names at least three layers (stg_, int_, fct_ or mart_); identifies that the grain shift from event-level to employee-level happens in the intermediate layer (pivot milestone_type into columns); states that business rules (derived measures, backlog flags) belong in the mart layer, not staging",
+      "weight": 20
+    },
+    {
+      "criterion": "Idempotency, late arrivals, and edge cases",
+      "description": "Proposes deduplication strategy for duplicate event_id in staging; states whether late-arriving milestone events update the fact in place or create versioned rows (and justifies the choice); names at least one edge case (rehires, benefits waived, out-of-order events) with a mitigation strategy",
+      "weight": 20
+    }
+  ],
+  "hints": [
+    "The dashboard counts unique employees. If the grain is event-level (one row per milestone), how would you avoid counting the same employee 5 times?",
+    "The prompt mentions ~12,000 rows after 1 year. That's roughly 50 employees \u00d7 250 weekdays. What does that imply about the grain?",
+    "If an employee is hired, completes onboarding, terminates, then is rehired 6 months later and completes onboarding again, how many fact rows should exist? What composite key captures this?"
+  ],
+  "common_mistakes": [
+    "Declaring grain as 'one row per employee_id' without handling rehires (same employee_id, multiple hire_date values)",
+    "Storing pre-aggregated rates (completion_rate_by_dept) in the fact instead of raw timestamps and boolean flags that can be sliced at query time",
+    "Assigning Type 1 to dim_employee when the scenario explicitly mentions employees transferring departments (Type 2 is needed to preserve the department at hire)",
+    "Putting the pivot logic (milestone_type \u2192 columns) in the mart layer instead of an intermediate model, making it harder to reuse for other dashboards",
+    "Omitting dbt tests or only listing generic test names without naming the columns they apply to",
+    "Not addressing late-arriving events (e.g., 'I-9 verification arrives 3 days late') \u2014 the answer must state update-in-place vs versioning and justify the choice",
+    "Ignoring the benefits_waived edge case: is_benefits_eligible = FALSE means benefits_selected_ts = null is valid, not a data quality issue"
+  ],
+  "_meta": {
+    "category": "transformation_modeling",
+    "subtopic": "schema_design",
+    "kind": "kpi",
+    "scenario": "an HR platform tracking onboarding completion and benefits enrollment",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-26T17:19:54.714342",
+    "problem_id": "d3582cc10c0b",
+    "validation_attempts": 1,
+    "notebook": "nb02_analyst_interview_drills"
+  }
+}

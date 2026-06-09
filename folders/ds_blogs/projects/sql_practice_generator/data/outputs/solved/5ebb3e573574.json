@@ -1,0 +1,142 @@
+{
+  "problem": {
+    "title": "First and Last Refill Days Per Patient",
+    "prompt": "A pharmacy adherence program tracks prescription refills to measure patient compliance. Each refill is logged with the patient's ID, the medication name, refill date, and days supply (30, 60, or 90). For each patient-medication combination, you need to report the days supply from the FIRST refill and the LAST refill in the entire history to identify whether patients started or ended on long-cycle refills. Write a query that returns one row per unique patient_id and medication_name combination, showing: patient_id, medication_name, first_refill_days_supply (days supply from the earliest refill by date), and last_refill_days_supply (days supply from the most recent refill by date). Order results by patient_id, then medication_name. Note: a patient may have only one refill for a medication (in which case first and last are identical), and refill dates can tie (use the earliest record ID to break ties).",
+    "schema_ddl": "CREATE TABLE refill_logs (\n  record_id SERIAL PRIMARY KEY,\n  patient_id INTEGER NOT NULL,\n  medication_name VARCHAR(100) NOT NULL,\n  refill_date DATE NOT NULL,\n  days_supply INTEGER NOT NULL\n);",
+    "example_input_data": "INSERT INTO refill_logs (patient_id, medication_name, refill_date, days_supply) VALUES\n(101, 'Lisinopril', '2024-01-15', 30),\n(101, 'Lisinopril', '2024-02-20', 60),\n(101, 'Lisinopril', '2024-04-10', 90),\n(101, 'Metformin', '2024-01-20', 90),\n(102, 'Lisinopril', '2024-03-05', 30),\n(102, 'Lisinopril', '2024-03-05', 60),\n(103, 'Atorvastatin', '2024-02-01', 60);",
+    "example_output_columns": [
+      "patient_id",
+      "medication_name",
+      "first_refill_days_supply",
+      "last_refill_days_supply"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "Lisinopril",
+        30,
+        90
+      ],
+      [
+        101,
+        "Metformin",
+        90,
+        90
+      ],
+      [
+        102,
+        "Lisinopril",
+        30,
+        60
+      ],
+      [
+        103,
+        "Atorvastatin",
+        60,
+        60
+      ]
+    ],
+    "test_data": "INSERT INTO refill_logs (patient_id, medication_name, refill_date, days_supply) VALUES\n(201, 'Lisinopril', '2024-01-10', 30),\n(201, 'Lisinopril', '2024-02-15', 60),\n(201, 'Lisinopril', '2024-03-20', 60),\n(201, 'Lisinopril', '2024-05-01', 90),\n(201, 'Lisinopril', '2024-06-15', 90),\n(201, 'Metformin', '2024-01-12', 90),\n(201, 'Metformin', '2024-04-10', 60),\n(201, 'Metformin', '2024-07-05', 30),\n(202, 'Atorvastatin', '2024-02-01', 30),\n(202, 'Atorvastatin', '2024-03-05', 30),\n(202, 'Atorvastatin', '2024-04-10', 30),\n(202, 'Lisinopril', '2024-01-15', 60),\n(203, 'Simvastatin', '2024-03-01', 90),\n(204, 'Warfarin', '2024-01-20', 30),\n(204, 'Warfarin', '2024-02-25', 30),\n(204, 'Warfarin', '2024-02-25', 60),\n(204, 'Warfarin', '2024-04-01', 90),\n(205, 'Levothyroxine', '2024-05-10', 90),\n(205, 'Levothyroxine', '2024-08-12', 60),\n(206, 'Metoprolol', '2024-01-05', 60),\n(206, 'Metoprolol', '2024-03-10', 90),\n(206, 'Metoprolol', '2024-05-15', 30),\n(206, 'Lisinopril', '2024-02-20', 30),\n(206, 'Lisinopril', '2024-04-25', 60),\n(207, 'Amlodipine', '2024-06-01', 30);",
+    "test_expected_columns": [
+      "patient_id",
+      "medication_name",
+      "first_refill_days_supply",
+      "last_refill_days_supply"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "Lisinopril",
+        30,
+        90
+      ],
+      [
+        201,
+        "Metformin",
+        90,
+        30
+      ],
+      [
+        202,
+        "Atorvastatin",
+        30,
+        30
+      ],
+      [
+        202,
+        "Lisinopril",
+        60,
+        60
+      ],
+      [
+        203,
+        "Simvastatin",
+        90,
+        90
+      ],
+      [
+        204,
+        "Warfarin",
+        30,
+        90
+      ],
+      [
+        205,
+        "Levothyroxine",
+        90,
+        60
+      ],
+      [
+        206,
+        "Lisinopril",
+        30,
+        60
+      ],
+      [
+        206,
+        "Metoprolol",
+        60,
+        30
+      ],
+      [
+        207,
+        "Amlodipine",
+        30,
+        30
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "rank-partition",
+      "composite_moves": [
+        "partition by patient_id, medication_name; order by refill_date, record_id",
+        "FIRST_VALUE(days_supply) with default frame for first refill",
+        "LAST_VALUE(days_supply) with ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING for last refill",
+        "DISTINCT to collapse window rows into one per partition"
+      ]
+    },
+    "hints": [
+      "You need to identify the earliest and latest refill for each patient-medication pair.",
+      "Window functions FIRST_VALUE and LAST_VALUE can retrieve values from specific positions in a partition, but LAST_VALUE requires a custom frame clause to see beyond the current row.",
+      "Use FIRST_VALUE(days_supply) OVER (PARTITION BY patient_id, medication_name ORDER BY refill_date, record_id) for the first refill, and LAST_VALUE(days_supply) OVER (PARTITION BY patient_id, medication_name ORDER BY refill_date, record_id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) for the last refill, then SELECT DISTINCT to get one row per partition."
+    ],
+    "answer_key": "SELECT DISTINCT\n  patient_id,\n  medication_name,\n  FIRST_VALUE(days_supply) OVER (\n    PARTITION BY patient_id, medication_name\n    ORDER BY refill_date, record_id\n  ) AS first_refill_days_supply,\n  LAST_VALUE(days_supply) OVER (\n    PARTITION BY patient_id, medication_name\n    ORDER BY refill_date, record_id\n    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING\n  ) AS last_refill_days_supply\nFROM refill_logs\nORDER BY patient_id, medication_name;",
+    "_meta": {
+      "question_type": "window_first_last",
+      "original_qtype": "window_first_last",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-31T21:06:40.538026",
+      "problem_id": "5ebb3e573574",
+      "validation_attempts": 1,
+      "scenario": "a prescription refill adherence program tracking 30/60/90 day refill rates",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\n\nSELECT\n    DISTINCT\n    patient_id,\n    medication_name,\n    FIRST_VALUE(days_supply) OVER (PARTITION BY patient_id, medication_name ORDER BY refill_date, days_supply\n                                    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING\n                                    ) AS first_refill_days_supply,\n    LAST_VALUE(days_supply) OVER (PARTITION BY patient_id, medication_name ORDER BY refill_date, days_supply\n                                    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING\n                                    ) AS last_refill_days_supply\nFROM refill_logs\nORDER BY patient_id, medication_name;",
+  "solved_at": "2026-05-31T21:15:15.476288"
+}

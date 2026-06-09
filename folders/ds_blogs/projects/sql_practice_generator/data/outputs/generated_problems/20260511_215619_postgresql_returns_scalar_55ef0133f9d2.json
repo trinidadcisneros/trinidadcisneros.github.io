@@ -1,0 +1,53 @@
+{
+  "title": "Calculate Weighted On-Time Performance Score",
+  "prompt": "You are building a performance dashboard for a logistics company. Write a PostgreSQL function `calculate_delivery_score` that accepts a `carrier_id` (INT) and a `quarter_year` (TEXT in format 'Q1-2024') and returns a NUMERIC score representing the carrier's weighted on-time performance for that quarter. The score is calculated as: `(on_time_deliveries * 100.0) / total_deliveries` where `on_time_deliveries` counts shipments where `actual_delivery_date <= scheduled_delivery_date` and `total_deliveries` counts all shipments for that carrier in that quarter. If the carrier has no deliveries in the quarter, return `0.00`. The function should filter shipments by matching `carrier_id` and by extracting quarter-year from `scheduled_delivery_date` using the format 'Q' || EXTRACT(QUARTER FROM scheduled_delivery_date) || '-' || EXTRACT(YEAR FROM scheduled_delivery_date). Round the result to two decimal places. Test your function by calling: `SELECT calculate_delivery_score(101, 'Q1-2024') AS result;`",
+  "schema_ddl": "CREATE TABLE carriers (carrier_id INT PRIMARY KEY, carrier_name VARCHAR(100)); CREATE TABLE shipments (shipment_id INT PRIMARY KEY, carrier_id INT, scheduled_delivery_date DATE, actual_delivery_date DATE, origin VARCHAR(50), destination VARCHAR(50));",
+  "example_input_data": "INSERT INTO carriers (carrier_id, carrier_name) VALUES (101, 'FastTrack Express'), (102, 'Reliable Cargo'); INSERT INTO shipments (shipment_id, carrier_id, scheduled_delivery_date, actual_delivery_date, origin, destination) VALUES (1, 101, '2024-01-15', '2024-01-14', 'New York', 'Boston'), (2, 101, '2024-02-10', '2024-02-10', 'Chicago', 'Detroit'), (3, 101, '2024-03-05', '2024-03-07', 'Miami', 'Orlando'), (4, 101, '2024-01-20', '2024-01-22', 'Dallas', 'Houston'), (5, 102, '2024-01-18', '2024-01-17', 'Seattle', 'Portland'), (6, 102, '2024-02-25', '2024-02-26', 'Denver', 'Phoenix');",
+  "example_output_columns": [
+    "result"
+  ],
+  "example_output_rows": [
+    [
+      "50.00"
+    ]
+  ],
+  "test_data": "INSERT INTO carriers (carrier_id, carrier_name) VALUES (101, 'FastTrack Express'), (102, 'Reliable Cargo'), (103, 'Global Logistics'), (104, 'Swift Movers'); INSERT INTO shipments (shipment_id, carrier_id, scheduled_delivery_date, actual_delivery_date, origin, destination) VALUES (1, 101, '2024-01-05', '2024-01-05', 'New York', 'Boston'), (2, 101, '2024-01-12', '2024-01-11', 'Chicago', 'Detroit'), (3, 101, '2024-01-20', '2024-01-22', 'Miami', 'Orlando'), (4, 101, '2024-02-08', '2024-02-08', 'Dallas', 'Houston'), (5, 101, '2024-02-15', '2024-02-16', 'Atlanta', 'Charlotte'), (6, 101, '2024-02-28', '2024-02-27', 'Phoenix', 'Las Vegas'), (7, 101, '2024-03-10', '2024-03-10', 'Seattle', 'Portland'), (8, 101, '2024-03-18', '2024-03-20', 'Denver', 'Salt Lake City'), (9, 101, '2024-03-25', '2024-03-24', 'Austin', 'San Antonio'), (10, 101, '2024-03-31', '2024-04-02', 'Philadelphia', 'Baltimore'), (11, 102, '2024-01-10', '2024-01-09', 'Los Angeles', 'San Diego'), (12, 102, '2024-01-22', '2024-01-23', 'Houston', 'New Orleans'), (13, 102, '2024-02-05', '2024-02-05', 'Minneapolis', 'Milwaukee'), (14, 102, '2024-03-12', '2024-03-14', 'Nashville', 'Memphis'), (15, 103, '2024-04-01', '2024-04-01', 'Tampa', 'Jacksonville'), (16, 103, '2024-04-15', '2024-04-14', 'Cleveland', 'Pittsburgh'), (17, 101, '2024-04-10', '2024-04-09', 'Raleigh', 'Richmond'), (18, 101, '2024-04-22', '2024-04-25', 'Kansas City', 'St Louis'), (19, 101, '2024-01-08', NULL, 'Boston', 'Hartford'), (20, 101, '2024-02-18', NULL, 'Detroit', 'Toledo'), (21, 102, '2024-01-15', '2024-01-15', 'Portland', 'Eugene'), (22, 102, '2024-01-28', '2024-01-30', 'Phoenix', 'Tucson'), (23, 104, '2024-01-05', '2024-01-06', 'Miami', 'Key West'), (24, 101, '2024-03-01', '2024-03-01', 'Omaha', 'Des Moines'), (25, 101, '2024-03-15', '2024-03-13', 'Albany', 'Syracuse');",
+  "test_expected_columns": [
+    "result"
+  ],
+  "test_expected_rows": [
+    [
+      "57.14"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "scalar_return",
+    "recipe": "function-wrapped",
+    "composite_moves": [
+      "filter by carrier_id",
+      "filter by quarter-year extracted from scheduled_delivery_date",
+      "count rows where actual_delivery_date <= scheduled_delivery_date",
+      "count total rows",
+      "calculate percentage",
+      "handle zero-division case"
+    ]
+  },
+  "hints": [
+    "You'll need to filter shipments by carrier and by extracting the quarter-year from the scheduled delivery date.",
+    "Use EXTRACT(QUARTER FROM ...) and EXTRACT(YEAR FROM ...) to build a string like 'Q1-2024', then compare it to the input parameter.",
+    "Count on-time deliveries where actual_delivery_date is not NULL and less than or equal to scheduled_delivery_date, then divide by total deliveries and multiply by 100."
+  ],
+  "answer_key": "CREATE OR REPLACE FUNCTION calculate_delivery_score(p_carrier_id INT, p_quarter_year TEXT)\nRETURNS NUMERIC AS $$\nDECLARE\n  v_on_time INT;\n  v_total INT;\n  v_score NUMERIC;\nBEGIN\n  SELECT \n    COUNT(*) FILTER (WHERE actual_delivery_date IS NOT NULL AND actual_delivery_date <= scheduled_delivery_date),\n    COUNT(*)\n  INTO v_on_time, v_total\n  FROM shipments\n  WHERE carrier_id = p_carrier_id\n    AND 'Q' || EXTRACT(QUARTER FROM scheduled_delivery_date) || '-' || EXTRACT(YEAR FROM scheduled_delivery_date) = p_quarter_year;\n  \n  IF v_total = 0 THEN\n    RETURN 0.00;\n  END IF;\n  \n  v_score := ROUND((v_on_time * 100.0) / v_total, 2);\n  RETURN v_score;\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT calculate_delivery_score(101, 'Q1-2024') AS result;",
+  "_meta": {
+    "question_type": "returns_scalar",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-11T21:56:18.998578",
+    "problem_id": "55ef0133f9d2",
+    "validation_attempts": 1,
+    "scenario": "a logistics company tracking shipment milestones and on-time delivery",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

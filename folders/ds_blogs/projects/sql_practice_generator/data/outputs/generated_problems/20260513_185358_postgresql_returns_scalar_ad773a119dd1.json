@@ -1,0 +1,54 @@
+{
+  "title": "Calculate Average Retry Delay for Job",
+  "prompt": "You are analyzing a workflow automation system that tracks job execution attempts. Write a PostgreSQL function `calculate_avg_retry_delay` that takes a job name (TEXT) and returns the average delay in minutes (NUMERIC(10,2)) between consecutive retry attempts for runs that ultimately failed. A \"run\" is defined as all attempts for a given job on the same calendar date. Only include runs where the final attempt of that day has status 'failed' and there were at least 2 attempts (meaning at least 1 retry). The delay is calculated as the time difference between consecutive attempts within the same run. If there are no qualifying retries, return 0.00. Test your function by calling: `SELECT calculate_avg_retry_delay('data_sync') AS result;`",
+  "schema_ddl": "CREATE TABLE job_attempts (attempt_id INT PRIMARY KEY, job_name TEXT NOT NULL, attempted_at TIMESTAMP NOT NULL, attempt_number INT NOT NULL, status TEXT NOT NULL);",
+  "example_input_data": "INSERT INTO job_attempts (attempt_id, job_name, attempted_at, attempt_number, status) VALUES (1, 'data_sync', '2024-01-15 08:00:00', 1, 'failed'), (2, 'data_sync', '2024-01-15 08:05:00', 2, 'failed'), (3, 'data_sync', '2024-01-15 08:12:00', 3, 'failed'), (4, 'data_sync', '2024-01-16 09:00:00', 1, 'failed'), (5, 'data_sync', '2024-01-16 09:10:00', 2, 'success'), (6, 'email_batch', '2024-01-15 10:00:00', 1, 'failed'), (7, 'email_batch', '2024-01-15 10:08:00', 2, 'failed');",
+  "example_output_columns": [
+    "result"
+  ],
+  "example_output_rows": [
+    [
+      "6.00"
+    ]
+  ],
+  "test_data": "INSERT INTO job_attempts (attempt_id, job_name, attempted_at, attempt_number, status) VALUES (101, 'data_sync', '2024-02-01 08:00:00', 1, 'failed'), (102, 'data_sync', '2024-02-01 08:03:00', 2, 'failed'), (103, 'data_sync', '2024-02-01 08:09:00', 3, 'failed'), (104, 'data_sync', '2024-02-01 08:20:00', 4, 'failed'), (105, 'data_sync', '2024-02-02 10:00:00', 1, 'failed'), (106, 'data_sync', '2024-02-02 10:15:00', 2, 'failed'), (107, 'data_sync', '2024-02-02 10:35:00', 3, 'success'), (108, 'data_sync', '2024-02-03 11:00:00', 1, 'failed'), (109, 'data_sync', '2024-02-04 14:00:00', 1, 'success'), (110, 'report_gen', '2024-02-01 09:00:00', 1, 'failed'), (111, 'report_gen', '2024-02-01 09:05:00', 2, 'failed'), (112, 'report_gen', '2024-02-01 09:12:00', 3, 'failed'), (113, 'report_gen', '2024-02-01 09:25:00', 4, 'failed'), (114, 'data_sync', '2024-02-05 08:00:00', 1, 'failed'), (115, 'data_sync', '2024-02-05 08:02:00', 2, 'failed'), (116, 'data_sync', '2024-02-05 08:06:00', 3, 'failed'), (117, 'data_sync', '2024-02-05 08:14:00', 4, 'failed'), (118, 'data_sync', '2024-02-05 08:30:00', 5, 'failed'), (119, 'data_sync', '2024-02-06 12:00:00', 1, 'failed'), (120, 'data_sync', '2024-02-06 12:20:00', 2, 'failed'), (121, 'data_sync', '2024-02-06 12:50:00', 3, 'failed'), (122, 'data_sync', '2024-02-07 07:00:00', 1, 'failed'), (123, 'data_sync', '2024-02-08 16:00:00', 1, 'failed'), (124, 'data_sync', '2024-02-08 16:12:00', 2, 'failed'), (125, 'data_sync', '2024-02-08 16:30:00', 3, 'failed'), (126, 'data_sync', '2024-02-08 17:00:00', 4, 'failed'), (127, 'data_sync', '2024-02-08 17:45:00', 5, 'failed'), (128, 'data_sync', '2024-02-08 18:50:00', 6, 'failed');",
+  "test_expected_columns": [
+    "result"
+  ],
+  "test_expected_rows": [
+    [
+      "19.29"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "scalar_return",
+    "recipe": "function-wrapped",
+    "composite_moves": [
+      "row-filter by job_name parameter",
+      "group by job_name and date",
+      "rank-partition to identify final status per run",
+      "row-filter for failed runs with 2+ attempts",
+      "time-window LAG to compute retry delays",
+      "scalar-aggregate AVG of delays",
+      "scalar-return via RETURN"
+    ]
+  },
+  "hints": [
+    "You need to group attempts by both job name and calendar date to identify distinct runs.",
+    "Use window functions like LAST_VALUE to determine the final status of each run, then filter for runs where that final status is 'failed' and there were at least 2 attempts.",
+    "Use LAG() partitioned by job name and date to compute the time difference between consecutive attempts within the same run, then average those differences across all qualifying runs."
+  ],
+  "answer_key": "CREATE OR REPLACE FUNCTION calculate_avg_retry_delay(p_job_name TEXT)\nRETURNS NUMERIC(10,2) AS $$\nDECLARE\n  avg_delay NUMERIC(10,2);\nBEGIN\n  WITH attempt_windows AS (\n    SELECT\n      ja.attempt_id,\n      ja.attempt_number,\n      ja.attempted_at,\n      ja.status,\n      LAG(ja.attempted_at) OVER (PARTITION BY ja.job_name, DATE(ja.attempted_at) ORDER BY ja.attempt_number) AS prev_attempted_at,\n      LAST_VALUE(ja.status) OVER (PARTITION BY ja.job_name, DATE(ja.attempted_at) ORDER BY ja.attempt_number ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS final_status,\n      MAX(ja.attempt_number) OVER (PARTITION BY ja.job_name, DATE(ja.attempted_at)) AS max_attempt\n    FROM job_attempts ja\n    WHERE ja.job_name = p_job_name\n  ),\n  retry_delays AS (\n    SELECT\n      EXTRACT(EPOCH FROM (attempted_at - prev_attempted_at)) / 60.0 AS delay_minutes\n    FROM attempt_windows\n    WHERE prev_attempted_at IS NOT NULL\n      AND final_status = 'failed'\n      AND max_attempt >= 2\n  )\n  SELECT COALESCE(ROUND(AVG(delay_minutes), 2), 0.00)\n  INTO avg_delay\n  FROM retry_delays;\n  \n  RETURN avg_delay;\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT calculate_avg_retry_delay('data_sync') AS result;",
+  "_meta": {
+    "question_type": "returns_scalar",
+    "dialect": "postgresql",
+    "generated_at": "2026-05-13T18:53:58.614545",
+    "problem_id": "ad773a119dd1",
+    "validation_attempts": 2,
+    "scenario": "a workflow automation tool tracking job runs, retries, and failures",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "title": "Pivot Cart Event Counts by Stage",
+  "prompt": "Your fashion ecommerce site logs cart events in a long-format table `cart_events` with columns `(session_id, event_stage, event_count)`. Each row represents the count of events in a given stage ('add_to_cart', 'view_details', 'checkout') for a session. A session may have multiple rows for the same stage (representing events from different product pages that were aggregated separately). Pivot this data into a wide-format report with one row per session showing the total event counts for each stage. The output must have columns `session_id`, `add_to_cart_total`, `view_details_total`, `checkout_total` (in that order). Use `SUM` to combine event_count values for each stage. If a session has no rows for a particular stage, display `0` instead of NULL for that stage's total. Order the final result by `session_id` ascending.",
+  "schema_ddl": "CREATE TABLE cart_events (session_id INTEGER NOT NULL, event_stage VARCHAR(50) NOT NULL, event_count INTEGER NOT NULL);",
+  "example_input_data": "INSERT INTO cart_events (session_id, event_stage, event_count) VALUES (101, 'add_to_cart', 3), (101, 'view_details', 5), (101, 'checkout', 1), (102, 'add_to_cart', 2), (102, 'add_to_cart', 1), (103, 'view_details', 4), (103, 'checkout', 2);",
+  "example_output_columns": [
+    "session_id",
+    "add_to_cart_total",
+    "view_details_total",
+    "checkout_total"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      3,
+      5,
+      1
+    ],
+    [
+      102,
+      3,
+      0,
+      0
+    ],
+    [
+      103,
+      0,
+      4,
+      2
+    ]
+  ],
+  "test_data": "INSERT INTO cart_events (session_id, event_stage, event_count) VALUES (201, 'add_to_cart', 5), (201, 'add_to_cart', 2), (201, 'view_details', 8), (201, 'checkout', 3), (202, 'add_to_cart', 1), (202, 'view_details', 2), (203, 'view_details', 10), (203, 'view_details', 3), (203, 'checkout', 1), (204, 'add_to_cart', 4), (204, 'checkout', 2), (205, 'checkout', 5), (206, 'add_to_cart', 7), (206, 'add_to_cart', 1), (206, 'view_details', 6), (206, 'view_details', 2), (206, 'checkout', 4), (207, 'view_details', 1), (208, 'add_to_cart', 3), (208, 'add_to_cart', 2), (208, 'add_to_cart', 1), (209, 'checkout', 3), (209, 'checkout', 1), (210, 'add_to_cart', 2), (210, 'view_details', 4), (210, 'checkout', 1), (211, 'view_details', 5), (212, 'add_to_cart', 9);",
+  "test_expected_columns": [
+    "session_id",
+    "add_to_cart_total",
+    "view_details_total",
+    "checkout_total"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      7,
+      8,
+      3
+    ],
+    [
+      202,
+      1,
+      2,
+      0
+    ],
+    [
+      203,
+      0,
+      13,
+      1
+    ],
+    [
+      204,
+      4,
+      0,
+      2
+    ],
+    [
+      205,
+      0,
+      0,
+      5
+    ],
+    [
+      206,
+      8,
+      8,
+      4
+    ],
+    [
+      207,
+      0,
+      1,
+      0
+    ],
+    [
+      208,
+      6,
+      0,
+      0
+    ],
+    [
+      209,
+      0,
+      0,
+      4
+    ],
+    [
+      210,
+      2,
+      4,
+      1
+    ],
+    [
+      211,
+      0,
+      5,
+      0
+    ],
+    [
+      212,
+      9,
+      0,
+      0
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "reshape",
+    "composite_moves": [
+      "reshape: pivot long-format cart_events rows into wide-format per-session columns using SUM(CASE WHEN event_stage = 'X' THEN event_count END) for each stage, grouped by session_id; COALESCE to 0 for missing stages"
+    ]
+  },
+  "hints": [
+    "You need to transform rows into columns, grouping by session_id.",
+    "Use CASE WHEN event_stage = 'add_to_cart' THEN event_count END inside a SUM() to create the add_to_cart_total column; repeat for the other two stages.",
+    "Wrap each SUM(CASE...) with COALESCE(..., 0) to replace NULL with 0 when a session has no rows for that stage, then GROUP BY session_id and ORDER BY session_id."
+  ],
+  "answer_key": "SELECT\n  session_id,\n  COALESCE(SUM(CASE WHEN event_stage = 'add_to_cart' THEN event_count END), 0) AS add_to_cart_total,\n  COALESCE(SUM(CASE WHEN event_stage = 'view_details' THEN event_count END), 0) AS view_details_total,\n  COALESCE(SUM(CASE WHEN event_stage = 'checkout' THEN event_count END), 0) AS checkout_total\nFROM cart_events\nGROUP BY session_id\nORDER BY session_id;",
+  "_meta": {
+    "question_type": "pivot",
+    "original_qtype": "pivot",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-04T19:48:27.233263",
+    "problem_id": "5701bc9c0837",
+    "validation_attempts": 1,
+    "scenario": "a fashion ecommerce site tracking add-to-cart and conversion",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

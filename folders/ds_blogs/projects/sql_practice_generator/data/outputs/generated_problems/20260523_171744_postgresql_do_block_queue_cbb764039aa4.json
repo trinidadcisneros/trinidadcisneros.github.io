@@ -1,0 +1,142 @@
+{
+  "title": "Alert Acknowledgment Queue Processing with State",
+  "prompt": "You are building an observability platform that tracks alerts and their acknowledgment lifecycle. The `alerts` table stores the current state of each alert (status, assigned engineer, acknowledgment timestamp). The `alert_events` log records incoming acknowledgment actions from engineers in chronological order. Each event references an alert and carries the engineer's ID who initiated the action.\n\nWrite a DO block that processes the `alert_events` log in `event_id` order. For each event, read the alert's current state, then apply the event's action ONLY if its preconditions are satisfied. Subsequent events must see the prior event's update. After the DO block completes, write a trailing `SELECT * FROM alerts ORDER BY alert_id;` to return the final snapshot.\n\nEvent-type rules:\n\n\u2022 When `event_type` = 1 ('acknowledge') applies:\n  - Preconditions:\n    + current `status` must be 'open'.\n  - Actions:\n    + set `status` to 'acknowledged'.\n    + set `assigned_engineer_id` to the event's `engineer_id`.\n    + set `ack_timestamp` to the event's `event_timestamp`.\n\n\u2022 When `event_type` = 2 ('escalate') applies:\n  - Preconditions:\n    + current `status` must be 'acknowledged'.\n    + the event's `engineer_id` must equal the current `assigned_engineer_id`.\n  - Actions:\n    + set `status` to 'escalated'.\n    + set `ack_timestamp` to NULL.\n\n\u2022 When `event_type` = 3 ('resolve') applies:\n  - Preconditions:\n    + current `status` must be 'acknowledged' OR 'escalated'.\n    + if current `status` is 'acknowledged', the event's `engineer_id` must equal the current `assigned_engineer_id`.\n  - Actions:\n    + set `status` to 'resolved'.\n\n\u2022 Events that fail their preconditions are no-ops (the alert row is unchanged).\n\nTest your solution by running the DO block followed immediately by `SELECT * FROM alerts ORDER BY alert_id;`",
+  "schema_ddl": "CREATE TABLE alerts (alert_id INT PRIMARY KEY, severity VARCHAR(20), status VARCHAR(20), assigned_engineer_id INT, ack_timestamp TIMESTAMP); CREATE TABLE alert_events (event_id INT PRIMARY KEY, alert_id INT, event_type INT, engineer_id INT, event_timestamp TIMESTAMP);",
+  "example_input_data": "INSERT INTO alerts (alert_id, severity, status, assigned_engineer_id, ack_timestamp) VALUES (101, 'critical', 'open', NULL, NULL), (102, 'high', 'open', NULL, NULL), (103, 'medium', 'open', NULL, NULL), (104, 'high', 'open', NULL, NULL); INSERT INTO alert_events (event_id, alert_id, event_type, engineer_id, event_timestamp) VALUES (1, 101, 1, 5, '2024-06-10 08:15:00'), (2, 102, 1, 7, '2024-06-10 08:20:00'), (3, 101, 2, 5, '2024-06-10 08:25:00'), (4, 103, 1, 9, '2024-06-10 08:30:00'), (5, 102, 3, 7, '2024-06-10 08:35:00'), (6, 101, 3, 12, '2024-06-10 08:40:00'), (7, 104, 1, 7, '2024-06-10 08:45:00'), (8, 104, 3, 7, '2024-06-10 08:50:00');",
+  "example_output_columns": [
+    "alert_id",
+    "severity",
+    "status",
+    "assigned_engineer_id",
+    "ack_timestamp"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "critical",
+      "resolved",
+      5,
+      null
+    ],
+    [
+      102,
+      "high",
+      "resolved",
+      7,
+      "2024-06-10 08:20:00"
+    ],
+    [
+      103,
+      "medium",
+      "acknowledged",
+      9,
+      "2024-06-10 08:30:00"
+    ],
+    [
+      104,
+      "high",
+      "resolved",
+      7,
+      "2024-06-10 08:45:00"
+    ]
+  ],
+  "test_data": "INSERT INTO alerts (alert_id, severity, status, assigned_engineer_id, ack_timestamp) VALUES (201, 'critical', 'open', NULL, NULL), (202, 'high', 'open', NULL, NULL), (203, 'low', 'open', NULL, NULL), (204, 'medium', 'open', NULL, NULL), (205, 'high', 'open', NULL, NULL), (206, 'critical', 'open', NULL, NULL), (207, 'low', 'open', NULL, NULL), (208, 'medium', 'open', NULL, NULL); INSERT INTO alert_events (event_id, alert_id, event_type, engineer_id, event_timestamp) VALUES (1, 201, 1, 10, '2024-06-12 09:00:00'), (2, 202, 1, 11, '2024-06-12 09:05:00'), (3, 201, 2, 10, '2024-06-12 09:10:00'), (4, 203, 1, 12, '2024-06-12 09:15:00'), (5, 204, 1, 13, '2024-06-12 09:20:00'), (6, 202, 3, 14, '2024-06-12 09:25:00'), (7, 201, 3, 10, '2024-06-12 09:30:00'), (8, 201, 1, 15, '2024-06-12 09:35:00'), (9, 205, 1, 16, '2024-06-12 09:40:00'), (10, 203, 2, 12, '2024-06-12 09:45:00'), (11, 204, 3, 13, '2024-06-12 09:50:00'), (12, 206, 1, 17, '2024-06-12 09:55:00'), (13, 203, 3, 18, '2024-06-12 10:00:00'), (14, 205, 2, 16, '2024-06-12 10:05:00'), (15, 207, 1, 19, '2024-06-12 10:10:00'), (16, 208, 1, 20, '2024-06-12 10:15:00'), (17, 206, 3, 17, '2024-06-12 10:20:00'), (18, 205, 3, 21, '2024-06-12 10:25:00'), (19, 207, 3, 19, '2024-06-12 10:30:00'), (20, 208, 2, 20, '2024-06-12 10:35:00'), (21, 202, 1, 22, '2024-06-12 10:40:00'), (22, 208, 3, 23, '2024-06-12 10:45:00');",
+  "test_expected_columns": [
+    "alert_id",
+    "severity",
+    "status",
+    "assigned_engineer_id",
+    "ack_timestamp"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "critical",
+      "resolved",
+      10,
+      null
+    ],
+    [
+      202,
+      "high",
+      "acknowledged",
+      11,
+      "2024-06-12 09:05:00"
+    ],
+    [
+      203,
+      "low",
+      "resolved",
+      12,
+      null
+    ],
+    [
+      204,
+      "medium",
+      "resolved",
+      13,
+      "2024-06-12 09:20:00"
+    ],
+    [
+      205,
+      "high",
+      "resolved",
+      16,
+      null
+    ],
+    [
+      206,
+      "critical",
+      "resolved",
+      17,
+      "2024-06-12 09:55:00"
+    ],
+    [
+      207,
+      "low",
+      "resolved",
+      19,
+      "2024-06-12 10:10:00"
+    ],
+    [
+      208,
+      "medium",
+      "resolved",
+      20,
+      null
+    ]
+  ],
+  "classification": {
+    "input_arrival": "procedural",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "declare RECORD and scalar variables",
+      "FOR-loop over request log in ID order",
+      "per-iteration SELECT INTO to read current state",
+      "IF/ELSIF branching on event_type AND state columns",
+      "conditional UPDATE inside matching branch",
+      "trailing SELECT to snapshot final state"
+    ]
+  },
+  "hints": [
+    "You need to read each alert's current status and assigned_engineer_id INSIDE the loop, before deciding whether to apply the event.",
+    "Use a FOR loop over alert_events ordered by event_id, and declare variables to hold the current status and assigned_engineer_id from the SELECT INTO statement.",
+    "The IF/ELSIF structure should check both the event_type and the current state variables; event_type=2 requires the engineer_id in the event to match the current assigned_engineer_id, and event_type=3 has different preconditions depending on whether the status is 'acknowledged' or 'escalated'."
+  ],
+  "answer_key": "DO $$\nDECLARE\n  rec RECORD;\n  cur_status VARCHAR(20);\n  cur_engineer INT;\nBEGIN\n  FOR rec IN SELECT * FROM alert_events ORDER BY event_id LOOP\n    SELECT status, assigned_engineer_id INTO cur_status, cur_engineer FROM alerts WHERE alert_id = rec.alert_id;\n    \n    IF rec.event_type = 1 AND cur_status = 'open' THEN\n      UPDATE alerts SET status = 'acknowledged', assigned_engineer_id = rec.engineer_id, ack_timestamp = rec.event_timestamp WHERE alert_id = rec.alert_id;\n    ELSIF rec.event_type = 2 AND cur_status = 'acknowledged' AND rec.engineer_id = cur_engineer THEN\n      UPDATE alerts SET status = 'escalated', ack_timestamp = NULL WHERE alert_id = rec.alert_id;\n    ELSIF rec.event_type = 3 AND (cur_status = 'escalated' OR (cur_status = 'acknowledged' AND rec.engineer_id = cur_engineer)) THEN\n      UPDATE alerts SET status = 'resolved' WHERE alert_id = rec.alert_id;\n    END IF;\n  END LOOP;\nEND $$;\nSELECT * FROM alerts ORDER BY alert_id;",
+  "_meta": {
+    "question_type": "do_block_queue",
+    "original_qtype": "do_block_queue",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-23T17:17:44.063800",
+    "problem_id": "cbb764039aa4",
+    "validation_attempts": 1,
+    "scenario": "an observability platform tracking alert acknowledge time and MTTR",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

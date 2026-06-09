@@ -1,0 +1,100 @@
+{
+  "problem": {
+    "title": "Driver Shift Event Queue Processor",
+    "prompt": "You are building a ride-share platform's shift management system. The `driver_shifts` table tracks each driver's current shift state: whether they are on-shift or off-shift, and their cumulative trip completion rate during the current shift. The `shift_events` log records requests from drivers to start shifts, end shifts, and log trip completions. You must process the events in chronological order; each event must read the row's current state before deciding whether to act. Subsequent events see the prior event's update.\n\nWrite a DO block that iterates `shift_events` in `event_id` order and applies the following rules:\n\n- When `event_type` = 1 ('start_shift') applies:\n  - Preconditions:\n    + current `shift_status` must be 'off'.\n  - Actions:\n    + set `shift_status` to 'active'.\n    + set `trips_completed` to 0.\n    + set `trips_attempted` to 0.\n\n- When `event_type` = 2 ('log_trip') applies:\n  - Preconditions:\n    + current `shift_status` must be 'active'.\n  - Actions:\n    + increment `trips_attempted` by 1.\n    + if the event's `trip_successful` is TRUE, increment `trips_completed` by 1.\n\n- When `event_type` = 3 ('end_shift') applies:\n  - Preconditions:\n    + current `shift_status` must be 'active'.\n    + current `trips_attempted` must be greater than 0.\n    + the event's `driver_id` must equal the state row's `driver_id`.\n  - Actions:\n    + set `shift_status` to 'off'.\n\n- Events that fail their preconditions are no-ops (the state row is unchanged).\n\nAfter the DO block completes, include a trailing `SELECT * FROM driver_shifts ORDER BY driver_id;` to return the final state.",
+    "schema_ddl": "CREATE TABLE driver_shifts (driver_id INT PRIMARY KEY, shift_status VARCHAR(20) NOT NULL, trips_completed INT NOT NULL DEFAULT 0, trips_attempted INT NOT NULL DEFAULT 0); CREATE TABLE shift_events (event_id SERIAL PRIMARY KEY, driver_id INT NOT NULL REFERENCES driver_shifts(driver_id), event_type INT NOT NULL, trip_successful BOOLEAN);",
+    "example_input_data": "INSERT INTO driver_shifts (driver_id, shift_status, trips_completed, trips_attempted) VALUES (101, 'off', 0, 0), (102, 'off', 0, 0); INSERT INTO shift_events (driver_id, event_type, trip_successful) VALUES (101, 1, NULL), (101, 2, TRUE), (101, 2, FALSE), (101, 3, NULL), (102, 1, NULL), (102, 2, TRUE), (101, 1, NULL), (101, 2, TRUE);",
+    "example_output_columns": [
+      "driver_id",
+      "shift_status",
+      "trips_completed",
+      "trips_attempted"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "active",
+        1,
+        1
+      ],
+      [
+        102,
+        "active",
+        1,
+        1
+      ]
+    ],
+    "test_data": "INSERT INTO driver_shifts (driver_id, shift_status, trips_completed, trips_attempted) VALUES (201, 'off', 0, 0), (202, 'off', 0, 0), (203, 'active', 2, 3), (204, 'off', 0, 0), (205, 'off', 0, 0); INSERT INTO shift_events (driver_id, event_type, trip_successful) VALUES (201, 1, NULL), (201, 2, TRUE), (201, 2, TRUE), (201, 2, FALSE), (201, 3, NULL), (201, 1, NULL), (201, 2, FALSE), (202, 2, TRUE), (202, 1, NULL), (202, 2, TRUE), (202, 2, TRUE), (202, 2, FALSE), (203, 2, TRUE), (203, 3, NULL), (203, 1, NULL), (203, 2, FALSE), (204, 1, NULL), (204, 3, NULL), (204, 2, TRUE), (204, 2, FALSE), (204, 3, NULL), (205, 1, NULL), (205, 1, NULL), (205, 2, TRUE), (205, 3, NULL), (205, 2, FALSE);",
+    "test_expected_columns": [
+      "driver_id",
+      "shift_status",
+      "trips_completed",
+      "trips_attempted"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "active",
+        0,
+        1
+      ],
+      [
+        202,
+        "active",
+        2,
+        3
+      ],
+      [
+        203,
+        "active",
+        0,
+        1
+      ],
+      [
+        204,
+        "off",
+        1,
+        2
+      ],
+      [
+        205,
+        "off",
+        1,
+        1
+      ]
+    ],
+    "classification": {
+      "input_arrival": "procedural",
+      "output_shape": "state_mutation",
+      "recipe": "do-block-sequential",
+      "composite_moves": [
+        "declare RECORD variable for shift_events row",
+        "declare scalar variables for current shift_status, trips_completed, trips_attempted",
+        "FOR-loop shift_events ORDER BY event_id",
+        "per iteration: SELECT current state INTO variables",
+        "branch on event_type AND current state conditions",
+        "conditionally UPDATE driver_shifts inside matching branch",
+        "trailing SELECT * FROM driver_shifts ORDER BY driver_id"
+      ]
+    },
+    "hints": [
+      "You need a FOR loop that processes shift_events in event_id order, reading the current state of each driver_shifts row before deciding what to do.",
+      "Use a RECORD variable to hold each shift_events row, and scalar variables to hold the current shift_status, trips_completed, and trips_attempted from driver_shifts. Inside the loop, SELECT those columns INTO your variables using the event's driver_id.",
+      "Build an IF/ELSIF chain that checks both the event_type and the current state variables. For event_type=1, only UPDATE if shift_status='off'. For event_type=2, only UPDATE if shift_status='active' (and conditionally increment trips_completed based on trip_successful). For event_type=3, only UPDATE if shift_status='active' AND trips_attempted>0. End with a SELECT * FROM driver_shifts ORDER BY driver_id."
+    ],
+    "answer_key": "DO $$\nDECLARE\n  rec RECORD;\n  cur_status VARCHAR(20);\n  cur_completed INT;\n  cur_attempted INT;\nBEGIN\n  FOR rec IN SELECT * FROM shift_events ORDER BY event_id LOOP\n    SELECT shift_status, trips_completed, trips_attempted INTO cur_status, cur_completed, cur_attempted\n    FROM driver_shifts WHERE driver_id = rec.driver_id;\n    \n    IF rec.event_type = 1 AND cur_status = 'off' THEN\n      UPDATE driver_shifts\n      SET shift_status = 'active', trips_completed = 0, trips_attempted = 0\n      WHERE driver_id = rec.driver_id;\n    ELSIF rec.event_type = 2 AND cur_status = 'active' THEN\n      IF rec.trip_successful THEN\n        UPDATE driver_shifts\n        SET trips_attempted = trips_attempted + 1, trips_completed = trips_completed + 1\n        WHERE driver_id = rec.driver_id;\n      ELSE\n        UPDATE driver_shifts\n        SET trips_attempted = trips_attempted + 1\n        WHERE driver_id = rec.driver_id;\n      END IF;\n    ELSIF rec.event_type = 3 AND cur_status = 'active' AND cur_attempted > 0 THEN\n      UPDATE driver_shifts\n      SET shift_status = 'off'\n      WHERE driver_id = rec.driver_id;\n    END IF;\n  END LOOP;\nEND $$;\n\nSELECT * FROM driver_shifts ORDER BY driver_id;",
+    "_meta": {
+      "question_type": "do_block_queue",
+      "dialect": "postgresql",
+      "generated_at": "2026-05-13T17:34:02.002799",
+      "problem_id": "03ffb3e1b3dc",
+      "validation_attempts": 1,
+      "scenario": "a ride-share platform tracking driver shifts and trip completion rates",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\nstate table Table >>\n\nTable: driver_shifts - tracks each driver's current shift state\ndriver_id\tINT PRIMARY KEY\nshift_status\tVARCHAR(20) NOT NULL\ntrips_completed\tINT NOT NULL DEFAULT 0\ntrips_attempted\tINT NOT NULL DEFAULT 0\n\n\nevent log Table >>\nTable: shift_events - log records requests from drivers to start shifts, end shifts, and log trip completions.\nevent_id\tSERIAL PRIMARY KEY\ndriver_id\tINT NOT NULL REFERENCES driver_shifts(driver_id)\nevent_type\tINT NOT NULL\ntrip_successful\tBOOLEAN\n\n\n */\n\nDO $$\nDECLARE\n    r RECORD;\n    current_shift_status VARCHAR(20);\n    current_trips_attempted INT;\nBEGIN\n    FOR r IN SELECT * FROM shift_events ORDER BY event_id LOOP\n        SELECT shift_status, trips_completed INTO current_shift_status, current_trips_attempted\n        FROM driver_shifts\n        WHERE driver_id = r.driver_id;\n\n        IF r.event_type = 1 AND current_shift_status =  'off' THEN\n            UPDATE driver_shifts\n            SET shift_status = 'active',\n                trips_completed = 0,\n                trips_attempted = 0\n            WHERE driver_id = r.driver_id;\n\n        ELSIF r.event_type = 2 AND current_shift_status =  'active' THEN\n            UPDATE driver_shifts\n            SET trips_attempted = trips_attempted + 1,\n                trips_completed = CASE WHEN r.trip_successful = TRUE THEN trips_completed + 1 ELSE trips_completed END\n            WHERE driver_id = r.driver_id;\n\n        ELSIF r.event_type = 3 AND current_shift_status =  'active' AND current_trips_attempted > 0 THEN\n            UPDATE driver_shifts\n            SET shift_status = 'off'\n            WHERE driver_id = r.driver_id;\n\n        END IF;\n    END LOOP;\nEND $$;\n\n\nSELECT * FROM driver_shifts ORDER BY driver_id;\n\n",
+  "solved_at": "2026-05-13T18:17:19.424070"
+}

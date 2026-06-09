@@ -1,0 +1,150 @@
+{
+  "problem": {
+    "title": "Top Quartile Test Kits by Result Turnaround",
+    "prompt": "You manage an at-home diagnostic test kit platform. Each kit ships to a patient, who completes the test and mails it back to the lab. The lab then releases the results. You need to identify the test kits with the fastest turnaround times (from shipment to result release) to recognize high-performing lab batches. Write a query that returns the top 25% (top quartile) of test kits ranked by their turnaround time in hours, from fastest to slowest. Turnaround time is calculated as the number of hours between `shipped_at` and `result_released_at`. If multiple kits have the same turnaround time at the 25% boundary, include all tied kits (use PERCENT_RANK so ties at the boundary are included). Your output must include four columns: `kit_id`, `patient_email`, `turnaround_hours`, and `percent_rank_value` (the PERCENT_RANK score rounded to 4 decimal places). Order the results by `turnaround_hours` ASC, then by `kit_id` ASC for ties.",
+    "schema_ddl": "CREATE TABLE diagnostic_kits (kit_id VARCHAR(20) PRIMARY KEY, patient_email VARCHAR(100) NOT NULL, lab_batch_code VARCHAR(10) NOT NULL, shipped_at TIMESTAMP NOT NULL, result_released_at TIMESTAMP); CREATE TABLE lab_batches (lab_batch_code VARCHAR(10) PRIMARY KEY, lab_location VARCHAR(50) NOT NULL, batch_start_date DATE NOT NULL);",
+    "example_input_data": "INSERT INTO lab_batches (lab_batch_code, lab_location, batch_start_date) VALUES ('B001', 'Seattle Lab', '2024-01-10'), ('B002', 'Austin Lab', '2024-01-12'), ('B003', 'Seattle Lab', '2024-01-15'); INSERT INTO diagnostic_kits (kit_id, patient_email, lab_batch_code, shipped_at, result_released_at) VALUES ('KIT001', 'alice@example.com', 'B001', '2024-01-11 08:00:00', '2024-01-12 10:00:00'), ('KIT002', 'bob@example.com', 'B001', '2024-01-11 09:00:00', '2024-01-12 15:00:00'), ('KIT003', 'carol@example.com', 'B002', '2024-01-13 07:00:00', '2024-01-14 19:00:00'), ('KIT004', 'dan@example.com', 'B002', '2024-01-13 08:00:00', '2024-01-14 08:00:00'), ('KIT005', 'eve@example.com', 'B003', '2024-01-16 10:00:00', '2024-01-17 10:00:00'), ('KIT006', 'frank@example.com', 'B003', '2024-01-16 11:00:00', '2024-01-17 11:00:00'), ('KIT007', 'grace@example.com', 'B001', '2024-01-11 10:00:00', '2024-01-12 10:00:00'), ('KIT008', 'hank@example.com', 'B002', '2024-01-13 06:00:00', NULL);",
+    "example_output_columns": [
+      "kit_id",
+      "patient_email",
+      "turnaround_hours",
+      "percent_rank_value"
+    ],
+    "example_output_rows": [
+      [
+        "KIT004",
+        "dan@example.com",
+        "24.0000",
+        "0.0000"
+      ],
+      [
+        "KIT005",
+        "eve@example.com",
+        "24.0000",
+        "0.0000"
+      ],
+      [
+        "KIT006",
+        "frank@example.com",
+        "24.0000",
+        "0.0000"
+      ],
+      [
+        "KIT007",
+        "grace@example.com",
+        "24.0000",
+        "0.0000"
+      ]
+    ],
+    "test_data": "INSERT INTO lab_batches (lab_batch_code, lab_location, batch_start_date) VALUES ('B101', 'Boston Lab', '2024-02-01'), ('B102', 'Denver Lab', '2024-02-03'), ('B103', 'Miami Lab', '2024-02-05'), ('B104', 'Portland Lab', '2024-02-07'); INSERT INTO diagnostic_kits (kit_id, patient_email, lab_batch_code, shipped_at, result_released_at) VALUES ('KIT101', 'patient01@example.com', 'B101', '2024-02-02 08:00:00', '2024-02-03 08:00:00'), ('KIT102', 'patient02@example.com', 'B101', '2024-02-02 09:00:00', '2024-02-03 15:00:00'), ('KIT103', 'patient03@example.com', 'B102', '2024-02-04 07:00:00', '2024-02-05 19:00:00'), ('KIT104', 'patient04@example.com', 'B102', '2024-02-04 08:00:00', '2024-02-05 08:00:00'), ('KIT105', 'patient05@example.com', 'B103', '2024-02-06 10:00:00', '2024-02-07 22:00:00'), ('KIT106', 'patient06@example.com', 'B103', '2024-02-06 11:00:00', '2024-02-07 23:00:00'), ('KIT107', 'patient07@example.com', 'B104', '2024-02-08 06:00:00', '2024-02-09 06:00:00'), ('KIT108', 'patient08@example.com', 'B104', '2024-02-08 07:00:00', '2024-02-09 19:00:00'), ('KIT109', 'patient09@example.com', 'B101', '2024-02-02 10:00:00', '2024-02-03 10:00:00'), ('KIT110', 'patient10@example.com', 'B102', '2024-02-04 09:00:00', '2024-02-05 21:00:00'), ('KIT111', 'patient11@example.com', 'B103', '2024-02-06 12:00:00', '2024-02-08 00:00:00'), ('KIT112', 'patient12@example.com', 'B104', '2024-02-08 08:00:00', '2024-02-09 20:00:00'), ('KIT113', 'patient13@example.com', 'B101', '2024-02-02 11:00:00', '2024-02-03 23:00:00'), ('KIT114', 'patient14@example.com', 'B102', '2024-02-04 10:00:00', '2024-02-05 10:00:00'), ('KIT115', 'patient15@example.com', 'B103', '2024-02-06 13:00:00', '2024-02-07 13:00:00'), ('KIT116', 'patient16@example.com', 'B104', '2024-02-08 09:00:00', '2024-02-09 09:00:00'), ('KIT117', 'patient17@example.com', 'B101', '2024-02-02 12:00:00', '2024-02-04 00:00:00'), ('KIT118', 'patient18@example.com', 'B102', '2024-02-04 11:00:00', '2024-02-05 23:00:00'), ('KIT119', 'patient19@example.com', 'B103', '2024-02-06 14:00:00', '2024-02-07 14:00:00'), ('KIT120', 'patient20@example.com', 'B104', '2024-02-08 10:00:00', NULL), ('KIT121', 'patient21@example.com', 'B101', '2024-02-02 13:00:00', '2024-02-03 13:00:00'), ('KIT122', 'patient22@example.com', 'B102', '2024-02-04 12:00:00', '2024-02-06 00:00:00'), ('KIT123', 'patient23@example.com', 'B103', '2024-02-06 15:00:00', '2024-02-08 03:00:00'), ('KIT124', 'patient24@example.com', 'B104', '2024-02-08 11:00:00', '2024-02-09 23:00:00'), ('KIT125', 'patient25@example.com', 'B101', '2024-02-02 14:00:00', '2024-02-03 14:00:00'), ('KIT126', 'patient26@example.com', 'B102', '2024-02-04 13:00:00', '2024-02-06 01:00:00'), ('KIT127', 'patient27@example.com', 'B103', '2024-02-06 16:00:00', '2024-02-07 16:00:00'), ('KIT128', 'patient28@example.com', 'B104', '2024-02-08 12:00:00', '2024-02-10 00:00:00');",
+    "test_expected_columns": [
+      "kit_id",
+      "patient_email",
+      "turnaround_hours",
+      "percent_rank_value"
+    ],
+    "test_expected_rows": [
+      [
+        "KIT101",
+        "patient01@example.com",
+        "24.0000",
+        "0.0000"
+      ],
+      [
+        "KIT104",
+        "patient04@example.com",
+        "24.0000",
+        "0.0000"
+      ],
+      [
+        "KIT107",
+        "patient07@example.com",
+        "24.0000",
+        "0.0000"
+      ],
+      [
+        "KIT109",
+        "patient09@example.com",
+        "24.0000",
+        "0.0000"
+      ],
+      [
+        "KIT114",
+        "patient14@example.com",
+        "24.0000",
+        "0.0000"
+      ],
+      [
+        "KIT115",
+        "patient15@example.com",
+        "24.0000",
+        "0.0000"
+      ],
+      [
+        "KIT116",
+        "patient16@example.com",
+        "24.0000",
+        "0.0000"
+      ],
+      [
+        "KIT119",
+        "patient19@example.com",
+        "24.0000",
+        "0.0000"
+      ],
+      [
+        "KIT121",
+        "patient21@example.com",
+        "24.0000",
+        "0.0000"
+      ],
+      [
+        "KIT125",
+        "patient25@example.com",
+        "24.0000",
+        "0.0000"
+      ],
+      [
+        "KIT127",
+        "patient27@example.com",
+        "24.0000",
+        "0.0000"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "rank-partition",
+      "composite_moves": [
+        "filter out NULLs (result_released_at)",
+        "compute derived column (turnaround_hours = EXTRACT(EPOCH FROM (result_released_at - shipped_at)) / 3600)",
+        "apply PERCENT_RANK() OVER (ORDER BY turnaround_hours ASC)",
+        "filter WHERE percent_rank <= 0.25",
+        "format percent_rank to 4 decimals",
+        "ORDER BY turnaround_hours ASC, kit_id ASC"
+      ]
+    },
+    "hints": [
+      "You'll need to compute the time difference between two timestamp columns and convert it to hours.",
+      "Use PERCENT_RANK() ordered by turnaround time ascending (fastest first) to find the top 25%. Remember that PERCENT_RANK returns 0 for the best row when ordering ASC.",
+      "Filter where PERCENT_RANK() <= 0.25. Use ROUND(PERCENT_RANK()::numeric, 4) to format the rank value. Don't forget to exclude kits where result_released_at is NULL."
+    ],
+    "answer_key": "WITH kit_turnaround AS (SELECT kit_id, patient_email, EXTRACT(EPOCH FROM (result_released_at - shipped_at)) / 3600 AS turnaround_hours FROM diagnostic_kits WHERE result_released_at IS NOT NULL), ranked_kits AS (SELECT kit_id, patient_email, turnaround_hours, PERCENT_RANK() OVER (ORDER BY turnaround_hours ASC) AS pct_rank FROM kit_turnaround) SELECT kit_id, patient_email, ROUND(turnaround_hours::numeric, 4) AS turnaround_hours, ROUND(pct_rank::numeric, 4) AS percent_rank_value FROM ranked_kits WHERE pct_rank <= 0.25 ORDER BY turnaround_hours ASC, kit_id ASC;",
+    "_meta": {
+      "question_type": "percentile_metrics",
+      "original_qtype": "percentile_metrics",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-16T20:09:47.986396",
+      "problem_id": "dabe89656220",
+      "validation_attempts": 1,
+      "scenario": "an at-home diagnostic test kit platform tracking kit shipped and results released",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": "top_n_percent"
+    }
+  },
+  "user_solution": "/*\nYou need to identify the test kits with the fastest turnaround times (from shipment to result release) to recognize high-performing lab batches.\n\nWrite a query that returns the top 25% (top quartile) of test kits ranked by their turnaround time in hours, from fastest to slowest.\n\nTurnaround time is calculated as the number of hours between `shipped_at` and `result_released_at`.\n\nIf multiple kits have the same turnaround time at the 25% boundary, include all tied kits (use PERCENT_RANK so ties at the boundary are included).\n\nYour output must include four columns: `kit_id`, `patient_email`, `turnaround_hours`, and `percent_rank_value` (the PERCENT_RANK score rounded to 4 decimal places).\nOrder the results by `turnaround_hours` ASC, then by `kit_id` ASC for ties.\n\n\n1. create turnaround_hours\n2. PERCENT_RANK on turnaround_hours\n\n */ \n\nWITH base AS (\n        SELECT *,\n        EXTRACT (EPOCH FROM (result_released_at - shipped_at)) / 3600 AS turnaround_hours\n        FROM diagnostic_kits\n        WHERE result_released_at IS NOT NULL\n),\nranking AS ( \nSELECT \n    kit_id,\n   patient_email,\n   ROUND(turnaround_hours, 4) AS turnaround_hours,\n   PERCENT_RANK() OVER (ORDER BY turnaround_hours) AS percent_rank_value\nFROM base\n)\nSELECT\n    kit_id,\n    patient_email,\n    turnaround_hours,\n    ROUND(percent_rank_value::numeric, 4) AS percent_rank_value\nFROM ranking\nWHERE percent_rank_value <= 0.25\nORDER BY turnaround_hours ASC, kit_id\n;",
+  "solved_at": "2026-05-16T20:23:48.935705"
+}

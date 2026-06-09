@@ -1,0 +1,54 @@
+{
+  "title": "Calculate User Match Success Rate",
+  "prompt": "Write a PostgreSQL function `calculate_match_success_rate(user_id_param INT, min_date DATE)` that returns the percentage of matches that resulted in at least one message exchange for a given user on or after a minimum date. A match is considered successful if both users sent at least one message to each other after the match was created. The function should return a NUMERIC value rounded to 2 decimal places representing the success rate (0.00 to 100.00). If the user has no matches on or after the specified date, return 0.00. Test your function by calling: `SELECT calculate_match_success_rate(101, '2024-01-01') AS result;`",
+  "schema_ddl": "CREATE TABLE users (user_id INT PRIMARY KEY, username VARCHAR(100), join_date DATE); CREATE TABLE matches (match_id INT PRIMARY KEY, user1_id INT, user2_id INT, match_date DATE); CREATE TABLE messages (message_id INT PRIMARY KEY, sender_id INT, recipient_id INT, match_id INT, sent_at TIMESTAMP);",
+  "example_input_data": "INSERT INTO users (user_id, username, join_date) VALUES (101, 'alex_m', '2023-12-01'), (102, 'jordan_k', '2023-12-15'), (103, 'sam_r', '2024-01-05'), (104, 'taylor_b', '2024-01-10'), (105, 'casey_w', '2024-01-12'); INSERT INTO matches (match_id, user1_id, user2_id, match_date) VALUES (1, 101, 102, '2023-12-20'), (2, 101, 103, '2024-01-08'), (3, 101, 104, '2024-01-15'), (4, 101, 105, '2024-01-20'), (5, 102, 103, '2024-01-18'); INSERT INTO messages (message_id, sender_id, recipient_id, match_id, sent_at) VALUES (1, 101, 103, 2, '2024-01-09 10:00:00'), (2, 103, 101, 2, '2024-01-09 11:30:00'), (3, 101, 104, 3, '2024-01-16 14:00:00'), (4, 101, 105, 4, '2024-01-21 09:00:00'), (5, 105, 101, 4, '2024-01-21 15:00:00'), (6, 102, 103, 5, '2024-01-19 12:00:00');",
+  "example_output_columns": [
+    "result"
+  ],
+  "example_output_rows": [
+    [
+      "66.67"
+    ]
+  ],
+  "test_data": "INSERT INTO users (user_id, username, join_date) VALUES (101, 'alex_m', '2023-12-01'), (102, 'jordan_k', '2023-12-15'), (103, 'sam_r', '2024-01-05'), (104, 'taylor_b', '2024-01-10'), (105, 'casey_w', '2024-01-12'), (106, 'morgan_d', '2024-01-15'), (107, 'riley_p', '2024-01-18'), (108, 'avery_l', '2024-01-20'), (109, 'quinn_s', '2024-01-22'), (110, 'drew_h', '2024-01-25'); INSERT INTO matches (match_id, user1_id, user2_id, match_date) VALUES (1, 101, 102, '2023-12-20'), (2, 101, 103, '2024-01-08'), (3, 101, 104, '2024-01-15'), (4, 101, 105, '2024-01-20'), (5, 101, 106, '2024-01-22'), (6, 101, 107, '2024-01-25'), (7, 101, 108, '2024-01-28'), (8, 101, 109, '2024-02-01'), (9, 101, 110, '2024-02-05'), (10, 102, 103, '2024-01-18'), (11, 104, 105, '2024-01-19'), (12, 106, 107, '2024-01-26'), (13, 108, 109, '2024-02-02'), (14, 109, 110, '2024-02-06'); INSERT INTO messages (message_id, sender_id, recipient_id, match_id, sent_at) VALUES (1, 101, 103, 2, '2024-01-09 10:00:00'), (2, 103, 101, 2, '2024-01-09 11:30:00'), (3, 101, 104, 3, '2024-01-16 14:00:00'), (4, 101, 105, 4, '2024-01-21 09:00:00'), (5, 105, 101, 4, '2024-01-21 15:00:00'), (6, 101, 106, 5, '2024-01-23 08:00:00'), (7, 106, 101, 5, '2024-01-23 10:00:00'), (8, 101, 107, 6, '2024-01-26 12:00:00'), (9, 101, 108, 7, '2024-01-29 16:00:00'), (10, 108, 101, 7, '2024-01-29 17:30:00'), (11, 101, 109, 8, '2024-02-02 11:00:00'), (12, 102, 103, 10, '2024-01-19 12:00:00'), (13, 104, 105, 11, '2024-01-20 13:00:00'), (14, 105, 104, 11, '2024-01-20 14:00:00'), (15, 106, 107, 12, '2024-01-27 09:00:00'), (16, 107, 106, 12, '2024-01-27 10:00:00'), (17, 108, 109, 13, '2024-02-03 15:00:00'), (18, 109, 110, 14, '2024-02-07 11:00:00'), (19, 110, 109, 14, '2024-02-07 12:00:00');",
+  "test_expected_columns": [
+    "result"
+  ],
+  "test_expected_rows": [
+    [
+      "50.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "scalar_return",
+    "recipe": "function-wrapped",
+    "composite_moves": [
+      "enrich-join matches with messages",
+      "group-aggregate to identify bidirectional messaging per match",
+      "row-filter matches by date and user",
+      "scalar-extract percentage calculation"
+    ]
+  },
+  "hints": [
+    "You need to identify which matches involve the specified user and occur on or after the minimum date.",
+    "A successful match requires at least one message from the user to their match AND at least one message back from the match to the user. Use COUNT DISTINCT or EXISTS to check both directions.",
+    "Calculate the percentage by dividing successful matches by total matches for that user in the date range, then multiply by 100 and round to 2 decimal places."
+  ],
+  "answer_key": "CREATE OR REPLACE FUNCTION calculate_match_success_rate(user_id_param INT, min_date DATE)\nRETURNS NUMERIC AS $$\nDECLARE\n  total_matches INT;\n  successful_matches INT;\nBEGIN\n  SELECT COUNT(*)\n  INTO total_matches\n  FROM matches\n  WHERE (user1_id = user_id_param OR user2_id = user_id_param)\n    AND match_date >= min_date;\n  \n  IF total_matches = 0 THEN\n    RETURN 0.00;\n  END IF;\n  \n  SELECT COUNT(DISTINCT m.match_id)\n  INTO successful_matches\n  FROM matches m\n  WHERE (m.user1_id = user_id_param OR m.user2_id = user_id_param)\n    AND m.match_date >= min_date\n    AND EXISTS (\n      SELECT 1 FROM messages msg1\n      WHERE msg1.match_id = m.match_id\n        AND msg1.sender_id = user_id_param\n    )\n    AND EXISTS (\n      SELECT 1 FROM messages msg2\n      WHERE msg2.match_id = m.match_id\n        AND msg2.recipient_id = user_id_param\n        AND msg2.sender_id != user_id_param\n    );\n  \n  RETURN ROUND((successful_matches::NUMERIC / total_matches::NUMERIC) * 100, 2);\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT calculate_match_success_rate(101, '2024-01-01') AS result;",
+  "_meta": {
+    "question_type": "returns_scalar",
+    "original_qtype": "returns_scalar",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "booedup",
+    "generated_at": "2026-05-21T19:25:11.814721",
+    "problem_id": "00acc8388bc0",
+    "validation_attempts": 1,
+    "scenario": "the BooedUp dating app",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

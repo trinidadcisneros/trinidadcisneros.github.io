@@ -1,0 +1,220 @@
+{
+  "problem": {
+    "title": "Tutor Quartile Ranking by Completion Rate",
+    "prompt": "You manage a tutoring marketplace and want to segment tutors by their session completion rate. Write a query that assigns each tutor to a quartile (1-4) based on their completion rate, where quartile 1 contains tutors with the highest completion rates. The completion rate is calculated as `completed_sessions / total_sessions`. Return three columns: `tutor_name`, `completion_rate` (rounded to 2 decimal places), and `quartile`. Order the results by `quartile` ascending, then by `completion_rate` descending. Tutors with zero total sessions should be excluded from the analysis.",
+    "schema_ddl": "CREATE TABLE tutors (tutor_id SERIAL PRIMARY KEY, tutor_name VARCHAR(100) NOT NULL, completed_sessions INT NOT NULL, total_sessions INT NOT NULL);",
+    "example_input_data": "INSERT INTO tutors (tutor_name, completed_sessions, total_sessions) VALUES ('Alice Chen', 95, 100), ('Bob Martinez', 78, 90), ('Carol Kim', 60, 80), ('David Park', 45, 50), ('Emma Wilson', 30, 60), ('Frank Lee', 18, 40), ('Grace Taylor', 15, 30), ('Henry Zhang', 5, 25);",
+    "example_output_columns": [
+      "tutor_name",
+      "completion_rate",
+      "quartile"
+    ],
+    "example_output_rows": [
+      [
+        "Alice Chen",
+        "0.95",
+        "1"
+      ],
+      [
+        "David Park",
+        "0.90",
+        "1"
+      ],
+      [
+        "Bob Martinez",
+        "0.87",
+        "2"
+      ],
+      [
+        "Carol Kim",
+        "0.75",
+        "2"
+      ],
+      [
+        "Emma Wilson",
+        "0.50",
+        "3"
+      ],
+      [
+        "Grace Taylor",
+        "0.50",
+        "3"
+      ],
+      [
+        "Frank Lee",
+        "0.45",
+        "4"
+      ],
+      [
+        "Henry Zhang",
+        "0.20",
+        "4"
+      ]
+    ],
+    "test_data": "INSERT INTO tutors (tutor_name, completed_sessions, total_sessions) VALUES ('Tutor A', 100, 100), ('Tutor B', 98, 100), ('Tutor C', 95, 100), ('Tutor D', 90, 100), ('Tutor E', 85, 100), ('Tutor F', 80, 100), ('Tutor G', 75, 100), ('Tutor H', 70, 100), ('Tutor I', 65, 100), ('Tutor J', 60, 100), ('Tutor K', 55, 100), ('Tutor L', 50, 100), ('Tutor M', 45, 100), ('Tutor N', 40, 100), ('Tutor O', 35, 100), ('Tutor P', 30, 100), ('Tutor Q', 25, 100), ('Tutor R', 20, 100), ('Tutor S', 15, 100), ('Tutor T', 10, 100), ('Tutor U', 5, 100), ('Tutor V', 0, 0), ('Tutor W', 88, 100), ('Tutor X', 72, 100), ('Tutor Y', 58, 100), ('Tutor Z', 12, 100);",
+    "test_expected_columns": [
+      "tutor_name",
+      "completion_rate",
+      "quartile"
+    ],
+    "test_expected_rows": [
+      [
+        "Tutor A",
+        "1.00",
+        "1"
+      ],
+      [
+        "Tutor B",
+        "0.98",
+        "1"
+      ],
+      [
+        "Tutor C",
+        "0.95",
+        "1"
+      ],
+      [
+        "Tutor D",
+        "0.90",
+        "1"
+      ],
+      [
+        "Tutor W",
+        "0.88",
+        "1"
+      ],
+      [
+        "Tutor E",
+        "0.85",
+        "1"
+      ],
+      [
+        "Tutor F",
+        "0.80",
+        "1"
+      ],
+      [
+        "Tutor G",
+        "0.75",
+        "2"
+      ],
+      [
+        "Tutor X",
+        "0.72",
+        "2"
+      ],
+      [
+        "Tutor H",
+        "0.70",
+        "2"
+      ],
+      [
+        "Tutor I",
+        "0.65",
+        "2"
+      ],
+      [
+        "Tutor J",
+        "0.60",
+        "2"
+      ],
+      [
+        "Tutor Y",
+        "0.58",
+        "2"
+      ],
+      [
+        "Tutor K",
+        "0.55",
+        "3"
+      ],
+      [
+        "Tutor L",
+        "0.50",
+        "3"
+      ],
+      [
+        "Tutor M",
+        "0.45",
+        "3"
+      ],
+      [
+        "Tutor N",
+        "0.40",
+        "3"
+      ],
+      [
+        "Tutor O",
+        "0.35",
+        "3"
+      ],
+      [
+        "Tutor P",
+        "0.30",
+        "3"
+      ],
+      [
+        "Tutor Q",
+        "0.25",
+        "4"
+      ],
+      [
+        "Tutor R",
+        "0.20",
+        "4"
+      ],
+      [
+        "Tutor S",
+        "0.15",
+        "4"
+      ],
+      [
+        "Tutor Z",
+        "0.12",
+        "4"
+      ],
+      [
+        "Tutor T",
+        "0.10",
+        "4"
+      ],
+      [
+        "Tutor U",
+        "0.05",
+        "4"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "rank-partition",
+      "composite_moves": [
+        "row-filter to exclude zero total_sessions",
+        "scalar-extract to compute completion_rate",
+        "rank-partition using NTILE to assign quartiles"
+      ]
+    },
+    "hints": [
+      "You'll need to calculate a rate and then divide rows into equal-sized groups based on that rate.",
+      "The NTILE window function can split rows into N buckets. Use ORDER BY with the completion rate descending so the highest rates get quartile 1.",
+      "Filter out tutors with total_sessions = 0, compute completion_rate as completed_sessions / total_sessions, then use NTILE(4) OVER (ORDER BY completion_rate DESC) to assign quartiles."
+    ],
+    "answer_key": "WITH tutor_rates AS (\n  SELECT\n    tutor_name,\n    ROUND(completed_sessions::DECIMAL / total_sessions, 2) AS completion_rate\n  FROM tutors\n  WHERE total_sessions > 0\n),\ntutor_quartiles AS (\n  SELECT\n    tutor_name,\n    completion_rate,\n    NTILE(4) OVER (ORDER BY completion_rate DESC) AS quartile\n  FROM tutor_rates\n)\nSELECT\n  tutor_name,\n  completion_rate::TEXT,\n  quartile::TEXT\nFROM tutor_quartiles\nORDER BY quartile ASC, completion_rate DESC;",
+    "_meta": {
+      "question_type": "percentile_metrics",
+      "original_qtype": "percentile_metrics",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-27T19:48:52.294137",
+      "problem_id": "591f1d162d5b",
+      "validation_attempts": 1,
+      "scenario": "a tutoring marketplace tracking session booking and tutor ratings",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": "ntile_buckets"
+    }
+  },
+  "user_solution": "/*\n1. completion rate\n2. quartile using NTILE\n\n */\nWITH base AS (\n    SELECT \n        tutor_name,\n        completed_sessions,\n        total_sessions,\n        COALESCE(ROUND(completed_sessions::numeric/total_sessions, 2), 0.00) AS completion_rate\n    FROM tutors\n    WHERE total_sessions >0\n\n)\nSELECT\n    tutor_name,\n    completion_rate,\n    NTILE(4) OVER (ORDER BY completion_rate DESC) AS quartile\nFROM base\nORDER BY quartile, completion_rate DESC;\n",
+  "solved_at": "2026-05-27T20:00:59.792723"
+}

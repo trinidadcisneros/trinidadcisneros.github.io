@@ -1,0 +1,125 @@
+{
+  "title": "Portfolio Rebalancing Recommendations by Drift",
+  "prompt": "You are building a robo-advisor feature that identifies portfolios needing rebalancing. A portfolio needs rebalancing when any asset class has drifted more than a given threshold percentage away from its target allocation. Write a function `get_rebalancing_candidates` that accepts two parameters: `p_as_of_date DATE` (the snapshot date to analyze) and `p_drift_threshold DECIMAL(5,2)` (the maximum allowed drift percentage, e.g. 5.00 means 5%). The function should return a table with columns `portfolio_id INT, client_name VARCHAR(100), asset_class VARCHAR(50), target_pct DECIMAL(5,2), current_pct DECIMAL(5,2), drift_pct DECIMAL(5,2)` for every asset class in every portfolio where the absolute drift exceeds the threshold on the given date. Calculate current_pct as `(current_value / portfolio_total) * 100` where portfolio_total is the sum of all asset class values in that portfolio on that date. Calculate drift_pct as `current_pct - target_pct`. Only include rows where `ABS(drift_pct) > p_drift_threshold`. Order results by portfolio_id, then drift_pct descending (largest drifts first). Test your function by calling: `SELECT * FROM get_rebalancing_candidates(DATE '2024-03-15', 5.00);`",
+  "schema_ddl": "CREATE TABLE portfolios (portfolio_id INT PRIMARY KEY, client_name VARCHAR(100) NOT NULL, created_date DATE NOT NULL); CREATE TABLE target_allocations (portfolio_id INT NOT NULL, asset_class VARCHAR(50) NOT NULL, target_pct DECIMAL(5,2) NOT NULL, PRIMARY KEY (portfolio_id, asset_class)); CREATE TABLE holdings_snapshots (snapshot_id INT PRIMARY KEY, portfolio_id INT NOT NULL, asset_class VARCHAR(50) NOT NULL, snapshot_date DATE NOT NULL, current_value DECIMAL(12,2) NOT NULL);",
+  "example_input_data": "INSERT INTO portfolios (portfolio_id, client_name, created_date) VALUES (1, 'Alice Chen', '2024-01-10'), (2, 'Bob Martinez', '2024-01-15'), (3, 'Carol Singh', '2024-02-01'); INSERT INTO target_allocations (portfolio_id, asset_class, target_pct) VALUES (1, 'Equities', 60.00), (1, 'Bonds', 30.00), (1, 'Cash', 10.00), (2, 'Equities', 70.00), (2, 'Bonds', 25.00), (2, 'Cash', 5.00), (3, 'Equities', 50.00), (3, 'Bonds', 40.00), (3, 'Cash', 10.00); INSERT INTO holdings_snapshots (snapshot_id, portfolio_id, asset_class, snapshot_date, current_value) VALUES (1, 1, 'Equities', '2024-03-15', 68000.00), (2, 1, 'Bonds', '2024-03-15', 25000.00), (3, 1, 'Cash', '2024-03-15', 7000.00), (4, 2, 'Equities', '2024-03-15', 52500.00), (5, 2, 'Bonds', '2024-03-15', 18750.00), (6, 2, 'Cash', '2024-03-15', 3750.00), (7, 3, 'Equities', '2024-03-15', 40000.00), (8, 3, 'Bonds', '2024-03-15', 40000.00), (9, 3, 'Cash', '2024-03-15', 20000.00);",
+  "example_output_columns": [
+    "portfolio_id",
+    "client_name",
+    "asset_class",
+    "target_pct",
+    "current_pct",
+    "drift_pct"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Alice Chen",
+      "Equities",
+      "60.00",
+      "68.00",
+      "8.00"
+    ],
+    [
+      3,
+      "Carol Singh",
+      "Cash",
+      "10.00",
+      "20.00",
+      "10.00"
+    ],
+    [
+      3,
+      "Carol Singh",
+      "Equities",
+      "50.00",
+      "40.00",
+      "-10.00"
+    ]
+  ],
+  "test_data": "INSERT INTO portfolios (portfolio_id, client_name, created_date) VALUES (1, 'Alice Chen', '2024-01-10'), (2, 'Bob Martinez', '2024-01-15'), (3, 'Carol Singh', '2024-02-01'), (4, 'David Lee', '2024-02-10'), (5, 'Emma Wilson', '2024-03-01'); INSERT INTO target_allocations (portfolio_id, asset_class, target_pct) VALUES (1, 'Equities', 60.00), (1, 'Bonds', 30.00), (1, 'Cash', 10.00), (2, 'Equities', 70.00), (2, 'Bonds', 25.00), (2, 'Cash', 5.00), (3, 'Equities', 50.00), (3, 'Bonds', 40.00), (3, 'Cash', 10.00), (4, 'Equities', 80.00), (4, 'Bonds', 15.00), (4, 'Cash', 5.00), (5, 'Equities', 55.00), (5, 'Bonds', 35.00), (5, 'Cash', 10.00); INSERT INTO holdings_snapshots (snapshot_id, portfolio_id, asset_class, snapshot_date, current_value) VALUES (1, 1, 'Equities', '2024-03-15', 68000.00), (2, 1, 'Bonds', '2024-03-15', 25000.00), (3, 1, 'Cash', '2024-03-15', 7000.00), (4, 2, 'Equities', '2024-03-15', 52500.00), (5, 2, 'Bonds', '2024-03-15', 18750.00), (6, 2, 'Cash', '2024-03-15', 3750.00), (7, 3, 'Equities', '2024-03-15', 40000.00), (8, 3, 'Bonds', '2024-03-15', 40000.00), (9, 3, 'Cash', '2024-03-15', 20000.00), (10, 4, 'Equities', '2024-03-15', 95000.00), (11, 4, 'Bonds', '2024-03-15', 3000.00), (12, 4, 'Cash', '2024-03-15', 2000.00), (13, 5, 'Equities', '2024-03-15', 110000.00), (14, 5, 'Bonds', '2024-03-15', 70000.00), (15, 5, 'Cash', '2024-03-15', 20000.00), (16, 1, 'Equities', '2024-04-01', 62000.00), (17, 1, 'Bonds', '2024-04-01', 28000.00), (18, 1, 'Cash', '2024-04-01', 10000.00), (19, 2, 'Equities', '2024-04-01', 70000.00), (20, 2, 'Bonds', '2024-04-01', 25000.00), (21, 2, 'Cash', '2024-04-01', 5000.00), (22, 3, 'Equities', '2024-04-01', 50000.00), (23, 3, 'Bonds', '2024-04-01', 40000.00), (24, 3, 'Cash', '2024-04-01', 10000.00);",
+  "test_expected_columns": [
+    "portfolio_id",
+    "client_name",
+    "asset_class",
+    "target_pct",
+    "current_pct",
+    "drift_pct"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "Alice Chen",
+      "Equities",
+      "60.00",
+      "68.00",
+      "8.00"
+    ],
+    [
+      3,
+      "Carol Singh",
+      "Cash",
+      "10.00",
+      "20.00",
+      "10.00"
+    ],
+    [
+      3,
+      "Carol Singh",
+      "Equities",
+      "50.00",
+      "40.00",
+      "-10.00"
+    ],
+    [
+      4,
+      "David Lee",
+      "Equities",
+      "80.00",
+      "95.00",
+      "15.00"
+    ],
+    [
+      4,
+      "David Lee",
+      "Bonds",
+      "15.00",
+      "3.00",
+      "-12.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "join portfolios, target_allocations, holdings_snapshots on portfolio_id and asset_class",
+      "filter on snapshot_date = parameter",
+      "window function SUM(current_value) OVER (PARTITION BY portfolio_id) to get portfolio total",
+      "compute current_pct = (current_value / portfolio_total) * 100",
+      "compute drift_pct = current_pct - target_pct",
+      "filter WHERE ABS(drift_pct) > parameter threshold",
+      "order by portfolio_id, drift_pct DESC"
+    ]
+  },
+  "hints": [
+    "You'll need to join all three tables and filter by the snapshot_date parameter to get the current holdings for the given date.",
+    "Use a window function SUM(...) OVER (PARTITION BY portfolio_id) to calculate the total value of each portfolio, then compute current_pct as (current_value / total) * 100.",
+    "Calculate drift_pct as current_pct - target_pct, filter where ABS(drift_pct) exceeds the threshold parameter, and order by portfolio_id and drift_pct descending. Remember to alias the source tables in your RETURN QUERY to avoid column name shadowing."
+  ],
+  "answer_key": "CREATE OR REPLACE FUNCTION get_rebalancing_candidates(p_as_of_date DATE, p_drift_threshold DECIMAL(5,2))\nRETURNS TABLE (\n  portfolio_id INT,\n  client_name VARCHAR(100),\n  asset_class VARCHAR(50),\n  target_pct DECIMAL(5,2),\n  current_pct DECIMAL(5,2),\n  drift_pct DECIMAL(5,2)\n)\nAS $$\nBEGIN\n  RETURN QUERY (\n    WITH portfolio_totals AS (\n      SELECT\n        hs.portfolio_id,\n        hs.asset_class,\n        hs.current_value,\n        SUM(hs.current_value) OVER (PARTITION BY hs.portfolio_id) AS total_value\n      FROM holdings_snapshots hs\n      WHERE hs.snapshot_date = p_as_of_date\n    )\n    SELECT\n      p.portfolio_id,\n      p.client_name,\n      pt.asset_class,\n      ta.target_pct,\n      ROUND((pt.current_value / pt.total_value * 100)::NUMERIC, 2) AS current_pct,\n      ROUND((pt.current_value / pt.total_value * 100 - ta.target_pct)::NUMERIC, 2) AS drift_pct\n    FROM portfolio_totals pt\n    JOIN portfolios p ON pt.portfolio_id = p.portfolio_id\n    JOIN target_allocations ta ON pt.portfolio_id = ta.portfolio_id AND pt.asset_class = ta.asset_class\n    WHERE ABS(pt.current_value / pt.total_value * 100 - ta.target_pct) > p_drift_threshold\n    ORDER BY p.portfolio_id, drift_pct DESC\n  );\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT * FROM get_rebalancing_candidates(DATE '2024-03-15', 5.00);",
+  "_meta": {
+    "question_type": "returns_table",
+    "original_qtype": "returns_table",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-26T19:41:32.523277",
+    "problem_id": "1b846c4d6778",
+    "validation_attempts": 2,
+    "scenario": "a robo advisor tracking portfolio rebalancing and AUM growth",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

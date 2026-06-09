@@ -1,0 +1,358 @@
+{
+  "problem": {
+    "title": "First and Last Lesson per Streak",
+    "prompt": "You're analyzing learner engagement in a language learning app. The `streak_lessons` table records every lesson completed during active learning streaks. Each row has a unique `lesson_id`, the learner's `user_id`, the date the lesson was completed (`completion_date`), the `streak_id` identifying which streak the lesson belongs to, and the `lesson_title`. Write a query that returns, for each lesson, the lesson's own details plus the title of the FIRST lesson and the LAST lesson completed in that streak. The output should include: `lesson_id`, `user_id`, `streak_id`, `completion_date`, `lesson_title`, `first_lesson_in_streak` (the title of the earliest lesson in that streak), and `last_lesson_in_streak` (the title of the final lesson in that streak). Order the result by `user_id`, `streak_id`, `completion_date`. Note that some streaks may have only one lesson (so first and last are the same), and ensure your window frame captures the true last value of the partition, not just the current row.",
+    "schema_ddl": "CREATE TABLE streak_lessons (lesson_id INT PRIMARY KEY, user_id INT NOT NULL, streak_id INT NOT NULL, completion_date DATE NOT NULL, lesson_title VARCHAR(100) NOT NULL);",
+    "example_input_data": "INSERT INTO streak_lessons (lesson_id, user_id, streak_id, completion_date, lesson_title) VALUES (1, 101, 1, '2024-01-10', 'Greetings Basics'), (2, 101, 1, '2024-01-11', 'Numbers 1-10'), (3, 101, 1, '2024-01-12', 'Common Phrases'), (4, 101, 2, '2024-02-05', 'Verbs Introduction'), (5, 102, 3, '2024-01-15', 'Alphabet Review'), (6, 102, 3, '2024-01-16', 'Pronunciation Guide'), (7, 102, 3, '2024-01-17', 'Simple Sentences'), (8, 103, 4, '2024-01-20', 'Food Vocabulary');",
+    "example_output_columns": [
+      "lesson_id",
+      "user_id",
+      "streak_id",
+      "completion_date",
+      "lesson_title",
+      "first_lesson_in_streak",
+      "last_lesson_in_streak"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        101,
+        1,
+        "2024-01-10",
+        "Greetings Basics",
+        "Greetings Basics",
+        "Common Phrases"
+      ],
+      [
+        2,
+        101,
+        1,
+        "2024-01-11",
+        "Numbers 1-10",
+        "Greetings Basics",
+        "Common Phrases"
+      ],
+      [
+        3,
+        101,
+        1,
+        "2024-01-12",
+        "Common Phrases",
+        "Greetings Basics",
+        "Common Phrases"
+      ],
+      [
+        4,
+        101,
+        2,
+        "2024-02-05",
+        "Verbs Introduction",
+        "Verbs Introduction",
+        "Verbs Introduction"
+      ],
+      [
+        5,
+        102,
+        3,
+        "2024-01-15",
+        "Alphabet Review",
+        "Alphabet Review",
+        "Simple Sentences"
+      ],
+      [
+        6,
+        102,
+        3,
+        "2024-01-16",
+        "Pronunciation Guide",
+        "Alphabet Review",
+        "Simple Sentences"
+      ],
+      [
+        7,
+        102,
+        3,
+        "2024-01-17",
+        "Simple Sentences",
+        "Alphabet Review",
+        "Simple Sentences"
+      ],
+      [
+        8,
+        103,
+        4,
+        "2024-01-20",
+        "Food Vocabulary",
+        "Food Vocabulary",
+        "Food Vocabulary"
+      ]
+    ],
+    "test_data": "INSERT INTO streak_lessons (lesson_id, user_id, streak_id, completion_date, lesson_title) VALUES (101, 201, 10, '2024-03-01', 'Travel Basics'), (102, 201, 10, '2024-03-02', 'Airport Phrases'), (103, 201, 10, '2024-03-03', 'Hotel Check-in'), (104, 201, 10, '2024-03-04', 'Ordering Food'), (105, 201, 10, '2024-03-05', 'Directions'), (106, 201, 11, '2024-04-10', 'Weather Talk'), (107, 202, 12, '2024-03-08', 'Family Members'), (108, 202, 12, '2024-03-09', 'Household Items'), (109, 202, 12, '2024-03-10', 'Daily Routine'), (110, 202, 12, '2024-03-11', 'Time Expressions'), (111, 203, 13, '2024-03-15', 'Colors and Shapes'), (112, 203, 13, '2024-03-16', 'Animals'), (113, 203, 13, '2024-03-17', 'Body Parts'), (114, 204, 14, '2024-03-20', 'Business Intro'), (115, 204, 14, '2024-03-21', 'Email Etiquette'), (116, 204, 14, '2024-03-22', 'Meeting Phrases'), (117, 204, 14, '2024-03-23', 'Negotiations'), (118, 205, 15, '2024-03-25', 'Solo Lesson'), (119, 206, 16, '2024-04-01', 'Tech Vocabulary'), (120, 206, 16, '2024-04-02', 'Social Media'), (121, 207, 17, '2024-04-05', 'Sports Terms'), (122, 207, 17, '2024-04-06', 'Fitness Phrases'), (123, 207, 17, '2024-04-07', 'Competition Words'), (124, 207, 17, '2024-04-08', 'Team Language'), (125, 207, 17, '2024-04-09', 'Victory Expressions');",
+    "test_expected_columns": [
+      "lesson_id",
+      "user_id",
+      "streak_id",
+      "completion_date",
+      "lesson_title",
+      "first_lesson_in_streak",
+      "last_lesson_in_streak"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        201,
+        10,
+        "2024-03-01",
+        "Travel Basics",
+        "Travel Basics",
+        "Directions"
+      ],
+      [
+        102,
+        201,
+        10,
+        "2024-03-02",
+        "Airport Phrases",
+        "Travel Basics",
+        "Directions"
+      ],
+      [
+        103,
+        201,
+        10,
+        "2024-03-03",
+        "Hotel Check-in",
+        "Travel Basics",
+        "Directions"
+      ],
+      [
+        104,
+        201,
+        10,
+        "2024-03-04",
+        "Ordering Food",
+        "Travel Basics",
+        "Directions"
+      ],
+      [
+        105,
+        201,
+        10,
+        "2024-03-05",
+        "Directions",
+        "Travel Basics",
+        "Directions"
+      ],
+      [
+        106,
+        201,
+        11,
+        "2024-04-10",
+        "Weather Talk",
+        "Weather Talk",
+        "Weather Talk"
+      ],
+      [
+        107,
+        202,
+        12,
+        "2024-03-08",
+        "Family Members",
+        "Family Members",
+        "Time Expressions"
+      ],
+      [
+        108,
+        202,
+        12,
+        "2024-03-09",
+        "Household Items",
+        "Family Members",
+        "Time Expressions"
+      ],
+      [
+        109,
+        202,
+        12,
+        "2024-03-10",
+        "Daily Routine",
+        "Family Members",
+        "Time Expressions"
+      ],
+      [
+        110,
+        202,
+        12,
+        "2024-03-11",
+        "Time Expressions",
+        "Family Members",
+        "Time Expressions"
+      ],
+      [
+        111,
+        203,
+        13,
+        "2024-03-15",
+        "Colors and Shapes",
+        "Colors and Shapes",
+        "Body Parts"
+      ],
+      [
+        112,
+        203,
+        13,
+        "2024-03-16",
+        "Animals",
+        "Colors and Shapes",
+        "Body Parts"
+      ],
+      [
+        113,
+        203,
+        13,
+        "2024-03-17",
+        "Body Parts",
+        "Colors and Shapes",
+        "Body Parts"
+      ],
+      [
+        114,
+        204,
+        14,
+        "2024-03-20",
+        "Business Intro",
+        "Business Intro",
+        "Negotiations"
+      ],
+      [
+        115,
+        204,
+        14,
+        "2024-03-21",
+        "Email Etiquette",
+        "Business Intro",
+        "Negotiations"
+      ],
+      [
+        116,
+        204,
+        14,
+        "2024-03-22",
+        "Meeting Phrases",
+        "Business Intro",
+        "Negotiations"
+      ],
+      [
+        117,
+        204,
+        14,
+        "2024-03-23",
+        "Negotiations",
+        "Business Intro",
+        "Negotiations"
+      ],
+      [
+        118,
+        205,
+        15,
+        "2024-03-25",
+        "Solo Lesson",
+        "Solo Lesson",
+        "Solo Lesson"
+      ],
+      [
+        119,
+        206,
+        16,
+        "2024-04-01",
+        "Tech Vocabulary",
+        "Tech Vocabulary",
+        "Social Media"
+      ],
+      [
+        120,
+        206,
+        16,
+        "2024-04-02",
+        "Social Media",
+        "Tech Vocabulary",
+        "Social Media"
+      ],
+      [
+        121,
+        207,
+        17,
+        "2024-04-05",
+        "Sports Terms",
+        "Sports Terms",
+        "Victory Expressions"
+      ],
+      [
+        122,
+        207,
+        17,
+        "2024-04-06",
+        "Fitness Phrases",
+        "Sports Terms",
+        "Victory Expressions"
+      ],
+      [
+        123,
+        207,
+        17,
+        "2024-04-07",
+        "Competition Words",
+        "Sports Terms",
+        "Victory Expressions"
+      ],
+      [
+        124,
+        207,
+        17,
+        "2024-04-08",
+        "Team Language",
+        "Sports Terms",
+        "Victory Expressions"
+      ],
+      [
+        125,
+        207,
+        17,
+        "2024-04-09",
+        "Victory Expressions",
+        "Sports Terms",
+        "Victory Expressions"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "rank-partition",
+      "composite_moves": [
+        "rank-partition: FIRST_VALUE and LAST_VALUE OVER (PARTITION BY streak_id ORDER BY completion_date ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)"
+      ]
+    },
+    "hints": [
+      "Window functions allow you to access other rows in the same partition without a self-join.",
+      "FIRST_VALUE with the default frame works fine, but LAST_VALUE requires an explicit frame extending to the end of the partition.",
+      "Use FIRST_VALUE(lesson_title) and LAST_VALUE(lesson_title) OVER (PARTITION BY streak_id ORDER BY completion_date ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)."
+    ],
+    "answer_key": "SELECT lesson_id, user_id, streak_id, completion_date, lesson_title, FIRST_VALUE(lesson_title) OVER (PARTITION BY streak_id ORDER BY completion_date) AS first_lesson_in_streak, LAST_VALUE(lesson_title) OVER (PARTITION BY streak_id ORDER BY completion_date ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_lesson_in_streak FROM streak_lessons ORDER BY user_id, streak_id, completion_date;",
+    "_meta": {
+      "question_type": "window_first_last",
+      "original_qtype": "window_first_last",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-05-23T14:03:26.155984",
+      "problem_id": "644fee23ee17",
+      "validation_attempts": 1,
+      "scenario": "a language learning app tracking daily streaks and lesson completion",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\nWITH base AS (\n    SELECT\n        lesson_id,\n        user_id,\n        streak_id,\n        completion_date,\n        lesson_title,\n        FIRST_VALUE(lesson_title) OVER (\n            PARTITION BY user_id, streak_id ORDER BY completion_date\n            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS first_lesson_in_streak,\n        LAST_VALUE(lesson_title) OVER (\n            PARTITION BY user_id, streak_id ORDER BY completion_date\n            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_lesson_in_streak\n    FROM streak_lessons\n)\nSELECT *\nFROM base\nORDER BY user_id, streak_id, completion_date;",
+  "solved_at": "2026-05-23T14:21:35.135803"
+}

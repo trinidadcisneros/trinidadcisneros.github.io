@@ -1,0 +1,145 @@
+{
+  "title": "Group Article Views into Reading Sessions",
+  "prompt": "A news app tracks every article view with a timestamp. You need to group each user's views into reading sessions, where a new session starts whenever more than 30 minutes have elapsed since their last view. For each session, report the user_id, session_id (a sequential number per user starting at 1), the count of articles viewed in that session, and the session's start timestamp (the earliest view timestamp in that session). Order results by user_id ascending, then session_id ascending. A user with only one view forms a single-event session. Handle cases where consecutive views are within 30 minutes (same session) and where gaps exceed 30 minutes (new session).",
+  "schema_ddl": "CREATE TABLE article_views (view_id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, article_id INTEGER NOT NULL, viewed_at TIMESTAMP NOT NULL); CREATE TABLE users (user_id INTEGER PRIMARY KEY, username VARCHAR(50) NOT NULL, subscription_tier VARCHAR(20));",
+  "example_input_data": "INSERT INTO users (user_id, username, subscription_tier) VALUES (101, 'alice_news', 'free'), (102, 'bob_reader', 'premium'); INSERT INTO article_views (view_id, user_id, article_id, viewed_at) VALUES (1, 101, 2001, '2024-01-15 09:00:00'), (2, 101, 2002, '2024-01-15 09:10:00'), (3, 101, 2003, '2024-01-15 09:20:00'), (4, 101, 2004, '2024-01-15 10:05:00'), (5, 101, 2005, '2024-01-15 11:00:00'), (6, 102, 3001, '2024-01-15 08:00:00'), (7, 102, 3002, '2024-01-15 08:25:00'), (8, 102, 3003, '2024-01-15 09:30:00');",
+  "example_output_columns": [
+    "user_id",
+    "session_id",
+    "articles_viewed",
+    "session_start"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      1,
+      3,
+      "2024-01-15 09:00:00"
+    ],
+    [
+      101,
+      2,
+      1,
+      "2024-01-15 10:05:00"
+    ],
+    [
+      101,
+      3,
+      1,
+      "2024-01-15 11:00:00"
+    ],
+    [
+      102,
+      1,
+      2,
+      "2024-01-15 08:00:00"
+    ],
+    [
+      102,
+      2,
+      1,
+      "2024-01-15 09:30:00"
+    ]
+  ],
+  "test_data": "INSERT INTO users (user_id, username, subscription_tier) VALUES (201, 'charlie_blogger', 'free'), (202, 'dana_journalist', 'premium'), (203, 'eve_student', 'free'); INSERT INTO article_views (view_id, user_id, article_id, viewed_at) VALUES (101, 201, 4001, '2024-02-01 07:00:00'), (102, 201, 4002, '2024-02-01 07:15:00'), (103, 201, 4003, '2024-02-01 07:29:00'), (104, 201, 4004, '2024-02-01 08:00:00'), (105, 201, 4005, '2024-02-01 08:10:00'), (106, 201, 4006, '2024-02-01 09:50:00'), (107, 202, 5001, '2024-02-01 10:00:00'), (108, 202, 5002, '2024-02-01 10:05:00'), (109, 202, 5003, '2024-02-01 10:36:00'), (110, 202, 5004, '2024-02-01 11:07:00'), (111, 202, 5005, '2024-02-01 11:20:00'), (112, 202, 5006, '2024-02-01 12:00:00'), (113, 203, 6001, '2024-02-01 14:00:00'), (114, 203, 6002, '2024-02-01 14:29:00'), (115, 203, 6003, '2024-02-01 15:00:00'), (116, 203, 6004, '2024-02-01 15:15:00'), (117, 203, 6005, '2024-02-01 16:00:00'), (118, 203, 6006, '2024-02-01 16:05:00'), (119, 203, 6007, '2024-02-01 16:10:00');",
+  "test_expected_columns": [
+    "user_id",
+    "session_id",
+    "articles_viewed",
+    "session_start"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      1,
+      3,
+      "2024-02-01 07:00:00"
+    ],
+    [
+      201,
+      2,
+      2,
+      "2024-02-01 08:00:00"
+    ],
+    [
+      201,
+      3,
+      1,
+      "2024-02-01 09:50:00"
+    ],
+    [
+      202,
+      1,
+      2,
+      "2024-02-01 10:00:00"
+    ],
+    [
+      202,
+      2,
+      1,
+      "2024-02-01 10:36:00"
+    ],
+    [
+      202,
+      3,
+      2,
+      "2024-02-01 11:07:00"
+    ],
+    [
+      202,
+      4,
+      1,
+      "2024-02-01 12:00:00"
+    ],
+    [
+      203,
+      1,
+      2,
+      "2024-02-01 14:00:00"
+    ],
+    [
+      203,
+      2,
+      2,
+      "2024-02-01 15:00:00"
+    ],
+    [
+      203,
+      3,
+      3,
+      "2024-02-01 16:00:00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "CTE: LAG(viewed_at) OVER (PARTITION BY user_id ORDER BY viewed_at) to get previous_ts",
+      "CTE: flag new_session when previous_ts IS NULL OR viewed_at - previous_ts > INTERVAL '30 minutes'",
+      "CTE: SUM(new_session_flag) OVER (PARTITION BY user_id ORDER BY viewed_at ROWS UNBOUNDED PRECEDING) as session_id",
+      "GROUP BY user_id, session_id aggregate COUNT(*), MIN(viewed_at)",
+      "ORDER BY user_id, session_id"
+    ]
+  },
+  "hints": [
+    "Consider how you would identify when a user starts a new reading session based on time gaps between views.",
+    "Use LAG() to compare each view's timestamp with the previous view for the same user, then flag rows where the gap exceeds 30 minutes or where no previous view exists.",
+    "Assign session IDs by taking a cumulative SUM() of the new-session flags within each user's ordered views, then GROUP BY user and session to compute per-session metrics."
+  ],
+  "answer_key": "WITH view_gaps AS (\n  SELECT\n    user_id,\n    article_id,\n    viewed_at,\n    LAG(viewed_at) OVER (PARTITION BY user_id ORDER BY viewed_at) AS previous_ts\n  FROM article_views\n),\nsession_flags AS (\n  SELECT\n    user_id,\n    article_id,\n    viewed_at,\n    CASE\n      WHEN previous_ts IS NULL OR viewed_at - previous_ts > INTERVAL '30 minutes' THEN 1\n      ELSE 0\n    END AS new_session_flag\n  FROM view_gaps\n),\nsession_ids AS (\n  SELECT\n    user_id,\n    article_id,\n    viewed_at,\n    SUM(new_session_flag) OVER (PARTITION BY user_id ORDER BY viewed_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS session_id\n  FROM session_flags\n)\nSELECT\n  user_id,\n  session_id,\n  COUNT(*) AS articles_viewed,\n  MIN(viewed_at) AS session_start\nFROM session_ids\nGROUP BY user_id, session_id\nORDER BY user_id, session_id;",
+  "_meta": {
+    "question_type": "window_sessionization",
+    "original_qtype": "window_sessionization",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-19T17:23:48.758997",
+    "problem_id": "c0d814d2ec00",
+    "validation_attempts": 1,
+    "scenario": "a news app tracking article completion and subscription conversion",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

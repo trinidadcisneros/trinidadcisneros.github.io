@@ -1,0 +1,323 @@
+{
+  "problem": {
+    "title": "Sequential Refund Policy Updates on Returns",
+    "prompt": "You are managing a returns processing system. The `order_returns` table tracks returned orders with their current refund amounts and processing status. Your task is to apply a company-wide refund policy update using a DO block that executes three UPDATE statements in sequence. First, for all returns with `return_reason = 'defective'` where the original `order_total >= 100.00`, set `refund_amount` to `order_total * 1.10` (110% refund as a goodwill gesture). Second, for all returns with `return_reason = 'buyer_remorse'`, set `processing_fee` to `order_total * 0.15`. Third, for all returns where `refund_amount > 0` AND `processing_status = 'pending'`, set `processing_status` to `'approved'`. Write a DO block containing these three UPDATE statements, then include a trailing `SELECT * FROM order_returns ORDER BY return_id;` to show the final state of the table.",
+    "schema_ddl": "CREATE TABLE order_returns (return_id INT PRIMARY KEY, order_id INT NOT NULL, customer_id INT NOT NULL, return_reason VARCHAR(50) NOT NULL, order_total DECIMAL(10,2) NOT NULL, refund_amount DECIMAL(10,2) DEFAULT 0.00, processing_fee DECIMAL(10,2) DEFAULT 0.00, processing_status VARCHAR(20) DEFAULT 'pending');",
+    "example_input_data": "INSERT INTO order_returns (return_id, order_id, customer_id, return_reason, order_total, refund_amount, processing_fee, processing_status) VALUES (1, 1001, 501, 'defective', 150.00, 0.00, 0.00, 'pending'), (2, 1002, 502, 'buyer_remorse', 80.00, 0.00, 0.00, 'pending'), (3, 1003, 503, 'defective', 50.00, 0.00, 0.00, 'pending'), (4, 1004, 504, 'wrong_item', 120.00, 120.00, 0.00, 'pending'), (5, 1005, 505, 'buyer_remorse', 200.00, 0.00, 0.00, 'pending'), (6, 1006, 506, 'defective', 99.99, 0.00, 0.00, 'pending');",
+    "example_output_columns": [
+      "return_id",
+      "order_id",
+      "customer_id",
+      "return_reason",
+      "order_total",
+      "refund_amount",
+      "processing_fee",
+      "processing_status"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        1001,
+        501,
+        "defective",
+        "150.00",
+        "165.00",
+        "0.00",
+        "approved"
+      ],
+      [
+        2,
+        1002,
+        502,
+        "buyer_remorse",
+        "80.00",
+        "0.00",
+        "12.00",
+        "pending"
+      ],
+      [
+        3,
+        1003,
+        503,
+        "defective",
+        "50.00",
+        "0.00",
+        "0.00",
+        "pending"
+      ],
+      [
+        4,
+        1004,
+        504,
+        "wrong_item",
+        "120.00",
+        "120.00",
+        "0.00",
+        "approved"
+      ],
+      [
+        5,
+        1005,
+        505,
+        "buyer_remorse",
+        "200.00",
+        "0.00",
+        "30.00",
+        "pending"
+      ],
+      [
+        6,
+        1006,
+        506,
+        "defective",
+        "99.99",
+        "0.00",
+        "0.00",
+        "pending"
+      ]
+    ],
+    "test_data": "INSERT INTO order_returns (return_id, order_id, customer_id, return_reason, order_total, refund_amount, processing_fee, processing_status) VALUES (101, 2001, 601, 'defective', 250.00, 0.00, 0.00, 'pending'), (102, 2002, 602, 'buyer_remorse', 75.00, 0.00, 0.00, 'pending'), (103, 2003, 603, 'defective', 100.00, 0.00, 0.00, 'pending'), (104, 2004, 604, 'wrong_item', 300.00, 300.00, 0.00, 'pending'), (105, 2005, 605, 'buyer_remorse', 150.00, 0.00, 0.00, 'pending'), (106, 2006, 606, 'defective', 99.00, 0.00, 0.00, 'pending'), (107, 2007, 607, 'defective', 500.00, 0.00, 0.00, 'pending'), (108, 2008, 608, 'buyer_remorse', 25.00, 0.00, 0.00, 'pending'), (109, 2009, 609, 'wrong_item', 0.00, 0.00, 0.00, 'pending'), (110, 2010, 610, 'defective', 100.01, 0.00, 0.00, 'pending'), (111, 2011, 611, 'buyer_remorse', 999.99, 0.00, 0.00, 'pending'), (112, 2012, 612, 'defective', 1000.00, 0.00, 0.00, 'pending'), (113, 2013, 613, 'damaged', 200.00, 200.00, 0.00, 'pending'), (114, 2014, 614, 'buyer_remorse', 0.01, 0.00, 0.00, 'pending'), (115, 2015, 615, 'defective', 99.99, 0.00, 0.00, 'approved'), (116, 2016, 616, 'buyer_remorse', 50.00, 50.00, 0.00, 'pending'), (117, 2017, 617, 'defective', 149.99, 0.00, 0.00, 'pending'), (118, 2018, 618, 'wrong_item', 100.00, 0.00, 0.00, 'pending'), (119, 2019, 619, 'buyer_remorse', 300.00, 0.00, 0.00, 'approved'), (120, 2020, 620, 'defective', 1500.00, 0.00, 0.00, 'pending');",
+    "test_expected_columns": [
+      "return_id",
+      "order_id",
+      "customer_id",
+      "return_reason",
+      "order_total",
+      "refund_amount",
+      "processing_fee",
+      "processing_status"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        2001,
+        601,
+        "defective",
+        "250.00",
+        "275.00",
+        "0.00",
+        "approved"
+      ],
+      [
+        102,
+        2002,
+        602,
+        "buyer_remorse",
+        "75.00",
+        "0.00",
+        "11.25",
+        "pending"
+      ],
+      [
+        103,
+        2003,
+        603,
+        "defective",
+        "100.00",
+        "110.00",
+        "0.00",
+        "approved"
+      ],
+      [
+        104,
+        2004,
+        604,
+        "wrong_item",
+        "300.00",
+        "300.00",
+        "0.00",
+        "approved"
+      ],
+      [
+        105,
+        2005,
+        605,
+        "buyer_remorse",
+        "150.00",
+        "0.00",
+        "22.50",
+        "pending"
+      ],
+      [
+        106,
+        2006,
+        606,
+        "defective",
+        "99.00",
+        "0.00",
+        "0.00",
+        "pending"
+      ],
+      [
+        107,
+        2007,
+        607,
+        "defective",
+        "500.00",
+        "550.00",
+        "0.00",
+        "approved"
+      ],
+      [
+        108,
+        2008,
+        608,
+        "buyer_remorse",
+        "25.00",
+        "0.00",
+        "3.75",
+        "pending"
+      ],
+      [
+        109,
+        2009,
+        609,
+        "wrong_item",
+        "0.00",
+        "0.00",
+        "0.00",
+        "pending"
+      ],
+      [
+        110,
+        2010,
+        610,
+        "defective",
+        "100.01",
+        "110.01",
+        "0.00",
+        "approved"
+      ],
+      [
+        111,
+        2011,
+        611,
+        "buyer_remorse",
+        "999.99",
+        "0.00",
+        "150.00",
+        "pending"
+      ],
+      [
+        112,
+        2012,
+        612,
+        "defective",
+        "1000.00",
+        "1100.00",
+        "0.00",
+        "approved"
+      ],
+      [
+        113,
+        2013,
+        613,
+        "damaged",
+        "200.00",
+        "200.00",
+        "0.00",
+        "approved"
+      ],
+      [
+        114,
+        2014,
+        614,
+        "buyer_remorse",
+        "0.01",
+        "0.00",
+        "0.00",
+        "pending"
+      ],
+      [
+        115,
+        2015,
+        615,
+        "defective",
+        "99.99",
+        "0.00",
+        "0.00",
+        "approved"
+      ],
+      [
+        116,
+        2016,
+        616,
+        "buyer_remorse",
+        "50.00",
+        "50.00",
+        "7.50",
+        "approved"
+      ],
+      [
+        117,
+        2017,
+        617,
+        "defective",
+        "149.99",
+        "164.99",
+        "0.00",
+        "approved"
+      ],
+      [
+        118,
+        2018,
+        618,
+        "wrong_item",
+        "100.00",
+        "0.00",
+        "0.00",
+        "pending"
+      ],
+      [
+        119,
+        2019,
+        619,
+        "buyer_remorse",
+        "300.00",
+        "0.00",
+        "45.00",
+        "approved"
+      ],
+      [
+        120,
+        2020,
+        620,
+        "defective",
+        "1500.00",
+        "1650.00",
+        "0.00",
+        "approved"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "state_mutation",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "row-transform: UPDATE defective high-value returns with 110% refund",
+        "row-transform: UPDATE buyer_remorse returns with 15% processing fee",
+        "row-transform: UPDATE pending returns with positive refund to approved",
+        "state_mutation: trailing SELECT returns post-mutation snapshot"
+      ]
+    },
+    "hints": [
+      "You need to execute three separate UPDATE statements inside a DO block, each targeting different rows based on their current column values.",
+      "The first UPDATE gives a 110% refund to defective items >= $100. The second UPDATE adds a 15% processing fee to buyer_remorse returns. The third UPDATE approves any return that now has a positive refund_amount and is still pending.",
+      "Use `DO $$ BEGIN ... END $$;` wrapping three UPDATE statements: one with WHERE return_reason='defective' AND order_total>=100.00 setting refund_amount to order_total*1.10, one with WHERE return_reason='buyer_remorse' setting processing_fee to order_total*0.15, and one with WHERE refund_amount>0 AND processing_status='pending' setting processing_status to 'approved'. End with SELECT * FROM order_returns ORDER BY return_id;"
+    ],
+    "answer_key": "DO $$\nBEGIN\n  UPDATE order_returns\n  SET refund_amount = order_total * 1.10\n  WHERE return_reason = 'defective' AND order_total >= 100.00;\n\n  UPDATE order_returns\n  SET processing_fee = order_total * 0.15\n  WHERE return_reason = 'buyer_remorse';\n\n  UPDATE order_returns\n  SET processing_status = 'approved'\n  WHERE refund_amount > 0 AND processing_status = 'pending';\nEND $$;\n\nSELECT * FROM order_returns ORDER BY return_id;",
+    "_meta": {
+      "question_type": "do_block",
+      "dialect": "postgresql",
+      "generated_at": "2026-05-15T18:21:03.196508",
+      "problem_id": "3e9cb5136c4e",
+      "validation_attempts": 1,
+      "scenario": "an e-commerce platform tracking customer orders, returns, and refunds",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "DO $$\nBEGIN\n\n    UPDATE order_returns\n    SET refund_amount = order_total * 1.10\n    WHERE return_reason = 'defective' AND order_total >= 100.00;\n\n    UPDATE order_returns\n    SET processing_fee = order_total * 0.15\n    WHERE return_reason = 'buyer_remorse';\n\n    UPDATE order_returns\n    SET processing_status = 'approved'\n    WHERE refund_amount > 0 AND processing_status = 'pending';\n\nEND $$;\n\n\nSELECT * FROM order_returns ORDER BY return_id;\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+  "solved_at": "2026-05-15T19:04:13.465829"
+}

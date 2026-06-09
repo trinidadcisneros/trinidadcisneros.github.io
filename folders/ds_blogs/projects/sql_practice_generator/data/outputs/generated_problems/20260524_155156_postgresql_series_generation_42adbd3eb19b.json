@@ -1,0 +1,131 @@
+{
+  "title": "Daily Refill Counts with Zero-Fill",
+  "prompt": "Write a query that reports the count of prescription refills for each day in the range January 1, 2024 through January 10, 2024, inclusive. Use `generate_series` to create a complete date spine so that every day appears in the result, even if no refills occurred on that day. For days with no refills, display `0` instead of omitting the row or showing NULL. The output should have two columns: `refill_date` (the date) and `refill_count` (the count of refills on that day, or 0). Order the results by `refill_date` ascending. This ensures the adherence program dashboard shows all days in the window, making gaps immediately visible.",
+  "schema_ddl": "CREATE TABLE refills (refill_id INT PRIMARY KEY, patient_id INT NOT NULL, medication_name VARCHAR(100) NOT NULL, refill_date DATE NOT NULL, days_supply INT NOT NULL);",
+  "example_input_data": "INSERT INTO refills (refill_id, patient_id, medication_name, refill_date, days_supply) VALUES (1, 101, 'Lisinopril', '2024-01-02', 30), (2, 102, 'Metformin', '2024-01-02', 90), (3, 103, 'Atorvastatin', '2024-01-05', 60), (4, 101, 'Lisinopril', '2024-01-08', 30), (5, 104, 'Amlodipine', '2024-01-08', 30), (6, 105, 'Levothyroxine', '2024-01-10', 90);",
+  "example_output_columns": [
+    "refill_date",
+    "refill_count"
+  ],
+  "example_output_rows": [
+    [
+      "2024-01-01",
+      "0"
+    ],
+    [
+      "2024-01-02",
+      "2"
+    ],
+    [
+      "2024-01-03",
+      "0"
+    ],
+    [
+      "2024-01-04",
+      "0"
+    ],
+    [
+      "2024-01-05",
+      "1"
+    ],
+    [
+      "2024-01-06",
+      "0"
+    ],
+    [
+      "2024-01-07",
+      "0"
+    ],
+    [
+      "2024-01-08",
+      "2"
+    ],
+    [
+      "2024-01-09",
+      "0"
+    ],
+    [
+      "2024-01-10",
+      "1"
+    ]
+  ],
+  "test_data": "INSERT INTO refills (refill_id, patient_id, medication_name, refill_date, days_supply) VALUES (101, 201, 'Lisinopril', '2024-01-01', 30), (102, 202, 'Metformin', '2024-01-01', 90), (103, 203, 'Atorvastatin', '2024-01-01', 60), (104, 204, 'Amlodipine', '2024-01-03', 30), (105, 205, 'Levothyroxine', '2024-01-03', 90), (106, 206, 'Simvastatin', '2024-01-03', 60), (107, 207, 'Omeprazole', '2024-01-03', 30), (108, 201, 'Lisinopril', '2024-01-05', 30), (109, 208, 'Losartan', '2024-01-07', 90), (110, 209, 'Gabapentin', '2024-01-07', 60), (111, 210, 'Sertraline', '2024-01-09', 30), (112, 211, 'Escitalopram', '2024-01-09', 90), (113, 212, 'Duloxetine', '2024-01-09', 60), (114, 213, 'Bupropion', '2024-01-09', 30), (115, 214, 'Fluoxetine', '2024-01-09', 90);",
+  "test_expected_columns": [
+    "refill_date",
+    "refill_count"
+  ],
+  "test_expected_rows": [
+    [
+      "2024-01-01",
+      "3"
+    ],
+    [
+      "2024-01-02",
+      "0"
+    ],
+    [
+      "2024-01-03",
+      "4"
+    ],
+    [
+      "2024-01-04",
+      "0"
+    ],
+    [
+      "2024-01-05",
+      "1"
+    ],
+    [
+      "2024-01-06",
+      "0"
+    ],
+    [
+      "2024-01-07",
+      "2"
+    ],
+    [
+      "2024-01-08",
+      "0"
+    ],
+    [
+      "2024-01-09",
+      "5"
+    ],
+    [
+      "2024-01-10",
+      "0"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "same_rows",
+    "recipe": "reshape",
+    "composite_moves": [
+      "generate_series to build date spine (2024-01-01 to 2024-01-10)",
+      "LEFT JOIN refills on date",
+      "GROUP BY date",
+      "COALESCE COUNT to 0 for missing days",
+      "ORDER BY date"
+    ]
+  },
+  "hints": [
+    "You need a way to produce all dates in the range first, independent of the refills table.",
+    "Use `generate_series(DATE '2024-01-01', DATE '2024-01-10', INTERVAL '1 day')::date` to create the date spine, then LEFT JOIN the refills table on `refill_date`.",
+    "After the LEFT JOIN, use `COUNT(refill_id)` (not `COUNT(*)`) so that days with no matches return 0, or wrap the count in COALESCE. Group by the date from the series and order by it."
+  ],
+  "answer_key": "SELECT ds.d::date AS refill_date, COALESCE(COUNT(r.refill_id), 0)::text AS refill_count FROM generate_series(DATE '2024-01-01', DATE '2024-01-10', INTERVAL '1 day') AS ds(d) LEFT JOIN refills r ON ds.d::date = r.refill_date GROUP BY ds.d ORDER BY ds.d;",
+  "_meta": {
+    "question_type": "series_generation",
+    "original_qtype": "series_generation",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-24T15:51:56.203868",
+    "problem_id": "42adbd3eb19b",
+    "validation_attempts": 1,
+    "scenario": "a prescription refill adherence program tracking 30/60/90 day refill rates",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

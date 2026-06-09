@@ -1,0 +1,177 @@
+{
+  "title": "Session Detection for Alert Response Activity",
+  "prompt": "An observability platform logs every time an engineer views or acknowledges an alert. Management wants to group these activities into work sessions to understand engagement patterns. Define a session as a continuous sequence of alert events by the same engineer where no gap between consecutive events exceeds 15 minutes. Write a query that outputs one row per session showing the engineer's ID, a session identifier (unique per engineer, numbered sequentially in chronological order), the session start time, the session end time, and the total number of alert events in that session. Order the results by engineer ID ascending, then session start time ascending. Handle cases where an engineer has only one event (that event forms a single-event session) and cases where multiple engineers may have overlapping timestamps.",
+  "schema_ddl": "CREATE TABLE alert_events (\n  event_id SERIAL PRIMARY KEY,\n  engineer_id INT NOT NULL,\n  alert_id VARCHAR(50) NOT NULL,\n  event_ts TIMESTAMP NOT NULL,\n  action_type VARCHAR(20) NOT NULL\n);",
+  "example_input_data": "INSERT INTO alert_events (engineer_id, alert_id, event_ts, action_type) VALUES\n(101, 'ALT-001', '2024-01-15 09:00:00', 'viewed'),\n(101, 'ALT-002', '2024-01-15 09:05:00', 'acknowledged'),\n(101, 'ALT-003', '2024-01-15 09:10:00', 'viewed'),\n(101, 'ALT-004', '2024-01-15 09:30:00', 'viewed'),\n(101, 'ALT-005', '2024-01-15 09:35:00', 'acknowledged'),\n(102, 'ALT-006', '2024-01-15 10:00:00', 'viewed'),\n(102, 'ALT-007', '2024-01-15 10:20:00', 'viewed'),\n(102, 'ALT-008', '2024-01-15 10:22:00', 'acknowledged'),\n(103, 'ALT-009', '2024-01-15 11:00:00', 'viewed');",
+  "example_output_columns": [
+    "engineer_id",
+    "session_id",
+    "session_start",
+    "session_end",
+    "event_count"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      1,
+      "2024-01-15 09:00:00",
+      "2024-01-15 09:10:00",
+      3
+    ],
+    [
+      101,
+      2,
+      "2024-01-15 09:30:00",
+      "2024-01-15 09:35:00",
+      2
+    ],
+    [
+      102,
+      1,
+      "2024-01-15 10:00:00",
+      "2024-01-15 10:00:00",
+      1
+    ],
+    [
+      102,
+      2,
+      "2024-01-15 10:20:00",
+      "2024-01-15 10:22:00",
+      2
+    ],
+    [
+      103,
+      1,
+      "2024-01-15 11:00:00",
+      "2024-01-15 11:00:00",
+      1
+    ]
+  ],
+  "test_data": "INSERT INTO alert_events (engineer_id, alert_id, event_ts, action_type) VALUES\n(201, 'ALT-101', '2024-01-20 08:00:00', 'viewed'),\n(201, 'ALT-102', '2024-01-20 08:05:00', 'viewed'),\n(201, 'ALT-103', '2024-01-20 08:10:00', 'acknowledged'),\n(201, 'ALT-104', '2024-01-20 08:14:00', 'viewed'),\n(201, 'ALT-105', '2024-01-20 08:30:00', 'viewed'),\n(201, 'ALT-106', '2024-01-20 08:32:00', 'acknowledged'),\n(201, 'ALT-107', '2024-01-20 08:50:00', 'viewed'),\n(202, 'ALT-108', '2024-01-20 09:00:00', 'viewed'),\n(202, 'ALT-109', '2024-01-20 09:14:59', 'viewed'),\n(202, 'ALT-110', '2024-01-20 09:15:00', 'acknowledged'),\n(202, 'ALT-111', '2024-01-20 09:35:00', 'viewed'),\n(203, 'ALT-112', '2024-01-20 10:00:00', 'viewed'),\n(203, 'ALT-113', '2024-01-20 10:10:00', 'acknowledged'),\n(203, 'ALT-114', '2024-01-20 10:25:00', 'viewed'),\n(203, 'ALT-115', '2024-01-20 10:26:00', 'viewed'),\n(203, 'ALT-116', '2024-01-20 10:42:00', 'acknowledged'),\n(204, 'ALT-117', '2024-01-20 11:00:00', 'viewed'),\n(204, 'ALT-118', '2024-01-20 11:14:00', 'viewed'),\n(204, 'ALT-119', '2024-01-20 11:15:00', 'acknowledged'),\n(204, 'ALT-120', '2024-01-20 11:29:00', 'viewed'),\n(204, 'ALT-121', '2024-01-20 11:30:00', 'viewed'),\n(204, 'ALT-122', '2024-01-20 11:50:00', 'acknowledged'),\n(205, 'ALT-123', '2024-01-20 12:00:00', 'viewed'),\n(206, 'ALT-124', '2024-01-20 13:00:00', 'viewed'),\n(206, 'ALT-125', '2024-01-20 13:10:00', 'acknowledged'),\n(206, 'ALT-126', '2024-01-20 13:30:00', 'viewed');",
+  "test_expected_columns": [
+    "engineer_id",
+    "session_id",
+    "session_start",
+    "session_end",
+    "event_count"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      1,
+      "2024-01-20 08:00:00",
+      "2024-01-20 08:14:00",
+      4
+    ],
+    [
+      201,
+      2,
+      "2024-01-20 08:30:00",
+      "2024-01-20 08:32:00",
+      2
+    ],
+    [
+      201,
+      3,
+      "2024-01-20 08:50:00",
+      "2024-01-20 08:50:00",
+      1
+    ],
+    [
+      202,
+      1,
+      "2024-01-20 09:00:00",
+      "2024-01-20 09:15:00",
+      3
+    ],
+    [
+      202,
+      2,
+      "2024-01-20 09:35:00",
+      "2024-01-20 09:35:00",
+      1
+    ],
+    [
+      203,
+      1,
+      "2024-01-20 10:00:00",
+      "2024-01-20 10:26:00",
+      4
+    ],
+    [
+      203,
+      2,
+      "2024-01-20 10:42:00",
+      "2024-01-20 10:42:00",
+      1
+    ],
+    [
+      204,
+      1,
+      "2024-01-20 11:00:00",
+      "2024-01-20 11:30:00",
+      5
+    ],
+    [
+      204,
+      2,
+      "2024-01-20 11:50:00",
+      "2024-01-20 11:50:00",
+      1
+    ],
+    [
+      205,
+      1,
+      "2024-01-20 12:00:00",
+      "2024-01-20 12:00:00",
+      1
+    ],
+    [
+      206,
+      1,
+      "2024-01-20 13:00:00",
+      "2024-01-20 13:10:00",
+      2
+    ],
+    [
+      206,
+      2,
+      "2024-01-20 13:30:00",
+      "2024-01-20 13:30:00",
+      1
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "CTE-1: LAG(event_ts) OVER (PARTITION BY engineer_id ORDER BY event_ts) to get previous_ts",
+      "CTE-1: CASE to flag new_session = 1 when previous_ts IS NULL OR event_ts - previous_ts > INTERVAL '15 minutes'",
+      "CTE-2: SUM(new_session_flag) OVER (PARTITION BY engineer_id ORDER BY event_ts ROWS UNBOUNDED PRECEDING) to assign session_id",
+      "GROUP BY engineer_id, session_id",
+      "Aggregate: MIN(event_ts) AS session_start, MAX(event_ts) AS session_end, COUNT(*) AS event_count",
+      "ORDER BY engineer_id, session_start"
+    ]
+  },
+  "hints": [
+    "Think about how you can identify when a new session begins by comparing each event's timestamp to the previous event for the same engineer.",
+    "Use LAG() to retrieve the previous event timestamp within each engineer's timeline, then flag rows where the gap exceeds 15 minutes or where no previous event exists.",
+    "Once you have a flag for new sessions, use a cumulative SUM() of that flag as a window function to assign a unique session identifier for each engineer, then group by engineer and session to compute session-level metrics."
+  ],
+  "answer_key": "WITH flagged AS (\n  SELECT\n    engineer_id,\n    event_ts,\n    LAG(event_ts) OVER (PARTITION BY engineer_id ORDER BY event_ts) AS previous_ts,\n    CASE\n      WHEN LAG(event_ts) OVER (PARTITION BY engineer_id ORDER BY event_ts) IS NULL\n           OR event_ts - LAG(event_ts) OVER (PARTITION BY engineer_id ORDER BY event_ts) > INTERVAL '15 minutes'\n      THEN 1\n      ELSE 0\n    END AS new_session_flag\n  FROM alert_events\n),\nsessionized AS (\n  SELECT\n    engineer_id,\n    event_ts,\n    SUM(new_session_flag) OVER (PARTITION BY engineer_id ORDER BY event_ts ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS session_id\n  FROM flagged\n)\nSELECT\n  engineer_id,\n  session_id,\n  MIN(event_ts) AS session_start,\n  MAX(event_ts) AS session_end,\n  COUNT(*) AS event_count\nFROM sessionized\nGROUP BY engineer_id, session_id\nORDER BY engineer_id, session_start;",
+  "_meta": {
+    "question_type": "window_sessionization",
+    "original_qtype": "window_sessionization",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-05-31T19:49:47.616797",
+    "problem_id": "da101cd04481",
+    "validation_attempts": 1,
+    "scenario": "an observability platform tracking alert acknowledge time and MTTR",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}
