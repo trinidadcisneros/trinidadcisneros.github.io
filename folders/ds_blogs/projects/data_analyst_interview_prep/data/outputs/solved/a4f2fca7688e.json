@@ -1,0 +1,121 @@
+{
+  "problem": {
+    "title": "Story View Rate Tracker with Event Queue",
+    "prompt": "You are building a photo sharing app's story analytics system. The `stories` table tracks each story's current view count and engagement tier. The `story_events` table logs user interactions in chronological order. Write a DO block that processes the events in `event_id` order. Each event must read the story's current state before deciding what to do. Subsequent events see the prior event's updates. After the DO block, write a trailing `SELECT * FROM stories ORDER BY story_id;` to return the final state.\n\nEvent type rules:\n\n\u2022 When `event_type` = 1 ('view_logged') applies:\n  - Preconditions:\n    + current `tier` must be 'active'.\n  - Actions:\n    + increment `view_count` by the event's `view_increment`.\n\n\u2022 When `event_type` = 2 ('promote_tier') applies:\n  - Preconditions:\n    + current `view_count` must be >= 100.\n    + current `tier` must be 'active'.\n  - Actions:\n    + set `tier` to 'trending'.\n\n\u2022 When `event_type` = 3 ('archive_story') applies:\n  - Preconditions:\n    + current `tier` must NOT be 'archived'.\n  - Actions:\n    + set `tier` to 'archived'.\n\n\u2022 Events that fail their preconditions are no-ops (the state row is unchanged).\n\nConstraints: The order of events matters. An early 'promote_tier' that changes a story's tier to 'trending' will cause later 'view_logged' events for that story to be no-ops (because 'view_logged' requires tier = 'active'). Some events in the log will naturally be no-ops because the current state does not satisfy their preconditions.",
+    "schema_ddl": "CREATE TABLE stories (story_id INT PRIMARY KEY, view_count INT NOT NULL, tier VARCHAR(20) NOT NULL); CREATE TABLE story_events (event_id INT PRIMARY KEY, event_type INT NOT NULL, story_id INT NOT NULL REFERENCES stories(story_id), view_increment INT, CONSTRAINT fk_story FOREIGN KEY (story_id) REFERENCES stories(story_id));",
+    "example_input_data": "INSERT INTO stories (story_id, view_count, tier) VALUES (1, 80, 'active'), (2, 95, 'active'), (3, 110, 'active'), (4, 50, 'archived'); INSERT INTO story_events (event_id, event_type, story_id, view_increment) VALUES (1, 1, 1, 25), (2, 2, 1, NULL), (3, 1, 1, 10), (4, 1, 2, 20), (5, 3, 3, NULL), (6, 1, 3, 5), (7, 1, 4, 10);",
+    "example_output_columns": [
+      "story_id",
+      "view_count",
+      "tier"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        105,
+        "trending"
+      ],
+      [
+        2,
+        115,
+        "active"
+      ],
+      [
+        3,
+        110,
+        "archived"
+      ],
+      [
+        4,
+        50,
+        "archived"
+      ]
+    ],
+    "test_data": "INSERT INTO stories (story_id, view_count, tier) VALUES (10, 60, 'active'), (11, 90, 'active'), (12, 105, 'active'), (13, 200, 'trending'), (14, 30, 'active'), (15, 0, 'archived'), (16, 99, 'active'), (17, 85, 'active'), (18, 120, 'active'); INSERT INTO story_events (event_id, event_type, story_id, view_increment) VALUES (101, 1, 10, 20), (102, 1, 10, 25), (103, 2, 10, NULL), (104, 1, 10, 15), (105, 1, 11, 8), (106, 1, 11, 3), (107, 2, 11, NULL), (108, 1, 11, 5), (109, 3, 12, NULL), (110, 1, 12, 10), (111, 2, 12, NULL), (112, 1, 13, 50), (113, 2, 13, NULL), (114, 3, 14, NULL), (115, 1, 14, 100), (116, 1, 15, 50), (117, 2, 15, NULL), (118, 1, 16, 1), (119, 2, 16, NULL), (120, 1, 16, 10), (121, 1, 17, 10), (122, 1, 17, 8), (123, 2, 17, NULL), (124, 1, 17, 5), (125, 3, 18, NULL), (126, 2, 18, NULL), (127, 1, 18, 20);",
+    "test_expected_columns": [
+      "story_id",
+      "view_count",
+      "tier"
+    ],
+    "test_expected_rows": [
+      [
+        10,
+        105,
+        "trending"
+      ],
+      [
+        11,
+        101,
+        "trending"
+      ],
+      [
+        12,
+        105,
+        "archived"
+      ],
+      [
+        13,
+        200,
+        "trending"
+      ],
+      [
+        14,
+        30,
+        "archived"
+      ],
+      [
+        15,
+        0,
+        "archived"
+      ],
+      [
+        16,
+        100,
+        "trending"
+      ],
+      [
+        17,
+        103,
+        "trending"
+      ],
+      [
+        18,
+        120,
+        "archived"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "procedural",
+      "output_shape": "state_mutation",
+      "recipe": "do-block-sequential",
+      "composite_moves": [
+        "read_state_per_iteration",
+        "branch_on_event_type_and_state",
+        "conditional_update",
+        "order_dependent_mutation"
+      ]
+    },
+    "hints": [
+      "You need a DO block with a FOR loop that iterates story_events in event_id order.",
+      "Inside the loop, SELECT the current view_count and tier for each story before deciding what to do. Use IF/ELSIF to branch on both the event_type and the current state values.",
+      "Event type 1 only fires when tier is 'active'. Event type 2 only fires when view_count >= 100 AND tier is 'active'. Event type 3 fires as long as tier is not already 'archived'. If preconditions fail, do nothing for that event."
+    ],
+    "answer_key": "DO $$\nDECLARE\n  rec RECORD;\n  cur_view_count INT;\n  cur_tier VARCHAR(20);\nBEGIN\n  FOR rec IN SELECT * FROM story_events ORDER BY event_id LOOP\n    SELECT view_count, tier INTO cur_view_count, cur_tier FROM stories WHERE story_id = rec.story_id;\n    \n    IF rec.event_type = 1 AND cur_tier = 'active' THEN\n      UPDATE stories SET view_count = view_count + rec.view_increment WHERE story_id = rec.story_id;\n    ELSIF rec.event_type = 2 AND cur_view_count >= 100 AND cur_tier = 'active' THEN\n      UPDATE stories SET tier = 'trending' WHERE story_id = rec.story_id;\n    ELSIF rec.event_type = 3 AND cur_tier <> 'archived' THEN\n      UPDATE stories SET tier = 'archived' WHERE story_id = rec.story_id;\n    END IF;\n  END LOOP;\nEND $$;\n\nSELECT * FROM stories ORDER BY story_id;",
+    "_meta": {
+      "question_type": "do_block_queue",
+      "original_qtype": "do_block_queue",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-17T13:36:03.994785",
+      "problem_id": "a4f2fca7688e",
+      "validation_attempts": 1,
+      "scenario": "a photo sharing app tracking story creation and view rates",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "DO $$\nDECLARE\n    r RECORD;\n    current_tier VARCHAR(20);\n    current_view INT;\nBEGIN\n    FOR r IN SELECT * FROM story_events ORDER BY event_id LOOP\n        SELECT tier, view_count \n            INTO current_tier, current_view\n        FROM stories\n        WHERE story_id = r.story_id;\n\n        IF r.event_type = 1 AND current_tier = 'active' THEN\n            UPDATE stories\n            SET view_count = current_view + r.view_increment\n            WHERE story_id = r.story_id;\n\n        ELSIF r.event_type = 2 AND current_view >= 100 AND current_tier = 'active' THEN\n            UPDATE stories\n            SET tier = 'trending'\n            WHERE story_id = r.story_id;        \n        \n        ELSIF r.event_type = 3 AND current_tier <> 'archived' THEN\n            UPDATE stories\n            SET tier = 'archived'\n            WHERE story_id = r.story_id;\n\n        END IF;\n    END LOOP;\nEND $$;\n\n\nSELECT * FROM stories ORDER BY story_id;\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n",
+  "solved_at": "2026-06-17T14:00:15.938061"
+}

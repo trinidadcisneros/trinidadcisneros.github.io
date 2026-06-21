@@ -1,0 +1,198 @@
+{
+  "problem": {
+    "title": "Remove Duplicate Kit Shipments by Patient",
+    "prompt": "A diagnostic test kit platform has discovered that some patients received duplicate shipments of the same kit type due to a sync error. The business rule is to keep only the earliest shipment for each patient\u2013kit_type combination and delete all later duplicates. Write a single DELETE statement that removes duplicate shipment records, retaining only the row with the smallest `shipment_id` for each (`patient_id`, `kit_type`) pair. After the DELETE, return all remaining rows from the `kit_shipments` table ordered by `shipment_id` ascending.",
+    "schema_ddl": "CREATE TABLE kit_shipments (\n  shipment_id SERIAL PRIMARY KEY,\n  patient_id INT NOT NULL,\n  kit_type VARCHAR(50) NOT NULL,\n  shipped_date DATE NOT NULL,\n  tracking_number VARCHAR(50)\n);\n\nCREATE TABLE test_results (\n  result_id SERIAL PRIMARY KEY,\n  shipment_id INT NOT NULL,\n  result_status VARCHAR(20) NOT NULL,\n  released_date DATE\n);",
+    "example_input_data": "INSERT INTO kit_shipments (shipment_id, patient_id, kit_type, shipped_date, tracking_number) VALUES\n(101, 1001, 'COVID-19', '2024-01-10', 'TRK001'),\n(102, 1001, 'COVID-19', '2024-01-12', 'TRK002'),\n(103, 1002, 'Vitamin-D', '2024-01-15', 'TRK003'),\n(104, 1001, 'Vitamin-D', '2024-01-18', 'TRK004'),\n(105, 1002, 'COVID-19', '2024-01-20', 'TRK005'),\n(106, 1002, 'COVID-19', '2024-01-22', 'TRK006'),\n(107, 1003, 'Thyroid', '2024-01-25', 'TRK007'),\n(108, 1001, 'COVID-19', '2024-01-28', 'TRK008');\n\nINSERT INTO test_results (result_id, shipment_id, result_status, released_date) VALUES\n(201, 101, 'completed', '2024-01-15'),\n(202, 103, 'pending', NULL),\n(203, 105, 'completed', '2024-01-25');",
+    "example_output_columns": [
+      "shipment_id",
+      "patient_id",
+      "kit_type",
+      "shipped_date",
+      "tracking_number"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        1001,
+        "COVID-19",
+        "2024-01-10",
+        "TRK001"
+      ],
+      [
+        103,
+        1002,
+        "Vitamin-D",
+        "2024-01-15",
+        "TRK003"
+      ],
+      [
+        104,
+        1001,
+        "Vitamin-D",
+        "2024-01-18",
+        "TRK004"
+      ],
+      [
+        105,
+        1002,
+        "COVID-19",
+        "2024-01-20",
+        "TRK005"
+      ],
+      [
+        107,
+        1003,
+        "Thyroid",
+        "2024-01-25",
+        "TRK007"
+      ]
+    ],
+    "test_data": "INSERT INTO kit_shipments (shipment_id, patient_id, kit_type, shipped_date, tracking_number) VALUES\n(201, 2001, 'COVID-19', '2024-02-01', 'TRK201'),\n(202, 2001, 'COVID-19', '2024-02-03', 'TRK202'),\n(203, 2001, 'COVID-19', '2024-02-05', 'TRK203'),\n(204, 2002, 'Vitamin-D', '2024-02-07', 'TRK204'),\n(205, 2003, 'Thyroid', '2024-02-08', 'TRK205'),\n(206, 2003, 'Thyroid', '2024-02-09', 'TRK206'),\n(207, 2002, 'COVID-19', '2024-02-10', 'TRK207'),\n(208, 2004, 'Cholesterol', '2024-02-11', 'TRK208'),\n(209, 2002, 'Vitamin-D', '2024-02-12', 'TRK209'),\n(210, 2005, 'COVID-19', '2024-02-13', 'TRK210'),\n(211, 2005, 'COVID-19', '2024-02-14', 'TRK211'),\n(212, 2001, 'Thyroid', '2024-02-15', 'TRK212'),\n(213, 2006, 'Vitamin-D', '2024-02-16', 'TRK213'),\n(214, 2003, 'COVID-19', '2024-02-17', 'TRK214'),\n(215, 2007, 'COVID-19', '2024-02-18', 'TRK215'),\n(216, 2007, 'COVID-19', '2024-02-19', 'TRK216'),\n(217, 2007, 'COVID-19', '2024-02-20', 'TRK217'),\n(218, 2008, 'Thyroid', '2024-02-21', 'TRK218'),\n(219, 2002, 'COVID-19', '2024-02-22', 'TRK219'),\n(220, 2009, 'Vitamin-D', '2024-02-23', 'TRK220'),\n(221, 2010, 'COVID-19', '2024-02-24', NULL),\n(222, 2010, 'COVID-19', '2024-02-25', NULL),\n(223, 2011, 'Cholesterol', '2024-02-26', 'TRK223'),\n(224, 2003, 'Thyroid', '2024-02-27', 'TRK224'),\n(225, 2012, 'COVID-19', '2024-02-28', 'TRK225');\n\nINSERT INTO test_results (result_id, shipment_id, result_status, released_date) VALUES\n(301, 201, 'completed', '2024-02-06'),\n(302, 204, 'pending', NULL),\n(303, 208, 'completed', '2024-02-16');",
+    "test_expected_columns": [
+      "shipment_id",
+      "patient_id",
+      "kit_type",
+      "shipped_date",
+      "tracking_number"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        2001,
+        "COVID-19",
+        "2024-02-01",
+        "TRK201"
+      ],
+      [
+        204,
+        2002,
+        "Vitamin-D",
+        "2024-02-07",
+        "TRK204"
+      ],
+      [
+        205,
+        2003,
+        "Thyroid",
+        "2024-02-08",
+        "TRK205"
+      ],
+      [
+        207,
+        2002,
+        "COVID-19",
+        "2024-02-10",
+        "TRK207"
+      ],
+      [
+        208,
+        2004,
+        "Cholesterol",
+        "2024-02-11",
+        "TRK208"
+      ],
+      [
+        210,
+        2005,
+        "COVID-19",
+        "2024-02-13",
+        "TRK210"
+      ],
+      [
+        212,
+        2001,
+        "Thyroid",
+        "2024-02-15",
+        "TRK212"
+      ],
+      [
+        213,
+        2006,
+        "Vitamin-D",
+        "2024-02-16",
+        "TRK213"
+      ],
+      [
+        214,
+        2003,
+        "COVID-19",
+        "2024-02-17",
+        "TRK214"
+      ],
+      [
+        215,
+        2007,
+        "COVID-19",
+        "2024-02-18",
+        "TRK215"
+      ],
+      [
+        218,
+        2008,
+        "Thyroid",
+        "2024-02-21",
+        "TRK218"
+      ],
+      [
+        220,
+        2009,
+        "Vitamin-D",
+        "2024-02-23",
+        "TRK220"
+      ],
+      [
+        221,
+        2010,
+        "COVID-19",
+        "2024-02-24",
+        null
+      ],
+      [
+        223,
+        2011,
+        "Cholesterol",
+        "2024-02-26",
+        "TRK223"
+      ],
+      [
+        225,
+        2012,
+        "COVID-19",
+        "2024-02-28",
+        "TRK225"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "state_mutation",
+      "recipe": "delete-duplicates",
+      "composite_moves": [
+        "delete-duplicates: correlated subquery finds MIN(shipment_id) per (patient_id, kit_type) group",
+        "row-filter: DELETE WHERE shipment_id NOT IN the MIN set"
+      ]
+    },
+    "hints": [
+      "You need to identify which shipment_id is the smallest for each combination of patient and kit type.",
+      "A correlated subquery or window function can help you find the minimum shipment_id within each (patient_id, kit_type) group.",
+      "Use a DELETE statement with a WHERE clause that checks if the current row's shipment_id is NOT the minimum for its (patient_id, kit_type) group."
+    ],
+    "answer_key": "DELETE FROM kit_shipments\nWHERE shipment_id NOT IN (\n  SELECT MIN(shipment_id)\n  FROM kit_shipments\n  GROUP BY patient_id, kit_type\n);\n\nSELECT * FROM kit_shipments ORDER BY shipment_id;",
+    "_meta": {
+      "question_type": "dml_delete",
+      "original_qtype": "dml_delete",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-17T15:35:43.994443",
+      "problem_id": "1e4ad6ddb43d",
+      "validation_attempts": 1,
+      "scenario": "an at-home diagnostic test kit platform tracking kit shipped and results released",
+      "dml_op": "DELETE",
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\nA diagnostic test kit platform has discovered that some patients received duplicate shipments of the same kit type due to a sync error.\n\nThe business rule is to keep only the earliest shipment for each patient\u2013kit_type combination and delete all later duplicates.\n\nWrite a single DELETE statement that removes duplicate shipment records, retaining only the row with the smallest `shipment_id` for each (`patient_id`, `kit_type`) pair.\nAfter the DELETE, return all remaining rows from the `kit_shipments` table ordered by `shipment_id` ascending.\n*/\n\nDELETE FROM kit_shipments\n    WHERE shipped_date NOT IN (\n                           SELECT MIN(shipped_date)\n                           FROM kit_shipments\n                           GROUP BY patient_id, kit_type\n                           );\n\nSELECT * FROM kit_shipments ORDER BY shipment_id;\n",
+  "solved_at": "2026-06-17T15:54:10.682277"
+}

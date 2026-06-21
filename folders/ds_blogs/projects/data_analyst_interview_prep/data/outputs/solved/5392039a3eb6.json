@@ -1,0 +1,161 @@
+{
+  "problem": {
+    "title": "Match Acceptance Gated by Player Rank",
+    "prompt": "You are tracking multiplayer match lobbies where players propose match slots with different start times. Each player has a skill rank (1-5 stars) stored in the players table. For each player, find the EARLIEST proposed match start_time from the match_proposals table. However, only players with rank >= 4 are allowed to propose matches; for players with rank < 4, output NULL as their earliest_match_time instead. Return columns: player_id, rank, earliest_match_time. Order results by player_id ascending. Include all players in the output, even those who fail the rank gate.",
+    "schema_ddl": "CREATE TABLE players (player_id INT PRIMARY KEY, player_name VARCHAR(100), rank INT); CREATE TABLE match_proposals (proposal_id INT PRIMARY KEY, player_id INT, start_time TIMESTAMP);",
+    "example_input_data": "INSERT INTO players (player_id, player_name, rank) VALUES (1, 'Alice', 5), (2, 'Bob', 3), (3, 'Charlie', 4), (4, 'Diana', 2), (5, 'Eve', 4), (6, 'Frank', 5); INSERT INTO match_proposals (proposal_id, player_id, start_time) VALUES (101, 1, '2024-06-15 18:00:00'), (102, 1, '2024-06-15 20:00:00'), (103, 2, '2024-06-15 19:00:00'), (104, 3, '2024-06-16 10:00:00'), (105, 3, '2024-06-16 14:00:00'), (106, 5, '2024-06-16 12:00:00'), (107, 6, '2024-06-17 09:00:00');",
+    "example_output_columns": [
+      "player_id",
+      "rank",
+      "earliest_match_time"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        5,
+        "2024-06-15 18:00:00"
+      ],
+      [
+        2,
+        3,
+        null
+      ],
+      [
+        3,
+        4,
+        "2024-06-16 10:00:00"
+      ],
+      [
+        4,
+        2,
+        null
+      ],
+      [
+        5,
+        4,
+        "2024-06-16 12:00:00"
+      ],
+      [
+        6,
+        5,
+        "2024-06-17 09:00:00"
+      ]
+    ],
+    "test_data": "INSERT INTO players (player_id, player_name, rank) VALUES (1, 'Alice', 5), (2, 'Bob', 3), (3, 'Charlie', 4), (4, 'Diana', 2), (5, 'Eve', 4), (6, 'Frank', 5), (7, 'Grace', 1), (8, 'Hank', 4), (9, 'Ivy', 5), (10, 'Jack', 3), (11, 'Karen', 4), (12, 'Leo', 2), (13, 'Mona', 5), (14, 'Nina', 3), (15, 'Oscar', 4); INSERT INTO match_proposals (proposal_id, player_id, start_time) VALUES (201, 1, '2024-06-20 08:00:00'), (202, 1, '2024-06-20 10:00:00'), (203, 1, '2024-06-20 12:00:00'), (204, 2, '2024-06-20 09:00:00'), (205, 2, '2024-06-20 11:00:00'), (206, 3, '2024-06-21 07:00:00'), (207, 5, '2024-06-21 06:00:00'), (208, 5, '2024-06-21 08:00:00'), (209, 6, '2024-06-22 14:00:00'), (210, 7, '2024-06-22 15:00:00'), (211, 8, '2024-06-23 16:00:00'), (212, 8, '2024-06-23 18:00:00'), (213, 9, '2024-06-23 10:00:00'), (214, 9, '2024-06-23 12:00:00'), (215, 9, '2024-06-23 14:00:00'), (216, 10, '2024-06-24 09:00:00'), (217, 11, '2024-06-24 11:00:00'), (218, 11, '2024-06-24 13:00:00'), (219, 13, '2024-06-25 07:00:00'), (220, 14, '2024-06-25 08:00:00'), (221, 15, '2024-06-26 06:00:00'), (222, 15, '2024-06-26 09:00:00');",
+    "test_expected_columns": [
+      "player_id",
+      "rank",
+      "earliest_match_time"
+    ],
+    "test_expected_rows": [
+      [
+        1,
+        5,
+        "2024-06-20 08:00:00"
+      ],
+      [
+        2,
+        3,
+        null
+      ],
+      [
+        3,
+        4,
+        "2024-06-21 07:00:00"
+      ],
+      [
+        4,
+        2,
+        null
+      ],
+      [
+        5,
+        4,
+        "2024-06-21 06:00:00"
+      ],
+      [
+        6,
+        5,
+        "2024-06-22 14:00:00"
+      ],
+      [
+        7,
+        1,
+        null
+      ],
+      [
+        8,
+        4,
+        "2024-06-23 16:00:00"
+      ],
+      [
+        9,
+        5,
+        "2024-06-23 10:00:00"
+      ],
+      [
+        10,
+        3,
+        null
+      ],
+      [
+        11,
+        4,
+        "2024-06-24 11:00:00"
+      ],
+      [
+        12,
+        2,
+        null
+      ],
+      [
+        13,
+        5,
+        "2024-06-25 07:00:00"
+      ],
+      [
+        14,
+        3,
+        null
+      ],
+      [
+        15,
+        4,
+        "2024-06-26 06:00:00"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "same_rows",
+      "recipe": "enrich-join",
+      "composite_moves": [
+        "lookup gate attribute (rank) from players table",
+        "compute per-player pick (MIN start_time) from match_proposals table",
+        "apply gate via CASE: if rank >= 4 keep earliest_match_time else NULL"
+      ]
+    },
+    "hints": [
+      "You need to combine player rank information with their match proposals to make a gating decision.",
+      "For each player, find the minimum start_time from their proposals, then apply a CASE statement based on whether their rank meets the threshold.",
+      "Use a LEFT JOIN from players to a subquery that groups match_proposals by player_id and computes MIN(start_time), then wrap the result in a CASE checking if rank >= 4."
+    ],
+    "answer_key": "SELECT p.player_id, p.rank, CASE WHEN p.rank >= 4 THEN mp.earliest_match_time ELSE NULL END AS earliest_match_time FROM players p LEFT JOIN (SELECT player_id, MIN(start_time) AS earliest_match_time FROM match_proposals GROUP BY player_id) mp ON p.player_id = mp.player_id ORDER BY p.player_id;",
+    "_meta": {
+      "question_type": "gated_lookup",
+      "original_qtype": "gated_lookup",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-17T18:44:15.953183",
+      "problem_id": "5392039a3eb6",
+      "validation_attempts": 1,
+      "scenario": "a console online service tracking multiplayer match acceptance",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "subtype": null
+    }
+  },
+  "user_solution": "/*\nMatch Acceptance Gated by Player Rank\n- You are tracking multiplayer match lobbies where players propose match slots with different start times.\n- Each player has a skill rank (1-5 stars) stored in the players table.\n- For each player, find the EARLIEST proposed match start_time from the match_proposals table.\n\n- CASE WHEN rank >= 4 THEN PROPOSE MIN(start_time) ELSE NULL as their earliest_match_time instead.\nReturn columns: player_id, rank, earliest_match_time.\nOrder results by player_id ascending.\nInclude all players in the output, even those who fail the rank gate.\n\n*/\nSELECT\n    a.player_id,\n    a.rank,\n    CASE WHEN a.rank >= 4\n         THEN MIN(b.start_time)\n         ELSE NULL END AS earliest_match_time\nFROM players a\nLEFT JOIN match_proposals b \n    ON b.player_id = a.player_id\nGROUP BY a.player_id, a.rank\nORDER BY a.player_id;\n\n\n\n\n\n\n\n",
+  "solved_at": "2026-06-17T18:58:55.109600"
+}

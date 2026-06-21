@@ -1,0 +1,147 @@
+{
+  "problem": {
+    "title": "Top 3 Fastest Approvals per Payer",
+    "prompt": "A prior authorization tracking system records each authorization request with its payer and the number of hours from submission to final approval. Write a query to find the top 3 fastest approvals (shortest cycle time) for each payer. If a payer has fewer than 3 approvals, return all of them. When multiple requests for the same payer have identical cycle times, use ROW_NUMBER to pick exactly 3 rows per payer (ties broken arbitrarily by the database). Return columns: payer_name, auth_id, cycle_hours. Order the final result by payer_name ascending, then cycle_hours ascending.",
+    "schema_ddl": "CREATE TABLE payers (payer_id INT PRIMARY KEY, payer_name VARCHAR(100) NOT NULL); CREATE TABLE prior_authorizations (auth_id INT PRIMARY KEY, payer_id INT NOT NULL REFERENCES payers(payer_id), patient_mrn VARCHAR(20) NOT NULL, procedure_code VARCHAR(10) NOT NULL, cycle_hours DECIMAL(6,2), approval_status VARCHAR(20) NOT NULL);",
+    "example_input_data": "INSERT INTO payers (payer_id, payer_name) VALUES (1, 'BlueCross'), (2, 'Aetna'), (3, 'UnitedHealth'); INSERT INTO prior_authorizations (auth_id, payer_id, patient_mrn, procedure_code, cycle_hours, approval_status) VALUES (101, 1, 'MRN001', 'CPT12345', 4.5, 'approved'), (102, 1, 'MRN002', 'CPT12346', 6.0, 'approved'), (103, 1, 'MRN003', 'CPT12347', 6.0, 'approved'), (104, 1, 'MRN004', 'CPT12348', 12.0, 'approved'), (105, 1, 'MRN005', 'CPT12349', 18.0, 'approved'), (106, 2, 'MRN006', 'CPT12350', 3.0, 'approved'), (107, 2, 'MRN007', 'CPT12351', 5.5, 'approved'), (108, 3, 'MRN008', 'CPT12352', 8.0, 'approved');",
+    "example_output_columns": [
+      "payer_name",
+      "auth_id",
+      "cycle_hours"
+    ],
+    "example_output_rows": [
+      [
+        "Aetna",
+        106,
+        "3.00"
+      ],
+      [
+        "Aetna",
+        107,
+        "5.50"
+      ],
+      [
+        "BlueCross",
+        101,
+        "4.50"
+      ],
+      [
+        "BlueCross",
+        102,
+        "6.00"
+      ],
+      [
+        "BlueCross",
+        103,
+        "6.00"
+      ],
+      [
+        "UnitedHealth",
+        108,
+        "8.00"
+      ]
+    ],
+    "test_data": "INSERT INTO payers (payer_id, payer_name) VALUES (1, 'BlueCross'), (2, 'Aetna'), (3, 'UnitedHealth'), (4, 'Cigna'), (5, 'Humana'); INSERT INTO prior_authorizations (auth_id, payer_id, patient_mrn, procedure_code, cycle_hours, approval_status) VALUES (201, 1, 'MRN101', 'CPT20001', 2.0, 'approved'), (202, 1, 'MRN102', 'CPT20002', 3.5, 'approved'), (203, 1, 'MRN103', 'CPT20003', 3.5, 'approved'), (204, 1, 'MRN104', 'CPT20004', 3.5, 'approved'), (205, 1, 'MRN105', 'CPT20005', 7.0, 'approved'), (206, 1, 'MRN106', 'CPT20006', 9.0, 'approved'), (207, 1, 'MRN107', 'CPT20007', 15.0, 'approved'), (208, 2, 'MRN108', 'CPT20008', 1.5, 'approved'), (209, 2, 'MRN109', 'CPT20009', 4.0, 'approved'), (210, 2, 'MRN110', 'CPT20010', 4.0, 'approved'), (211, 2, 'MRN111', 'CPT20011', 6.5, 'approved'), (212, 2, 'MRN112', 'CPT20012', 10.0, 'approved'), (213, 3, 'MRN113', 'CPT20013', 5.0, 'approved'), (214, 3, 'MRN114', 'CPT20014', 5.0, 'approved'), (215, 3, 'MRN115', 'CPT20015', 8.5, 'approved'), (216, 3, 'MRN116', 'CPT20016', 12.0, 'approved'), (217, 3, 'MRN117', 'CPT20017', 14.0, 'approved'), (218, 3, 'MRN118', 'CPT20018', 20.0, 'approved'), (219, 4, 'MRN119', 'CPT20019', 3.0, 'approved'), (220, 4, 'MRN120', 'CPT20020', 11.0, 'approved'), (221, 5, 'MRN121', 'CPT20021', 7.5, 'approved');",
+    "test_expected_columns": [
+      "payer_name",
+      "auth_id",
+      "cycle_hours"
+    ],
+    "test_expected_rows": [
+      [
+        "Aetna",
+        208,
+        "1.50"
+      ],
+      [
+        "Aetna",
+        209,
+        "4.00"
+      ],
+      [
+        "Aetna",
+        210,
+        "4.00"
+      ],
+      [
+        "BlueCross",
+        201,
+        "2.00"
+      ],
+      [
+        "BlueCross",
+        202,
+        "3.50"
+      ],
+      [
+        "BlueCross",
+        203,
+        "3.50"
+      ],
+      [
+        "Cigna",
+        219,
+        "3.00"
+      ],
+      [
+        "Cigna",
+        220,
+        "11.00"
+      ],
+      [
+        "Humana",
+        221,
+        "7.50"
+      ],
+      [
+        "UnitedHealth",
+        214,
+        "5.00"
+      ],
+      [
+        "UnitedHealth",
+        213,
+        "5.00"
+      ],
+      [
+        "UnitedHealth",
+        215,
+        "8.50"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "rank-partition",
+      "composite_moves": [
+        "join payers and prior_authorizations",
+        "ROW_NUMBER OVER PARTITION BY payer_id ORDER BY cycle_hours ASC in CTE",
+        "filter rn <= 3 in outer query",
+        "order final output by payer_name, cycle_hours"
+      ]
+    },
+    "hints": [
+      "Think about how you can assign a ranking within each payer's approvals based on cycle time.",
+      "Use a CTE with ROW_NUMBER() OVER (PARTITION BY payer_id ORDER BY cycle_hours ASC) to rank approvals within each payer.",
+      "Filter the ranked results where the row number is 3 or less, then join with payers to get the payer names and order by payer_name and cycle_hours."
+    ],
+    "answer_key": "WITH ranked_auths AS (SELECT pa.auth_id, pa.payer_id, pa.cycle_hours, ROW_NUMBER() OVER (PARTITION BY pa.payer_id ORDER BY pa.cycle_hours ASC) AS rn FROM prior_authorizations pa) SELECT p.payer_name, ra.auth_id, ra.cycle_hours FROM ranked_auths ra JOIN payers p ON ra.payer_id = p.payer_id WHERE ra.rn <= 3 ORDER BY p.payer_name ASC, ra.cycle_hours ASC;",
+    "_meta": {
+      "question_type": "window_top_n_per_group",
+      "original_qtype": "window_top_n_per_group",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "pharmacy_care",
+      "generated_at": "2026-06-18T15:28:48.736189",
+      "problem_id": "aa713615d927",
+      "validation_attempts": 1,
+      "scenario": "a prior authorization cycle time tracking system across payers",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "subtype": null
+    }
+  },
+  "user_solution": "/*\nTop 3 Fastest Approvals per Payer\nPrompt\n- A prior authorization tracking system records each authorization request with its payer and the number of hours from submission to final approval.\n- Write a query to find the top 3 fastest approvals (shortest cycle time) for each payer.\n- If a payer has fewer than 3 approvals, return all of them.\n- When multiple requests for the same payer have identical cycle times, use ROW_NUMBER to pick exactly 3 rows per payer (ties broken arbitrarily by the database).\n\nReturn columns: \npayer_name,\nauth_id, \ncycle_hours.\nORDER BY payer_name, cycle_hours;\n\n*/\nSELECT\n    p.payer_name,\n    pa.auth_id,\n    pa.cycle_hours\nFROM (\n    SELECT\n        payer_id,\n        auth_id,\n        cycle_hours,\n        ROW_NUMBER() OVER (PARTITION BY payer_id ORDER BY cycle_hours) AS rnk\n    FROM prior_authorizations\n    ) AS pa\nRIGHT JOIN payers AS p\nUSING(payer_id)\nWHERE pa.rnk <=3\nORDER BY payer_name, cycle_hours;\n\n",
+  "solved_at": "2026-06-18T15:43:05.533660"
+}

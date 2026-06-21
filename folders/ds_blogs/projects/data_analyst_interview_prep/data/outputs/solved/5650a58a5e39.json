@@ -1,0 +1,93 @@
+{
+  "problem": {
+    "title": "Monthly Writing Activity by Cohort",
+    "prompt": "You manage a note-taking app where users create notebooks and track daily writing activity. You want to identify which monthly signup cohort has the highest total days of writing activity recorded in the first full quarter (3 months) after their signup month. Write a query that groups users by their signup month cohort (using `DATE_TRUNC('month', signup_date)::date`), counts the total number of distinct writing activity dates (`activity_date`) that fall within the 3-month window starting from the first day of each user's signup month through the end of the third month (inclusive), and returns the cohort month with the highest total activity days. For example, a user who signed up on 2024-01-15 belongs to the '2024-01-01' cohort; their activity window runs from 2024-01-01 through 2024-03-31 (inclusive). Return columns `cohort_month` (the truncated month as a date) and `total_activity_days` (sum of distinct activity dates across all users in that cohort within their window), ordered by `total_activity_days` DESC, then by `cohort_month` ASC. Only include cohorts that have at least one activity day recorded in their window.",
+    "schema_ddl": "CREATE TABLE users (user_id INT PRIMARY KEY, username VARCHAR(100), signup_date DATE); CREATE TABLE writing_activity (activity_id INT PRIMARY KEY, user_id INT, activity_date DATE, words_written INT);",
+    "example_input_data": "INSERT INTO users (user_id, username, signup_date) VALUES (1, 'alice', '2024-01-15'), (2, 'bob', '2024-01-22'), (3, 'charlie', '2024-02-05'), (4, 'diana', '2024-02-10'), (5, 'eve', '2024-03-01'), (6, 'frank', '2024-03-20'); INSERT INTO writing_activity (activity_id, user_id, activity_date, words_written) VALUES (1, 1, '2024-01-20', 500), (2, 1, '2024-02-15', 300), (3, 1, '2024-03-10', 400), (4, 2, '2024-01-25', 200), (5, 2, '2024-02-28', 350), (6, 3, '2024-02-10', 600), (7, 3, '2024-03-05', 250), (8, 3, '2024-04-01', 100), (9, 4, '2024-03-15', 450), (10, 5, '2024-03-10', 300), (11, 5, '2024-04-20', 500);",
+    "example_output_columns": [
+      "cohort_month",
+      "total_activity_days"
+    ],
+    "example_output_rows": [
+      [
+        "2024-01-01",
+        "5"
+      ],
+      [
+        "2024-02-01",
+        "4"
+      ],
+      [
+        "2024-03-01",
+        "2"
+      ]
+    ],
+    "test_data": "INSERT INTO users (user_id, username, signup_date) VALUES (1, 'alice', '2024-01-15'), (2, 'bob', '2024-01-22'), (3, 'charlie', '2024-02-05'), (4, 'diana', '2024-02-10'), (5, 'eve', '2024-03-01'), (6, 'frank', '2024-03-20'), (7, 'grace', '2024-04-01'), (8, 'hank', '2024-04-15'), (9, 'iris', '2024-05-10'), (10, 'jack', '2024-01-05'), (11, 'karen', '2024-02-28'), (12, 'leo', '2024-03-31'), (13, 'mia', '2024-01-01'), (14, 'nick', '2024-02-01'), (15, 'olivia', '2024-12-15'); INSERT INTO writing_activity (activity_id, user_id, activity_date, words_written) VALUES (1, 1, '2024-01-20', 500), (2, 1, '2024-02-15', 300), (3, 1, '2024-03-10', 400), (4, 2, '2024-01-25', 200), (5, 2, '2024-02-28', 350), (6, 2, '2024-03-31', 275), (7, 3, '2024-02-10', 600), (8, 3, '2024-03-05', 250), (9, 3, '2024-04-01', 100), (10, 4, '2024-03-15', 450), (11, 4, '2024-04-30', 320), (12, 5, '2024-03-10', 300), (13, 5, '2024-04-20', 500), (14, 5, '2024-05-15', 150), (15, 6, '2024-03-25', 220), (16, 6, '2024-04-10', 280), (17, 6, '2024-05-30', 310), (18, 7, '2024-04-05', 400), (19, 7, '2024-05-12', 350), (20, 7, '2024-06-18', 290), (21, 8, '2024-04-20', 180), (22, 8, '2024-05-25', 240), (23, 8, '2024-06-30', 330), (24, 9, '2024-05-15', 420), (25, 9, '2024-06-10', 380), (26, 9, '2024-07-05', 210), (27, 10, '2024-01-10', 550), (28, 10, '2024-01-15', 600), (29, 10, '2024-02-01', 320), (30, 10, '2024-03-20', 410), (31, 11, '2024-02-29', 290), (32, 11, '2024-03-15', 340), (33, 11, '2024-04-25', 270), (34, 12, '2024-04-05', 380), (35, 12, '2024-05-10', 450), (36, 12, '2024-06-15', 310), (37, 13, '2024-01-05', 620), (38, 13, '2024-02-20', 480), (39, 13, '2024-03-25', 390), (40, 14, '2024-02-05', 510), (41, 14, '2024-03-10', 430), (42, 14, '2024-04-15', 360), (43, 15, '2024-12-20', 500), (44, 15, '2025-01-10', 420), (45, 15, '2025-02-28', 390);",
+    "test_expected_columns": [
+      "cohort_month",
+      "total_activity_days"
+    ],
+    "test_expected_rows": [
+      [
+        "2024-01-01",
+        "13"
+      ],
+      [
+        "2024-02-01",
+        "10"
+      ],
+      [
+        "2024-03-01",
+        "8"
+      ],
+      [
+        "2024-04-01",
+        "6"
+      ],
+      [
+        "2024-05-01",
+        "3"
+      ],
+      [
+        "2024-12-01",
+        "3"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "join users and writing_activity on user_id",
+        "compute cohort_month = DATE_TRUNC('month', signup_date)::date for each user",
+        "compute window_end = (cohort_month + INTERVAL '3 months' - INTERVAL '1 day')::date for each user",
+        "filter activity_date >= cohort_month AND activity_date <= window_end",
+        "group by cohort_month",
+        "count distinct activity_date per cohort",
+        "order by total_activity_days DESC, cohort_month ASC"
+      ]
+    },
+    "hints": [
+      "You need to bucket users by their signup month and then look at their writing activity within a specific time window relative to that month.",
+      "Use DATE_TRUNC('month', signup_date) to get each user's cohort month, then compute the end of the 3-month window by adding an interval and subtracting one day. Join the users table with writing_activity and filter activity_date to fall within each user's window.",
+      "GROUP BY the cohort month (DATE_TRUNC result), then COUNT(DISTINCT activity_date) to get the total unique activity days for all users in that cohort. Use HAVING to exclude cohorts with zero activity days, and ORDER BY the count descending."
+    ],
+    "answer_key": "WITH user_cohorts AS (\n  SELECT\n    user_id,\n    DATE_TRUNC('month', signup_date)::date AS cohort_month,\n    DATE_TRUNC('month', signup_date)::date AS window_start,\n    (DATE_TRUNC('month', signup_date) + INTERVAL '3 months' - INTERVAL '1 day')::date AS window_end\n  FROM users\n)\nSELECT\n  uc.cohort_month,\n  COUNT(DISTINCT wa.activity_date)::text AS total_activity_days\nFROM user_cohorts uc\nJOIN writing_activity wa ON uc.user_id = wa.user_id\nWHERE wa.activity_date >= uc.window_start\n  AND wa.activity_date <= uc.window_end\nGROUP BY uc.cohort_month\nORDER BY COUNT(DISTINCT wa.activity_date) DESC, uc.cohort_month ASC;",
+    "_meta": {
+      "question_type": "date_operations",
+      "original_qtype": "date_operations",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-14T14:00:50.779390",
+      "problem_id": "5650a58a5e39",
+      "validation_attempts": 1,
+      "scenario": "a note-taking app tracking notebook creation and daily writing streaks",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\nMonthly Writing Activity by Cohort\n\n- Manage a note-taking app where users create notebooks and track daily writing activity.\n- Identify monthly signup cohort with highest total days of writing activity recorded in the first full quarter (3 months) after their signup month.\n\n- Write query that groups users by signup month cohort (using `DATE_TRUNC('month', signup_date)::date`)\n- number of distinct writing activity dates (`activity_date`) that fall within the 3-month window starting from the first day of each user's signup month through the end of the third month (inclusive), and returns the cohort month with the highest total activity days.\n\nEXAMPLE\n- signed up on 2024-01-15 -> '2024-01-01' cohort\n- activity_date dates -> from 2024-01-01 through 2024-03-31 (inclusive).\n\nSchema\nTable: users\nuser_id\t            INT PRIMARY KEY\nusername\t        VARCHAR(100)\nsignup_date\t        DATE\n\nTable: writing_activity\nactivity_id\t        INT PRIMARY KEY\nuser_id\t            INT\nactivity_date\t    DATE\nwords_written\t    INT\n\nOUTPUT\ncohort_month        (the truncated month as a date) \ntotal_activity_days (sum of distinct activity dates across all users in that cohort within their window), \n\nORDER BY total_activity_days DESC, cohort_month;\n\nHAVING total_activity_days >= 1\n\nSTEPS\n1. cohort month\n2. join\n3. add window\n4. group by\n*/\nWITH base AS (\nSELECT\n    DISTINCT\n    DATE_TRUNC('month', u.signup_date)::date AS cohort_month,\n    w.activity_date,\n    CASE WHEN w.activity_date >= DATE_TRUNC('month', u.signup_date)::date \n            AND w.activity_date <= DATE_TRUNC('month', u.signup_date)::date + INTERVAL '3 months' THEN 1 ELSE 0 END AS active_in_q1\nFROM users AS u\nLEFT JOIN writing_activity AS w\nON u.user_id = w.user_id\nWHERE w.activity_date IS NOT NULL\nORDER BY cohort_month\n)\nSELECT\n    cohort_month,\n    SUM(active_in_q1) AS total_activity_days\nFROM base\nGROUP BY cohort_month\nHAVING SUM(active_in_q1) > 1\nORDER BY total_activity_days DESC, cohort_month;\n",
+  "solved_at": "2026-06-14T14:58:35.205206"
+}

@@ -1,0 +1,103 @@
+{
+  "problem": {
+    "title": "Couriers Faster Than Zone Average",
+    "prompt": "You manage a same-day medication delivery service. Each courier completes deliveries in one of three service zones. For quality control, you want to identify couriers whose average delivery time is faster (strictly less) than their zone's average delivery time. Write a query that returns each such courier's ID, name, zone, their personal average delivery time, and their zone's average delivery time. A courier's personal average is the mean of all their completed deliveries. The zone average is computed across all deliveries in that zone. Order results by zone, then by the courier's average delivery time ascending. The `deliveries` table records each completed delivery with its courier and duration in minutes; a courier may have multiple deliveries. Handle the case where a courier's average exactly equals the zone average (they should NOT appear in the output).",
+    "schema_ddl": "CREATE TABLE couriers (courier_id INT PRIMARY KEY, courier_name VARCHAR(100), service_zone VARCHAR(50)); CREATE TABLE deliveries (delivery_id INT PRIMARY KEY, courier_id INT, delivery_time_minutes INT);",
+    "example_input_data": "INSERT INTO couriers (courier_id, courier_name, service_zone) VALUES (1, 'Alice Chen', 'North'), (2, 'Bob Martinez', 'North'), (3, 'Carol Singh', 'South'), (4, 'Dan Lee', 'South'), (5, 'Eve Johnson', 'West'), (6, 'Frank Park', 'West'); INSERT INTO deliveries (delivery_id, courier_id, delivery_time_minutes) VALUES (101, 1, 18), (102, 1, 22), (103, 2, 30), (104, 2, 28), (105, 3, 15), (106, 3, 17), (107, 4, 25), (108, 4, 23), (109, 5, 20), (110, 5, 20), (111, 6, 19), (112, 6, 21);",
+    "example_output_columns": [
+      "courier_id",
+      "courier_name",
+      "service_zone",
+      "courier_avg_minutes",
+      "zone_avg_minutes"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "Alice Chen",
+        "North",
+        "20.00",
+        "24.50"
+      ],
+      [
+        3,
+        "Carol Singh",
+        "South",
+        "16.00",
+        "20.00"
+      ]
+    ],
+    "test_data": "INSERT INTO couriers (courier_id, courier_name, service_zone) VALUES (1, 'Alice Chen', 'North'), (2, 'Bob Martinez', 'North'), (3, 'Carol Singh', 'South'), (4, 'Dan Lee', 'South'), (5, 'Eve Johnson', 'West'), (6, 'Frank Park', 'West'), (7, 'Grace Liu', 'North'), (8, 'Henry Kim', 'South'), (9, 'Iris Patel', 'West'), (10, 'Jack Smith', 'East'); INSERT INTO deliveries (delivery_id, courier_id, delivery_time_minutes) VALUES (201, 1, 18), (202, 1, 22), (203, 1, 19), (204, 2, 30), (205, 2, 28), (206, 2, 32), (207, 2, 29), (208, 3, 15), (209, 3, 17), (210, 3, 14), (211, 4, 25), (212, 4, 23), (213, 4, 27), (214, 4, 24), (215, 5, 20), (216, 5, 20), (217, 5, 21), (218, 6, 19), (219, 6, 21), (220, 6, 18), (221, 6, 22), (222, 7, 24), (223, 7, 26), (224, 8, 22), (225, 8, 20), (226, 8, 21), (227, 9, 25), (228, 9, 23), (229, 9, 24), (230, 10, 16), (231, 10, 18), (232, 10, 17);",
+    "test_expected_columns": [
+      "courier_id",
+      "courier_name",
+      "service_zone",
+      "courier_avg_minutes",
+      "zone_avg_minutes"
+    ],
+    "test_expected_rows": [
+      [
+        1,
+        "Alice Chen",
+        "North",
+        "19.67",
+        "24.81"
+      ],
+      [
+        3,
+        "Carol Singh",
+        "South",
+        "15.33",
+        "20.36"
+      ],
+      [
+        6,
+        "Frank Park",
+        "West",
+        "20.00",
+        "21.44"
+      ],
+      [
+        5,
+        "Eve Johnson",
+        "West",
+        "20.33",
+        "21.44"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "join couriers to deliveries",
+        "group by courier to compute courier_avg = AVG(delivery_time_minutes)",
+        "compute zone_avg = AVG(delivery_time_minutes) OVER (PARTITION BY service_zone) with no ORDER BY (whole-group benchmark)",
+        "filter rows WHERE courier_avg < zone_avg in outer query",
+        "order by service_zone, courier_avg_minutes"
+      ]
+    },
+    "hints": [
+      "You need to compare each courier's personal average delivery time to the average of all deliveries in their zone.",
+      "First compute each courier's average delivery time using GROUP BY. Then use AVG(...) OVER (PARTITION BY service_zone) to attach the zone-wide average to each courier's row.",
+      "Because window functions cannot be used in WHERE, compute the zone average in a CTE or subquery, then filter in the outer query with WHERE courier_avg < zone_avg. Make sure the window function has NO ORDER BY clause so it computes the average over the entire zone."
+    ],
+    "answer_key": "WITH courier_stats AS (\n  SELECT \n    c.courier_id,\n    c.courier_name,\n    c.service_zone,\n    ROUND(AVG(d.delivery_time_minutes), 2) AS courier_avg_minutes\n  FROM couriers c\n  JOIN deliveries d ON c.courier_id = d.courier_id\n  GROUP BY c.courier_id, c.courier_name, c.service_zone\n),\nzone_benchmarks AS (\n  SELECT \n    courier_id,\n    courier_name,\n    service_zone,\n    courier_avg_minutes,\n    ROUND(AVG(courier_avg_minutes) OVER (PARTITION BY service_zone), 2) AS zone_avg_minutes\n  FROM courier_stats\n)\nSELECT \n  courier_id,\n  courier_name,\n  service_zone,\n  courier_avg_minutes,\n  zone_avg_minutes\nFROM zone_benchmarks\nWHERE courier_avg_minutes < zone_avg_minutes\nORDER BY service_zone, courier_avg_minutes;",
+    "_meta": {
+      "question_type": "window_benchmark_compare",
+      "original_qtype": "window_benchmark_compare",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-16T20:24:13.595885",
+      "problem_id": "82da39a6bf66",
+      "validation_attempts": 1,
+      "scenario": "a same day medication delivery service tracking on-time delivery performance",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\n\nWITH per_courier AS (\n    SELECT\n        c.courier_id,\n        c.courier_name,\n        c.service_zone,\n        AVG(d.delivery_time_minutes) AS courier_avg_minutes\n    FROM couriers AS c\n    JOIN deliveries AS d\n    USING(courier_id)\n    GROUP BY 1, 2, 3\n),\nbenchmarked AS (\n    SELECT\n        courier_id,\n        courier_name,\n        service_zone,\n        courier_avg_minutes,\n        AVG(courier_avg_minutes) OVER (PARTITION BY service_zone) AS zone_avg_minutes\n    FROM per_courier\n\n)\nSELECT \n    courier_id,\n    courier_name,\n    service_zone,\n    ROUND(courier_avg_minutes, 2) AS courier_avg_minutes,\n    ROUND(zone_avg_minutes, 2) AS zone_avg_minutes\nFROM benchmarked\nWHERE courier_avg_minutes < zone_avg_minutes\nORDER BY service_zone, courier_avg_minutes;",
+  "solved_at": "2026-06-16T21:44:24.654465"
+}

@@ -1,0 +1,159 @@
+{
+  "title": "Squad Match Sessions by Activity Gap",
+  "prompt": "You are analyzing player activity in a battle royale mobile game. A \"session\" is defined as a continuous sequence of match completions by the same player, where consecutive matches are no more than 20 minutes apart. If a player's next match starts more than 20 minutes after their previous match ended, that begins a new session. Write a query that assigns a unique session identifier to each match completion, then returns one row per player-session showing: the player's username, the session number (1 for their earliest session, 2 for the next, etc.), the count of matches in that session, and the total eliminations across all matches in that session. A player who completes only one match before a 20-minute gap constitutes a single-match session. Order the results by username (alphabetically), then by session number (ascending). Your query must handle players who have matches spanning multiple sessions as well as players with only a single session.",
+  "schema_ddl": "CREATE TABLE players (player_id INT PRIMARY KEY, username VARCHAR(50) NOT NULL); CREATE TABLE match_completions (completion_id INT PRIMARY KEY, player_id INT NOT NULL REFERENCES players(player_id), completed_at TIMESTAMP NOT NULL, eliminations INT NOT NULL DEFAULT 0);",
+  "example_input_data": "INSERT INTO players (player_id, username) VALUES (1, 'apex_hunter'), (2, 'storm_rider'); INSERT INTO match_completions (completion_id, player_id, completed_at, eliminations) VALUES (101, 1, '2024-01-15 10:00:00', 3), (102, 1, '2024-01-15 10:12:00', 5), (103, 1, '2024-01-15 10:35:00', 2), (104, 1, '2024-01-15 11:45:00', 1), (105, 2, '2024-01-15 09:30:00', 4), (106, 2, '2024-01-15 09:42:00', 6), (107, 2, '2024-01-15 10:55:00', 0), (108, 2, '2024-01-15 11:10:00', 2);",
+  "example_output_columns": [
+    "username",
+    "session_number",
+    "match_count",
+    "total_eliminations"
+  ],
+  "example_output_rows": [
+    [
+      "apex_hunter",
+      1,
+      2,
+      8
+    ],
+    [
+      "apex_hunter",
+      2,
+      1,
+      2
+    ],
+    [
+      "apex_hunter",
+      3,
+      1,
+      1
+    ],
+    [
+      "storm_rider",
+      1,
+      2,
+      10
+    ],
+    [
+      "storm_rider",
+      2,
+      2,
+      2
+    ]
+  ],
+  "test_data": "INSERT INTO players (player_id, username) VALUES (1, 'apex_hunter'), (2, 'storm_rider'), (3, 'ghost_ops'), (4, 'lone_wolf'); INSERT INTO match_completions (completion_id, player_id, completed_at, eliminations) VALUES (101, 1, '2024-01-15 10:00:00', 3), (102, 1, '2024-01-15 10:12:00', 5), (103, 1, '2024-01-15 10:35:00', 2), (104, 1, '2024-01-15 11:45:00', 1), (105, 1, '2024-01-15 12:00:00', 4), (106, 1, '2024-01-15 12:10:00', 0), (107, 2, '2024-01-15 09:30:00', 4), (108, 2, '2024-01-15 09:42:00', 6), (109, 2, '2024-01-15 10:55:00', 0), (110, 2, '2024-01-15 11:10:00', 2), (111, 2, '2024-01-15 14:00:00', 7), (112, 3, '2024-01-15 08:00:00', 1), (113, 3, '2024-01-15 08:15:00', 2), (114, 3, '2024-01-15 08:25:00', 3), (115, 3, '2024-01-15 08:40:00', 1), (116, 3, '2024-01-15 09:05:00', 5), (117, 3, '2024-01-15 11:00:00', 0), (118, 3, '2024-01-15 11:15:00', 2), (119, 3, '2024-01-15 11:25:00', 4), (120, 4, '2024-01-15 13:00:00', 8), (121, 4, '2024-01-15 15:30:00', 3), (122, 4, '2024-01-15 15:45:00', 6), (123, 4, '2024-01-15 16:00:00', 2), (124, 4, '2024-01-15 18:25:00', 5);",
+  "test_expected_columns": [
+    "username",
+    "session_number",
+    "match_count",
+    "total_eliminations"
+  ],
+  "test_expected_rows": [
+    [
+      "apex_hunter",
+      1,
+      2,
+      8
+    ],
+    [
+      "apex_hunter",
+      2,
+      1,
+      2
+    ],
+    [
+      "apex_hunter",
+      3,
+      3,
+      5
+    ],
+    [
+      "ghost_ops",
+      1,
+      4,
+      7
+    ],
+    [
+      "ghost_ops",
+      2,
+      1,
+      5
+    ],
+    [
+      "ghost_ops",
+      3,
+      3,
+      6
+    ],
+    [
+      "lone_wolf",
+      1,
+      1,
+      8
+    ],
+    [
+      "lone_wolf",
+      2,
+      3,
+      11
+    ],
+    [
+      "lone_wolf",
+      3,
+      1,
+      5
+    ],
+    [
+      "storm_rider",
+      1,
+      2,
+      10
+    ],
+    [
+      "storm_rider",
+      2,
+      2,
+      2
+    ],
+    [
+      "storm_rider",
+      3,
+      1,
+      7
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "JOIN players and match_completions on player_id",
+      "CTE1: LAG(completed_at) OVER (PARTITION BY player_id ORDER BY completed_at) to get previous match timestamp per player",
+      "CTE1: flag new_session = 1 when previous_ts IS NULL OR completed_at - previous_ts > INTERVAL '20 minutes', else 0",
+      "CTE2: SUM(new_session_flag) OVER (PARTITION BY player_id ORDER BY completed_at ROWS UNBOUNDED PRECEDING) to assign session_id",
+      "GROUP BY player_id, session_id to compute match_count = COUNT(*), total_eliminations = SUM(eliminations)",
+      "JOIN with players to get username",
+      "ORDER BY username, session_id"
+    ]
+  },
+  "hints": [
+    "Consider how to identify when a new session begins for each player based on the time gap between consecutive matches.",
+    "Use LAG() to find the timestamp of the previous match for each player, then create a flag that marks the start of a new session when the gap exceeds 20 minutes or when it's the player's first match.",
+    "Once you have a new-session flag, use a cumulative SUM() window function over that flag (partitioned by player, ordered by time) to assign a unique session identifier to each match. Then group by player and session to compute aggregates."
+  ],
+  "answer_key": "WITH flagged AS (\n  SELECT \n    mc.player_id,\n    mc.completed_at,\n    mc.eliminations,\n    LAG(mc.completed_at) OVER (PARTITION BY mc.player_id ORDER BY mc.completed_at) AS prev_completed_at,\n    CASE \n      WHEN LAG(mc.completed_at) OVER (PARTITION BY mc.player_id ORDER BY mc.completed_at) IS NULL \n           OR mc.completed_at - LAG(mc.completed_at) OVER (PARTITION BY mc.player_id ORDER BY mc.completed_at) > INTERVAL '20 minutes'\n      THEN 1\n      ELSE 0\n    END AS new_session_flag\n  FROM match_completions mc\n),\nsessionized AS (\n  SELECT \n    player_id,\n    completed_at,\n    eliminations,\n    SUM(new_session_flag) OVER (PARTITION BY player_id ORDER BY completed_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS session_id\n  FROM flagged\n),\naggregated AS (\n  SELECT \n    player_id,\n    session_id,\n    COUNT(*) AS match_count,\n    SUM(eliminations) AS total_eliminations\n  FROM sessionized\n  GROUP BY player_id, session_id\n)\nSELECT \n  p.username,\n  a.session_id AS session_number,\n  a.match_count,\n  a.total_eliminations\nFROM aggregated a\nJOIN players p ON a.player_id = p.player_id\nORDER BY p.username, a.session_id;",
+  "_meta": {
+    "question_type": "window_sessionization",
+    "original_qtype": "window_sessionization",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-16T18:52:10.367394",
+    "problem_id": "a7645f1ddaef",
+    "validation_attempts": 1,
+    "scenario": "a battle royale mobile game tracking match completion and squad invites",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

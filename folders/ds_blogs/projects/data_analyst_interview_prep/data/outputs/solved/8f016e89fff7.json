@@ -1,0 +1,97 @@
+{
+  "problem": {
+    "title": "Sessionize Player Match Events by 20-Minute Gaps",
+    "prompt": "You are analyzing player activity in a battle royale mobile game. The `match_events` table logs every time a player completes a match, including the timestamp and XP earned. A **session** is defined as a sequence of matches by the same player where consecutive matches are at most 20 minutes apart; if more than 20 minutes elapse between two matches, the second match starts a new session. Write a query that assigns a unique session identifier to each player's matches and returns each player's total session count and their highest-XP session. Output columns: `player_id`, `session_count` (total number of sessions for that player), `max_session_xp` (the sum of XP earned in their best session). Order results by `player_id` ascending. Edge case: some players may have only a single match (one session with one event).",
+    "schema_ddl": "CREATE TABLE match_events (event_id SERIAL PRIMARY KEY, player_id INT NOT NULL, match_completed_at TIMESTAMP NOT NULL, xp_earned INT NOT NULL);",
+    "example_input_data": "INSERT INTO match_events (player_id, match_completed_at, xp_earned) VALUES (101, '2024-06-15 10:00:00', 50), (101, '2024-06-15 10:15:00', 75), (101, '2024-06-15 10:50:00', 60), (101, '2024-06-15 11:05:00', 80), (202, '2024-06-15 09:00:00', 90), (202, '2024-06-15 09:45:00', 100), (202, '2024-06-15 11:30:00', 70), (303, '2024-06-15 12:00:00', 40);",
+    "example_output_columns": [
+      "player_id",
+      "session_count",
+      "max_session_xp"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        2,
+        140
+      ],
+      [
+        202,
+        3,
+        100
+      ],
+      [
+        303,
+        1,
+        40
+      ]
+    ],
+    "test_data": "INSERT INTO match_events (player_id, match_completed_at, xp_earned) VALUES (101, '2024-06-20 08:00:00', 100), (101, '2024-06-20 08:10:00', 120), (101, '2024-06-20 08:18:00', 110), (101, '2024-06-20 09:00:00', 90), (101, '2024-06-20 09:12:00', 95), (101, '2024-06-20 10:40:00', 130), (101, '2024-06-20 10:55:00', 140), (101, '2024-06-20 11:10:00', 150), (202, '2024-06-20 07:00:00', 80), (202, '2024-06-20 07:25:00', 85), (202, '2024-06-20 08:50:00', 200), (202, '2024-06-20 09:05:00', 210), (202, '2024-06-20 09:18:00', 190), (202, '2024-06-20 11:00:00', 50), (303, '2024-06-20 14:00:00', 60), (303, '2024-06-20 14:12:00', 65), (404, '2024-06-20 16:00:00', 45), (505, '2024-06-20 10:00:00', 110), (505, '2024-06-20 10:08:00', 115), (505, '2024-06-20 10:16:00', 105), (505, '2024-06-20 10:40:00', 120), (505, '2024-06-20 10:50:00', 125), (505, '2024-06-20 12:30:00', 300);",
+    "test_expected_columns": [
+      "player_id",
+      "session_count",
+      "max_session_xp"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        3,
+        420
+      ],
+      [
+        202,
+        4,
+        600
+      ],
+      [
+        303,
+        1,
+        125
+      ],
+      [
+        404,
+        1,
+        45
+      ],
+      [
+        505,
+        3,
+        330
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "CTE1: LAG to compute time gap to previous event per player",
+        "CTE1: conditional flag for new session based on gap > 20 minutes",
+        "CTE2: cumulative SUM of new_session_flag to assign session_id",
+        "CTE3: GROUP BY player_id, session_id to compute per-session XP totals",
+        "Final: GROUP BY player_id to count sessions and find MAX session XP"
+      ]
+    },
+    "hints": [
+      "Consider how to identify when a new session starts for each player based on the time between consecutive matches.",
+      "Use LAG to get the previous match timestamp per player, then flag rows where the gap exceeds 20 minutes or is the first match. Assign session IDs by taking the running sum of that flag.",
+      "First CTE: LAG(match_completed_at) OVER (PARTITION BY player_id ORDER BY match_completed_at), flag new session if gap > INTERVAL '20 minutes'. Second CTE: SUM(flag) OVER (... ORDER BY match_completed_at ROWS UNBOUNDED PRECEDING) as session_id. Third CTE: GROUP BY player_id, session_id to get session totals. Final: GROUP BY player_id, count distinct sessions, MAX(session_xp)."
+    ],
+    "answer_key": "WITH gaps AS (\n  SELECT\n    player_id,\n    match_completed_at,\n    xp_earned,\n    LAG(match_completed_at) OVER (PARTITION BY player_id ORDER BY match_completed_at) AS prev_match_ts\n  FROM match_events\n),\nsession_flags AS (\n  SELECT\n    player_id,\n    match_completed_at,\n    xp_earned,\n    CASE\n      WHEN prev_match_ts IS NULL OR match_completed_at - prev_match_ts > INTERVAL '20 minutes' THEN 1\n      ELSE 0\n    END AS new_session_flag\n  FROM gaps\n),\nsession_ids AS (\n  SELECT\n    player_id,\n    match_completed_at,\n    xp_earned,\n    SUM(new_session_flag) OVER (PARTITION BY player_id ORDER BY match_completed_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS session_id\n  FROM session_flags\n),\nsession_totals AS (\n  SELECT\n    player_id,\n    session_id,\n    SUM(xp_earned) AS session_xp\n  FROM session_ids\n  GROUP BY player_id, session_id\n)\nSELECT\n  player_id,\n  COUNT(session_id) AS session_count,\n  MAX(session_xp) AS max_session_xp\nFROM session_totals\nGROUP BY player_id\nORDER BY player_id;",
+    "_meta": {
+      "question_type": "window_sessionization",
+      "original_qtype": "window_sessionization",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-14T17:33:48.433425",
+      "problem_id": "8f016e89fff7",
+      "validation_attempts": 1,
+      "scenario": "a battle royale mobile game tracking match completion and squad invites",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\nSessionize Player Match Events by 20-Minute Gaps\n\n- You are analyzing player activity in a battle royale mobile game.\n- session\n  -  consecutive matches are at most 20 minutes apart\n  -  if more than 20 minutes elapse between two matches, the second match starts a new session.\n\nSchema\nTable: match_events     logs every time a player completes a match\nevent_id\t            SERIAL PRIMARY KEY\nplayer_id\t            INT NOT NULL\nmatch_completed_at\t    TIMESTAMP NOT NULL\nxp_earned\t            INT NOT NULL\n\n\nGOAL\n- query that assigns a unique session identifier to each player's matches\n- returns each player's total session count and their highest-XP session.\n\nOUTPUT\nplayer_id                \nsession_count           total number of sessions for that player\nmax_session_xp          the sum of XP earned in their best session\n\nORDER BY player_id\n\n*/\nWITH flagged AS (\nSELECT\n    player_id,\n    xp_earned,\n    match_completed_at,\n    CASE WHEN match_completed_at - LAG(match_completed_at) OVER (PARTITION BY player_id ORDER BY match_completed_at)\n                    > INTERVAL '20 minutes' THEN 1 ELSE 0 END AS is_new_session\nFROM match_events\n),\nsessions AS (\n  SELECT\n    player_id,\n    xp_earned,\n    match_completed_at,\n    SUM(is_new_session) OVER (\n      PARTITION BY player_id\n      ORDER BY match_completed_at\n      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n    ) AS session_id\n  FROM flagged\n)\nSELECT\n    player_id,\n    COUNT(session_id) AS session_count,\n    MAX(max_session_xp) AS max_session_xp\nFROM (\nSELECT\n    player_id,\n    session_id,\n    SUM(xp_earned) AS max_session_xp\nFROM sessions\nGROUP BY player_id, session_id\n)\nGROUP BY 1\nORDER BY 1;\n\n\n\n\n\n",
+  "solved_at": "2026-06-14T18:00:53.737447"
+}

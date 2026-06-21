@@ -1,0 +1,121 @@
+{
+  "title": "Stories Above Creator's Average View Rate",
+  "prompt": "A photo sharing app tracks ephemeral stories posted by creators. Each story has a view count. Management wants to identify stories that performed better than their creator's own average view rate. Write a query that returns stories whose `views` are strictly greater than the creator's average `views` across all their stories. Include the story ID, creator ID, views, and the creator's average view count (rounded to 2 decimal places, aliased `creator_avg_views`). Order results by `creator_id` ASC, then `views` DESC. If a creator has posted only one story, that story should NOT appear in the output (it equals the average, not exceeds it). NULL view counts should be excluded from both the average calculation and the output.",
+  "schema_ddl": "CREATE TABLE stories (\n  story_id INT PRIMARY KEY,\n  creator_id INT NOT NULL,\n  views INT,\n  posted_at TIMESTAMP NOT NULL\n);",
+  "example_input_data": "INSERT INTO stories (story_id, creator_id, views, posted_at) VALUES\n(1, 101, 1200, '2024-01-15 08:00:00'),\n(2, 101, 1500, '2024-01-16 09:30:00'),\n(3, 101, 900, '2024-01-17 10:15:00'),\n(4, 102, 2400, '2024-01-15 11:00:00'),\n(5, 102, 1800, '2024-01-16 12:45:00'),\n(6, 102, 3000, '2024-01-17 14:20:00'),\n(7, 103, 500, '2024-01-15 15:00:00'),\n(8, 104, NULL, '2024-01-16 16:30:00'),\n(9, 104, 1100, '2024-01-17 17:00:00');",
+  "example_output_columns": [
+    "story_id",
+    "creator_id",
+    "views",
+    "creator_avg_views"
+  ],
+  "example_output_rows": [
+    [
+      2,
+      101,
+      1500,
+      "1200.00"
+    ],
+    [
+      6,
+      102,
+      3000,
+      "2400.00"
+    ]
+  ],
+  "test_data": "INSERT INTO stories (story_id, creator_id, views, posted_at) VALUES\n(101, 201, 3500, '2024-02-01 08:00:00'),\n(102, 201, 4200, '2024-02-02 09:00:00'),\n(103, 201, 2800, '2024-02-03 10:00:00'),\n(104, 201, 5000, '2024-02-04 11:00:00'),\n(105, 201, 3200, '2024-02-05 12:00:00'),\n(106, 202, 1500, '2024-02-01 13:00:00'),\n(107, 202, 1800, '2024-02-02 14:00:00'),\n(108, 202, 1200, '2024-02-03 15:00:00'),\n(109, 202, 2100, '2024-02-04 16:00:00'),\n(110, 202, 1650, '2024-02-05 17:00:00'),\n(111, 203, 800, '2024-02-01 18:00:00'),\n(112, 203, 950, '2024-02-02 19:00:00'),\n(113, 203, 1100, '2024-02-03 20:00:00'),\n(114, 204, 5500, '2024-02-01 21:00:00'),\n(115, 204, 5500, '2024-02-02 22:00:00'),\n(116, 204, 5500, '2024-02-03 23:00:00'),\n(117, 205, 2000, '2024-02-04 08:00:00'),\n(118, 206, NULL, '2024-02-05 09:00:00'),\n(119, 206, NULL, '2024-02-06 10:00:00'),\n(120, 207, 3000, '2024-02-07 11:00:00'),\n(121, 207, 3600, '2024-02-08 12:00:00'),\n(122, 207, 2400, '2024-02-09 13:00:00'),\n(123, 207, 4200, '2024-02-10 14:00:00'),\n(124, 208, 1000, '2024-02-11 15:00:00'),\n(125, 208, NULL, '2024-02-12 16:00:00'),\n(126, 208, 1500, '2024-02-13 17:00:00'),\n(127, 208, 800, '2024-02-14 18:00:00'),\n(128, 209, 2200, '2024-02-15 19:00:00'),\n(129, 209, 2600, '2024-02-16 20:00:00'),\n(130, 209, 1800, '2024-02-17 21:00:00');",
+  "test_expected_columns": [
+    "story_id",
+    "creator_id",
+    "views",
+    "creator_avg_views"
+  ],
+  "test_expected_rows": [
+    [
+      104,
+      201,
+      5000,
+      "3740.00"
+    ],
+    [
+      102,
+      201,
+      4200,
+      "3740.00"
+    ],
+    [
+      109,
+      202,
+      2100,
+      "1650.00"
+    ],
+    [
+      107,
+      202,
+      1800,
+      "1650.00"
+    ],
+    [
+      113,
+      203,
+      1100,
+      "950.00"
+    ],
+    [
+      123,
+      207,
+      4200,
+      "3300.00"
+    ],
+    [
+      121,
+      207,
+      3600,
+      "3300.00"
+    ],
+    [
+      126,
+      208,
+      1500,
+      "1100.00"
+    ],
+    [
+      129,
+      209,
+      2600,
+      "2200.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "1. CTE: compute AVG(views) OVER (PARTITION BY creator_id) to get creator_avg_views on every row (no ORDER BY, so whole-group average)",
+      "2. Outer query: filter WHERE views > creator_avg_views",
+      "3. Outer query: SELECT story_id, creator_id, views, ROUND(creator_avg_views, 2)",
+      "4. Outer query: ORDER BY creator_id ASC, views DESC"
+    ]
+  },
+  "hints": [
+    "You need to compare each story's views to the creator's average views. Think about how to compute a per-creator average and attach it to every row.",
+    "Use a window function with PARTITION BY creator_id to calculate the average views for each creator. Remember that window functions without an ORDER BY clause compute over the entire partition.",
+    "Wrap the window calculation in a CTE, then filter in the outer query WHERE views > creator_avg_views. Don't forget to handle NULLs and round the average to 2 decimal places."
+  ],
+  "answer_key": "WITH story_benchmarks AS (\n  SELECT\n    story_id,\n    creator_id,\n    views,\n    AVG(views) OVER (PARTITION BY creator_id) AS creator_avg_views\n  FROM stories\n  WHERE views IS NOT NULL\n)\nSELECT\n  story_id,\n  creator_id,\n  views,\n  ROUND(creator_avg_views, 2) AS creator_avg_views\nFROM story_benchmarks\nWHERE views > creator_avg_views\nORDER BY creator_id ASC, views DESC;",
+  "_meta": {
+    "question_type": "window_benchmark_compare",
+    "original_qtype": "window_benchmark_compare",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "consumer_social",
+    "generated_at": "2026-06-18T17:14:44.822395",
+    "problem_id": "2b2821a84a03",
+    "validation_attempts": 1,
+    "scenario": "a photo sharing app tracking story creation and view rates",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "subtype": null
+  }
+}

@@ -1,0 +1,181 @@
+{
+  "problem": {
+    "title": "Archive Late Delivery Records to Violations",
+    "prompt": "You are building an audit system for a same-day medication delivery service. Management wants to archive all deliveries that arrived more than 30 minutes late into a permanent `delivery_violations` table for compliance tracking. Write a single INSERT statement that copies qualifying delivery records from the `deliveries` table into `delivery_violations`. A delivery is late if `actual_delivery_time` is more than 30 minutes after `promised_delivery_time`. For each violation, store the original `delivery_id`, `order_id`, `courier_id`, `promised_delivery_time`, `actual_delivery_time`, and calculate `minutes_late` as the difference in minutes between actual and promised times. Only insert deliveries that have a non-NULL `actual_delivery_time` (some orders may still be in progress). After the INSERT, write a confirming SELECT that retrieves all rows from `delivery_violations` ordered by `minutes_late` descending, then by `delivery_id` ascending.",
+    "schema_ddl": "CREATE TABLE deliveries (delivery_id INT PRIMARY KEY, order_id INT NOT NULL, courier_id INT NOT NULL, promised_delivery_time TIMESTAMP NOT NULL, actual_delivery_time TIMESTAMP); CREATE TABLE delivery_violations (delivery_id INT PRIMARY KEY, order_id INT NOT NULL, courier_id INT NOT NULL, promised_delivery_time TIMESTAMP NOT NULL, actual_delivery_time TIMESTAMP NOT NULL, minutes_late INT NOT NULL);",
+    "example_input_data": "INSERT INTO deliveries (delivery_id, order_id, courier_id, promised_delivery_time, actual_delivery_time) VALUES (101, 5001, 10, '2024-06-15 10:00:00', '2024-06-15 10:45:00'), (102, 5002, 11, '2024-06-15 11:00:00', '2024-06-15 11:20:00'), (103, 5003, 10, '2024-06-15 12:00:00', '2024-06-15 12:50:00'), (104, 5004, 12, '2024-06-15 13:00:00', NULL), (105, 5005, 11, '2024-06-15 14:00:00', '2024-06-15 14:05:00'), (106, 5006, 10, '2024-06-15 15:00:00', '2024-06-15 16:10:00');",
+    "example_output_columns": [
+      "delivery_id",
+      "order_id",
+      "courier_id",
+      "promised_delivery_time",
+      "actual_delivery_time",
+      "minutes_late"
+    ],
+    "example_output_rows": [
+      [
+        106,
+        5006,
+        10,
+        "2024-06-15 15:00:00",
+        "2024-06-15 16:10:00",
+        70
+      ],
+      [
+        103,
+        5003,
+        10,
+        "2024-06-15 12:00:00",
+        "2024-06-15 12:50:00",
+        50
+      ],
+      [
+        101,
+        5001,
+        10,
+        "2024-06-15 10:00:00",
+        "2024-06-15 10:45:00",
+        45
+      ]
+    ],
+    "test_data": "INSERT INTO deliveries (delivery_id, order_id, courier_id, promised_delivery_time, actual_delivery_time) VALUES (201, 6001, 20, '2024-07-10 08:00:00', '2024-07-10 08:15:00'), (202, 6002, 21, '2024-07-10 09:00:00', '2024-07-10 10:05:00'), (203, 6003, 20, '2024-07-10 10:00:00', '2024-07-10 11:00:00'), (204, 6004, 22, '2024-07-10 11:00:00', NULL), (205, 6005, 21, '2024-07-10 12:00:00', '2024-07-10 12:30:00'), (206, 6006, 20, '2024-07-10 13:00:00', '2024-07-10 14:45:00'), (207, 6007, 23, '2024-07-10 14:00:00', '2024-07-10 14:29:00'), (208, 6008, 21, '2024-07-10 15:00:00', '2024-07-10 15:31:00'), (209, 6009, 22, '2024-07-10 16:00:00', NULL), (210, 6010, 20, '2024-07-10 17:00:00', '2024-07-10 17:01:00'), (211, 6011, 23, '2024-07-10 18:00:00', '2024-07-10 19:16:00'), (212, 6012, 21, '2024-07-10 19:00:00', '2024-07-10 19:45:00'), (213, 6013, 22, '2024-07-10 20:00:00', '2024-07-10 20:30:00'), (214, 6014, 20, '2024-07-10 21:00:00', '2024-07-10 22:02:00'), (215, 6015, 23, '2024-07-10 22:00:00', '2024-07-10 22:55:00'), (216, 6016, 21, '2024-07-10 23:00:00', NULL), (217, 6017, 20, '2024-07-11 00:00:00', '2024-07-11 01:31:00'), (218, 6018, 22, '2024-07-11 01:00:00', '2024-07-11 01:31:00'), (219, 6019, 23, '2024-07-11 02:00:00', '2024-07-11 02:59:00'), (220, 6020, 21, '2024-07-11 03:00:00', '2024-07-11 03:45:00');",
+    "test_expected_columns": [
+      "delivery_id",
+      "order_id",
+      "courier_id",
+      "promised_delivery_time",
+      "actual_delivery_time",
+      "minutes_late"
+    ],
+    "test_expected_rows": [
+      [
+        206,
+        6006,
+        20,
+        "2024-07-10 13:00:00",
+        "2024-07-10 14:45:00",
+        105
+      ],
+      [
+        217,
+        6017,
+        20,
+        "2024-07-11 00:00:00",
+        "2024-07-11 01:31:00",
+        91
+      ],
+      [
+        211,
+        6011,
+        23,
+        "2024-07-10 18:00:00",
+        "2024-07-10 19:16:00",
+        76
+      ],
+      [
+        202,
+        6002,
+        21,
+        "2024-07-10 09:00:00",
+        "2024-07-10 10:05:00",
+        65
+      ],
+      [
+        214,
+        6014,
+        20,
+        "2024-07-10 21:00:00",
+        "2024-07-10 22:02:00",
+        62
+      ],
+      [
+        203,
+        6003,
+        20,
+        "2024-07-10 10:00:00",
+        "2024-07-10 11:00:00",
+        60
+      ],
+      [
+        219,
+        6019,
+        23,
+        "2024-07-11 02:00:00",
+        "2024-07-11 02:59:00",
+        59
+      ],
+      [
+        215,
+        6015,
+        23,
+        "2024-07-10 22:00:00",
+        "2024-07-10 22:55:00",
+        55
+      ],
+      [
+        212,
+        6012,
+        21,
+        "2024-07-10 19:00:00",
+        "2024-07-10 19:45:00",
+        45
+      ],
+      [
+        220,
+        6020,
+        21,
+        "2024-07-11 03:00:00",
+        "2024-07-11 03:45:00",
+        45
+      ],
+      [
+        208,
+        6008,
+        21,
+        "2024-07-10 15:00:00",
+        "2024-07-10 15:31:00",
+        31
+      ],
+      [
+        218,
+        6018,
+        22,
+        "2024-07-11 01:00:00",
+        "2024-07-11 01:31:00",
+        31
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "state_mutation",
+      "recipe": "row-filter",
+      "composite_moves": [
+        "row-filter: actual_delivery_time IS NOT NULL AND EXTRACT(EPOCH FROM (actual_delivery_time - promised_delivery_time))/60 > 30",
+        "row-transform: compute minutes_late",
+        "INSERT into delivery_violations"
+      ]
+    },
+    "hints": [
+      "Think about which deliveries should be excluded from the violations table based on their completion status and timing.",
+      "Use EXTRACT(EPOCH FROM ...) to convert the time difference into seconds, then divide by 60 to get minutes. Filter for differences greater than 30.",
+      "Your INSERT statement should SELECT from deliveries WHERE actual_delivery_time IS NOT NULL AND the calculated minute difference exceeds 30, computing minutes_late as EXTRACT(EPOCH FROM (actual_delivery_time - promised_delivery_time))/60."
+    ],
+    "answer_key": "INSERT INTO delivery_violations (delivery_id, order_id, courier_id, promised_delivery_time, actual_delivery_time, minutes_late)\nSELECT \n    delivery_id,\n    order_id,\n    courier_id,\n    promised_delivery_time,\n    actual_delivery_time,\n    EXTRACT(EPOCH FROM (actual_delivery_time - promised_delivery_time))::INT / 60 AS minutes_late\nFROM deliveries\nWHERE actual_delivery_time IS NOT NULL\n  AND EXTRACT(EPOCH FROM (actual_delivery_time - promised_delivery_time)) / 60 > 30;\n\nSELECT * FROM delivery_violations ORDER BY minutes_late DESC, delivery_id ASC;",
+    "_meta": {
+      "question_type": "dml_insert",
+      "original_qtype": "dml_insert",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-09T19:42:01.657105",
+      "problem_id": "6ce72cabdd1c",
+      "validation_attempts": 1,
+      "scenario": "a same day medication delivery service tracking on-time delivery performance",
+      "dml_op": "INSERT",
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\n\n- Building an audit system for a same-day medication delivery service.\n- archive actual_delivery_time >= 30 minutes late into `delivery_violations` \n\n- Write INSERT statement that copies late delivery from the `deliveries` to `delivery_violations`.\n\nactual_delivery_time >= promised_delivery_time + 30 minutes\n\nSTORE\ndelivery_id\norder_id\ncourier_id\npromised_delivery_time\nactual_delivery_time\nminutes_late                actual_delivery_time - promised_delivery_time\n\n- ONLY NON NULL actual_delivery_time\n\n\n\n*/\n\nINSERT INTO delivery_violations (delivery_id, order_id, courier_id,\tpromised_delivery_time,\tactual_delivery_time,\tminutes_late)\nSELECT\n    delivery_id,\n    order_id,\n    courier_id,\n    promised_delivery_time,\n    actual_delivery_time,\n    minutes_late\nFROM (\nSELECT\n    delivery_id,\n\torder_id,\n\tcourier_id,\n\tpromised_delivery_time,\n\tactual_delivery_time,\n    CASE WHEN actual_delivery_time > promised_delivery_time + INTERVAL '30 minutes' THEN 1 ELSE 0 END AS is_late,\n    ROUND(EXTRACT(EPOCH FROM (actual_delivery_time - promised_delivery_time)) / 60,0) AS minutes_late\nFROM deliveries\nWHERE actual_delivery_time IS NOT NULL\n)\nWHERE is_late = 1\nORDER BY minutes_late DESC, delivery_id;\n\n\n\nSELECT * FROM delivery_violations ORDER BY minutes_late DESC, delivery_id;\n\n\n\n",
+  "solved_at": "2026-06-09T19:55:09.602720"
+}

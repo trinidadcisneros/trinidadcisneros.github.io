@@ -1,0 +1,84 @@
+{
+  "problem": {
+    "title": "Monthly Listing Conversion Rate by Cohort",
+    "prompt": "You manage a P2P resale marketplace where sellers create listings that may eventually convert to sales. Each listing has a `posted_date` (when it went live) and a `sold_date` (when it sold, or NULL if still active/never sold). Calculate the conversion rate for each month based on the month the listing was POSTED. For each month, count the total listings posted that month and how many of those listings eventually sold (regardless of when they sold). Return columns `posting_month` (the first day of the month, formatted as DATE), `total_listings`, and `conversion_rate` (the percentage of listings from that month that sold, rounded to 2 decimal places). Only include months that have at least 5 posted listings. Order results by `posting_month` ascending. Use `DATE_TRUNC('month', posted_date)` to bucket listings into monthly cohorts.",
+    "schema_ddl": "CREATE TABLE listings (\n  listing_id INTEGER PRIMARY KEY,\n  seller_id INTEGER NOT NULL,\n  item_name VARCHAR(100) NOT NULL,\n  posted_date DATE NOT NULL,\n  sold_date DATE\n);",
+    "example_input_data": "INSERT INTO listings (listing_id, seller_id, item_name, posted_date, sold_date) VALUES\n(1, 101, 'Vintage Camera', DATE '2024-01-05', DATE '2024-01-15'),\n(2, 102, 'Leather Jacket', DATE '2024-01-12', NULL),\n(3, 103, 'Board Game', DATE '2024-01-20', DATE '2024-02-01'),\n(4, 101, 'Vinyl Record', DATE '2024-01-25', DATE '2024-01-28'),\n(5, 104, 'Sneakers', DATE '2024-01-30', NULL),\n(6, 105, 'Watch', DATE '2024-02-03', DATE '2024-02-10'),\n(7, 106, 'Headphones', DATE '2024-02-08', NULL),\n(8, 107, 'Guitar', DATE '2024-01-18', DATE '2024-03-05');",
+    "example_output_columns": [
+      "posting_month",
+      "total_listings",
+      "conversion_rate"
+    ],
+    "example_output_rows": [
+      [
+        "2024-01-01",
+        "6",
+        "66.67"
+      ]
+    ],
+    "test_data": "INSERT INTO listings (listing_id, seller_id, item_name, posted_date, sold_date) VALUES\n(101, 201, 'Laptop', DATE '2024-01-01', DATE '2024-01-10'),\n(102, 202, 'Phone', DATE '2024-01-05', NULL),\n(103, 203, 'Tablet', DATE '2024-01-10', DATE '2024-02-15'),\n(104, 204, 'Monitor', DATE '2024-01-15', DATE '2024-01-20'),\n(105, 205, 'Keyboard', DATE '2024-01-20', NULL),\n(106, 206, 'Mouse', DATE '2024-01-25', DATE '2024-01-30'),\n(107, 207, 'Desk', DATE '2024-01-28', NULL),\n(108, 208, 'Chair', DATE '2024-01-31', DATE '2024-03-01'),\n(109, 209, 'Lamp', DATE '2024-02-01', DATE '2024-02-05'),\n(110, 210, 'Rug', DATE '2024-02-03', NULL),\n(111, 211, 'Couch', DATE '2024-02-10', DATE '2024-02-20'),\n(112, 212, 'Table', DATE '2024-02-15', NULL),\n(113, 213, 'Bookshelf', DATE '2024-02-20', DATE '2024-03-10'),\n(114, 214, 'Mirror', DATE '2024-03-01', NULL),\n(115, 215, 'Vase', DATE '2024-03-05', DATE '2024-03-15'),\n(116, 216, 'Frame', DATE '2024-03-10', NULL),\n(117, 217, 'Clock', DATE '2024-03-15', DATE '2024-03-25'),\n(118, 218, 'Cushion', DATE '2024-03-20', NULL),\n(119, 219, 'Blanket', DATE '2024-03-25', DATE '2024-04-01'),\n(120, 220, 'Curtain', DATE '2024-03-28', NULL),\n(121, 221, 'Plant', DATE '2024-03-30', DATE '2024-04-10'),\n(122, 222, 'Pot', DATE '2024-04-01', NULL),\n(123, 223, 'Pan', DATE '2024-04-05', DATE '2024-04-15'),\n(124, 224, 'Kettle', DATE '2024-04-10', NULL),\n(125, 225, 'Toaster', DATE '2024-04-15', DATE '2024-04-20'),\n(126, 226, 'Blender', DATE '2024-04-20', NULL),\n(127, 227, 'Mixer', DATE '2024-01-08', DATE '2024-01-12'),\n(128, 228, 'Oven', DATE '2024-02-25', DATE '2024-03-05');",
+    "test_expected_columns": [
+      "posting_month",
+      "total_listings",
+      "conversion_rate"
+    ],
+    "test_expected_rows": [
+      [
+        "2024-01-01",
+        "9",
+        "66.67"
+      ],
+      [
+        "2024-02-01",
+        "6",
+        "66.67"
+      ],
+      [
+        "2024-03-01",
+        "8",
+        "50.00"
+      ],
+      [
+        "2024-04-01",
+        "5",
+        "40.00"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "DATE_TRUNC posted_date to month cohort",
+        "GROUP BY posting_month",
+        "COUNT total listings per month",
+        "COUNT sold listings (WHERE sold_date IS NOT NULL) per month",
+        "COMPUTE conversion_rate = (sold_count / total_count) * 100",
+        "HAVING total_listings >= 5",
+        "ORDER BY posting_month ASC"
+      ]
+    },
+    "hints": [
+      "You need to group listings by the month they were posted, not when they sold.",
+      "Use DATE_TRUNC('month', posted_date) to bucket listings into monthly cohorts, then count how many in each cohort have a non-NULL sold_date.",
+      "The conversion rate is (COUNT of rows with sold_date IS NOT NULL / COUNT of all rows in that month) * 100. Apply HAVING to filter months with fewer than 5 listings, then order by posting_month."
+    ],
+    "answer_key": "SELECT\n  DATE_TRUNC('month', posted_date)::DATE AS posting_month,\n  COUNT(*)::TEXT AS total_listings,\n  ROUND((COUNT(sold_date)::DECIMAL / COUNT(*)) * 100, 2)::TEXT AS conversion_rate\nFROM listings\nGROUP BY DATE_TRUNC('month', posted_date)\nHAVING COUNT(*) >= 5\nORDER BY posting_month ASC;",
+    "_meta": {
+      "question_type": "date_operations",
+      "original_qtype": "date_operations",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-10T19:57:01.179501",
+      "problem_id": "54f7d10d5d6a",
+      "validation_attempts": 1,
+      "scenario": "a P2P resale marketplace tracking listing-to-sale conversion",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/*\nMonthly Listing Conversion Rate by Cohort\n\n- sellers create listings that may eventually convert to sales.\n- Each listing has a `posted_date` and a `sold_date`\n- Calculate the conversion rate for each month based on the posted_date\n\nSchema\nTable: listings\nlisting_id\t        INTEGER PRIMARY KEY\nseller_id\t        INTEGER NOT NULL\nitem_name\t        VARCHAR(100) NOT NULL\nposted_date\t        DATE NOT NULL\nsold_date\t        DATE\n\nOUTPUT\nposting_month,     DATE_TRUNC('month', posted_date)\ntotal_listings,    COUNT(listing_id)\nconversion_rate    percentage of listings from that month that sold, rounded to 2 decimal places\n\nHAVING total_listings >= 5\nORDER BY posting_month\n\n\n*/\nWITH base AS (\nSELECT\n    *,\n    DATE_TRUNC('month', posted_date)::date AS posting_month,\n    CASE WHEN sold_date IS NOT NULL THEN 1.0 ELSE 0 END AS is_sold\nFROM listings\n)\nSELECT\n    posting_month,\n    COUNT(listing_id) AS total_listings,\n    COALESCE(ROUND(AVG(is_sold) * 100, 2), 0) AS conversion_rate\nFROM base\nGROUP BY posting_month\nHAVING COUNT(listing_id) >= 5\nORDER BY posting_month;\n\n\n\n\n\n\n\n",
+  "solved_at": "2026-06-10T20:04:11.997542"
+}

@@ -1,0 +1,125 @@
+{
+  "problem": {
+    "title": "Stories Viewed Above Creator Average",
+    "prompt": "Write a query to find all stories whose view count exceeds their creator's average view count across all their stories. For each such story, return the story ID, creator ID, view count, and the creator's average view count (rounded to 2 decimal places). A creator's average is calculated across all their stories; stories with NULL view counts should be excluded from the average calculation, and any story row with a NULL view count should not appear in the output. Order the results by creator_id ascending, then by view_count descending. Your query must use a window function to compute the per-creator average and compare each story to that benchmark in an outer query.",
+    "schema_ddl": "CREATE TABLE creators (\n  creator_id INT PRIMARY KEY,\n  username VARCHAR(50) NOT NULL,\n  verified BOOLEAN NOT NULL\n);\n\nCREATE TABLE stories (\n  story_id INT PRIMARY KEY,\n  creator_id INT NOT NULL REFERENCES creators(creator_id),\n  posted_at TIMESTAMP NOT NULL,\n  view_count INT,\n  duration_seconds INT NOT NULL\n);",
+    "example_input_data": "INSERT INTO creators (creator_id, username, verified) VALUES\n(1, 'alice_photos', true),\n(2, 'bob_snaps', false),\n(3, 'carol_pics', true);\n\nINSERT INTO stories (story_id, creator_id, posted_at, view_count, duration_seconds) VALUES\n(101, 1, '2024-01-15 10:00:00', 500, 15),\n(102, 1, '2024-01-16 11:00:00', 800, 10),\n(103, 1, '2024-01-17 12:00:00', 300, 20),\n(104, 2, '2024-01-15 09:00:00', 1200, 15),\n(105, 2, '2024-01-16 10:00:00', 600, 12),\n(106, 2, '2024-01-17 11:00:00', 900, 18),\n(107, 3, '2024-01-15 14:00:00', 400, 10),\n(108, 3, '2024-01-16 15:00:00', NULL, 15);",
+    "example_output_columns": [
+      "story_id",
+      "creator_id",
+      "view_count",
+      "creator_avg_views"
+    ],
+    "example_output_rows": [
+      [
+        102,
+        1,
+        800,
+        "533.33"
+      ],
+      [
+        104,
+        2,
+        1200,
+        "900.00"
+      ]
+    ],
+    "test_data": "INSERT INTO creators (creator_id, username, verified) VALUES\n(1, 'alice_photos', true),\n(2, 'bob_snaps', false),\n(3, 'carol_pics', true),\n(4, 'dave_stories', false),\n(5, 'eve_media', true);\n\nINSERT INTO stories (story_id, creator_id, posted_at, view_count, duration_seconds) VALUES\n(101, 1, '2024-01-10 08:00:00', 450, 12),\n(102, 1, '2024-01-11 09:00:00', 920, 15),\n(103, 1, '2024-01-12 10:00:00', 380, 10),\n(104, 1, '2024-01-13 11:00:00', 710, 18),\n(105, 1, '2024-01-14 12:00:00', 540, 14),\n(106, 2, '2024-01-10 13:00:00', 1500, 20),\n(107, 2, '2024-01-11 14:00:00', 800, 12),\n(108, 2, '2024-01-12 15:00:00', 1100, 15),\n(109, 2, '2024-01-13 16:00:00', 900, 10),\n(110, 2, '2024-01-14 17:00:00', NULL, 18),\n(111, 3, '2024-01-10 18:00:00', 200, 8),\n(112, 3, '2024-01-11 19:00:00', 180, 10),\n(113, 3, '2024-01-12 20:00:00', 220, 12),\n(114, 3, '2024-01-13 21:00:00', 190, 9),\n(115, 3, '2024-01-14 22:00:00', 210, 11),\n(116, 4, '2024-01-10 07:00:00', 3000, 25),\n(117, 4, '2024-01-11 08:00:00', 2800, 22),\n(118, 4, '2024-01-12 09:00:00', 3200, 28),\n(119, 4, '2024-01-13 10:00:00', 2900, 24),\n(120, 5, '2024-01-10 11:00:00', 650, 15),\n(121, 5, '2024-01-11 12:00:00', 650, 16),\n(122, 5, '2024-01-12 13:00:00', 650, 14),\n(123, 5, '2024-01-13 14:00:00', NULL, 17),\n(124, 5, '2024-01-14 15:00:00', 700, 13);",
+    "test_expected_columns": [
+      "story_id",
+      "creator_id",
+      "view_count",
+      "creator_avg_views"
+    ],
+    "test_expected_rows": [
+      [
+        102,
+        1,
+        920,
+        "600.00"
+      ],
+      [
+        104,
+        1,
+        710,
+        "600.00"
+      ],
+      [
+        106,
+        2,
+        1500,
+        "1075.00"
+      ],
+      [
+        108,
+        2,
+        1100,
+        "1075.00"
+      ],
+      [
+        113,
+        3,
+        220,
+        "200.00"
+      ],
+      [
+        115,
+        3,
+        210,
+        "200.00"
+      ],
+      [
+        118,
+        4,
+        3200,
+        "2975.00"
+      ],
+      [
+        116,
+        4,
+        3000,
+        "2975.00"
+      ],
+      [
+        124,
+        5,
+        700,
+        "662.50"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "window-benchmark: compute per-creator average view count using AVG(view_count) OVER (PARTITION BY creator_id) with NO ORDER BY so the entire creator's story set is in the frame",
+        "row-filter: in outer query, keep only rows where view_count > creator_avg_views",
+        "scalar-transform: ROUND the average to 2 decimal places for output",
+        "row-filter: exclude rows with NULL view_count before or during the comparison"
+      ]
+    },
+    "hints": [
+      "You need to compute each creator's average view count and then compare each story's view count to that average.",
+      "Use a CTE with a window function AVG(...) OVER (PARTITION BY creator_id) to attach the creator's average to every row, then filter in the outer query where the story's view count exceeds that average.",
+      "The complete pattern is: WITH benchmarked AS (SELECT story_id, creator_id, view_count, ROUND(AVG(view_count) OVER (PARTITION BY creator_id), 2) AS creator_avg_views FROM stories WHERE view_count IS NOT NULL) SELECT * FROM benchmarked WHERE view_count > creator_avg_views ORDER BY creator_id, view_count DESC;"
+    ],
+    "answer_key": "WITH benchmarked AS (\n  SELECT\n    story_id,\n    creator_id,\n    view_count,\n    ROUND(AVG(view_count) OVER (PARTITION BY creator_id), 2) AS creator_avg_views\n  FROM stories\n  WHERE view_count IS NOT NULL\n)\nSELECT\n  story_id,\n  creator_id,\n  view_count,\n  creator_avg_views\nFROM benchmarked\nWHERE view_count > creator_avg_views\nORDER BY creator_id ASC, view_count DESC;",
+    "_meta": {
+      "question_type": "window_benchmark_compare",
+      "original_qtype": "window_benchmark_compare",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "consumer_social",
+      "generated_at": "2026-06-18T17:29:58.098198",
+      "problem_id": "b8747faf9927",
+      "validation_attempts": 1,
+      "scenario": "a photo sharing app tracking story creation and view rates",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "subtype": null
+    }
+  },
+  "user_solution": "/* notes */\nWITH base AS (\n    SELECT\n        *,\n        ROUND(AVG(view_count) OVER (PARTITION BY creator_id ORDER BY posted_at\n                            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING), 2) AS creator_avg_views\n    FROM stories\n    WHERE view_count IS NOT NULL\n)\nSELECT\n    story_id,\n    creator_id,\n    view_count,\n    creator_avg_views\nFROM base\nWHERE view_count > creator_avg_views\nORDER BY 1, 2;",
+  "solved_at": "2026-06-18T17:37:33.492404"
+}

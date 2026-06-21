@@ -1,0 +1,158 @@
+{
+  "problem": {
+    "title": "Trial Tier Gate for Lowest Seat Price",
+    "prompt": "Your developer tools company tracks trial accounts in an `accounts` table (account_id, trial_tier, signup_date) and seat pricing options in a `seat_prices` table (account_id, seat_type, monthly_price). Each account may have multiple seat pricing tiers offered. For accounts whose `trial_tier` is 2 or higher, you want to identify the cheapest seat option (lowest `monthly_price`); for accounts below that threshold, output NULL for the price. Return one row per account showing `account_id`, `trial_tier`, and `cheapest_monthly_price` (NULL if trial_tier < 2). Order results by `account_id` ascending. An account may have no seat pricing rows; treat that case as NULL regardless of trial tier.",
+    "schema_ddl": "CREATE TABLE accounts (account_id INT PRIMARY KEY, trial_tier INT NOT NULL, signup_date DATE NOT NULL); CREATE TABLE seat_prices (account_id INT NOT NULL, seat_type VARCHAR(50) NOT NULL, monthly_price DECIMAL(10,2) NOT NULL);",
+    "example_input_data": "INSERT INTO accounts (account_id, trial_tier, signup_date) VALUES (1, 3, '2024-01-10'), (2, 1, '2024-01-15'), (3, 2, '2024-02-01'), (4, 1, '2024-02-05'), (5, 4, '2024-03-01'); INSERT INTO seat_prices (account_id, seat_type, monthly_price) VALUES (1, 'developer', 29.00), (1, 'team', 19.00), (1, 'enterprise', 49.00), (2, 'developer', 29.00), (2, 'team', 19.00), (3, 'developer', 29.00), (4, 'team', 19.00), (4, 'enterprise', 49.00);",
+    "example_output_columns": [
+      "account_id",
+      "trial_tier",
+      "cheapest_monthly_price"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        3,
+        "19.00"
+      ],
+      [
+        2,
+        1,
+        null
+      ],
+      [
+        3,
+        2,
+        "29.00"
+      ],
+      [
+        4,
+        1,
+        null
+      ],
+      [
+        5,
+        4,
+        null
+      ]
+    ],
+    "test_data": "INSERT INTO accounts (account_id, trial_tier, signup_date) VALUES (101, 2, '2023-11-01'), (102, 1, '2023-11-05'), (103, 3, '2023-12-01'), (104, 0, '2023-12-10'), (105, 2, '2024-01-01'), (106, 4, '2024-01-15'), (107, 1, '2024-02-01'), (108, 2, '2024-02-10'), (109, 3, '2024-03-01'), (110, 2, '2024-03-05'), (111, 5, '2024-03-10'), (112, 1, '2024-03-15'), (113, 2, '2024-04-01'), (114, 3, '2024-04-05'), (115, 1, '2024-04-10'); INSERT INTO seat_prices (account_id, seat_type, monthly_price) VALUES (101, 'developer', 29.00), (101, 'team', 19.00), (101, 'enterprise', 49.00), (102, 'developer', 29.00), (103, 'developer', 25.00), (103, 'team', 15.00), (103, 'enterprise', 45.00), (104, 'team', 19.00), (105, 'developer', 29.00), (106, 'developer', 29.00), (106, 'team', 19.00), (106, 'enterprise', 49.00), (106, 'premium', 99.00), (107, 'developer', 29.00), (107, 'team', 19.00), (108, 'team', 19.00), (109, 'developer', 29.00), (110, 'developer', 25.00), (110, 'team', 15.00), (113, 'developer', 29.00), (113, 'team', 19.00), (113, 'enterprise', 49.00), (114, 'developer', 25.00), (114, 'team', 15.00);",
+    "test_expected_columns": [
+      "account_id",
+      "trial_tier",
+      "cheapest_monthly_price"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        2,
+        "19.00"
+      ],
+      [
+        102,
+        1,
+        null
+      ],
+      [
+        103,
+        3,
+        "15.00"
+      ],
+      [
+        104,
+        0,
+        null
+      ],
+      [
+        105,
+        2,
+        "29.00"
+      ],
+      [
+        106,
+        4,
+        "19.00"
+      ],
+      [
+        107,
+        1,
+        null
+      ],
+      [
+        108,
+        2,
+        "19.00"
+      ],
+      [
+        109,
+        3,
+        "29.00"
+      ],
+      [
+        110,
+        2,
+        "15.00"
+      ],
+      [
+        111,
+        5,
+        null
+      ],
+      [
+        112,
+        1,
+        null
+      ],
+      [
+        113,
+        2,
+        "19.00"
+      ],
+      [
+        114,
+        3,
+        "15.00"
+      ],
+      [
+        115,
+        1,
+        null
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "same_rows",
+      "recipe": "enrich-join",
+      "composite_moves": [
+        "lookup gate attribute (trial_tier) from accounts",
+        "per-entity pick using ROW_NUMBER() OVER (PARTITION BY account_id ORDER BY monthly_price) to identify cheapest seat",
+        "gate with CASE: if trial_tier >= 2 output the cheapest monthly_price, else NULL",
+        "LEFT JOIN to ensure all accounts appear even if no seat pricing rows exist"
+      ]
+    },
+    "hints": [
+      "You need to combine information from two tables using the account_id key, and apply a condition based on one table to decide what value to show from the other.",
+      "Use a window function to identify the cheapest seat price for each account, then decide whether to show that price based on the account's trial tier.",
+      "ROW_NUMBER() OVER (PARTITION BY account_id ORDER BY monthly_price) will let you pick the cheapest row per account; then use a LEFT JOIN from accounts and a CASE expression that checks trial_tier >= 2."
+    ],
+    "answer_key": "WITH cheapest_seat AS (SELECT account_id, monthly_price, ROW_NUMBER() OVER (PARTITION BY account_id ORDER BY monthly_price) AS rn FROM seat_prices) SELECT a.account_id, a.trial_tier, CASE WHEN a.trial_tier >= 2 THEN cs.monthly_price ELSE NULL END AS cheapest_monthly_price FROM accounts a LEFT JOIN cheapest_seat cs ON a.account_id = cs.account_id AND cs.rn = 1 ORDER BY a.account_id;",
+    "_meta": {
+      "question_type": "gated_lookup",
+      "original_qtype": "gated_lookup",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-20T14:18:16.854243",
+      "problem_id": "01f5f8157b4c",
+      "validation_attempts": 1,
+      "scenario": "a developer tools company tracking trial-to-paid conversion and seat expansion",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "rownumber_pick"
+    }
+  },
+  "user_solution": "/*\n- Each account may have multiple seat pricing tiers offered.\n- For accounts whose `trial_tier` is 2 or higher, you want to identify the cheapest seat option (lowest `monthly_price`); \n- for accounts below that threshold, output NULL for the price.\nReturn one row per account showing `account_id`, `trial_tier`, and `cheapest_monthly_price` (NULL if trial_tier < 2).\nOrder results by `account_id` ascending.\nAn account may have no seat pricing rows; treat that case as NULL regardless of trial tier.\n*/\nSELECT\n    a.account_id,\n    a.trial_tier,\n    CASE WHEN a.trial_tier >= 2 THEN MIN(s.monthly_price) ELSE null END AS cheapest_monthly_price\nFROM accounts AS a\nLEFT JOIN seat_prices AS s\n    ON a.account_id = s.account_id\nGROUP BY 1, 2\nORDER BY 1;\n\n",
+  "solved_at": "2026-06-20T14:24:30.005329"
+}

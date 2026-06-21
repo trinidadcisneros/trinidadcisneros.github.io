@@ -1,0 +1,54 @@
+{
+  "title": "Find Second-Highest Total Posts by Member",
+  "prompt": "You are analyzing member participation in a community forum. The `member_posts` table records every post made by forum members, with columns for the member's unique ID, their display name, and the timestamp of each post. Write a query that returns the second-highest distinct total post count among all members. If a member has made multiple posts, count all of them toward their total. If there is no second-highest value (for example, if fewer than two members have posted, or all members have the same post count), return NULL. Your query must return exactly one row with one column named `second_highest_post_count`. If multiple members tie for second place, that shared count is still the second-highest distinct value.",
+  "schema_ddl": "CREATE TABLE member_posts (post_id SERIAL PRIMARY KEY, member_id INT NOT NULL, member_name VARCHAR(100) NOT NULL, posted_at TIMESTAMP NOT NULL);",
+  "example_input_data": "INSERT INTO member_posts (member_id, member_name, posted_at) VALUES (101, 'Alice', '2024-01-15 10:00:00'), (101, 'Alice', '2024-01-16 11:30:00'), (101, 'Alice', '2024-01-17 09:15:00'), (101, 'Alice', '2024-01-18 14:20:00'), (101, 'Alice', '2024-01-19 16:45:00'), (102, 'Bob', '2024-01-15 12:00:00'), (102, 'Bob', '2024-01-16 13:00:00'), (102, 'Bob', '2024-01-17 15:00:00'), (103, 'Carol', '2024-01-15 08:30:00'), (103, 'Carol', '2024-01-16 09:45:00');",
+  "example_output_columns": [
+    "second_highest_post_count"
+  ],
+  "example_output_rows": [
+    [
+      3
+    ]
+  ],
+  "test_data": "INSERT INTO member_posts (member_id, member_name, posted_at) VALUES (201, 'David', '2024-02-01 08:00:00'), (201, 'David', '2024-02-02 09:00:00'), (201, 'David', '2024-02-03 10:00:00'), (201, 'David', '2024-02-04 11:00:00'), (201, 'David', '2024-02-05 12:00:00'), (201, 'David', '2024-02-06 13:00:00'), (201, 'David', '2024-02-07 14:00:00'), (201, 'David', '2024-02-08 15:00:00'), (202, 'Eve', '2024-02-01 08:30:00'), (202, 'Eve', '2024-02-02 09:30:00'), (202, 'Eve', '2024-02-03 10:30:00'), (202, 'Eve', '2024-02-04 11:30:00'), (202, 'Eve', '2024-02-05 12:30:00'), (203, 'Frank', '2024-02-01 09:00:00'), (203, 'Frank', '2024-02-02 10:00:00'), (203, 'Frank', '2024-02-03 11:00:00'), (203, 'Frank', '2024-02-04 12:00:00'), (203, 'Frank', '2024-02-05 13:00:00'), (204, 'Grace', '2024-02-01 10:00:00'), (204, 'Grace', '2024-02-02 11:00:00'), (204, 'Grace', '2024-02-03 12:00:00'), (205, 'Hank', '2024-02-01 11:00:00'), (205, 'Hank', '2024-02-02 12:00:00'), (205, 'Hank', '2024-02-03 13:00:00'), (206, 'Ivy', '2024-02-01 12:00:00'), (207, 'Jack', '2024-02-01 13:00:00'), (208, 'Kim', '2024-02-01 14:00:00');",
+  "test_expected_columns": [
+    "second_highest_post_count"
+  ],
+  "test_expected_rows": [
+    [
+      5
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "single_value",
+    "recipe": "scalar-extract",
+    "composite_moves": [
+      "group-aggregate to count posts per member",
+      "DISTINCT ORDER BY DESC LIMIT 1 OFFSET 1 to get 2nd highest",
+      "wrap in subquery-in-SELECT to ensure NULL when no 2nd value exists"
+    ]
+  },
+  "hints": [
+    "You need to count how many posts each member has made, then find distinct totals across all members.",
+    "Use GROUP BY to get each member's post count, then order those counts descending and pick the second one using LIMIT and OFFSET.",
+    "Wrap your LIMIT 1 OFFSET 1 query in a SELECT subquery so it returns NULL when there's no second-highest value instead of zero rows."
+  ],
+  "answer_key": "SELECT (SELECT COUNT(*) AS post_count FROM member_posts GROUP BY member_id ORDER BY post_count DESC LIMIT 1 OFFSET 1) AS second_highest_post_count;",
+  "_meta": {
+    "question_type": "scalar_extract",
+    "original_qtype": "scalar_extract",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-19T11:20:15.999614",
+    "problem_id": "3513ec5144dc",
+    "validation_attempts": 1,
+    "scenario": "a community forum tracking thread participation and member retention",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "subtype": "nth"
+  }
+}

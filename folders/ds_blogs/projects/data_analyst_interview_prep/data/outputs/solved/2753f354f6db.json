@@ -1,0 +1,106 @@
+{
+  "problem": {
+    "title": "Find Episodes Never Completed by Any User",
+    "prompt": "You are analyzing a podcast app's listening behavior. The `episodes` table contains all published episodes. The `listening_sessions` table records when users listen to episodes, with a `completed` boolean indicating if they finished the episode. Find all episodes that have NEVER been completed by any user (they may have partial sessions, or no sessions at all). Return the episode ID, title, and duration in minutes. Order by episode_id ascending. Note: Some sessions may have NULL in the completed column due to data collection errors.",
+    "schema_ddl": "CREATE TABLE episodes (episode_id INT PRIMARY KEY, title VARCHAR(200), duration_minutes INT, published_date DATE); CREATE TABLE listening_sessions (session_id INT PRIMARY KEY, episode_id INT, user_id INT, completed BOOLEAN, listened_minutes INT);",
+    "example_input_data": "INSERT INTO episodes (episode_id, title, duration_minutes, published_date) VALUES (101, 'Introduction to PostgreSQL', 45, '2024-01-15'), (102, 'Advanced SQL Joins', 60, '2024-01-22'), (103, 'Database Indexing Basics', 50, '2024-02-01'), (104, 'Query Optimization Tips', 55, '2024-02-10'), (105, 'Transactions and ACID', 48, '2024-02-20'); INSERT INTO listening_sessions (session_id, episode_id, user_id, completed, listened_minutes) VALUES (1, 101, 1001, true, 45), (2, 101, 1002, false, 20), (3, 102, 1001, false, 30), (4, 102, 1003, NULL, 15), (5, 103, 1001, false, 10), (6, 104, 1002, true, 55);",
+    "example_output_columns": [
+      "episode_id",
+      "title",
+      "duration_minutes"
+    ],
+    "example_output_rows": [
+      [
+        102,
+        "Advanced SQL Joins",
+        60
+      ],
+      [
+        103,
+        "Database Indexing Basics",
+        50
+      ],
+      [
+        105,
+        "Transactions and ACID",
+        48
+      ]
+    ],
+    "test_data": "INSERT INTO episodes (episode_id, title, duration_minutes, published_date) VALUES (201, 'Intro to Data Science', 42, '2024-03-01'), (202, 'Machine Learning Basics', 65, '2024-03-05'), (203, 'Deep Learning Overview', 58, '2024-03-10'), (204, 'Natural Language Processing', 52, '2024-03-15'), (205, 'Computer Vision Intro', 47, '2024-03-20'), (206, 'Reinforcement Learning', 70, '2024-03-25'), (207, 'Ethics in AI', 38, '2024-04-01'), (208, 'Data Visualization', 44, '2024-04-05'), (209, 'Statistics for ML', 55, '2024-04-10'), (210, 'Python for Data Analysis', 60, '2024-04-15'); INSERT INTO listening_sessions (session_id, episode_id, user_id, completed, listened_minutes) VALUES (101, 201, 2001, true, 42), (102, 201, 2002, true, 42), (103, 202, 2001, false, 25), (104, 202, 2003, NULL, 30), (105, 203, 2002, false, 20), (106, 203, 2001, false, 15), (107, 203, 2004, NULL, 10), (108, 204, 2003, true, 52), (109, 204, 2002, false, 40), (110, 205, 2001, NULL, 20), (111, 205, 2002, NULL, 15), (112, 206, 2004, false, 35), (113, 207, 2001, true, 38), (114, 207, 2003, true, 38), (115, 208, 2002, false, 22), (116, 208, 2001, NULL, 18), (117, 208, 2004, false, 30), (118, 209, 2003, NULL, 25), (119, 209, 2001, NULL, 20);",
+    "test_expected_columns": [
+      "episode_id",
+      "title",
+      "duration_minutes"
+    ],
+    "test_expected_rows": [
+      [
+        202,
+        "Machine Learning Basics",
+        65
+      ],
+      [
+        203,
+        "Deep Learning Overview",
+        58
+      ],
+      [
+        205,
+        "Computer Vision Intro",
+        47
+      ],
+      [
+        206,
+        "Reinforcement Learning",
+        70
+      ],
+      [
+        208,
+        "Data Visualization",
+        44
+      ],
+      [
+        209,
+        "Statistics for ML",
+        55
+      ],
+      [
+        210,
+        "Python for Data Analysis",
+        60
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "row-filter",
+      "composite_moves": [
+        "anti-join using NOT EXISTS or LEFT JOIN...WHERE IS NULL to filter episodes",
+        "handle NULL in completed column correctly",
+        "order by episode_id"
+      ]
+    },
+    "hints": [
+      "You need to find episodes that don't appear in a certain subset of the listening_sessions table.",
+      "Be careful with NULL values in the completed column - they should not count as 'completed'. Use NOT EXISTS or LEFT JOIN with IS NULL pattern, or ensure your NOT IN subquery filters out NULLs.",
+      "Use NOT EXISTS with a correlated subquery that checks for sessions where completed = true, or use LEFT JOIN to listening_sessions WHERE completed = true, then filter for NULL join results."
+    ],
+    "answer_key": "SELECT e.episode_id, e.title, e.duration_minutes FROM episodes e WHERE NOT EXISTS (SELECT 1 FROM listening_sessions ls WHERE ls.episode_id = e.episode_id AND ls.completed = true) ORDER BY e.episode_id;",
+    "_meta": {
+      "question_type": "anti_join",
+      "original_qtype": "anti_join",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-19T16:43:31.417681",
+      "problem_id": "2753f354f6db",
+      "validation_attempts": 1,
+      "scenario": "a podcast app tracking listening sessions and episode completion",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "subtype": null
+    }
+  },
+  "user_solution": "/*\nepisodes IS NOT IN listening_sessions OR completed = false\n */\n\nSELECT\n    episode_id,\n    title,\n    duration_minutes\nFROM episodes AS e\nWHERE NOT EXISTS (SELECT 1 FROM listening_sessions AS l WHERE e.episode_id = l.episode_id)\nOR episode_id IN (SELECT DISTINCT episode_id \n                  FROM listening_sessions \n                  GROUP BY episode_id\n                  HAVING MAX(CASE WHEN completed = true THEN 1 ELSE 0 END) = 0\n                    );\n",
+  "solved_at": "2026-06-19T17:18:05.611626"
+}

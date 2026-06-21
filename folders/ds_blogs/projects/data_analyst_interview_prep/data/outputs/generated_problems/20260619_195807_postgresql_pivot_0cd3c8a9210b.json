@@ -1,0 +1,79 @@
+{
+  "title": "Prior Auth Coverage Gap Analysis",
+  "prompt": "Your health plan wants to identify providers who have submitted prior authorization requests for BOTH 'MRI' AND 'CT Scan' imaging modalities but have NEVER submitted a request for 'X-Ray' during the tracking period. The goal is to offer targeted training on cost-effective X-Ray utilization to these providers. Write a query that returns the provider_id and provider_name for all qualifying providers, ordered by provider_id ascending. A provider qualifies if their authorization requests include at least one MRI AND at least one CT Scan AND zero X-Rays. Providers with no authorization requests in the system should not appear in the result.",
+  "schema_ddl": "CREATE TABLE providers (provider_id INT PRIMARY KEY, provider_name VARCHAR(100), specialty VARCHAR(50)); CREATE TABLE prior_authorizations (auth_id INT PRIMARY KEY, provider_id INT, imaging_modality VARCHAR(50), request_date DATE, status VARCHAR(20));",
+  "example_input_data": "INSERT INTO providers (provider_id, provider_name, specialty) VALUES (101, 'Dr. Alice Chen', 'Orthopedics'), (102, 'Dr. Bob Martinez', 'Neurology'), (103, 'Dr. Carol Singh', 'Cardiology'), (104, 'Dr. David Kim', 'Radiology'); INSERT INTO prior_authorizations (auth_id, provider_id, imaging_modality, request_date, status) VALUES (1, 101, 'MRI', '2024-01-15', 'approved'), (2, 101, 'CT Scan', '2024-02-10', 'approved'), (3, 102, 'MRI', '2024-01-20', 'approved'), (4, 102, 'X-Ray', '2024-02-05', 'approved'), (5, 102, 'CT Scan', '2024-03-01', 'approved'), (6, 103, 'MRI', '2024-01-25', 'approved'), (7, 103, 'CT Scan', '2024-02-18', 'approved'), (8, 103, 'MRI', '2024-03-10', 'approved');",
+  "example_output_columns": [
+    "provider_id",
+    "provider_name"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Dr. Alice Chen"
+    ],
+    [
+      103,
+      "Dr. Carol Singh"
+    ]
+  ],
+  "test_data": "INSERT INTO providers (provider_id, provider_name, specialty) VALUES (201, 'Dr. Emma Wilson', 'Orthopedics'), (202, 'Dr. Frank Lee', 'Neurology'), (203, 'Dr. Grace Park', 'Cardiology'), (204, 'Dr. Henry Chang', 'Sports Medicine'), (205, 'Dr. Iris Patel', 'Oncology'), (206, 'Dr. Jack Robinson', 'Internal Medicine'), (207, 'Dr. Karen Lopez', 'Pulmonology'), (208, 'Dr. Lucas Brown', 'Gastroenterology'), (209, 'Dr. Maria Garcia', 'Nephrology'), (210, 'Dr. Nathan Wu', 'Endocrinology'); INSERT INTO prior_authorizations (auth_id, provider_id, imaging_modality, request_date, status) VALUES (101, 201, 'MRI', '2024-01-10', 'approved'), (102, 201, 'MRI', '2024-01-15', 'approved'), (103, 201, 'CT Scan', '2024-02-01', 'approved'), (104, 202, 'MRI', '2024-01-12', 'approved'), (105, 202, 'CT Scan', '2024-01-18', 'approved'), (106, 202, 'X-Ray', '2024-02-05', 'approved'), (107, 203, 'MRI', '2024-01-20', 'approved'), (108, 203, 'MRI', '2024-01-25', 'approved'), (109, 203, 'MRI', '2024-02-01', 'approved'), (110, 203, 'CT Scan', '2024-02-10', 'approved'), (111, 203, 'CT Scan', '2024-02-15', 'approved'), (112, 204, 'CT Scan', '2024-01-22', 'approved'), (113, 204, 'X-Ray', '2024-02-03', 'approved'), (114, 205, 'MRI', '2024-01-14', 'approved'), (115, 205, 'MRI', '2024-01-28', 'approved'), (116, 205, 'CT Scan', '2024-02-08', 'approved'), (117, 205, 'CT Scan', '2024-02-20', 'approved'), (118, 205, 'X-Ray', '2024-03-01', 'approved'), (119, 206, 'MRI', '2024-01-16', 'approved'), (120, 206, 'CT Scan', '2024-02-12', 'approved'), (121, 206, 'CT Scan', '2024-02-22', 'approved'), (122, 207, 'MRI', '2024-01-19', 'approved'), (123, 207, 'MRI', '2024-02-05', 'approved'), (124, 207, 'CT Scan', '2024-02-14', 'approved'), (125, 207, 'CT Scan', '2024-02-28', 'approved'), (126, 207, 'CT Scan', '2024-03-05', 'approved'), (127, 208, 'X-Ray', '2024-01-11', 'approved'), (128, 208, 'X-Ray', '2024-02-07', 'approved'), (129, 209, 'MRI', '2024-01-23', 'approved'), (130, 209, 'MRI', '2024-02-16', 'approved'), (131, 209, 'CT Scan', '2024-02-25', 'approved'), (132, 209, 'MRI', '2024-03-08', 'approved');",
+  "test_expected_columns": [
+    "provider_id",
+    "provider_name"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Dr. Emma Wilson"
+    ],
+    [
+      203,
+      "Dr. Grace Park"
+    ],
+    [
+      206,
+      "Dr. Jack Robinson"
+    ],
+    [
+      207,
+      "Dr. Karen Lopez"
+    ],
+    [
+      209,
+      "Dr. Maria Garcia"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "reshape",
+    "composite_moves": [
+      "join providers to prior_authorizations on provider_id",
+      "group by provider_id and provider_name",
+      "filter groups using CASE-based set membership checks in HAVING: BOOL_OR(imaging_modality = 'MRI') AND BOOL_OR(imaging_modality = 'CT Scan') AND NOT BOOL_OR(imaging_modality = 'X-Ray')",
+      "order by provider_id"
+    ]
+  },
+  "hints": [
+    "Think about how to check whether a provider has submitted requests for specific imaging modalities using aggregate functions.",
+    "Use BOOL_OR or MAX(CASE WHEN ... THEN 1 ELSE 0 END) inside a HAVING clause to check for the presence or absence of each required and forbidden modality.",
+    "Group by provider and use HAVING with three conditions: one for MRI presence, one for CT Scan presence, and one for X-Ray absence (NOT BOOL_OR or MAX = 0)."
+  ],
+  "answer_key": "SELECT p.provider_id, p.provider_name FROM providers AS p JOIN prior_authorizations AS pa ON pa.provider_id = p.provider_id GROUP BY p.provider_id, p.provider_name HAVING BOOL_OR(pa.imaging_modality = 'MRI') AND BOOL_OR(pa.imaging_modality = 'CT Scan') AND NOT BOOL_OR(pa.imaging_modality = 'X-Ray') ORDER BY p.provider_id;",
+  "_meta": {
+    "question_type": "pivot",
+    "original_qtype": "pivot",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-19T19:58:07.202028",
+    "problem_id": "0cd3c8a9210b",
+    "validation_attempts": 1,
+    "scenario": "a prior authorization cycle time tracking system across payers",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "subtype": null
+  }
+}

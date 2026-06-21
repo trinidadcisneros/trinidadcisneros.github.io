@@ -1,0 +1,144 @@
+{
+  "problem": {
+    "title": "Pharmacies Above Regional Refill Average",
+    "prompt": "A pharmacy chain tracks 90-day refill adherence rates across its locations. Write a query that identifies all pharmacies whose 90-day refill rate is strictly above their region's average rate. For each qualifying pharmacy, return the pharmacy name, region, the pharmacy's own 90-day refill rate, and the region's average rate (rounded to 2 decimals). The regional average should be computed across all pharmacies in the same region, excluding any pharmacies with NULL refill rates from the average calculation (though if a pharmacy has a NULL rate, it should not appear in the output since NULL compared to any number is UNKNOWN and filtered out). Order results by region ascending, then by the pharmacy's refill rate descending.",
+    "schema_ddl": "CREATE TABLE pharmacies (pharmacy_id INT PRIMARY KEY, pharmacy_name VARCHAR(100) NOT NULL, region VARCHAR(50) NOT NULL, refill_rate_90day DECIMAL(5,2));",
+    "example_input_data": "INSERT INTO pharmacies (pharmacy_id, pharmacy_name, region, refill_rate_90day) VALUES (1, 'HealthPlus Downtown', 'North', 72.50), (2, 'MediCare Central', 'North', 68.00), (3, 'WellRx East', 'North', 75.20), (4, 'CarePlus South', 'South', 80.00), (5, 'PharmaCare West', 'South', 78.50), (6, 'Rx Express', 'South', 76.00), (7, 'Community Health', 'West', 70.00), (8, 'QuickScript', 'West', NULL);",
+    "example_output_columns": [
+      "pharmacy_name",
+      "region",
+      "pharmacy_rate",
+      "region_avg"
+    ],
+    "example_output_rows": [
+      [
+        "WellRx East",
+        "North",
+        "75.20",
+        "71.90"
+      ],
+      [
+        "HealthPlus Downtown",
+        "North",
+        "72.50",
+        "71.90"
+      ],
+      [
+        "CarePlus South",
+        "South",
+        "80.00",
+        "78.17"
+      ],
+      [
+        "PharmaCare West",
+        "South",
+        "78.50",
+        "78.17"
+      ]
+    ],
+    "test_data": "INSERT INTO pharmacies (pharmacy_id, pharmacy_name, region, refill_rate_90day) VALUES (101, 'Metro Health', 'North', 82.30), (102, 'City Pharmacy', 'North', 79.10), (103, 'Corner Drugstore', 'North', 68.40), (104, 'Valley Rx', 'North', 71.00), (105, 'Summit Pharmacy', 'North', 77.50), (106, 'Lakeside Care', 'South', 85.60), (107, 'Riverside Rx', 'South', 83.20), (108, 'Bayside Health', 'South', 79.80), (109, 'Harbor Pharmacy', 'South', 81.00), (110, 'Coastal Meds', 'South', 80.00), (111, 'Mountain Rx', 'West', 74.50), (112, 'Desert Care', 'West', 72.00), (113, 'Prairie Health', 'West', 76.80), (114, 'Plains Pharmacy', 'West', 71.20), (115, 'Frontier Rx', 'West', 73.50), (116, 'Border Health', 'East', 88.00), (117, 'Gateway Pharmacy', 'East', 86.50), (118, 'Crossroads Rx', 'East', 84.00), (119, 'Junction Care', 'East', 82.00), (120, 'Transit Health', 'East', NULL), (121, 'Express Scripts', 'North', 75.60), (122, 'Quick Meds', 'South', 77.50), (123, 'Fast Care', 'West', NULL), (124, 'Rapid Rx', 'East', 85.20);",
+    "test_expected_columns": [
+      "pharmacy_name",
+      "region",
+      "pharmacy_rate",
+      "region_avg"
+    ],
+    "test_expected_rows": [
+      [
+        "Border Health",
+        "East",
+        "88.00",
+        "85.14"
+      ],
+      [
+        "Gateway Pharmacy",
+        "East",
+        "86.50",
+        "85.14"
+      ],
+      [
+        "Rapid Rx",
+        "East",
+        "85.20",
+        "85.14"
+      ],
+      [
+        "Metro Health",
+        "North",
+        "82.30",
+        "75.65"
+      ],
+      [
+        "City Pharmacy",
+        "North",
+        "79.10",
+        "75.65"
+      ],
+      [
+        "Summit Pharmacy",
+        "North",
+        "77.50",
+        "75.65"
+      ],
+      [
+        "Lakeside Care",
+        "South",
+        "85.60",
+        "81.18"
+      ],
+      [
+        "Riverside Rx",
+        "South",
+        "83.20",
+        "81.18"
+      ],
+      [
+        "Prairie Health",
+        "West",
+        "76.80",
+        "73.60"
+      ],
+      [
+        "Mountain Rx",
+        "West",
+        "74.50",
+        "73.60"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "CTE: compute AVG(refill_rate_90day) OVER (PARTITION BY region) as region_avg for every row",
+        "outer query: filter WHERE pharmacy_rate > region_avg",
+        "outer query: SELECT pharmacy_name, region, pharmacy_rate, ROUND(region_avg, 2)",
+        "outer query: ORDER BY region ASC, pharmacy_rate DESC"
+      ]
+    },
+    "hints": [
+      "You need to compare each pharmacy's rate against its region's average rate; window functions let you compute group aggregates without collapsing rows.",
+      "Use AVG(...) OVER (PARTITION BY region) with NO ORDER BY clause so every row in the region gets the same regional average. Put this in a CTE because window functions cannot appear directly in WHERE.",
+      "In the outer query, filter WHERE the pharmacy's own rate is strictly greater than the windowed regional average, then return the pharmacy name, region, the pharmacy's rate, and the rounded regional average ordered by region and rate."
+    ],
+    "answer_key": "WITH pharmacy_benchmarks AS (\n  SELECT\n    pharmacy_name,\n    region,\n    refill_rate_90day AS pharmacy_rate,\n    AVG(refill_rate_90day) OVER (PARTITION BY region) AS region_avg\n  FROM pharmacies\n  WHERE refill_rate_90day IS NOT NULL\n)\nSELECT\n  pharmacy_name,\n  region,\n  pharmacy_rate,\n  ROUND(region_avg, 2) AS region_avg\nFROM pharmacy_benchmarks\nWHERE pharmacy_rate > region_avg\nORDER BY region ASC, pharmacy_rate DESC;",
+    "_meta": {
+      "question_type": "window_benchmark_compare",
+      "original_qtype": "random_any",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-20T12:35:56.388832",
+      "problem_id": "0d379cca446e",
+      "validation_attempts": 1,
+      "scenario": "a prescription refill adherence program tracking 30/60/90 day refill rates",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "AVG"
+    }
+  },
+  "user_solution": "/*\n1. GET REGION AVERAGE\n2. CASE WHEN COMPARE\n3. FILTER\n*/\nWITH base AS (\n    SELECT\n        pharmacy_name,\n        region,\n        refill_rate_90day AS pharmacy_rate,\n        ROUND(AVG(refill_rate_90day) OVER (PARTITION BY region ORDER BY pharmacy_id\n                                ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING),2) AS region_avg\n    FROM pharmacies\n)\nSELECT *\nFROM base\nWHERE pharmacy_rate > region_avg\nORDER BY region, pharmacy_rate DESC;\n\n",
+  "solved_at": "2026-06-20T12:40:42.879699"
+}

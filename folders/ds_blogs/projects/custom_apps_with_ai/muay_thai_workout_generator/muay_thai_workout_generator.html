@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Muay Thai Workout Generator</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#1a1d24; --line:#2a2f3a; --text:#e8eaed;
+    --muted:#9aa3b2; --accent:#ff5a36; --accent2:#3da9fc; --ok:#46c46b;
+    --strike:#ff5a36; --lower:#3da9fc; --combo:#caa14a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--text);line-height:1.45;padding:24px}
+  .wrap{max-width:860px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 20px}
+  .sub a{color:var(--accent2);text-decoration:none}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:18px}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 8px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .seg button{background:transparent;color:var(--text);border:0;padding:10px 16px;font-size:14px;cursor:pointer}
+  .seg button.active{background:var(--accent);color:#fff;font-weight:600}
+  .mix{font-size:12px;color:var(--muted);margin-top:8px}
+  .actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+  .btn{border:0;border-radius:10px;padding:12px 18px;font-size:14px;font-weight:600;cursor:pointer}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+  .btn-copy{background:var(--accent2);color:#fff}
+  pre{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;
+    background:#0b0d11;border:1px solid var(--line);border-radius:10px;padding:16px;margin:0;max-height:520px;overflow:auto}
+  .tag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:5px;margin-left:6px;vertical-align:middle}
+  .t-S{background:rgba(255,90,54,.18);color:var(--strike)}
+  .t-L{background:rgba(61,169,252,.18);color:var(--lower)}
+  .t-C{background:rgba(202,161,74,.18);color:var(--combo)}
+  .legend{font-size:12px;color:var(--muted);margin-top:10px}
+  .copied{color:var(--ok);font-size:13px;margin-left:8px;opacity:0;transition:opacity .2s}
+  .copied.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Muay Thai Workout Generator</h1>
+  <p class="sub">~40 min · fixed warmup + 3 burnouts + 7 drills · randomized · <a href="https://docs.google.com/document/d/1DxZQ-xGdRy5b7I7ZITqX1fmyBtVkkRvIgfsil4Ig6cc/edit" target="_blank">drill reference doc</a></p>
+
+  <div class="panel">
+    <p class="label">Difficulty</p>
+    <div class="seg" id="seg">
+      <button data-lvl="basic" class="active">Basic</button>
+      <button data-lvl="intermediate">Intermediate</button>
+      <button data-lvl="advance">Advance</button>
+    </div>
+    <div class="mix" id="mix"></div>
+    <div class="actions">
+      <button class="btn btn-primary" id="gen">Generate workout</button>
+      <button class="btn btn-copy" id="copy">Copy for Google Keep</button>
+      <span class="copied" id="copied">Copied ✓</span>
+    </div>
+    <div class="legend">
+      Drill mix per session: 3 burnouts + 7 drills.
+      7 drills =<span class="tag t-S">2 strikes</span><span class="tag t-L">2 lower body</span><span class="tag t-C">3 combos</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <pre id="out">Pick a difficulty and hit Generate.</pre>
+  </div>
+</div>
+
+<script>
+/* ---------- Catalog (level: 1=basic, 2=intermediate, 3=advance; cat: S=strikes, L=lower body, C=combo) ---------- */
+const DRILLS = [
+  // Muay Thai 101 (Basics)
+  {id:"1.1",n:"Body Hook, Body Hook, Hook",l:1,c:"S"},
+  {id:"1.2",n:"Cross, Hook, Check, Rear Roundhouse",l:1,c:"C"},
+  {id:"1.3",n:"Cross, Hook, Cross, Switch Kick",l:1,c:"C"},
+  {id:"1.4",n:"Double Jab, Overhand, Liver Shot",l:1,c:"S"},
+  {id:"1.5",n:"Hook, Roundhouse",l:1,c:"C"},
+  {id:"1.6",n:"Jab, Body Cross",l:1,c:"S"},
+  {id:"1.7",n:"Jab, Body Hook, Body Hook, Cross",l:1,c:"S"},
+  {id:"1.8",n:"Jab, Cross",l:1,c:"S"},
+  {id:"1.9",n:"Jab, Cross, Check, Switch Kick",l:1,c:"C"},
+  {id:"1.10",n:"Jab, Cross, Hook",l:1,c:"S"},
+  {id:"1.11",n:"Jab, Cross, Hook, Cross",l:1,c:"S"},
+  {id:"1.12",n:"Jab, Cross, Hook, Roundhouse",l:1,c:"C"},
+  {id:"1.13",n:"Jab, Cross, Pendulum Kick",l:1,c:"C"},
+  {id:"1.14",n:"Jab, Cross, Rear Knee, Rear Roundhouse",l:1,c:"C"},
+  {id:"1.15",n:"Jab, Cross, Rear Roundhouse",l:1,c:"C"},
+  {id:"1.16",n:"Jab, Cross, Switch Kick",l:1,c:"C"},
+  {id:"1.17",n:"Jab, Hook, Cross, Rear Elbow",l:1,c:"S"},
+  {id:"1.18",n:"Jab, Hook, Rear Elbow",l:1,c:"S"},
+  {id:"1.19",n:"Jab, Hook, Roundhouse",l:1,c:"C"},
+  {id:"1.20",n:"Jab, Jab Body, Overhand",l:1,c:"S"},
+  {id:"1.21",n:"Jab, Switch Kick",l:1,c:"C"},
+  {id:"1.22",n:"Jab, Liver Shot, Hook, Cross",l:1,c:"S"},
+  {id:"1.23",n:"Jab, Roundhouse",l:1,c:"C"},
+  {id:"1.24",n:"Jab, Lead Spear Elbow",l:1,c:"S"},
+  {id:"1.25",n:"Jab, Teep",l:1,c:"C"},
+  {id:"1.26",n:"Long Guard, Rear Knee, Long Guard, Lead Elbow",l:1,c:"C"},
+  {id:"1.27",n:"Rear Roundhouse, Teep",l:1,c:"L"},
+  {id:"1.28",n:"Rear Roundhouse, Rear Knee",l:1,c:"L"},
+  {id:"1.29",n:"Rear Roundhouse, Push Kick",l:1,c:"L"},
+  {id:"1.30",n:"Push Kick, Rear Roundhouse",l:1,c:"L"},
+  {id:"1.31",n:"Switch Kick, Teep",l:1,c:"L"},
+  {id:"1.32",n:"Switch Kick, Cross",l:1,c:"C"},
+  {id:"1.33",n:"Switch Kick, Rear Round Knee",l:1,c:"L"},
+  {id:"1.34",n:"Switch Knee, Rear Elbow",l:1,c:"C"},
+  {id:"1.35",n:"Teep, Fake Teep, Rear Knee",l:1,c:"L"},
+  {id:"1.36",n:"Teep, Rear Roundhouse",l:1,c:"L"},
+  {id:"1.37",n:"Teep, Switch Kick",l:1,c:"L"},
+  // Muay Thai 102 (Intermediate)
+  {id:"2.1",n:"Cross, Liver Shot, High Kick",l:2,c:"C"},
+  {id:"2.2",n:"Cross, Rear Head Kick",l:2,c:"C"},
+  {id:"2.3",n:"Double Roundhouse",l:2,c:"L"},
+  {id:"2.4",n:"Double Teep, Rear Roundhouse",l:2,c:"L"},
+  {id:"2.5",n:"Hook, Cross, Rear Roundhouse, Cross",l:2,c:"C"},
+  {id:"2.6",n:"Hook, Liver Shot, Low Kick",l:2,c:"C"},
+  {id:"2.7",n:"Hook, Reverse Elbow, Rear Elbow",l:2,c:"S"},
+  {id:"2.8",n:"Hook, Rear Roundhouse, Cross, Switch Kick",l:2,c:"C"},
+  {id:"2.9",n:"Jab, Body Cross, Lead High Kick",l:2,c:"C"},
+  {id:"2.10",n:"Jab, Body Cross, Post, Rear Roundhouse",l:2,c:"C"},
+  {id:"2.11",n:"Jab, Cross, Hook, Rear Kick, Check, Rear Kick",l:2,c:"C"},
+  {id:"2.12",n:"Jab, Cross, Hook, Rear Roundhouse, Lead Roundhouse",l:2,c:"C"},
+  {id:"2.13",n:"Jab Cross - Cross, Hook - Hook, Cross",l:2,c:"S"},
+  {id:"2.14",n:"Jab, Cross, Hook, Rear Roundhouse, Lead Round Knee",l:2,c:"C"},
+  {id:"2.15",n:"Jab, Cross, Lean Back, High Kick",l:2,c:"C"},
+  {id:"2.16",n:"Jab, Cross, Switch Kick, Check, Switch Kick",l:2,c:"C"},
+  {id:"2.17",n:"Jab, Cross, Switch Kick, Rear Roundhouse",l:2,c:"C"},
+  {id:"2.18",n:"Jab, Cross, Switch Kick, Rear Round Knee",l:2,c:"C"},
+  {id:"2.19",n:"Jab, Hook, Rear Elbow, Rear Knee",l:2,c:"C"},
+  {id:"2.20",n:"Jab, Rear Spear Elbow, Lead Elbow",l:2,c:"S"},
+  {id:"2.21",n:"Jab, Spear Rear Elbow",l:2,c:"S"},
+  {id:"2.22",n:"Jab, Teep, Cross, Rear Roundhouse",l:2,c:"C"},
+  {id:"2.23",n:"Lead Elbow, Rear Elbow, Reverse Elbow, Rear Elbow",l:2,c:"S"},
+  {id:"2.24",n:"Lead Roundhouse, Rear Roundhouse (Alternating Kicks)",l:2,c:"L"},
+  {id:"2.25",n:"Long Guard, Rear Knee, Long Guard, Rear Elbow",l:2,c:"C"},
+  {id:"2.26",n:"Long Guard, Spear Elbow, Rear Knee, LG, Rear Elbow, Switch Knee",l:2,c:"C"},
+  {id:"2.27",n:"Push Kick, Fake Push Kick, Step Knee",l:2,c:"L"},
+  {id:"2.28",n:"Push Kick, Rear Knee, Rear Elbow",l:2,c:"C"},
+  {id:"2.29",n:"Cross, Lead Knee, Lead Elbow",l:2,c:"C"},
+  {id:"2.30",n:"Rear Roundhouse, Hook, Cross, Lead Roundhouse",l:2,c:"C"},
+  {id:"2.31",n:"Rear Roundhouse, Cross, Lead Roundhouse",l:2,c:"C"},
+  {id:"2.32",n:"Rear Knee, Hook, Roundhouse",l:2,c:"C"},
+  {id:"2.33",n:"Switch Hook, Rear Roundhouse",l:2,c:"C"},
+  {id:"2.34",n:"Teep, Check, Knee",l:2,c:"L"},
+  {id:"2.35",n:"Teep, Rear Knee, Lead Elbow",l:2,c:"C"},
+  {id:"2.36",n:"Teep, Rear Roundhouse, Rear Knee",l:2,c:"L"},
+  {id:"2.37",n:"Rear Push Kick, Teep, Lead Knee, Rear Knee",l:2,c:"L"},
+  {id:"2.38",n:"Teep, Switch Kick, Switch Knee",l:2,c:"L"},
+  {id:"2.39",n:"Teep, Fake Teep, Lead Spear Elbow, Rear Elbow",l:2,c:"C"},
+  // Muay Thai 103 (Advanced)
+  {id:"3.1",n:"Cross, Hook, Roundhouse, Hook, Cross, Switch Kick",l:3,c:"C"},
+  {id:"3.2",n:"Hook, Spinning Elbow",l:3,c:"S"},
+  {id:"3.3",n:"Jab, Rear Roundhouse, Superman",l:3,c:"C"},
+  {id:"3.4",n:"Push Kick, Jumping Scissor Knee",l:3,c:"L"},
+  {id:"3.5",n:"Push Kick, Fake Push Kick, Spinning Elbow",l:3,c:"C"},
+  {id:"3.6",n:"Question Mark Kick",l:3,c:"L"},
+  {id:"3.7",n:"Rear Elbow, Lead Elbow, Spinning Elbow, Rear Elbow",l:3,c:"S"},
+  {id:"3.8",n:"Rear Roundhouse, Cobra Punch",l:3,c:"C"},
+  {id:"3.9",n:"Rear Roundhouse, Knee Guard, Round Knee",l:3,c:"L"},
+  {id:"3.10",n:"Rear Roundhouse, Lead Roundhouse, Cross, Hook, Roundhouse",l:3,c:"C"},
+  {id:"3.11",n:"Scissor Kick",l:3,c:"L"},
+  {id:"3.12",n:"Switch Cross, Double Jab, Roundhouse",l:3,c:"C"},
+  {id:"3.13",n:"Switch Cross, Hook, Rear Roundhouse",l:3,c:"C"},
+  {id:"3.14",n:"Switch Hook, Rear Knee, Rear Elbow",l:3,c:"C"},
+  {id:"3.15",n:"Switch Kick, Knee Guard, Round Knee",l:3,c:"L"},
+  {id:"3.16",n:"Switch Kick, Switch Stance Cross, Roundhouse",l:3,c:"C"},
+  {id:"3.17",n:"Switch Kick, Switch Hook, Roundhouse",l:3,c:"C"},
+  {id:"3.18",n:"Teep, Fake Teep, Jumping Roundhouse",l:3,c:"L"},
+  {id:"3.19",n:"Teep, Jumping Knee",l:3,c:"L"},
+  {id:"3.20",n:"Teep, Jumping Switch Teep",l:3,c:"L"},
+  {id:"3.21",n:"Teep, Superman Jab, Roundhouse, Superman",l:3,c:"C"},
+  {id:"3.22",n:"Teep, Superman Jab, Roundhouse",l:3,c:"C"},
+  {id:"3.23",n:"Teep, Fake Teep, Hook, Roundhouse",l:3,c:"C"}
+];
+
+const BURNOUTS = [
+  {id:"4.1",n:"Alternating Kicks"},{id:"4.2",n:"Balancing Teeps"},{id:"4.3",n:"Speed Kicks"},
+  {id:"4.4",n:"Burnout Punches"},{id:"4.5",n:"Burnout Alternating Teeps"},{id:"4.6",n:"20/20/20 Intense Burnout"},
+  {id:"4.7",n:"Jab Pyramid"},{id:"4.8",n:"Kick Pyramid"},{id:"4.9",n:"Teep, Switch Kick Burnout"},
+  {id:"4.10",n:"Switch Kick, Switch Knee Burnout"},{id:"4.11",n:"Skip Knees"},{id:"4.12",n:"Clinching The Bag"},
+  {id:"4.13",n:"Kick, Check Drill"},{id:"4.14",n:"Jabbing Out"},{id:"4.15",n:"Teeping Out"},
+  {id:"4.16",n:"Long Guarding Out"},{id:"4.17",n:"Chin Tucked Drill"},{id:"4.18",n:"Improvising Combos"},
+  {id:"4.19",n:"Basic Combo Pyramid"},{id:"4.20",n:"Long Range Kicks"},{id:"4.21",n:"Power Low Kicks"},
+  {id:"4.22",n:"Swinging Heavy Bag Footwork Drill"},{id:"4.23",n:"Swinging Heavy Bag Distance Control"},
+  {id:"4.24",n:"Power Boxing"},{id:"4.25",n:"Low, Middle, High Kicks"},{id:"4.26",n:"Body, Body, Head"},
+  {id:"4.27",n:"Left Side Strikes Only"},{id:"4.28",n:"Right Side Strikes Only"},{id:"4.29",n:"Lower Body Strikes Only"},
+  {id:"4.30",n:"Punch, Elbow, Kick, Knee"},{id:"4.31",n:"Inside Fighting"},{id:"4.32",n:"Precision Striking"},
+  {id:"4.33",n:"Teep Chair Technique"}
+];
+
+/* Fixed warmup (same every day) */
+const WARMUP = ["dynamic stretches","standing hamstring stretch with step","shadow boxing","shadow alternating kicks","plank"];
+
+/* Difficulty -> required count of drills by level */
+const LEVEL_REQ = {
+  basic:        {1:5, 2:1, 3:1},
+  intermediate: {1:1, 2:5, 3:1},
+  advance:      {1:1, 2:1, 3:5}
+};
+/* Category targets across the 7 drills */
+const CAT_REQ = {S:2, L:2, C:3};
+
+let current = "basic";
+
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+/* availability matrix avail[level][cat] = array of drills */
+function buildAvail(){
+  const m={1:{S:[],L:[],C:[]},2:{S:[],L:[],C:[]},3:{S:[],L:[],C:[]}};
+  DRILLS.forEach(d=>m[d.l][d.c].push(d));
+  return m;
+}
+
+/* Find a 3x3 count matrix n[l][c] with row sums = LEVEL_REQ, col sums = CAT_REQ, n<=available.
+   Randomized recursive fill so the result varies each run. */
+function findMatrix(levelReq, avail){
+  const levels=[1,2,3], cats=["S","L","C"];
+  const rowLeft={1:levelReq[1],2:levelReq[2],3:levelReq[3]};
+  const colLeft={S:CAT_REQ.S,L:CAT_REQ.L,C:CAT_REQ.C};
+  const n={1:{},2:{},3:{}};
+  function solve(idx){
+    if(idx===9){
+      return levels.every(l=>rowLeft[l]===0) && cats.every(c=>colLeft[c]===0);
+    }
+    const l=levels[Math.floor(idx/3)], c=cats[idx%3];
+    const cap=Math.min(rowLeft[l],colLeft[c],avail[l][c].length);
+    // try values in randomized order for variety
+    const vals=[];for(let v=0;v<=cap;v++)vals.push(v);
+    for(const v of shuffle(vals)){
+      n[l][c]=v; rowLeft[l]-=v; colLeft[c]-=v;
+      if(solve(idx+1)) return true;
+      rowLeft[l]+=v; colLeft[c]+=v;
+    }
+    return false;
+  }
+  return solve(0)?n:null;
+}
+
+function pickDrills(level){
+  const avail=buildAvail();
+  const matrix=findMatrix(LEVEL_REQ[level],avail);
+  const chosen=[];
+  if(matrix){
+    [1,2,3].forEach(l=>["S","L","C"].forEach(c=>{
+      const pool=shuffle(avail[l][c]);
+      for(let i=0;i<matrix[l][c];i++) chosen.push(pool[i]);
+    }));
+  } else {
+    // fallback: satisfy level counts only
+    [1,2,3].forEach(l=>{
+      const pool=shuffle(DRILLS.filter(d=>d.l===l));
+      for(let i=0;i<LEVEL_REQ[level][l];i++) chosen.push(pool[i]);
+    });
+  }
+  // order: 2 strikes, 2 lower, 3 combos (matches the bracket labels)
+  const order={S:0,L:1,C:2};
+  return chosen.sort((a,b)=>order[a.c]-order[b.c]);
+}
+
+function pickBurnouts(){return shuffle(BURNOUTS).slice(0,3);}
+
+function buildText(level){
+  const drills=pickDrills(level);
+  const burns=pickBurnouts();
+  const title=level.charAt(0).toUpperCase()+level.slice(1);
+  let t="";
+  t+="XXX pm\nRoom 2 (7:00–8:00) — Muay Thai ("+level+")\n\n";
+  t+="WARMUP\n\n";
+  WARMUP.forEach(w=>{t+="XXX pm\n"+w+"\n\n";});
+  t+="A) Burnout drills [OPTIONS 3]\n\n";
+  burns.forEach(b=>{t+="XXX pm\n"+b.id+" "+b.n+"\n\n";});
+  t+="B) Muay Thai Drills [OPTIONS 7]\n";
+  t+="[2 all strikes: jabs, cross, hooks, body hits, elbows, defense]\n";
+  t+="[2 all lower body: teeps, knees, kicks, defense]\n";
+  t+="[3 Combinations of strikes and lower body]\n\n";
+  drills.forEach(d=>{t+="XXX pm\n"+d.id+" "+d.n+"\n\n";});
+  return t.trimEnd()+"\n";
+}
+
+function render(){
+  const txt=buildText(current);
+  document.getElementById("out").textContent=txt;
+}
+
+function updateMix(){
+  const r=LEVEL_REQ[current];
+  document.getElementById("mix").textContent=
+    `7 drills by level: ${r[3]} advance · ${r[2]} intermediate · ${r[1]} basic`;
+}
+
+document.getElementById("seg").addEventListener("click",e=>{
+  if(e.target.tagName!=="BUTTON")return;
+  document.querySelectorAll("#seg button").forEach(b=>b.classList.remove("active"));
+  e.target.classList.add("active");
+  current=e.target.dataset.lvl;
+  updateMix(); render();
+});
+document.getElementById("gen").addEventListener("click",render);
+document.getElementById("copy").addEventListener("click",()=>{
+  const txt=document.getElementById("out").textContent;
+  navigator.clipboard.writeText(txt).then(()=>{
+    const c=document.getElementById("copied");c.classList.add("show");
+    setTimeout(()=>c.classList.remove("show"),1500);
+  });
+});
+
+updateMix(); render();
+</script>
+</body>
+</html>

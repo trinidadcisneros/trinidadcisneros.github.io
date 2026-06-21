@@ -1,0 +1,143 @@
+{
+  "problem": {
+    "title": "Debate Tournament Standings with Win-Draw-Loss Scoring",
+    "prompt": "A community forum hosts monthly debate tournaments where two members face off in each debate. Each debate is recorded as one row with both participants: the `initiator_id` and `responder_id`, along with their upvote counts (`initiator_upvotes` and `responder_upvotes`). A member wins if their upvotes exceed the opponent's, draws if upvotes are equal, and loses otherwise. Award 3 points for a win, 1 point for a draw, and 0 for a loss. Compute a leaderboard showing each member's total points, total debates participated, wins, draws, and losses. Include all members from the members table even if they have zero debates, showing 0 for all metrics. Return columns: `member_name`, `total_points`, `debates_played`, `wins`, `draws`, `losses`. Order by `total_points` DESC, then `member_name` ASC.",
+    "schema_ddl": "CREATE TABLE members (member_id INT PRIMARY KEY, member_name VARCHAR(100)); CREATE TABLE debates (debate_id INT PRIMARY KEY, initiator_id INT, responder_id INT, initiator_upvotes INT, responder_upvotes INT, debate_date DATE);",
+    "example_input_data": "INSERT INTO members (member_id, member_name) VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Carol'), (4, 'Dave'); INSERT INTO debates (debate_id, initiator_id, responder_id, initiator_upvotes, responder_upvotes, debate_date) VALUES (1, 1, 2, 15, 10, '2024-01-05'), (2, 2, 3, 12, 12, '2024-01-08'), (3, 1, 3, 8, 14, '2024-01-12'), (4, 3, 1, 20, 18, '2024-01-15'), (5, 2, 1, 9, 9, '2024-01-20');",
+    "example_output_columns": [
+      "member_name",
+      "total_points",
+      "debates_played",
+      "wins",
+      "draws",
+      "losses"
+    ],
+    "example_output_rows": [
+      [
+        "Carol",
+        "7",
+        "3",
+        "2",
+        "1",
+        "0"
+      ],
+      [
+        "Alice",
+        "4",
+        "4",
+        "1",
+        "1",
+        "2"
+      ],
+      [
+        "Bob",
+        "2",
+        "3",
+        "0",
+        "2",
+        "1"
+      ],
+      [
+        "Dave",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0"
+      ]
+    ],
+    "test_data": "INSERT INTO members (member_id, member_name) VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Carol'), (4, 'Dave'), (5, 'Eve'), (6, 'Frank'); INSERT INTO debates (debate_id, initiator_id, responder_id, initiator_upvotes, responder_upvotes, debate_date) VALUES (1, 1, 2, 25, 20, '2024-01-05'), (2, 2, 3, 18, 18, '2024-01-08'), (3, 1, 3, 10, 22, '2024-01-12'), (4, 3, 1, 30, 28, '2024-01-15'), (5, 2, 1, 15, 15, '2024-01-20'), (6, 5, 2, 40, 35, '2024-01-22'), (7, 3, 5, 12, 12, '2024-01-25'), (8, 1, 5, 50, 45, '2024-01-28'), (9, 5, 3, 8, 14, '2024-02-01'), (10, 2, 4, 22, 19, '2024-02-03'), (11, 4, 1, 17, 17, '2024-02-05'), (12, 3, 2, 29, 25, '2024-02-08'), (13, 5, 4, 11, 11, '2024-02-10'), (14, 1, 2, 33, 30, '2024-02-12'), (15, 3, 4, 28, 20, '2024-02-15'), (16, 5, 1, 19, 24, '2024-02-18'), (17, 2, 5, 16, 18, '2024-02-20'), (18, 4, 3, 14, 26, '2024-02-22');",
+    "test_expected_columns": [
+      "member_name",
+      "total_points",
+      "debates_played",
+      "wins",
+      "draws",
+      "losses"
+    ],
+    "test_expected_rows": [
+      [
+        "Carol",
+        "20",
+        "8",
+        "6",
+        "2",
+        "0"
+      ],
+      [
+        "Alice",
+        "14",
+        "8",
+        "4",
+        "2",
+        "2"
+      ],
+      [
+        "Eve",
+        "8",
+        "7",
+        "2",
+        "2",
+        "3"
+      ],
+      [
+        "Bob",
+        "5",
+        "8",
+        "1",
+        "2",
+        "5"
+      ],
+      [
+        "Dave",
+        "2",
+        "5",
+        "0",
+        "2",
+        "3"
+      ],
+      [
+        "Frank",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "normalize-bidirectional",
+      "composite_moves": [
+        "unpivot two-sided debate rows into per-member rows via UNION ALL (initiator branch + responder branch)",
+        "compute per-debate result (win/draw/loss points) using CASE on own_upvotes vs opp_upvotes",
+        "GROUP BY member_id to aggregate total_points, COUNT debates, SUM wins/draws/losses",
+        "LEFT JOIN members dimension to include members with zero debates",
+        "COALESCE aggregates to 0 for members with no debates"
+      ]
+    },
+    "hints": [
+      "Each debate row contains two participants. You need to treat each participant symmetrically, considering both their own upvotes and their opponent's upvotes.",
+      "Use UNION ALL to split each debate into two rows: one for the initiator (with initiator_upvotes as own, responder_upvotes as opponent) and one for the responder (reversed). Then compute win/draw/loss for each row based on comparing own vs opponent upvotes.",
+      "After splitting with UNION ALL, use a CASE expression to assign points (3 for win when own > opp, 1 for draw when own = opp, 0 for loss). Then GROUP BY member and SUM the points. LEFT JOIN from the members table to include members with zero debates, using COALESCE to turn NULLs into 0."
+    ],
+    "answer_key": "WITH debate_sides AS (\n  SELECT \n    initiator_id AS member_id,\n    initiator_upvotes AS own_upvotes,\n    responder_upvotes AS opp_upvotes\n  FROM debates\n  UNION ALL\n  SELECT \n    responder_id AS member_id,\n    responder_upvotes AS own_upvotes,\n    initiator_upvotes AS opp_upvotes\n  FROM debates\n),\nscored AS (\n  SELECT \n    member_id,\n    CASE \n      WHEN own_upvotes > opp_upvotes THEN 3\n      WHEN own_upvotes = opp_upvotes THEN 1\n      ELSE 0\n    END AS points,\n    CASE WHEN own_upvotes > opp_upvotes THEN 1 ELSE 0 END AS win,\n    CASE WHEN own_upvotes = opp_upvotes THEN 1 ELSE 0 END AS draw,\n    CASE WHEN own_upvotes < opp_upvotes THEN 1 ELSE 0 END AS loss\n  FROM debate_sides\n),\naggregated AS (\n  SELECT \n    member_id,\n    SUM(points) AS total_points,\n    COUNT(*) AS debates_played,\n    SUM(win) AS wins,\n    SUM(draw) AS draws,\n    SUM(loss) AS losses\n  FROM scored\n  GROUP BY member_id\n)\nSELECT \n  m.member_name,\n  COALESCE(a.total_points, 0)::TEXT AS total_points,\n  COALESCE(a.debates_played, 0)::TEXT AS debates_played,\n  COALESCE(a.wins, 0)::TEXT AS wins,\n  COALESCE(a.draws, 0)::TEXT AS draws,\n  COALESCE(a.losses, 0)::TEXT AS losses\nFROM members m\nLEFT JOIN aggregated a ON m.member_id = a.member_id\nORDER BY COALESCE(a.total_points, 0) DESC, m.member_name ASC;",
+    "_meta": {
+      "question_type": "matchup_unpivot",
+      "original_qtype": "matchup_unpivot",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-10T19:38:57.618582",
+      "problem_id": "a4b120e622dc",
+      "validation_attempts": 2,
+      "scenario": "a community forum tracking thread participation and member retention",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\nWITH base AS (\nSELECT\n    initiator_id AS member_id,\n    debate_id,\n    CASE WHEN initiator_upvotes > responder_upvotes THEN 3\n         WHEN initiator_upvotes = responder_upvotes THEN 1\n         WHEN initiator_upvotes < responder_upvotes THEN 0\n         END AS points\nFROM debates\n\nUNION ALL\n\nSELECT\n    responder_id AS member_id,\n    debate_id,\n    CASE WHEN initiator_upvotes < responder_upvotes THEN 3\n         WHEN initiator_upvotes = responder_upvotes THEN 1\n         WHEN initiator_upvotes > responder_upvotes THEN 0\n         END AS points\nFROM debates\n)\nSELECT\n    m.member_name,\n    COALESCE(SUM(b.points),0) AS total_points,\n    COALESCE(COUNT(b.*), 0) AS debates_played,\n    COALESCE(SUM(CASE WHEN b.points = 3 THEN 1 ELSE 0 END), 0) AS wins,\n    COALESCE(SUM(CASE WHEN b.points = 1 THEN 1 ELSE 0 END), 0) AS draws,\n    COALESCE(SUM(CASE WHEN b.points = 0 THEN 1 ELSE 0 END), 0) AS losses\nFROM members AS m\nLEFT JOIN base AS b\nUSING(member_id)\nGROUP BY member_name\nORDER BY COALESCE(SUM(b.points),0) DESC, m.member_name;\n",
+  "solved_at": "2026-06-10T19:47:34.112675"
+}

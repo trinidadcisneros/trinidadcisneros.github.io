@@ -1,0 +1,152 @@
+{
+  "problem": {
+    "title": "Cheapest Ad Rate for Quality Creators",
+    "prompt": "You are analyzing advertising opportunities on a short-form video platform. The `creators` table stores each creator's quality score (1-100). The `ad_slots` table lists available ad placement slots with their cost-per-thousand-impressions (CPM) rate; a creator may have multiple ad slots. Your task: for each creator, find the cheapest ad slot CPM, BUT only if the creator's quality score is at least 75. If a creator's quality score is below 75, output 0 for their cheapest CPM (do not exclude the row). Return columns `creator_id`, `quality_score`, and `cheapest_cpm`. Order results by `creator_id` ascending. Every creator from the `creators` table must appear in the output, regardless of their quality score or whether they have ad slots.",
+    "schema_ddl": "CREATE TABLE creators (creator_id INT PRIMARY KEY, creator_name VARCHAR(100), quality_score INT); CREATE TABLE ad_slots (slot_id INT PRIMARY KEY, creator_id INT, slot_position VARCHAR(50), cpm_rate DECIMAL(6,2));",
+    "example_input_data": "INSERT INTO creators (creator_id, creator_name, quality_score) VALUES (1, 'ViralVicky', 82), (2, 'QuickClips', 68), (3, 'TrendyTom', 90), (4, 'NewbiNate', 45); INSERT INTO ad_slots (slot_id, creator_id, slot_position, cpm_rate) VALUES (101, 1, 'pre-roll', 12.50), (102, 1, 'mid-roll', 8.75), (103, 1, 'post-roll', 10.00), (104, 2, 'pre-roll', 15.00), (105, 3, 'mid-roll', 20.00), (106, 3, 'pre-roll', 18.50);",
+    "example_output_columns": [
+      "creator_id",
+      "quality_score",
+      "cheapest_cpm"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        82,
+        "8.75"
+      ],
+      [
+        2,
+        68,
+        "0.00"
+      ],
+      [
+        3,
+        90,
+        "18.50"
+      ],
+      [
+        4,
+        45,
+        "0.00"
+      ]
+    ],
+    "test_data": "INSERT INTO creators (creator_id, creator_name, quality_score) VALUES (1, 'ViralVicky', 82), (2, 'QuickClips', 68), (3, 'TrendyTom', 90), (4, 'NewbiNate', 45), (5, 'ProPaul', 75), (6, 'EdgeElla', 74), (7, 'TopTier', 95), (8, 'MidMegan', 80), (9, 'LowLucy', 50), (10, 'NoSlotsNina', 88), (11, 'BarelyBob', 76), (12, 'FailFrank', 30), (13, 'SingleSlotSam', 85), (14, 'TieTina', 92), (15, 'ZeroZoe', 100); INSERT INTO ad_slots (slot_id, creator_id, slot_position, cpm_rate) VALUES (101, 1, 'pre-roll', 12.50), (102, 1, 'mid-roll', 8.75), (103, 1, 'post-roll', 10.00), (104, 2, 'pre-roll', 15.00), (105, 2, 'mid-roll', 9.25), (106, 3, 'mid-roll', 20.00), (107, 3, 'pre-roll', 18.50), (108, 3, 'post-roll', 22.00), (109, 5, 'pre-roll', 11.00), (110, 5, 'mid-roll', 14.00), (111, 6, 'pre-roll', 7.50), (112, 7, 'mid-roll', 25.00), (113, 8, 'pre-roll', 13.20), (114, 8, 'mid-roll', 10.80), (115, 8, 'post-roll', 12.00), (116, 11, 'mid-roll', 16.50), (117, 11, 'pre-roll', 19.00), (118, 13, 'pre-roll', 21.00), (119, 14, 'mid-roll', 17.75), (120, 14, 'pre-roll', 17.75), (121, 14, 'post-roll', 19.00), (122, 15, 'pre-roll', 30.00), (123, 15, 'mid-roll', 28.00), (124, 4, 'pre-roll', 5.00), (125, 9, 'mid-roll', 6.00), (126, 9, 'pre-roll', 4.50), (127, 12, 'pre-roll', 3.00);",
+    "test_expected_columns": [
+      "creator_id",
+      "quality_score",
+      "cheapest_cpm"
+    ],
+    "test_expected_rows": [
+      [
+        1,
+        82,
+        "8.75"
+      ],
+      [
+        2,
+        68,
+        "0.00"
+      ],
+      [
+        3,
+        90,
+        "18.50"
+      ],
+      [
+        4,
+        45,
+        "0.00"
+      ],
+      [
+        5,
+        75,
+        "11.00"
+      ],
+      [
+        6,
+        74,
+        "0.00"
+      ],
+      [
+        7,
+        95,
+        "25.00"
+      ],
+      [
+        8,
+        80,
+        "10.80"
+      ],
+      [
+        9,
+        50,
+        "0.00"
+      ],
+      [
+        10,
+        88,
+        "0.00"
+      ],
+      [
+        11,
+        76,
+        "16.50"
+      ],
+      [
+        12,
+        30,
+        "0.00"
+      ],
+      [
+        13,
+        85,
+        "21.00"
+      ],
+      [
+        14,
+        92,
+        "17.75"
+      ],
+      [
+        15,
+        100,
+        "28.00"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "same_rows",
+      "recipe": "enrich-join",
+      "composite_moves": [
+        "lookup gate attribute (quality_score) from creators table",
+        "per-entity pick: MIN(cpm_rate) from ad_slots grouped by creator_id",
+        "gate with CASE: if quality_score >= 75 then picked CPM else 0",
+        "ensure all creators appear via LEFT JOIN"
+      ]
+    },
+    "hints": [
+      "You need information from both tables: quality score from one, ad rates from the other.",
+      "Find the minimum CPM for each creator first, then apply the quality score condition as a fallback rule.",
+      "Use a LEFT JOIN to ensure all creators appear, and CASE to substitute 0 when the quality threshold is not met or no ad slots exist."
+    ],
+    "answer_key": "WITH cheapest_slots AS (\n  SELECT creator_id, MIN(cpm_rate) AS min_cpm\n  FROM ad_slots\n  GROUP BY creator_id\n)\nSELECT \n  c.creator_id,\n  c.quality_score,\n  CASE \n    WHEN c.quality_score >= 75 AND cs.min_cpm IS NOT NULL THEN cs.min_cpm\n    ELSE 0.00\n  END AS cheapest_cpm\nFROM creators c\nLEFT JOIN cheapest_slots cs ON c.creator_id = cs.creator_id\nORDER BY c.creator_id;",
+    "_meta": {
+      "question_type": "gated_lookup",
+      "original_qtype": "gated_lookup",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-17T19:00:24.722985",
+      "problem_id": "780f4ef9ae4b",
+      "validation_attempts": 1,
+      "scenario": "a short video platform tracking watch time and completion rates",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "subtype": null
+    }
+  },
+  "user_solution": "/*\n\n- You are analyzing advertising opportunities on a short-form video platform.\n- The `creators` table stores each creator's quality score (1-100).\n- The `ad_slots` table lists available ad placement slots with their cost-per-thousand-impressions (CPM) rate; a creator may have multiple ad slots.\n\nYour task: \n- find the cheapest ad slot CPM, BUT only if the creator's quality score is at least 75.\n\nIf a creator's quality score is below 75, output 0 for their cheapest CPM (do not exclude the row).\nReturn columns `creator_id`, `quality_score`, and `cheapest_cpm`.\nOrder results by `creator_id` ascending.\nEvery creator from the `creators` table must appear in the output, regardless of their quality score or whether they have ad slots.\n*/\nSELECT\n    c.creator_id,\n    c.quality_score,\n    COALESCE(ROUND(CASE WHEN c.quality_score >= 75 THEN MIN(a.cpm_rate) ELSE 0 END,2), 0.00) AS cheapest_cpm\nFROM creators AS c\nLEFT JOIN ad_slots AS a\nON c.creator_id = a.creator_id\nGROUP BY 1, 2\nORDER BY c.creator_id;\n\n\n\n",
+  "solved_at": "2026-06-17T19:08:27.022287"
+}

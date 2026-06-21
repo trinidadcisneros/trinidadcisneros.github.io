@@ -1,0 +1,251 @@
+{
+  "title": "Sessionize Trades by 15-Minute Gaps",
+  "prompt": "Your crypto exchange needs to group user trades into distinct sessions to understand trading behavior patterns. A new session begins whenever 15 minutes or more have passed since the user's previous trade, or when it's a user's first trade. Write a query that assigns a unique session identifier to each trade and then returns summary statistics per session: `user_id`, `session_id`, `session_start` (timestamp of the first trade in the session), `session_end` (timestamp of the last trade in the session), `trades_in_session` (count of trades), and `total_volume_usd` (sum of `volume_usd` for all trades in the session). Order results by `user_id` ASC, then `session_start` ASC. Handle users who have only one trade (which forms a single-trade session). Your solution should use window functions to detect gaps and assign session IDs.",
+  "schema_ddl": "CREATE TABLE trades (trade_id INT PRIMARY KEY, user_id INT NOT NULL, trade_ts TIMESTAMP NOT NULL, volume_usd DECIMAL(12,2) NOT NULL);",
+  "example_input_data": "INSERT INTO trades (trade_id, user_id, trade_ts, volume_usd) VALUES (1, 101, '2024-01-15 10:00:00', 500.00), (2, 101, '2024-01-15 10:05:00', 300.00), (3, 101, '2024-01-15 10:25:00', 450.00), (4, 101, '2024-01-15 10:50:00', 200.00), (5, 102, '2024-01-15 09:30:00', 1000.00), (6, 102, '2024-01-15 09:40:00', 750.00), (7, 102, '2024-01-15 10:00:00', 1200.00), (8, 103, '2024-01-15 11:00:00', 250.00);",
+  "example_output_columns": [
+    "user_id",
+    "session_id",
+    "session_start",
+    "session_end",
+    "trades_in_session",
+    "total_volume_usd"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      1,
+      "2024-01-15 10:00:00",
+      "2024-01-15 10:05:00",
+      2,
+      "800.00"
+    ],
+    [
+      101,
+      2,
+      "2024-01-15 10:25:00",
+      "2024-01-15 10:25:00",
+      1,
+      "450.00"
+    ],
+    [
+      101,
+      3,
+      "2024-01-15 10:50:00",
+      "2024-01-15 10:50:00",
+      1,
+      "200.00"
+    ],
+    [
+      102,
+      1,
+      "2024-01-15 09:30:00",
+      "2024-01-15 09:40:00",
+      2,
+      "1750.00"
+    ],
+    [
+      102,
+      2,
+      "2024-01-15 10:00:00",
+      "2024-01-15 10:00:00",
+      1,
+      "1200.00"
+    ],
+    [
+      103,
+      1,
+      "2024-01-15 11:00:00",
+      "2024-01-15 11:00:00",
+      1,
+      "250.00"
+    ]
+  ],
+  "test_data": "INSERT INTO trades (trade_id, user_id, trade_ts, volume_usd) VALUES (101, 201, '2024-02-01 08:00:00', 100.00), (102, 201, '2024-02-01 08:10:00', 150.00), (103, 201, '2024-02-01 08:12:00', 200.00), (104, 201, '2024-02-01 08:30:00', 175.00), (105, 201, '2024-02-01 08:50:00', 225.00), (106, 201, '2024-02-01 09:10:00', 300.00), (107, 202, '2024-02-01 07:00:00', 500.00), (108, 202, '2024-02-01 07:08:00', 450.00), (109, 202, '2024-02-01 07:25:00', 600.00), (110, 202, '2024-02-01 08:00:00', 700.00), (111, 202, '2024-02-01 08:05:00', 550.00), (112, 203, '2024-02-01 09:00:00', 1000.00), (113, 203, '2024-02-01 09:05:00', 1100.00), (114, 203, '2024-02-01 09:25:00', 900.00), (115, 204, '2024-02-01 10:00:00', 2000.00), (116, 205, '2024-02-01 11:00:00', 50.00), (117, 205, '2024-02-01 11:20:00', 75.00), (118, 205, '2024-02-01 11:40:00', 100.00), (119, 205, '2024-02-01 12:00:00', 125.00), (120, 206, '2024-02-01 08:00:00', 300.00), (121, 206, '2024-02-01 08:14:00', 350.00), (122, 206, '2024-02-01 08:16:00', 400.00), (123, 206, '2024-02-01 08:35:00', 275.00), (124, 207, '2024-02-01 13:00:00', 800.00), (125, 207, '2024-02-01 13:10:00', 850.00), (126, 207, '2024-02-01 13:30:00', 900.00);",
+  "test_expected_columns": [
+    "user_id",
+    "session_id",
+    "session_start",
+    "session_end",
+    "trades_in_session",
+    "total_volume_usd"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      1,
+      "2024-02-01 08:00:00",
+      "2024-02-01 08:12:00",
+      3,
+      "450.00"
+    ],
+    [
+      201,
+      2,
+      "2024-02-01 08:30:00",
+      "2024-02-01 08:30:00",
+      1,
+      "175.00"
+    ],
+    [
+      201,
+      3,
+      "2024-02-01 08:50:00",
+      "2024-02-01 08:50:00",
+      1,
+      "225.00"
+    ],
+    [
+      201,
+      4,
+      "2024-02-01 09:10:00",
+      "2024-02-01 09:10:00",
+      1,
+      "300.00"
+    ],
+    [
+      202,
+      1,
+      "2024-02-01 07:00:00",
+      "2024-02-01 07:08:00",
+      2,
+      "950.00"
+    ],
+    [
+      202,
+      2,
+      "2024-02-01 07:25:00",
+      "2024-02-01 07:25:00",
+      1,
+      "600.00"
+    ],
+    [
+      202,
+      3,
+      "2024-02-01 08:00:00",
+      "2024-02-01 08:05:00",
+      2,
+      "1250.00"
+    ],
+    [
+      203,
+      1,
+      "2024-02-01 09:00:00",
+      "2024-02-01 09:05:00",
+      2,
+      "2100.00"
+    ],
+    [
+      203,
+      2,
+      "2024-02-01 09:25:00",
+      "2024-02-01 09:25:00",
+      1,
+      "900.00"
+    ],
+    [
+      204,
+      1,
+      "2024-02-01 10:00:00",
+      "2024-02-01 10:00:00",
+      1,
+      "2000.00"
+    ],
+    [
+      205,
+      1,
+      "2024-02-01 11:00:00",
+      "2024-02-01 11:00:00",
+      1,
+      "50.00"
+    ],
+    [
+      205,
+      2,
+      "2024-02-01 11:20:00",
+      "2024-02-01 11:20:00",
+      1,
+      "75.00"
+    ],
+    [
+      205,
+      3,
+      "2024-02-01 11:40:00",
+      "2024-02-01 11:40:00",
+      1,
+      "100.00"
+    ],
+    [
+      205,
+      4,
+      "2024-02-01 12:00:00",
+      "2024-02-01 12:00:00",
+      1,
+      "125.00"
+    ],
+    [
+      206,
+      1,
+      "2024-02-01 08:00:00",
+      "2024-02-01 08:16:00",
+      3,
+      "1050.00"
+    ],
+    [
+      206,
+      2,
+      "2024-02-01 08:35:00",
+      "2024-02-01 08:35:00",
+      1,
+      "275.00"
+    ],
+    [
+      207,
+      1,
+      "2024-02-01 13:00:00",
+      "2024-02-01 13:10:00",
+      2,
+      "1650.00"
+    ],
+    [
+      207,
+      2,
+      "2024-02-01 13:30:00",
+      "2024-02-01 13:30:00",
+      1,
+      "900.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "CTE 1: LAG(trade_ts) OVER (PARTITION BY user_id ORDER BY trade_ts) to get previous timestamp per user",
+      "CTE 1: CASE WHEN previous_ts IS NULL OR trade_ts - previous_ts > INTERVAL '15 minutes' THEN 1 ELSE 0 END AS new_session_flag",
+      "CTE 2: SUM(new_session_flag) OVER (PARTITION BY user_id ORDER BY trade_ts ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS session_id",
+      "Final: GROUP BY user_id, session_id to compute MIN(trade_ts) AS session_start, MAX(trade_ts) AS session_end, COUNT(*) AS trades_in_session, SUM(volume_usd) AS total_volume_usd",
+      "ORDER BY user_id ASC, session_start ASC"
+    ]
+  },
+  "hints": [
+    "Consider how to identify when a new session starts based on the time gap between consecutive trades for each user.",
+    "Use LAG() to retrieve the previous trade timestamp for each user, then check if the gap exceeds 15 minutes to flag a new session.",
+    "After flagging new sessions, use a cumulative SUM() window function to assign incrementing session IDs, then GROUP BY user and session to compute the aggregates."
+  ],
+  "answer_key": "WITH trade_gaps AS (\n  SELECT\n    trade_id,\n    user_id,\n    trade_ts,\n    volume_usd,\n    LAG(trade_ts) OVER (PARTITION BY user_id ORDER BY trade_ts) AS prev_trade_ts,\n    CASE\n      WHEN LAG(trade_ts) OVER (PARTITION BY user_id ORDER BY trade_ts) IS NULL\n           OR trade_ts - LAG(trade_ts) OVER (PARTITION BY user_id ORDER BY trade_ts) >= INTERVAL '15 minutes'\n      THEN 1\n      ELSE 0\n    END AS new_session_flag\n  FROM trades\n),\nsession_assigned AS (\n  SELECT\n    trade_id,\n    user_id,\n    trade_ts,\n    volume_usd,\n    SUM(new_session_flag) OVER (PARTITION BY user_id ORDER BY trade_ts ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS session_id\n  FROM trade_gaps\n)\nSELECT\n  user_id,\n  session_id,\n  MIN(trade_ts) AS session_start,\n  MAX(trade_ts) AS session_end,\n  COUNT(*) AS trades_in_session,\n  SUM(volume_usd) AS total_volume_usd\nFROM session_assigned\nGROUP BY user_id, session_id\nORDER BY user_id ASC, session_start ASC;",
+  "_meta": {
+    "question_type": "window_sessionization",
+    "original_qtype": "window_sessionization",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-15T21:03:36.975077",
+    "problem_id": "dc58182bb001",
+    "validation_attempts": 1,
+    "scenario": "a crypto exchange tracking trading volume and on-ramp deposits",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

@@ -1,0 +1,138 @@
+{
+  "title": "Session Tracking on Diagnostic Platform",
+  "prompt": "A home diagnostic test kit platform logs every user interaction (kit registration, sample submission, result viewing) in an `activity_log` table. Product analytics wants to group these events into user sessions, where a session ends when there is a gap of **15 minutes or more** between consecutive events for the same user. Write a query that assigns a unique `session_id` to each session and returns the number of events per session. For each user and session, return `user_id`, `session_id` (a sequential integer starting at 1 for each user's first session), and `event_count` (the number of events in that session). Order the results by `user_id` ASC, then `session_id` ASC. A realistic edge case: one user has a single event (a session with only one event should still appear in the output).",
+  "schema_ddl": "CREATE TABLE activity_log (log_id SERIAL PRIMARY KEY, user_id INT NOT NULL, event_ts TIMESTAMP NOT NULL, event_type VARCHAR(50) NOT NULL);",
+  "example_input_data": "INSERT INTO activity_log (user_id, event_ts, event_type) VALUES (101, '2024-06-10 09:00:00', 'kit_registered'), (101, '2024-06-10 09:05:00', 'sample_submitted'), (101, '2024-06-10 09:10:00', 'result_viewed'), (101, '2024-06-10 09:30:00', 'result_viewed'), (101, '2024-06-10 10:45:00', 'kit_registered'), (102, '2024-06-10 10:00:00', 'kit_registered'), (102, '2024-06-10 10:12:00', 'sample_submitted'), (102, '2024-06-10 10:35:00', 'result_viewed'), (103, '2024-06-10 11:00:00', 'kit_registered');",
+  "example_output_columns": [
+    "user_id",
+    "session_id",
+    "event_count"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      1,
+      3
+    ],
+    [
+      101,
+      2,
+      1
+    ],
+    [
+      101,
+      3,
+      1
+    ],
+    [
+      102,
+      1,
+      2
+    ],
+    [
+      102,
+      2,
+      1
+    ],
+    [
+      103,
+      1,
+      1
+    ]
+  ],
+  "test_data": "INSERT INTO activity_log (user_id, event_ts, event_type) VALUES (201, '2024-06-11 08:00:00', 'kit_registered'), (201, '2024-06-11 08:05:00', 'sample_submitted'), (201, '2024-06-11 08:10:00', 'result_viewed'), (201, '2024-06-11 08:14:00', 'result_viewed'), (201, '2024-06-11 08:29:00', 'kit_registered'), (201, '2024-06-11 09:00:00', 'sample_submitted'), (201, '2024-06-11 09:10:00', 'result_viewed'), (202, '2024-06-11 09:00:00', 'kit_registered'), (202, '2024-06-11 09:03:00', 'sample_submitted'), (202, '2024-06-11 09:20:00', 'result_viewed'), (202, '2024-06-11 10:00:00', 'kit_registered'), (202, '2024-06-11 10:05:00', 'sample_submitted'), (203, '2024-06-11 10:30:00', 'kit_registered'), (203, '2024-06-11 10:45:00', 'sample_submitted'), (203, '2024-06-11 11:05:00', 'result_viewed'), (204, '2024-06-11 11:00:00', 'kit_registered'), (205, '2024-06-11 12:00:00', 'kit_registered'), (205, '2024-06-11 12:01:00', 'sample_submitted'), (205, '2024-06-11 12:02:00', 'result_viewed'), (205, '2024-06-11 12:03:00', 'result_viewed'), (205, '2024-06-11 12:04:00', 'result_viewed'), (205, '2024-06-11 12:05:00', 'kit_registered'), (205, '2024-06-11 12:25:00', 'sample_submitted'), (205, '2024-06-11 13:00:00', 'result_viewed');",
+  "test_expected_columns": [
+    "user_id",
+    "session_id",
+    "event_count"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      1,
+      5
+    ],
+    [
+      201,
+      2,
+      2
+    ],
+    [
+      202,
+      1,
+      2
+    ],
+    [
+      202,
+      2,
+      1
+    ],
+    [
+      202,
+      3,
+      2
+    ],
+    [
+      203,
+      1,
+      2
+    ],
+    [
+      203,
+      2,
+      1
+    ],
+    [
+      204,
+      1,
+      1
+    ],
+    [
+      205,
+      1,
+      6
+    ],
+    [
+      205,
+      2,
+      1
+    ],
+    [
+      205,
+      3,
+      1
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "CTE1: LAG(event_ts) OVER (PARTITION BY user_id ORDER BY event_ts) to get previous_ts per user",
+      "CTE1: CASE WHEN previous_ts IS NULL OR event_ts - previous_ts > INTERVAL '15 minutes' THEN 1 ELSE 0 END as new_session_flag",
+      "CTE2: SUM(new_session_flag) OVER (PARTITION BY user_id ORDER BY event_ts ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) as session_id",
+      "GROUP BY user_id, session_id with COUNT(*) as event_count",
+      "ORDER BY user_id, session_id"
+    ]
+  },
+  "hints": [
+    "Consider how you would detect when a new session begins for each user based on the time gap between consecutive events.",
+    "Use LAG() to compare each event's timestamp with the previous event's timestamp for the same user, then flag rows where the gap exceeds 15 minutes or is the first event.",
+    "Once you have a flag for new sessions, use a running SUM() of that flag (partitioned by user and ordered by timestamp) to assign a session identifier, then group by user and session to count events."
+  ],
+  "answer_key": "WITH gaps AS (SELECT user_id, event_ts, LAG(event_ts) OVER (PARTITION BY user_id ORDER BY event_ts) AS previous_ts FROM activity_log), session_flags AS (SELECT user_id, event_ts, CASE WHEN previous_ts IS NULL OR event_ts - previous_ts > INTERVAL '15 minutes' THEN 1 ELSE 0 END AS new_session_flag FROM gaps), session_ids AS (SELECT user_id, event_ts, SUM(new_session_flag) OVER (PARTITION BY user_id ORDER BY event_ts ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS session_id FROM session_flags) SELECT user_id, session_id, COUNT(*) AS event_count FROM session_ids GROUP BY user_id, session_id ORDER BY user_id, session_id;",
+  "_meta": {
+    "question_type": "window_sessionization",
+    "original_qtype": "window_sessionization",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-16T19:43:29.117600",
+    "problem_id": "456c7123df60",
+    "validation_attempts": 1,
+    "scenario": "an at-home diagnostic test kit platform tracking kit shipped and results released",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

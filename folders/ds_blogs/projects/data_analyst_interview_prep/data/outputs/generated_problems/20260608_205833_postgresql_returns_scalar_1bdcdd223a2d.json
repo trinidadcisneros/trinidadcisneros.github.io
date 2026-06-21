@@ -1,0 +1,55 @@
+{
+  "title": "Sprint Velocity Calculator with Team Filtering",
+  "prompt": "You are building a performance dashboard for a project management tool. Create a PostgreSQL function named `calculate_team_velocity` that accepts two parameters: `p_team_id INT` and `p_sprint_count INT`. The function should return the average story points completed per sprint for the specified team, considering only the most recent N sprints (where N = `p_sprint_count`). Only include sprints with status 'completed'. If a team has completed fewer sprints than requested, use all available completed sprints. Round the result to 2 decimal places. Return 0.00 if the team has no completed sprints or if the team_id does not exist. Test your function by calling: `SELECT calculate_team_velocity(2, 3) AS result;`",
+  "schema_ddl": "CREATE TABLE teams (team_id INT PRIMARY KEY, team_name VARCHAR(100) NOT NULL); CREATE TABLE sprints (sprint_id INT PRIMARY KEY, team_id INT NOT NULL, sprint_name VARCHAR(100) NOT NULL, status VARCHAR(20) NOT NULL, end_date DATE NOT NULL, FOREIGN KEY (team_id) REFERENCES teams(team_id)); CREATE TABLE tasks (task_id INT PRIMARY KEY, sprint_id INT NOT NULL, story_points INT NOT NULL, completion_status VARCHAR(20) NOT NULL, FOREIGN KEY (sprint_id) REFERENCES sprints(sprint_id));",
+  "example_input_data": "INSERT INTO teams (team_id, team_name) VALUES (1, 'Backend Team'), (2, 'Frontend Team'), (3, 'Data Team'); INSERT INTO sprints (sprint_id, team_id, sprint_name, status, end_date) VALUES (101, 2, 'Sprint 1', 'completed', '2024-01-15'), (102, 2, 'Sprint 2', 'completed', '2024-02-01'), (103, 2, 'Sprint 3', 'completed', '2024-02-15'), (104, 2, 'Sprint 4', 'completed', '2024-03-01'), (105, 2, 'Sprint 5', 'in_progress', '2024-03-15'), (106, 1, 'Sprint A', 'completed', '2024-01-20'), (107, 3, 'Sprint X', 'completed', '2024-02-10'); INSERT INTO tasks (task_id, sprint_id, story_points, completion_status) VALUES (1, 101, 5, 'done'), (2, 101, 3, 'done'), (3, 102, 8, 'done'), (4, 102, 5, 'done'), (5, 103, 3, 'done'), (6, 103, 5, 'done'), (7, 103, 2, 'done'), (8, 104, 13, 'done'), (9, 106, 8, 'done'), (10, 107, 5, 'done');",
+  "example_output_columns": [
+    "result"
+  ],
+  "example_output_rows": [
+    [
+      "12.00"
+    ]
+  ],
+  "test_data": "INSERT INTO teams (team_id, team_name) VALUES (1, 'Backend Team'), (2, 'Frontend Team'), (3, 'Data Team'), (4, 'Mobile Team'), (5, 'DevOps Team'); INSERT INTO sprints (sprint_id, team_id, sprint_name, status, end_date) VALUES (101, 2, 'Sprint 1', 'completed', '2023-10-15'), (102, 2, 'Sprint 2', 'completed', '2023-11-01'), (103, 2, 'Sprint 3', 'completed', '2023-11-15'), (104, 2, 'Sprint 4', 'completed', '2023-12-01'), (105, 2, 'Sprint 5', 'completed', '2024-01-15'), (106, 2, 'Sprint 6', 'completed', '2024-02-01'), (107, 2, 'Sprint 7', 'in_progress', '2024-02-15'), (108, 1, 'Sprint A1', 'completed', '2024-01-10'), (109, 1, 'Sprint A2', 'completed', '2024-01-25'), (110, 1, 'Sprint A3', 'completed', '2024-02-08'), (111, 3, 'Sprint X1', 'completed', '2023-12-20'), (112, 3, 'Sprint X2', 'completed', '2024-01-18'), (113, 3, 'Sprint X3', 'cancelled', '2024-02-05'), (114, 4, 'Sprint M1', 'in_progress', '2024-02-10'), (115, 5, 'Sprint D1', 'completed', '2024-01-30'), (116, 5, 'Sprint D2', 'completed', '2024-02-12'), (117, 5, 'Sprint D3', 'completed', '2024-02-25'), (118, 5, 'Sprint D4', 'completed', '2024-03-08'), (119, 5, 'Sprint D5', 'completed', '2024-03-20'); INSERT INTO tasks (task_id, sprint_id, story_points, completion_status) VALUES (1, 101, 5, 'done'), (2, 101, 3, 'done'), (3, 101, 2, 'done'), (4, 102, 8, 'done'), (5, 102, 5, 'done'), (6, 102, 3, 'done'), (7, 103, 3, 'done'), (8, 103, 5, 'done'), (9, 103, 2, 'done'), (10, 103, 8, 'done'), (11, 104, 13, 'done'), (12, 104, 5, 'done'), (13, 104, 2, 'done'), (14, 105, 8, 'done'), (15, 105, 8, 'done'), (16, 105, 5, 'done'), (17, 106, 13, 'done'), (18, 106, 8, 'done'), (19, 106, 3, 'done'), (20, 108, 8, 'done'), (21, 108, 5, 'done'), (22, 109, 13, 'done'), (23, 110, 3, 'done'), (24, 110, 5, 'done'), (25, 111, 5, 'done'), (26, 111, 3, 'done'), (27, 112, 8, 'done'), (28, 112, 5, 'done'), (29, 115, 21, 'done'), (30, 116, 13, 'done'), (31, 116, 8, 'done'), (32, 117, 5, 'done'), (33, 117, 3, 'done'), (34, 117, 2, 'done'), (35, 118, 8, 'done'), (36, 118, 5, 'done'), (37, 119, 13, 'done'), (38, 119, 8, 'done');",
+  "test_expected_columns": [
+    "result"
+  ],
+  "test_expected_rows": [
+    [
+      "21.67"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "scalar_return",
+    "recipe": "function-wrapped",
+    "composite_moves": [
+      "join sprints and tasks",
+      "filter by team_id and status='completed'",
+      "group-aggregate by sprint to get total story_points per sprint",
+      "rank-partition using ROW_NUMBER to identify most recent N sprints",
+      "scalar-extract using AVG and ROUND on filtered sprints"
+    ]
+  },
+  "hints": [
+    "You'll need to join sprints with tasks to calculate total story points per sprint, then identify the most recent completed sprints for the team.",
+    "Use ROW_NUMBER() OVER (ORDER BY end_date DESC) to rank sprints by recency, then filter to keep only the top N sprints requested.",
+    "After identifying the relevant sprints, calculate the average of their total story points and round to 2 decimal places. Handle the case where no completed sprints exist by returning 0.00."
+  ],
+  "answer_key": "CREATE OR REPLACE FUNCTION calculate_team_velocity(p_team_id INT, p_sprint_count INT)\nRETURNS NUMERIC AS $$\nBEGIN\n  RETURN (\n    WITH sprint_totals AS (\n      SELECT \n        s.sprint_id,\n        s.end_date,\n        SUM(t.story_points) AS total_points\n      FROM sprints s\n      JOIN tasks t ON s.sprint_id = t.sprint_id\n      WHERE s.team_id = p_team_id\n        AND s.status = 'completed'\n        AND t.completion_status = 'done'\n      GROUP BY s.sprint_id, s.end_date\n    ),\n    recent_sprints AS (\n      SELECT \n        total_points,\n        ROW_NUMBER() OVER (ORDER BY end_date DESC) AS rn\n      FROM sprint_totals\n    )\n    SELECT COALESCE(ROUND(AVG(total_points), 2), 0.00)\n    FROM recent_sprints\n    WHERE rn <= p_sprint_count\n  );\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT calculate_team_velocity(2, 3) AS result;",
+  "_meta": {
+    "question_type": "returns_scalar",
+    "original_qtype": "returns_scalar",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-08T20:58:33.585669",
+    "problem_id": "1bdcdd223a2d",
+    "validation_attempts": 1,
+    "scenario": "a project management tool tracking sprint completion and task throughput",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

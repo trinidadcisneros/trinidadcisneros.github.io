@@ -1,0 +1,122 @@
+{
+  "title": "Collapse Player Session Streaks by Status",
+  "prompt": "You are analyzing player session data for a free-to-play mobile game. The game tracks two types of player states: 'active' (when a player is in a session viewing ads) and 'idle' (when a player is logged in but not engaging with ad content). Each state is recorded in a separate table with a date column. Some days may have no record at all for a player if they did not log in. Your task is to identify consecutive date ranges for each state, treating 'consecutive' as consecutive in the union of both tables, ignoring any missing days. For example, if active_sessions has rows on Jan 1, Jan 3, and Jan 5, and idle_sessions has a row on Jan 2, then the active rows on Jan 1 and Jan 3 form one island (because Jan 2 exists in the union but is a different state), while Jan 5 starts a new island (because Jan 4 is missing entirely). Write a query that returns one row per consecutive date range, showing the state, the first date in the range (start_date), and the last date in the range (end_date). Order the output by start_date ascending. The output columns must be named: state, start_date, end_date.",
+  "schema_ddl": "CREATE TABLE active_sessions (player_id INT, session_date DATE); CREATE TABLE idle_sessions (player_id INT, session_date DATE);",
+  "example_input_data": "INSERT INTO active_sessions (player_id, session_date) VALUES (101, '2024-01-01'), (101, '2024-01-02'), (101, '2024-01-05'), (101, '2024-01-06'); INSERT INTO idle_sessions (player_id, session_date) VALUES (101, '2024-01-03'), (101, '2024-01-08'), (101, '2024-01-09'), (101, '2024-01-10');",
+  "example_output_columns": [
+    "state",
+    "start_date",
+    "end_date"
+  ],
+  "example_output_rows": [
+    [
+      "active",
+      "2024-01-01",
+      "2024-01-02"
+    ],
+    [
+      "idle",
+      "2024-01-03",
+      "2024-01-03"
+    ],
+    [
+      "active",
+      "2024-01-05",
+      "2024-01-06"
+    ],
+    [
+      "idle",
+      "2024-01-08",
+      "2024-01-10"
+    ]
+  ],
+  "test_data": "INSERT INTO active_sessions (player_id, session_date) VALUES (101, '2024-01-01'), (101, '2024-01-02'), (101, '2024-01-03'), (101, '2024-01-07'), (101, '2024-01-08'), (101, '2024-01-09'), (101, '2024-01-15'), (101, '2024-01-16'), (101, '2024-01-20'), (101, '2024-01-25'), (101, '2024-01-26'), (101, '2024-01-27'), (101, '2024-01-28'), (101, '2024-01-29'); INSERT INTO idle_sessions (player_id, session_date) VALUES (101, '2024-01-04'), (101, '2024-01-05'), (101, '2024-01-06'), (101, '2024-01-10'), (101, '2024-01-11'), (101, '2024-01-12'), (101, '2024-01-13'), (101, '2024-01-17'), (101, '2024-01-18'), (101, '2024-01-19'), (101, '2024-01-21'), (101, '2024-01-22'), (101, '2024-01-23'), (101, '2024-01-30'), (101, '2024-01-31');",
+  "test_expected_columns": [
+    "state",
+    "start_date",
+    "end_date"
+  ],
+  "test_expected_rows": [
+    [
+      "active",
+      "2024-01-01",
+      "2024-01-03"
+    ],
+    [
+      "idle",
+      "2024-01-04",
+      "2024-01-06"
+    ],
+    [
+      "active",
+      "2024-01-07",
+      "2024-01-09"
+    ],
+    [
+      "idle",
+      "2024-01-10",
+      "2024-01-13"
+    ],
+    [
+      "active",
+      "2024-01-15",
+      "2024-01-16"
+    ],
+    [
+      "idle",
+      "2024-01-17",
+      "2024-01-19"
+    ],
+    [
+      "active",
+      "2024-01-20",
+      "2024-01-20"
+    ],
+    [
+      "idle",
+      "2024-01-21",
+      "2024-01-23"
+    ],
+    [
+      "active",
+      "2024-01-25",
+      "2024-01-29"
+    ],
+    [
+      "idle",
+      "2024-01-30",
+      "2024-01-31"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "union",
+    "output_shape": "fewer_rows",
+    "recipe": "gaps-and-islands",
+    "composite_moves": [
+      "UNION active_sessions and idle_sessions with state literal",
+      "Apply ROW_NUMBER() OVER (ORDER BY session_date) - ROW_NUMBER() OVER (PARTITION BY state ORDER BY session_date) to compute island group",
+      "GROUP BY state, grp; MIN(session_date) as start_date, MAX(session_date) as end_date",
+      "ORDER BY start_date ASC"
+    ]
+  },
+  "hints": [
+    "You need to combine both tables into a single result set and label each row with its state.",
+    "Use the row-number difference technique: compute one row number over all dates and another row number partitioned by state.",
+    "Group by the state and the difference between the two row numbers to identify consecutive ranges."
+  ],
+  "answer_key": "WITH combined AS (SELECT 'active' AS state, session_date FROM active_sessions UNION ALL SELECT 'idle' AS state, session_date FROM idle_sessions), numbered AS (SELECT state, session_date, ROW_NUMBER() OVER (ORDER BY session_date) - ROW_NUMBER() OVER (PARTITION BY state ORDER BY session_date) AS grp FROM combined) SELECT state, MIN(session_date) AS start_date, MAX(session_date) AS end_date FROM numbered GROUP BY state, grp ORDER BY start_date ASC;",
+  "_meta": {
+    "question_type": "union_islands",
+    "original_qtype": "union_islands",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-09T19:56:34.442221",
+    "problem_id": "02d313560294",
+    "validation_attempts": 1,
+    "scenario": "a free-to-play mobile game tracking session length and ad impressions",
+    "dml_op": null,
+    "islands_flavor": "date_sequence",
+    "percentile_flavor": null
+  }
+}

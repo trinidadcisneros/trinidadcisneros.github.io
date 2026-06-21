@@ -1,0 +1,62 @@
+{
+  "logged_at": "2026-06-20T17:06:35.587965",
+  "failure_kind": "wrong_answer",
+  "problem_id": "365e770a4530",
+  "question_type": "date_operations",
+  "original_qtype": "date_operations",
+  "subtype": null,
+  "scenario": "a note-taking app tracking notebook creation and daily writing streaks",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "time-window",
+  "title": "Monthly Writing Streak Days by User",
+  "prompt": "You manage a note-taking app that tracks daily writing activity. The `users` table stores user registrations. The `writing_sessions` table logs each day a user wrote at least one note (one row per user per day). Write a query that groups writing sessions into monthly cohorts and calculates the total number of distinct days each user wrote in each month. Only include month-user combinations where the user wrote on at least 5 distinct days in that month. Return columns `user_id`, `writing_month` (the first day of the month as a DATE), and `days_written` (the count of distinct session dates in that month). Order results by `user_id` ASC, then `writing_month` ASC. Use `DATE_TRUNC('month', session_date)` to bucket sessions into months.",
+  "schema_ddl": "CREATE TABLE users (user_id INT PRIMARY KEY, username VARCHAR(50) NOT NULL, signup_date DATE NOT NULL); CREATE TABLE writing_sessions (session_id INT PRIMARY KEY, user_id INT NOT NULL, session_date DATE NOT NULL, notes_written INT NOT NULL);",
+  "answer_key": "SELECT\n  ws.user_id,\n  DATE_TRUNC('month', ws.session_date)::DATE AS writing_month,\n  COUNT(DISTINCT ws.session_date) AS days_written\nFROM writing_sessions ws\nJOIN users u ON ws.user_id = u.user_id\nGROUP BY ws.user_id, DATE_TRUNC('month', ws.session_date)\nHAVING COUNT(DISTINCT ws.session_date) >= 5\nORDER BY ws.user_id ASC, writing_month ASC;",
+  "test_expected_columns": [
+    "user_id",
+    "writing_month",
+    "days_written"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "2024-01-01",
+      6
+    ],
+    [
+      1,
+      "2024-02-01",
+      6
+    ],
+    [
+      2,
+      "2024-02-01",
+      5
+    ],
+    [
+      4,
+      "2024-03-01",
+      6
+    ]
+  ],
+  "user_solution": "/*\n- Groups writing sessions into monthly cohorts\n- calculates the total number of distinct days each user wrote in each month.\n-  include month-user combinations where the user wrote on at least 5 distinct days in that month.\n\nuser_id,\nwriting_month,\ndays_written\n\n\n\nUse `DATE_TRUNC('month', session_date)` to bucket sessions into months.\n\n*/\nSELECT\n    u.user_id,\n    DATE_TRUNC('month', u.signup_date)::date AS writing_month,\n    COUNT(DISTINCT w.session_date) AS days_written\nFROM users AS u\nLEFT JOIN writing_sessions AS w\n    ON u.user_id = w.user_id AND DATE_TRUNC('month', u.signup_date)::date = DATE_TRUNC('month', w.session_date)::date\nGROUP BY 1, 2\nHAVING COUNT(DISTINCT w.session_date)  >= 5\nORDER BY user_id, writing_month;\n",
+  "error_message": null,
+  "your_columns": [
+    "user_id",
+    "writing_month",
+    "days_written"
+  ],
+  "your_rows": [
+    [
+      1,
+      "2024-01-01",
+      6
+    ],
+    [
+      4,
+      "2024-03-01",
+      6
+    ]
+  ]
+}

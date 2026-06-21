@@ -1,0 +1,143 @@
+{
+  "problem": {
+    "title": "First and Last Visit Outcome per Patient",
+    "prompt": "You are analyzing patient engagement in a telehealth platform. The `patient_visits` table records every completed video consultation. Each row includes the patient ID, visit timestamp, and a satisfaction score (1-5) collected immediately after the call. Write a query that returns one row per patient showing: the patient ID, their first visit timestamp, the satisfaction score from their first visit, their last visit timestamp, and the satisfaction score from their last visit. Order the result by patient_id ascending. Note: Some patients may have only one visit (first and last are the same). The satisfaction_score column may contain NULL if the patient declined to rate the visit.",
+    "schema_ddl": "CREATE TABLE patient_visits (visit_id SERIAL PRIMARY KEY, patient_id INTEGER NOT NULL, visit_timestamp TIMESTAMP NOT NULL, satisfaction_score INTEGER);",
+    "example_input_data": "INSERT INTO patient_visits (patient_id, visit_timestamp, satisfaction_score) VALUES (101, '2024-01-10 09:00:00', 5), (101, '2024-01-15 14:30:00', 4), (101, '2024-01-22 10:15:00', 5), (202, '2024-01-12 11:00:00', 3), (202, '2024-01-18 16:45:00', NULL), (303, '2024-01-20 08:30:00', 4);",
+    "example_output_columns": [
+      "patient_id",
+      "first_visit_timestamp",
+      "first_visit_score",
+      "last_visit_timestamp",
+      "last_visit_score"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "2024-01-10 09:00:00",
+        5,
+        "2024-01-22 10:15:00",
+        5.0
+      ],
+      [
+        202,
+        "2024-01-12 11:00:00",
+        3,
+        "2024-01-18 16:45:00",
+        null
+      ],
+      [
+        303,
+        "2024-01-20 08:30:00",
+        4,
+        "2024-01-20 08:30:00",
+        4.0
+      ]
+    ],
+    "test_data": "INSERT INTO patient_visits (patient_id, visit_timestamp, satisfaction_score) VALUES (101, '2024-02-01 09:00:00', 5), (101, '2024-02-03 10:00:00', 4), (101, '2024-02-05 11:00:00', 3), (101, '2024-02-07 12:00:00', 5), (101, '2024-02-09 13:00:00', 2), (202, '2024-02-02 08:00:00', NULL), (202, '2024-02-04 09:30:00', 4), (202, '2024-02-06 14:00:00', 5), (202, '2024-02-08 15:30:00', NULL), (303, '2024-02-03 07:00:00', 1), (303, '2024-02-10 16:00:00', 5), (404, '2024-02-05 10:00:00', 3), (505, '2024-02-01 11:00:00', NULL), (505, '2024-02-02 12:00:00', NULL), (505, '2024-02-03 13:00:00', 4), (606, '2024-02-07 09:00:00', 5), (707, '2024-02-01 08:00:00', 2), (707, '2024-02-02 09:00:00', 2), (707, '2024-02-03 10:00:00', 2), (707, '2024-02-04 11:00:00', 2), (707, '2024-02-05 12:00:00', 5), (808, '2024-02-06 14:00:00', NULL), (808, '2024-02-07 15:00:00', 1), (808, '2024-02-08 16:00:00', NULL), (909, '2024-02-09 10:00:00', 4), (909, '2024-02-10 11:00:00', NULL), (909, '2024-02-11 12:00:00', 3), (909, '2024-02-12 13:00:00', 5);",
+    "test_expected_columns": [
+      "patient_id",
+      "first_visit_timestamp",
+      "first_visit_score",
+      "last_visit_timestamp",
+      "last_visit_score"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        "2024-02-01 09:00:00",
+        5.0,
+        "2024-02-09 13:00:00",
+        2.0
+      ],
+      [
+        202,
+        "2024-02-02 08:00:00",
+        null,
+        "2024-02-08 15:30:00",
+        null
+      ],
+      [
+        303,
+        "2024-02-03 07:00:00",
+        1.0,
+        "2024-02-10 16:00:00",
+        5.0
+      ],
+      [
+        404,
+        "2024-02-05 10:00:00",
+        3.0,
+        "2024-02-05 10:00:00",
+        3.0
+      ],
+      [
+        505,
+        "2024-02-01 11:00:00",
+        null,
+        "2024-02-03 13:00:00",
+        4.0
+      ],
+      [
+        606,
+        "2024-02-07 09:00:00",
+        5.0,
+        "2024-02-07 09:00:00",
+        5.0
+      ],
+      [
+        707,
+        "2024-02-01 08:00:00",
+        2.0,
+        "2024-02-05 12:00:00",
+        5.0
+      ],
+      [
+        808,
+        "2024-02-06 14:00:00",
+        null,
+        "2024-02-08 16:00:00",
+        null
+      ],
+      [
+        909,
+        "2024-02-09 10:00:00",
+        4.0,
+        "2024-02-12 13:00:00",
+        5.0
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "rank-partition",
+      "composite_moves": [
+        "window FIRST_VALUE/LAST_VALUE with explicit frame for partition first/last",
+        "DISTINCT to collapse window output to one row per partition"
+      ]
+    },
+    "hints": [
+      "You need to identify the earliest and latest visit for each patient based on timestamp.",
+      "Window functions FIRST_VALUE and LAST_VALUE can extract values from specific positions in a partition, but pay attention to the frame specification.",
+      "Use FIRST_VALUE(col) OVER (PARTITION BY patient_id ORDER BY visit_timestamp) for the first visit, and LAST_VALUE(col) OVER (PARTITION BY patient_id ORDER BY visit_timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) for the last visit. Then use DISTINCT to get one row per patient."
+    ],
+    "answer_key": "SELECT DISTINCT patient_id, FIRST_VALUE(visit_timestamp) OVER (PARTITION BY patient_id ORDER BY visit_timestamp) AS first_visit_timestamp, FIRST_VALUE(satisfaction_score) OVER (PARTITION BY patient_id ORDER BY visit_timestamp) AS first_visit_score, LAST_VALUE(visit_timestamp) OVER (PARTITION BY patient_id ORDER BY visit_timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_visit_timestamp, LAST_VALUE(satisfaction_score) OVER (PARTITION BY patient_id ORDER BY visit_timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_visit_score FROM patient_visits ORDER BY patient_id;",
+    "_meta": {
+      "question_type": "window_first_last",
+      "original_qtype": "window_first_last",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "health_wellness",
+      "generated_at": "2026-06-18T16:15:06.473623",
+      "problem_id": "a17dadf62db9",
+      "validation_attempts": 1,
+      "scenario": "a telehealth platform tracking visit completion and follow-up scheduling",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "subtype": null
+    }
+  },
+  "user_solution": "/* notes */\n\nSELECT DISTINCT\n    patient_id,\n    FIRST_VALUE(visit_timestamp) OVER (PARTITION BY patient_id ORDER BY visit_timestamp\n                            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS first_visit_timestamp,\n    FIRST_VALUE(satisfaction_score) OVER (PARTITION BY patient_id ORDER BY visit_timestamp\n                            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS first_visit_score,\n    LAST_VALUE(visit_timestamp) OVER (PARTITION BY patient_id ORDER BY visit_timestamp\n                            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_visit_timestamp,\n    LAST_VALUE(satisfaction_score) OVER (PARTITION BY patient_id ORDER BY visit_timestamp\n                            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_visit_score\nFROM patient_visits\nORDER BY 1;",
+  "solved_at": "2026-06-18T16:24:32.834537"
+}

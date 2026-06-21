@@ -1,0 +1,518 @@
+{
+  "problem": {
+    "title": "Identify Listings Never Favorited by Buyers",
+    "prompt": "You are analyzing engagement on a P2P resale marketplace. Write a query that returns every combination of active listing and registered buyer, then identifies which buyer-listing pairs have never been favorited. The output should show `listing_id`, `listing_title`, `buyer_id`, `buyer_username`, and a boolean column `has_favorited` (TRUE if the buyer favorited that listing, FALSE otherwise). A listing is active if `status = 'active'`. Include all active listings and all buyers, even if a buyer has favorited zero listings or a listing has received zero favorites. Order results by `listing_id` ASC, then `buyer_id` ASC.",
+    "schema_ddl": "CREATE TABLE listings (listing_id INT PRIMARY KEY, seller_id INT NOT NULL, listing_title VARCHAR(100) NOT NULL, status VARCHAR(20) NOT NULL, listed_price DECIMAL(10,2) NOT NULL); CREATE TABLE buyers (buyer_id INT PRIMARY KEY, buyer_username VARCHAR(50) NOT NULL, signup_date DATE NOT NULL); CREATE TABLE favorites (favorite_id INT PRIMARY KEY, buyer_id INT NOT NULL, listing_id INT NOT NULL, favorited_at TIMESTAMP NOT NULL);",
+    "example_input_data": "INSERT INTO listings (listing_id, seller_id, listing_title, status, listed_price) VALUES (101, 5, 'Vintage Leather Jacket', 'active', 120.00), (102, 7, 'Retro Sneakers Size 10', 'active', 85.00), (103, 5, 'Designer Handbag', 'sold', 200.00), (104, 9, 'Classic Vinyl Record', 'active', 15.00); INSERT INTO buyers (buyer_id, buyer_username, signup_date) VALUES (201, 'alice_buys', '2024-01-10'), (202, 'bob_collector', '2024-02-15'), (203, 'carol_thrifter', '2024-03-01'); INSERT INTO favorites (favorite_id, buyer_id, listing_id, favorited_at) VALUES (1, 201, 101, '2024-04-01 10:00:00'), (2, 201, 102, '2024-04-02 11:30:00'), (3, 202, 101, '2024-04-03 09:15:00'), (4, 203, 104, '2024-04-04 14:20:00');",
+    "example_output_columns": [
+      "listing_id",
+      "listing_title",
+      "buyer_id",
+      "buyer_username",
+      "has_favorited"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "Vintage Leather Jacket",
+        201,
+        "alice_buys",
+        true
+      ],
+      [
+        101,
+        "Vintage Leather Jacket",
+        202,
+        "bob_collector",
+        true
+      ],
+      [
+        101,
+        "Vintage Leather Jacket",
+        203,
+        "carol_thrifter",
+        false
+      ],
+      [
+        102,
+        "Retro Sneakers Size 10",
+        201,
+        "alice_buys",
+        true
+      ],
+      [
+        102,
+        "Retro Sneakers Size 10",
+        202,
+        "bob_collector",
+        false
+      ],
+      [
+        102,
+        "Retro Sneakers Size 10",
+        203,
+        "carol_thrifter",
+        false
+      ],
+      [
+        104,
+        "Classic Vinyl Record",
+        201,
+        "alice_buys",
+        false
+      ],
+      [
+        104,
+        "Classic Vinyl Record",
+        202,
+        "bob_collector",
+        false
+      ],
+      [
+        104,
+        "Classic Vinyl Record",
+        203,
+        "carol_thrifter",
+        true
+      ]
+    ],
+    "test_data": "INSERT INTO listings (listing_id, seller_id, listing_title, status, listed_price) VALUES (101, 5, 'Vintage Leather Jacket', 'active', 120.00), (102, 7, 'Retro Sneakers Size 10', 'active', 85.00), (103, 5, 'Designer Handbag', 'sold', 200.00), (104, 9, 'Classic Vinyl Record', 'active', 15.00), (105, 11, 'Mid-Century Lamp', 'active', 45.00), (106, 13, 'Handmade Quilt', 'inactive', 95.00), (107, 15, 'Antique Camera', 'active', 150.00), (108, 17, 'Ceramic Vase Set', 'active', 30.00), (109, 19, 'Wool Overcoat', 'active', 110.00), (110, 21, 'Silver Bracelet', 'active', 60.00); INSERT INTO buyers (buyer_id, buyer_username, signup_date) VALUES (201, 'alice_buys', '2024-01-10'), (202, 'bob_collector', '2024-02-15'), (203, 'carol_thrifter', '2024-03-01'), (204, 'dave_hunter', '2024-03-15'), (205, 'eve_shopper', '2024-04-01'), (206, 'frank_vintage', '2024-04-10'), (207, 'grace_finds', '2024-04-20'); INSERT INTO favorites (favorite_id, buyer_id, listing_id, favorited_at) VALUES (1, 201, 101, '2024-04-01 10:00:00'), (2, 201, 102, '2024-04-02 11:30:00'), (3, 202, 101, '2024-04-03 09:15:00'), (4, 203, 104, '2024-04-04 14:20:00'), (5, 201, 107, '2024-04-05 08:00:00'), (6, 204, 105, '2024-04-06 12:00:00'), (7, 205, 108, '2024-04-07 15:30:00'), (8, 206, 101, '2024-04-08 10:45:00'), (9, 207, 109, '2024-04-09 16:00:00'), (10, 203, 110, '2024-04-10 09:30:00'), (11, 202, 107, '2024-04-11 11:00:00'), (12, 204, 104, '2024-04-12 13:20:00');",
+    "test_expected_columns": [
+      "listing_id",
+      "listing_title",
+      "buyer_id",
+      "buyer_username",
+      "has_favorited"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        "Vintage Leather Jacket",
+        201,
+        "alice_buys",
+        true
+      ],
+      [
+        101,
+        "Vintage Leather Jacket",
+        202,
+        "bob_collector",
+        true
+      ],
+      [
+        101,
+        "Vintage Leather Jacket",
+        203,
+        "carol_thrifter",
+        false
+      ],
+      [
+        101,
+        "Vintage Leather Jacket",
+        204,
+        "dave_hunter",
+        false
+      ],
+      [
+        101,
+        "Vintage Leather Jacket",
+        205,
+        "eve_shopper",
+        false
+      ],
+      [
+        101,
+        "Vintage Leather Jacket",
+        206,
+        "frank_vintage",
+        true
+      ],
+      [
+        101,
+        "Vintage Leather Jacket",
+        207,
+        "grace_finds",
+        false
+      ],
+      [
+        102,
+        "Retro Sneakers Size 10",
+        201,
+        "alice_buys",
+        true
+      ],
+      [
+        102,
+        "Retro Sneakers Size 10",
+        202,
+        "bob_collector",
+        false
+      ],
+      [
+        102,
+        "Retro Sneakers Size 10",
+        203,
+        "carol_thrifter",
+        false
+      ],
+      [
+        102,
+        "Retro Sneakers Size 10",
+        204,
+        "dave_hunter",
+        false
+      ],
+      [
+        102,
+        "Retro Sneakers Size 10",
+        205,
+        "eve_shopper",
+        false
+      ],
+      [
+        102,
+        "Retro Sneakers Size 10",
+        206,
+        "frank_vintage",
+        false
+      ],
+      [
+        102,
+        "Retro Sneakers Size 10",
+        207,
+        "grace_finds",
+        false
+      ],
+      [
+        104,
+        "Classic Vinyl Record",
+        201,
+        "alice_buys",
+        false
+      ],
+      [
+        104,
+        "Classic Vinyl Record",
+        202,
+        "bob_collector",
+        false
+      ],
+      [
+        104,
+        "Classic Vinyl Record",
+        203,
+        "carol_thrifter",
+        true
+      ],
+      [
+        104,
+        "Classic Vinyl Record",
+        204,
+        "dave_hunter",
+        true
+      ],
+      [
+        104,
+        "Classic Vinyl Record",
+        205,
+        "eve_shopper",
+        false
+      ],
+      [
+        104,
+        "Classic Vinyl Record",
+        206,
+        "frank_vintage",
+        false
+      ],
+      [
+        104,
+        "Classic Vinyl Record",
+        207,
+        "grace_finds",
+        false
+      ],
+      [
+        105,
+        "Mid-Century Lamp",
+        201,
+        "alice_buys",
+        false
+      ],
+      [
+        105,
+        "Mid-Century Lamp",
+        202,
+        "bob_collector",
+        false
+      ],
+      [
+        105,
+        "Mid-Century Lamp",
+        203,
+        "carol_thrifter",
+        false
+      ],
+      [
+        105,
+        "Mid-Century Lamp",
+        204,
+        "dave_hunter",
+        true
+      ],
+      [
+        105,
+        "Mid-Century Lamp",
+        205,
+        "eve_shopper",
+        false
+      ],
+      [
+        105,
+        "Mid-Century Lamp",
+        206,
+        "frank_vintage",
+        false
+      ],
+      [
+        105,
+        "Mid-Century Lamp",
+        207,
+        "grace_finds",
+        false
+      ],
+      [
+        107,
+        "Antique Camera",
+        201,
+        "alice_buys",
+        true
+      ],
+      [
+        107,
+        "Antique Camera",
+        202,
+        "bob_collector",
+        true
+      ],
+      [
+        107,
+        "Antique Camera",
+        203,
+        "carol_thrifter",
+        false
+      ],
+      [
+        107,
+        "Antique Camera",
+        204,
+        "dave_hunter",
+        false
+      ],
+      [
+        107,
+        "Antique Camera",
+        205,
+        "eve_shopper",
+        false
+      ],
+      [
+        107,
+        "Antique Camera",
+        206,
+        "frank_vintage",
+        false
+      ],
+      [
+        107,
+        "Antique Camera",
+        207,
+        "grace_finds",
+        false
+      ],
+      [
+        108,
+        "Ceramic Vase Set",
+        201,
+        "alice_buys",
+        false
+      ],
+      [
+        108,
+        "Ceramic Vase Set",
+        202,
+        "bob_collector",
+        false
+      ],
+      [
+        108,
+        "Ceramic Vase Set",
+        203,
+        "carol_thrifter",
+        false
+      ],
+      [
+        108,
+        "Ceramic Vase Set",
+        204,
+        "dave_hunter",
+        false
+      ],
+      [
+        108,
+        "Ceramic Vase Set",
+        205,
+        "eve_shopper",
+        true
+      ],
+      [
+        108,
+        "Ceramic Vase Set",
+        206,
+        "frank_vintage",
+        false
+      ],
+      [
+        108,
+        "Ceramic Vase Set",
+        207,
+        "grace_finds",
+        false
+      ],
+      [
+        109,
+        "Wool Overcoat",
+        201,
+        "alice_buys",
+        false
+      ],
+      [
+        109,
+        "Wool Overcoat",
+        202,
+        "bob_collector",
+        false
+      ],
+      [
+        109,
+        "Wool Overcoat",
+        203,
+        "carol_thrifter",
+        false
+      ],
+      [
+        109,
+        "Wool Overcoat",
+        204,
+        "dave_hunter",
+        false
+      ],
+      [
+        109,
+        "Wool Overcoat",
+        205,
+        "eve_shopper",
+        false
+      ],
+      [
+        109,
+        "Wool Overcoat",
+        206,
+        "frank_vintage",
+        false
+      ],
+      [
+        109,
+        "Wool Overcoat",
+        207,
+        "grace_finds",
+        true
+      ],
+      [
+        110,
+        "Silver Bracelet",
+        201,
+        "alice_buys",
+        false
+      ],
+      [
+        110,
+        "Silver Bracelet",
+        202,
+        "bob_collector",
+        false
+      ],
+      [
+        110,
+        "Silver Bracelet",
+        203,
+        "carol_thrifter",
+        true
+      ],
+      [
+        110,
+        "Silver Bracelet",
+        204,
+        "dave_hunter",
+        false
+      ],
+      [
+        110,
+        "Silver Bracelet",
+        205,
+        "eve_shopper",
+        false
+      ],
+      [
+        110,
+        "Silver Bracelet",
+        206,
+        "frank_vintage",
+        false
+      ],
+      [
+        110,
+        "Silver Bracelet",
+        207,
+        "grace_finds",
+        false
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "same_rows",
+      "recipe": "enrich-join",
+      "composite_moves": [
+        "row-filter listings to status='active'",
+        "cross-join listings \u00d7 buyers to create all combinations",
+        "left-join favorites to enrich with favorited_at",
+        "row-transform: has_favorited = (favorite_id IS NOT NULL)",
+        "order by listing_id, buyer_id"
+      ]
+    },
+    "hints": [
+      "You need to generate every possible pairing of active listings and buyers, then check which pairings actually exist in the favorites table.",
+      "Use a CROSS JOIN to create the Cartesian product of active listings and all buyers, then LEFT JOIN the favorites table to see which combinations have a match.",
+      "The has_favorited column should be TRUE when the LEFT JOIN finds a matching favorite record (favorite_id IS NOT NULL) and FALSE otherwise. Filter listings to status='active' before the CROSS JOIN."
+    ],
+    "answer_key": "SELECT l.listing_id, l.listing_title, b.buyer_id, b.buyer_username, (f.favorite_id IS NOT NULL) AS has_favorited FROM listings l CROSS JOIN buyers b LEFT JOIN favorites f ON b.buyer_id = f.buyer_id AND l.listing_id = f.listing_id WHERE l.status = 'active' ORDER BY l.listing_id ASC, b.buyer_id ASC;",
+    "_meta": {
+      "question_type": "enrich_join",
+      "original_qtype": "enrich_join",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-20T16:22:32.950117",
+      "problem_id": "1cb5a81635bc",
+      "validation_attempts": 1,
+      "scenario": "a P2P resale marketplace tracking listing-to-sale conversion",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "cross_join"
+    }
+  },
+  "user_solution": "/*\nreturns every combination of active listing and registered buyer\n- then identifies which buyer-listing pairs have never been favorited.\n\nThe output\n- listing_id,\n- listing_title,\n- buyer_id\n- buyer_username\n- has_favorited (TRUE if the buyer favorited that listing, FALSE otherwise).\n\nA listing is active if `status = 'active'`.\nInclude all active listings and all buyers, even if a buyer has favorited zero listings or a listing has received zero favorites.\nOrder results by `listing_id` ASC, then `buyer_id` ASC.\n\nTable: listings\nlisting_id\t        INT PRIMARY KEY\nseller_id\t        INT NOT NULL\nlisting_title\t    VARCHAR(100) NOT NULL\nstatus\t            VARCHAR(20) NOT NULL\nlisted_price\t    DECIMAL(10,2) NOT NULL\n\nTable: buyers\nbuyer_id\t        INT PRIMARY KEY\nbuyer_username\t    VARCHAR(50) NOT NULL\nsignup_date\t        DATE NOT NULL\n\nTable: favorites\nfavorite_id\t        INT PRIMARY KEY\nbuyer_id\t        INT NOT NULL\nlisting_id\t        INT NOT NULL\nfavorited_at\t    TIMESTAMP NOT NULL\n\n\n\n*/\n\nSELECT\n    l.listing_id,\n    l.listing_title,\n    b.buyer_id,\n    b.buyer_username,\n    CASE WHEN f.favorite_id IS NOT NULL THEN true ELSE false END AS has_favorited\nFROM listings AS l\n    CROSS JOIN buyers AS b\nLEFT JOIN favorites AS f\n    ON f.buyer_id = b.buyer_id AND f.listing_id = l.listing_id\nWHERE l.status = 'active'\nORDER BY l.listing_id, b.buyer_id;\n",
+  "solved_at": "2026-06-20T16:49:09.045248"
+}

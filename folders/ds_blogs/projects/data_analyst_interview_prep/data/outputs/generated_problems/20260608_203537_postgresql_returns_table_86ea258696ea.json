@@ -1,0 +1,74 @@
+{
+  "title": "Expense Policy Violations by Department",
+  "prompt": "You are building an expense management system that tracks employee receipts and policy compliance. Management wants to identify departments that have excessive policy violations. Write a function named `get_high_violation_departments` that accepts two parameters: `min_violation_count` (INTEGER) and `month_filter` (DATE, representing the first day of a month). The function should return departments where the total number of policy violations in the specified month meets or exceeds the minimum threshold. Return columns: `department_name` (VARCHAR(100)), `employee_count` (INTEGER - count of distinct employees with violations), `total_violations` (INTEGER - sum of all violations), and `avg_violation_amount` (NUMERIC(10,2) - average of `violation_amount` across all violations in that department). Order results by `total_violations` descending, then by `department_name` ascending. The function signature is: `CREATE OR REPLACE FUNCTION get_high_violation_departments(min_violation_count INTEGER, month_filter DATE) RETURNS TABLE (department_name VARCHAR(100), employee_count INTEGER, total_violations INTEGER, avg_violation_amount NUMERIC(10,2))`. Test your function by calling: `SELECT * FROM get_high_violation_departments(3, DATE '2024-03-01');`",
+  "schema_ddl": "CREATE TABLE employees (employee_id SERIAL PRIMARY KEY, employee_name VARCHAR(100) NOT NULL, department_name VARCHAR(100) NOT NULL, email VARCHAR(100)); CREATE TABLE receipts (receipt_id SERIAL PRIMARY KEY, employee_id INTEGER NOT NULL REFERENCES employees(employee_id), receipt_date DATE NOT NULL, merchant_name VARCHAR(100), total_amount NUMERIC(10,2) NOT NULL); CREATE TABLE policy_violations (violation_id SERIAL PRIMARY KEY, receipt_id INTEGER NOT NULL REFERENCES receipts(receipt_id), violation_type VARCHAR(50) NOT NULL, violation_amount NUMERIC(10,2) NOT NULL, detected_date DATE NOT NULL);",
+  "example_input_data": "INSERT INTO employees (employee_id, employee_name, department_name, email) VALUES (1, 'Alice Chen', 'Engineering', 'alice@company.com'), (2, 'Bob Martinez', 'Engineering', 'bob@company.com'), (3, 'Carol White', 'Sales', 'carol@company.com'), (4, 'David Kim', 'Sales', 'david@company.com'), (5, 'Eve Davis', 'Marketing', 'eve@company.com'); INSERT INTO receipts (receipt_id, employee_id, receipt_date, merchant_name, total_amount) VALUES (101, 1, '2024-03-05', 'Office Depot', 250.00), (102, 1, '2024-03-12', 'Starbucks', 45.00), (103, 2, '2024-03-08', 'Best Buy', 1200.00), (104, 3, '2024-03-15', 'Hilton Hotel', 350.00), (105, 4, '2024-03-20', 'Delta Airlines', 800.00), (106, 5, '2024-03-10', 'Amazon', 150.00), (107, 3, '2024-02-28', 'Marriott', 400.00); INSERT INTO policy_violations (violation_id, receipt_id, violation_type, violation_amount, detected_date) VALUES (1, 101, 'missing_approval', 250.00, '2024-03-06'), (2, 102, 'over_limit', 20.00, '2024-03-13'), (3, 103, 'missing_receipt', 1200.00, '2024-03-09'), (4, 103, 'over_limit', 200.00, '2024-03-09'), (5, 104, 'missing_approval', 350.00, '2024-03-16'), (6, 105, 'over_limit', 100.00, '2024-03-21'), (7, 107, 'missing_approval', 400.00, '2024-03-01');",
+  "example_output_columns": [
+    "department_name",
+    "employee_count",
+    "total_violations",
+    "avg_violation_amount"
+  ],
+  "example_output_rows": [
+    [
+      "Engineering",
+      2,
+      4,
+      "417.50"
+    ]
+  ],
+  "test_data": "INSERT INTO employees (employee_id, employee_name, department_name, email) VALUES (1, 'Alice Chen', 'Engineering', 'alice@company.com'), (2, 'Bob Martinez', 'Engineering', 'bob@company.com'), (3, 'Carol White', 'Sales', 'carol@company.com'), (4, 'David Kim', 'Sales', 'david@company.com'), (5, 'Eve Davis', 'Marketing', 'eve@company.com'), (6, 'Frank Wilson', 'Operations', 'frank@company.com'), (7, 'Grace Lee', 'Engineering', 'grace@company.com'), (8, 'Henry Brown', 'Sales', 'henry@company.com'), (9, 'Iris Johnson', 'Marketing', 'iris@company.com'), (10, 'Jack Taylor', 'Finance', 'jack@company.com'); INSERT INTO receipts (receipt_id, employee_id, receipt_date, merchant_name, total_amount) VALUES (101, 1, '2024-03-05', 'Office Depot', 250.00), (102, 1, '2024-03-12', 'Starbucks', 45.00), (103, 2, '2024-03-08', 'Best Buy', 1200.00), (104, 3, '2024-03-15', 'Hilton Hotel', 350.00), (105, 4, '2024-03-20', 'Delta Airlines', 800.00), (106, 5, '2024-03-10', 'Amazon', 150.00), (107, 3, '2024-02-28', 'Marriott', 400.00), (108, 7, '2024-03-07', 'Costco', 500.00), (109, 7, '2024-03-18', 'Shell Gas', 75.00), (110, 8, '2024-03-22', 'Uber', 60.00), (111, 8, '2024-03-25', 'Restaurant', 120.00), (112, 9, '2024-03-14', 'FedEx', 90.00), (113, 10, '2024-03-11', 'Staples', 200.00), (114, 6, '2024-03-09', 'Home Depot', 300.00), (115, 2, '2024-03-28', 'Apple Store', 999.00), (116, 1, '2024-04-02', 'Target', 180.00), (117, 5, '2024-02-15', 'Walmart', 220.00); INSERT INTO policy_violations (violation_id, receipt_id, violation_type, violation_amount, detected_date) VALUES (1, 101, 'missing_approval', 250.00, '2024-03-06'), (2, 102, 'over_limit', 20.00, '2024-03-13'), (3, 103, 'missing_receipt', 1200.00, '2024-03-09'), (4, 103, 'over_limit', 200.00, '2024-03-09'), (5, 104, 'missing_approval', 350.00, '2024-03-16'), (6, 105, 'over_limit', 100.00, '2024-03-21'), (7, 107, 'missing_approval', 400.00, '2024-03-01'), (8, 108, 'missing_receipt', 500.00, '2024-03-08'), (9, 108, 'over_limit', 100.00, '2024-03-08'), (10, 109, 'personal_expense', 75.00, '2024-03-19'), (11, 110, 'over_limit', 30.00, '2024-03-23'), (12, 111, 'missing_approval', 120.00, '2024-03-26'), (13, 112, 'over_limit', 40.00, '2024-03-15'), (14, 115, 'missing_receipt', 999.00, '2024-03-29'), (15, 115, 'over_limit', 499.00, '2024-03-29'), (16, 114, 'missing_approval', 300.00, '2024-03-10'), (17, 116, 'over_limit', 80.00, '2024-04-03'), (18, 117, 'missing_receipt', 220.00, '2024-02-16');",
+  "test_expected_columns": [
+    "department_name",
+    "employee_count",
+    "total_violations",
+    "avg_violation_amount"
+  ],
+  "test_expected_rows": [
+    [
+      "Engineering",
+      3,
+      9,
+      "427.00"
+    ],
+    [
+      "Sales",
+      3,
+      4,
+      "150.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "join employees, receipts, policy_violations on foreign keys",
+      "filter receipts by month using DATE_TRUNC or range",
+      "group by department_name",
+      "aggregate: COUNT(DISTINCT employee_id), COUNT(*), AVG(violation_amount)",
+      "filter groups with HAVING total_violations >= min_violation_count",
+      "order by total_violations DESC, department_name ASC"
+    ]
+  },
+  "hints": [
+    "You'll need to join all three tables and filter receipts to the specified month.",
+    "Use GROUP BY on department_name and apply HAVING to filter departments by total violation count.",
+    "Use DATE_TRUNC('month', receipt_date) = month_filter to match receipts in the target month, and remember to count distinct employees."
+  ],
+  "answer_key": "CREATE OR REPLACE FUNCTION get_high_violation_departments(min_violation_count INTEGER, month_filter DATE)\nRETURNS TABLE (\n  department_name VARCHAR(100),\n  employee_count INTEGER,\n  total_violations INTEGER,\n  avg_violation_amount NUMERIC(10,2)\n)\nAS $$\nBEGIN\n  RETURN QUERY (\n    SELECT \n      e.department_name,\n      COUNT(DISTINCT e.employee_id)::INTEGER AS employee_count,\n      COUNT(pv.violation_id)::INTEGER AS total_violations,\n      ROUND(AVG(pv.violation_amount), 2) AS avg_violation_amount\n    FROM employees e\n    JOIN receipts r ON e.employee_id = r.employee_id\n    JOIN policy_violations pv ON r.receipt_id = pv.receipt_id\n    WHERE DATE_TRUNC('month', r.receipt_date) = month_filter\n    GROUP BY e.department_name\n    HAVING COUNT(pv.violation_id) >= min_violation_count\n    ORDER BY total_violations DESC, e.department_name ASC\n  );\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT * FROM get_high_violation_departments(3, DATE '2024-03-01');",
+  "_meta": {
+    "question_type": "returns_table",
+    "original_qtype": "returns_table",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-08T20:35:37.284656",
+    "problem_id": "86ea258696ea",
+    "validation_attempts": 1,
+    "scenario": "an expense management app tracking receipt capture and policy compliance",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

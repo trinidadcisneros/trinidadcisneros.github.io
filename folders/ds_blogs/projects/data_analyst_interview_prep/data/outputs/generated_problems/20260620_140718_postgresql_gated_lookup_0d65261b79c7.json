@@ -1,0 +1,100 @@
+{
+  "title": "Premium Creator Minimum Watch Time Gate",
+  "prompt": "A short video platform wants to highlight the shortest video from each creator who has achieved premium status. The `creators` table has columns `creator_id`, `creator_name`, and `is_premium` (boolean). The `videos` table has `video_id`, `creator_id`, `title`, and `duration_seconds` (integer). Write a query that returns one row per creator who is premium (`is_premium = true`), showing `creator_id`, `creator_name`, and the `duration_seconds` of their shortest video. For creators who are NOT premium, exclude them entirely from the output (do not show a row). Order the result by `creator_id` ascending. If a premium creator has multiple videos tied for shortest duration, pick any one (the system does not care which).",
+  "schema_ddl": "CREATE TABLE creators (creator_id INT PRIMARY KEY, creator_name VARCHAR(100) NOT NULL, is_premium BOOLEAN NOT NULL); CREATE TABLE videos (video_id INT PRIMARY KEY, creator_id INT NOT NULL, title VARCHAR(200) NOT NULL, duration_seconds INT NOT NULL);",
+  "example_input_data": "INSERT INTO creators (creator_id, creator_name, is_premium) VALUES (1, 'Alice Vlogs', true), (2, 'Bob Clips', false), (3, 'Carol Shorts', true), (4, 'Dave Reels', true); INSERT INTO videos (video_id, creator_id, title, duration_seconds) VALUES (101, 1, 'Morning Routine', 45), (102, 1, 'Quick Tip', 30), (103, 1, 'Daily Check-in', 60), (104, 2, 'Hello World', 20), (105, 2, 'Goodbye', 25), (106, 3, 'Dance Move', 15), (107, 4, 'Late Night', 50);",
+  "example_output_columns": [
+    "creator_id",
+    "creator_name",
+    "duration_seconds"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Alice Vlogs",
+      30
+    ],
+    [
+      3,
+      "Carol Shorts",
+      15
+    ],
+    [
+      4,
+      "Dave Reels",
+      50
+    ]
+  ],
+  "test_data": "INSERT INTO creators (creator_id, creator_name, is_premium) VALUES (1, 'Alice Vlogs', true), (2, 'Bob Clips', false), (3, 'Carol Shorts', true), (4, 'Dave Reels', true), (5, 'Eve Stories', false), (6, 'Frank Films', true), (7, 'Grace Guides', true), (8, 'Henry Highlights', false), (9, 'Ivy Insights', true), (10, 'Jack Jokes', false); INSERT INTO videos (video_id, creator_id, title, duration_seconds) VALUES (101, 1, 'Morning Routine', 45), (102, 1, 'Quick Tip', 30), (103, 1, 'Daily Check-in', 60), (104, 1, 'Fast Facts', 30), (105, 2, 'Hello World', 20), (106, 2, 'Goodbye', 25), (107, 2, 'See You', 18), (108, 3, 'Dance Move', 15), (109, 3, 'Spin Tutorial', 22), (110, 3, 'Jump Guide', 15), (111, 4, 'Late Night', 50), (112, 4, 'Early Morning', 55), (113, 5, 'Story Time', 120), (114, 5, 'Bedtime Tale', 90), (115, 6, 'Epic Journey', 200), (116, 7, 'How To Cook', 180), (117, 7, 'Baking Basics', 150), (118, 7, 'Meal Prep', 170), (119, 8, 'Funny Moment', 40), (120, 8, 'Laugh Out Loud', 35), (121, 9, 'Deep Dive', 300), (122, 9, 'Analysis', 280), (123, 9, 'Review', 290), (124, 10, 'Comedy Sketch', 75), (125, 10, 'Stand Up', 85);",
+  "test_expected_columns": [
+    "creator_id",
+    "creator_name",
+    "duration_seconds"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "Alice Vlogs",
+      30
+    ],
+    [
+      3,
+      "Carol Shorts",
+      15
+    ],
+    [
+      4,
+      "Dave Reels",
+      50
+    ],
+    [
+      6,
+      "Frank Films",
+      200
+    ],
+    [
+      7,
+      "Grace Guides",
+      150
+    ],
+    [
+      9,
+      "Ivy Insights",
+      280
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "JOIN creators and videos on creator_id to bring gate attribute is_premium onto each video row",
+      "ROW_NUMBER() OVER (PARTITION BY creator_id ORDER BY duration_seconds ASC) to pick the shortest video per creator",
+      "Filter rn = 1 to keep only the shortest video per creator",
+      "WHERE is_premium = true to exclude non-premium creators entirely (gate exclusion)",
+      "SELECT creator_id, creator_name, duration_seconds and ORDER BY creator_id"
+    ]
+  },
+  "hints": [
+    "You need to combine information from both tables, then pick one video per creator based on a specific criterion.",
+    "Use a window function partitioned by creator to rank videos within each creator's collection, then filter to the top-ranked row per creator.",
+    "Apply ROW_NUMBER() OVER (PARTITION BY creator_id ORDER BY duration_seconds ASC) in a CTE or subquery, keep rows where the rank equals 1, then join with creators and filter WHERE is_premium = true to exclude non-premium creators entirely."
+  ],
+  "answer_key": "WITH ranked_videos AS (SELECT v.creator_id, v.duration_seconds, ROW_NUMBER() OVER (PARTITION BY v.creator_id ORDER BY v.duration_seconds ASC) AS rn FROM videos v) SELECT c.creator_id, c.creator_name, rv.duration_seconds FROM creators c JOIN ranked_videos rv ON c.creator_id = rv.creator_id WHERE c.is_premium = true AND rv.rn = 1 ORDER BY c.creator_id;",
+  "_meta": {
+    "question_type": "gated_lookup",
+    "original_qtype": "gated_lookup",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-20T14:07:18.371403",
+    "problem_id": "0d65261b79c7",
+    "validation_attempts": 1,
+    "scenario": "a short video platform tracking watch time and completion rates",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "rownumber_pick"
+  }
+}

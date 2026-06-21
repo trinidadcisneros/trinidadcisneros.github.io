@@ -1,0 +1,108 @@
+{
+  "problem": {
+    "title": "Gold Tier Members: Best Offer Filter",
+    "prompt": "A beauty retailer runs a loyalty program with tiers (Bronze, Silver, Gold, Platinum). Product offers arrive daily from multiple vendors, so the `offers` table may have several rows per product. Write a query that identifies the LOWEST active price for each product, but ONLY include products whose loyalty tier is 'Gold' or 'Platinum'. If a product's tier does NOT qualify, exclude that product entirely from the output. Return `product_id`, `product_name`, `tier`, and `best_price` (the minimum `offer_price` from the `offers` table for that product). Order results by `product_id` ascending. Products with no offers in the offers table should be excluded.",
+    "schema_ddl": "CREATE TABLE loyalty_products (product_id INT PRIMARY KEY, product_name VARCHAR(100), tier VARCHAR(20)); CREATE TABLE offers (offer_id INT PRIMARY KEY, product_id INT, vendor_name VARCHAR(100), offer_price DECIMAL(10,2), offer_date DATE);",
+    "example_input_data": "INSERT INTO loyalty_products (product_id, product_name, tier) VALUES (1, 'Hydrating Serum', 'Gold'), (2, 'Matte Lipstick', 'Silver'), (3, 'Exfoliating Mask', 'Platinum'), (4, 'Vitamin C Cream', 'Bronze'), (5, 'Rose Water Toner', 'Gold'); INSERT INTO offers (offer_id, product_id, vendor_name, offer_price, offer_date) VALUES (101, 1, 'VendorA', 29.99, '2024-06-01'), (102, 1, 'VendorB', 27.50, '2024-06-02'), (103, 2, 'VendorA', 15.00, '2024-06-01'), (104, 3, 'VendorC', 45.00, '2024-06-03'), (105, 3, 'VendorD', 42.00, '2024-06-04'), (106, 4, 'VendorA', 18.00, '2024-06-01');",
+    "example_output_columns": [
+      "product_id",
+      "product_name",
+      "tier",
+      "best_price"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "Hydrating Serum",
+        "Gold",
+        "27.50"
+      ],
+      [
+        3,
+        "Exfoliating Mask",
+        "Platinum",
+        "42.00"
+      ]
+    ],
+    "test_data": "INSERT INTO loyalty_products (product_id, product_name, tier) VALUES (1, 'Hydrating Serum', 'Gold'), (2, 'Matte Lipstick', 'Silver'), (3, 'Exfoliating Mask', 'Platinum'), (4, 'Vitamin C Cream', 'Bronze'), (5, 'Rose Water Toner', 'Gold'), (6, 'Clay Cleanser', 'Platinum'), (7, 'Brightening Essence', 'Silver'), (8, 'Retinol Night Cream', 'Gold'), (9, 'Cooling Eye Gel', 'Bronze'), (10, 'Lip Balm Set', 'Gold'), (11, 'Acne Treatment', 'Platinum'), (12, 'Daily Moisturizer', 'Silver'); INSERT INTO offers (offer_id, product_id, vendor_name, offer_price, offer_date) VALUES (101, 1, 'VendorA', 29.99, '2024-06-01'), (102, 1, 'VendorB', 27.50, '2024-06-02'), (103, 1, 'VendorC', 28.00, '2024-06-03'), (104, 2, 'VendorA', 15.00, '2024-06-01'), (105, 2, 'VendorB', 14.50, '2024-06-02'), (106, 3, 'VendorC', 45.00, '2024-06-03'), (107, 3, 'VendorD', 42.00, '2024-06-04'), (108, 3, 'VendorE', 43.50, '2024-06-05'), (109, 4, 'VendorA', 18.00, '2024-06-01'), (110, 4, 'VendorF', 17.25, '2024-06-02'), (111, 6, 'VendorG', 22.00, '2024-06-06'), (112, 7, 'VendorH', 31.00, '2024-06-07'), (113, 7, 'VendorI', 30.00, '2024-06-08'), (114, 8, 'VendorJ', 55.00, '2024-06-09'), (115, 8, 'VendorK', 52.50, '2024-06-10'), (116, 8, 'VendorL', 54.00, '2024-06-11'), (117, 9, 'VendorM', 12.00, '2024-06-12'), (118, 10, 'VendorN', 8.50, '2024-06-13'), (119, 10, 'VendorO', 9.00, '2024-06-14'), (120, 11, 'VendorP', 38.00, '2024-06-15'), (121, 12, 'VendorQ', 20.00, '2024-06-16'), (122, 12, 'VendorR', 19.50, '2024-06-17');",
+    "test_expected_columns": [
+      "product_id",
+      "product_name",
+      "tier",
+      "best_price"
+    ],
+    "test_expected_rows": [
+      [
+        1,
+        "Hydrating Serum",
+        "Gold",
+        "27.50"
+      ],
+      [
+        3,
+        "Exfoliating Mask",
+        "Platinum",
+        "42.00"
+      ],
+      [
+        6,
+        "Clay Cleanser",
+        "Platinum",
+        "22.00"
+      ],
+      [
+        8,
+        "Retinol Night Cream",
+        "Gold",
+        "52.50"
+      ],
+      [
+        10,
+        "Lip Balm Set",
+        "Gold",
+        "8.50"
+      ],
+      [
+        11,
+        "Acne Treatment",
+        "Platinum",
+        "38.00"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "enrich-join",
+      "composite_moves": [
+        "join loyalty_products to offers on product_id",
+        "per product_id, pick row with MIN offer_price using ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY offer_price ASC) and keep rn=1",
+        "gate: WHERE tier IN ('Gold', 'Platinum') to exclude products not in qualifying tiers",
+        "output product_id, product_name, tier, best_price ordered by product_id"
+      ]
+    },
+    "hints": [
+      "You need to find the best offer for each product, but only products in certain loyalty tiers should appear in the final output.",
+      "Use a window function to rank offers per product by price, then join to the loyalty tier table and filter by tier before selecting the top offer.",
+      "ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY offer_price ASC) will give you row number 1 for the cheapest offer per product; join to loyalty_products and WHERE tier IN ('Gold', 'Platinum') to exclude others."
+    ],
+    "answer_key": "WITH ranked_offers AS (SELECT product_id, offer_price, ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY offer_price ASC) AS rn FROM offers) SELECT lp.product_id, lp.product_name, lp.tier, ro.offer_price AS best_price FROM loyalty_products lp JOIN ranked_offers ro ON lp.product_id = ro.product_id AND ro.rn = 1 WHERE lp.tier IN ('Gold', 'Platinum') ORDER BY lp.product_id ASC;",
+    "_meta": {
+      "question_type": "gated_lookup",
+      "original_qtype": "gated_lookup",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-20T13:57:58.415401",
+      "problem_id": "231cfc381c78",
+      "validation_attempts": 1,
+      "scenario": "a beauty retailer tracking loyalty program redemption rates",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "rownumber_pick"
+    }
+  },
+  "user_solution": "/*\n- Identifies the LOWEST active price for each product, FOR ONLY  tier in 'Gold' or 'Platinum'.\n- If a product's tier does NOT qualify, exclude that product entirely from the output.\n\nReturn `product_id`, `product_name`, `tier`, and `best_price` (the minimum `offer_price` from the `offers` table for that product).\nOrder results by `product_id` ascending.\nProducts with no offers in the offers table should be excluded.\n*/\n\nSELECT\n    l.product_id,\n    l.product_name,\n    l.tier,\n    MIN(o.offer_price) AS best_price\nFROM loyalty_products AS l\nJOIN offers AS o\n    ON l.product_id = o.product_id\nWHERE l.tier IN ('Gold', 'Platinum')\nGROUP BY 1, 2, 3\nORDER BY 1;\n\n",
+  "solved_at": "2026-06-20T14:03:11.781627"
+}

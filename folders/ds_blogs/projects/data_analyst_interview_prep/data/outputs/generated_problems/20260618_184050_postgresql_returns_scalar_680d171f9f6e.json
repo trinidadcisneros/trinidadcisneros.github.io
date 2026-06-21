@@ -1,0 +1,56 @@
+{
+  "title": "Calculate Cart Abandonment Rate by Category",
+  "prompt": "Write a PostgreSQL function named `calculate_abandonment_rate` that accepts a category name (TEXT) and a date range (start_date DATE, end_date DATE) and returns the cart abandonment rate as a NUMERIC percentage with 2 decimal places. The abandonment rate is defined as: (number of cart_items added but never converted) / (total number of cart_items added) * 100, where a cart_item is considered \"converted\" if a corresponding purchase exists for the same customer, product, and within the date range. Only include cart additions within the specified date range. If no cart items exist for the category in the date range, return 0.00. Round the final result to 2 decimal places. Test your function by calling: `SELECT calculate_abandonment_rate('Footwear', DATE '2024-01-01', DATE '2024-01-31') AS result;`",
+  "schema_ddl": "CREATE TABLE product_catalog (product_id INT PRIMARY KEY, product_name TEXT NOT NULL, category TEXT NOT NULL, price NUMERIC(10,2) NOT NULL); CREATE TABLE cart_additions (cart_id SERIAL PRIMARY KEY, customer_id INT NOT NULL, product_id INT NOT NULL, added_at DATE NOT NULL); CREATE TABLE purchases (purchase_id SERIAL PRIMARY KEY, customer_id INT NOT NULL, product_id INT NOT NULL, purchased_at DATE NOT NULL, amount NUMERIC(10,2) NOT NULL);",
+  "example_input_data": "INSERT INTO product_catalog (product_id, product_name, category, price) VALUES (1, 'Running Shoes', 'Footwear', 89.99), (2, 'Sneakers', 'Footwear', 64.99), (3, 'Dress Shirt', 'Apparel', 45.00), (4, 'Boots', 'Footwear', 120.00), (5, 'Jacket', 'Outerwear', 150.00); INSERT INTO cart_additions (cart_id, customer_id, product_id, added_at) VALUES (1, 101, 1, DATE '2024-01-05'), (2, 102, 1, DATE '2024-01-10'), (3, 103, 2, DATE '2024-01-12'), (4, 101, 4, DATE '2024-01-15'), (5, 104, 1, DATE '2024-01-20'), (6, 105, 3, DATE '2024-01-22'), (7, 106, 2, DATE '2024-01-25'); INSERT INTO purchases (purchase_id, customer_id, product_id, purchased_at, amount) VALUES (1, 101, 1, DATE '2024-01-06', 89.99), (2, 103, 2, DATE '2024-01-13', 64.99), (3, 105, 3, DATE '2024-01-23', 45.00);",
+  "example_output_columns": [
+    "result"
+  ],
+  "example_output_rows": [
+    [
+      "66.67"
+    ]
+  ],
+  "test_data": "INSERT INTO product_catalog (product_id, product_name, category, price) VALUES (1, 'Running Shoes', 'Footwear', 89.99), (2, 'Sneakers', 'Footwear', 64.99), (3, 'Dress Shirt', 'Apparel', 45.00), (4, 'Boots', 'Footwear', 120.00), (5, 'Jacket', 'Outerwear', 150.00), (6, 'Sandals', 'Footwear', 35.00), (7, 'Heels', 'Footwear', 95.00), (8, 'Loafers', 'Footwear', 78.00), (9, 'Polo Shirt', 'Apparel', 38.00), (10, 'Winter Coat', 'Outerwear', 220.00); INSERT INTO cart_additions (cart_id, customer_id, product_id, added_at) VALUES (1, 101, 1, DATE '2024-01-05'), (2, 102, 1, DATE '2024-01-10'), (3, 103, 2, DATE '2024-01-12'), (4, 101, 4, DATE '2024-01-15'), (5, 104, 1, DATE '2024-01-20'), (6, 105, 3, DATE '2024-01-22'), (7, 106, 2, DATE '2024-01-25'), (8, 107, 6, DATE '2024-02-01'), (9, 108, 7, DATE '2024-02-05'), (10, 109, 8, DATE '2024-02-10'), (11, 110, 1, DATE '2024-02-12'), (12, 111, 4, DATE '2024-02-14'), (13, 112, 2, DATE '2024-02-18'), (14, 113, 6, DATE '2024-02-20'), (15, 101, 7, DATE '2024-02-22'), (16, 102, 8, DATE '2024-02-25'), (17, 114, 1, DATE '2024-02-28'), (18, 115, 9, DATE '2024-02-15'), (19, 116, 10, DATE '2024-02-16'), (20, 117, 3, DATE '2024-02-17'), (21, 118, 5, DATE '2024-02-19'), (22, 119, 1, DATE '2024-03-01'), (23, 120, 2, DATE '2024-03-05'), (24, 121, 4, DATE '2024-03-10'), (25, 122, 6, DATE '2024-03-12'); INSERT INTO purchases (purchase_id, customer_id, product_id, purchased_at, amount) VALUES (1, 101, 1, DATE '2024-01-06', 89.99), (2, 103, 2, DATE '2024-01-13', 64.99), (3, 105, 3, DATE '2024-01-23', 45.00), (4, 107, 6, DATE '2024-02-02', 35.00), (5, 109, 8, DATE '2024-02-11', 78.00), (6, 111, 4, DATE '2024-02-15', 120.00), (7, 113, 6, DATE '2024-02-21', 35.00), (8, 101, 7, DATE '2024-02-23', 95.00), (9, 114, 1, DATE '2024-03-01', 89.99), (10, 115, 9, DATE '2024-02-16', 38.00), (11, 116, 10, DATE '2024-02-17', 220.00), (12, 119, 1, DATE '2024-03-02', 89.99), (13, 121, 4, DATE '2024-03-11', 120.00);",
+  "test_expected_columns": [
+    "result"
+  ],
+  "test_expected_rows": [
+    [
+      "66.67"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "scalar_return",
+    "recipe": "function-wrapped",
+    "composite_moves": [
+      "enrich-join product_catalog to cart_additions",
+      "enrich-join purchases to identify conversions",
+      "row-filter by category and date range",
+      "group-aggregate to count total and abandoned items",
+      "scalar-extract percentage calculation with ROUND"
+    ]
+  },
+  "hints": [
+    "Join cart_additions with product_catalog to filter by category, then determine which cart items have matching purchases.",
+    "Use a LEFT JOIN from cart_additions to purchases on customer_id and product_id to identify which items were never purchased.",
+    "Count total cart items and those without a purchase, then calculate (abandoned / total) * 100, handling the case where total is zero."
+  ],
+  "answer_key": "CREATE OR REPLACE FUNCTION calculate_abandonment_rate(cat_name TEXT, start_date DATE, end_date DATE)\nRETURNS NUMERIC AS $$\nDECLARE\n  total_items INT;\n  abandoned_items INT;\n  rate NUMERIC;\nBEGIN\n  SELECT COUNT(*) INTO total_items\n  FROM cart_additions ca\n  JOIN product_catalog pc ON ca.product_id = pc.product_id\n  WHERE pc.category = cat_name\n    AND ca.added_at >= start_date\n    AND ca.added_at <= end_date;\n\n  IF total_items = 0 THEN\n    RETURN 0.00;\n  END IF;\n\n  SELECT COUNT(*) INTO abandoned_items\n  FROM cart_additions ca\n  JOIN product_catalog pc ON ca.product_id = pc.product_id\n  LEFT JOIN purchases p ON ca.customer_id = p.customer_id\n    AND ca.product_id = p.product_id\n    AND p.purchased_at >= start_date\n    AND p.purchased_at <= end_date\n  WHERE pc.category = cat_name\n    AND ca.added_at >= start_date\n    AND ca.added_at <= end_date\n    AND p.purchase_id IS NULL;\n\n  rate := ROUND((abandoned_items::NUMERIC / total_items::NUMERIC) * 100, 2);\n  RETURN rate;\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT calculate_abandonment_rate('Footwear', DATE '2024-01-01', DATE '2024-01-31') AS result;",
+  "_meta": {
+    "question_type": "returns_scalar",
+    "original_qtype": "returns_scalar",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-18T18:40:50.691341",
+    "problem_id": "680d171f9f6e",
+    "validation_attempts": 1,
+    "scenario": "a fashion ecommerce site tracking add-to-cart and conversion",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "subtype": null
+  }
+}

@@ -1,0 +1,205 @@
+{
+  "title": "Sessionize Patient Portal Activity by Inactivity Gap",
+  "prompt": "A telehealth platform tracks patient portal activity. Each time a patient views a page, clicks a button, or opens a message, a `portal_events` record is created. A session is defined as a sequence of events with no more than 15 minutes between consecutive events; if 15 minutes or more elapse between two events, the later event starts a new session. Write a query that assigns a unique session identifier to each event, then computes per-session metrics: session start time, session end time, and total event count. Return one row per session, ordered by patient_id (ascending) then session start time (ascending). The output columns should be: `patient_id`, `session_id`, `session_start`, `session_end`, `event_count`. Handle patients with only one event (single-event sessions) correctly. Test your query against the example data to verify session boundaries are detected accurately when gaps exceed 15 minutes.",
+  "schema_ddl": "CREATE TABLE portal_events (event_id SERIAL PRIMARY KEY, patient_id INT NOT NULL, event_ts TIMESTAMP NOT NULL, event_type VARCHAR(50) NOT NULL);",
+  "example_input_data": "INSERT INTO portal_events (patient_id, event_ts, event_type) VALUES (101, '2024-06-15 09:00:00', 'page_view'), (101, '2024-06-15 09:05:00', 'button_click'), (101, '2024-06-15 09:10:00', 'message_open'), (101, '2024-06-15 10:30:00', 'page_view'), (101, '2024-06-15 10:35:00', 'button_click'), (202, '2024-06-15 08:00:00', 'page_view'), (202, '2024-06-15 08:12:00', 'message_open'), (202, '2024-06-15 09:45:00', 'page_view'), (303, '2024-06-15 11:00:00', 'button_click');",
+  "example_output_columns": [
+    "patient_id",
+    "session_id",
+    "session_start",
+    "session_end",
+    "event_count"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      1,
+      "2024-06-15 09:00:00",
+      "2024-06-15 09:10:00",
+      3
+    ],
+    [
+      101,
+      2,
+      "2024-06-15 10:30:00",
+      "2024-06-15 10:35:00",
+      2
+    ],
+    [
+      202,
+      1,
+      "2024-06-15 08:00:00",
+      "2024-06-15 08:12:00",
+      2
+    ],
+    [
+      202,
+      2,
+      "2024-06-15 09:45:00",
+      "2024-06-15 09:45:00",
+      1
+    ],
+    [
+      303,
+      1,
+      "2024-06-15 11:00:00",
+      "2024-06-15 11:00:00",
+      1
+    ]
+  ],
+  "test_data": "INSERT INTO portal_events (patient_id, event_ts, event_type) VALUES (101, '2024-06-20 07:00:00', 'page_view'), (101, '2024-06-20 07:08:00', 'button_click'), (101, '2024-06-20 07:14:00', 'message_open'), (101, '2024-06-20 07:30:00', 'page_view'), (101, '2024-06-20 07:40:00', 'button_click'), (101, '2024-06-20 09:00:00', 'page_view'), (101, '2024-06-20 09:05:00', 'message_open'), (101, '2024-06-20 09:20:00', 'button_click'), (202, '2024-06-20 06:00:00', 'page_view'), (202, '2024-06-20 06:10:00', 'button_click'), (202, '2024-06-20 08:00:00', 'page_view'), (202, '2024-06-20 10:00:00', 'message_open'), (303, '2024-06-20 05:00:00', 'page_view'), (303, '2024-06-20 05:05:00', 'button_click'), (303, '2024-06-20 05:10:00', 'message_open'), (303, '2024-06-20 05:15:00', 'page_view'), (303, '2024-06-20 05:20:00', 'button_click'), (303, '2024-06-20 07:00:00', 'page_view'), (404, '2024-06-20 12:00:00', 'page_view'), (404, '2024-06-20 12:30:00', 'button_click'), (404, '2024-06-20 12:31:00', 'message_open'), (505, '2024-06-20 14:00:00', 'page_view'), (606, '2024-06-20 16:00:00', 'button_click'), (606, '2024-06-20 16:14:00', 'message_open'), (606, '2024-06-20 16:29:59', 'page_view'), (606, '2024-06-20 16:45:00', 'button_click'), (707, '2024-06-20 18:00:00', 'page_view'), (707, '2024-06-20 18:15:01', 'button_click'), (707, '2024-06-20 18:30:00', 'message_open');",
+  "test_expected_columns": [
+    "patient_id",
+    "session_id",
+    "session_start",
+    "session_end",
+    "event_count"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      1,
+      "2024-06-20 07:00:00",
+      "2024-06-20 07:14:00",
+      3
+    ],
+    [
+      101,
+      2,
+      "2024-06-20 07:30:00",
+      "2024-06-20 07:40:00",
+      2
+    ],
+    [
+      101,
+      3,
+      "2024-06-20 09:00:00",
+      "2024-06-20 09:20:00",
+      3
+    ],
+    [
+      202,
+      1,
+      "2024-06-20 06:00:00",
+      "2024-06-20 06:10:00",
+      2
+    ],
+    [
+      202,
+      2,
+      "2024-06-20 08:00:00",
+      "2024-06-20 08:00:00",
+      1
+    ],
+    [
+      202,
+      3,
+      "2024-06-20 10:00:00",
+      "2024-06-20 10:00:00",
+      1
+    ],
+    [
+      303,
+      1,
+      "2024-06-20 05:00:00",
+      "2024-06-20 05:20:00",
+      5
+    ],
+    [
+      303,
+      2,
+      "2024-06-20 07:00:00",
+      "2024-06-20 07:00:00",
+      1
+    ],
+    [
+      404,
+      1,
+      "2024-06-20 12:00:00",
+      "2024-06-20 12:00:00",
+      1
+    ],
+    [
+      404,
+      2,
+      "2024-06-20 12:30:00",
+      "2024-06-20 12:31:00",
+      2
+    ],
+    [
+      505,
+      1,
+      "2024-06-20 14:00:00",
+      "2024-06-20 14:00:00",
+      1
+    ],
+    [
+      606,
+      1,
+      "2024-06-20 16:00:00",
+      "2024-06-20 16:14:00",
+      2
+    ],
+    [
+      606,
+      2,
+      "2024-06-20 16:29:59",
+      "2024-06-20 16:29:59",
+      1
+    ],
+    [
+      606,
+      3,
+      "2024-06-20 16:45:00",
+      "2024-06-20 16:45:00",
+      1
+    ],
+    [
+      707,
+      1,
+      "2024-06-20 18:00:00",
+      "2024-06-20 18:00:00",
+      1
+    ],
+    [
+      707,
+      2,
+      "2024-06-20 18:15:01",
+      "2024-06-20 18:30:00",
+      2
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "prep: LAG(event_ts) OVER (PARTITION BY patient_id ORDER BY event_ts) to find previous event timestamp per patient",
+      "prep: CASE WHEN previous_ts IS NULL OR event_ts - previous_ts > INTERVAL '15 minutes' THEN 1 ELSE 0 END to flag new session starts",
+      "prep: SUM(new_session_flag) OVER (PARTITION BY patient_id ORDER BY event_ts ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) to assign session_id",
+      "group-aggregate: GROUP BY patient_id, session_id to compute MIN(event_ts) as session_start, MAX(event_ts) as session_end, COUNT(*) as event_count",
+      "row-transform: ORDER BY patient_id, session_start"
+    ]
+  },
+  "hints": [
+    "You need to identify when a new session starts by comparing each event's timestamp to the previous event for the same patient.",
+    "Use the LAG window function partitioned by patient to get the previous event timestamp, then check if the gap exceeds 15 minutes or if it's the first event (NULL).",
+    "After flagging new session starts (1 for new session, 0 otherwise), use a cumulative SUM of those flags over the same partition and order to assign a unique session_id per patient. Then group by patient and session to compute start, end, and count."
+  ],
+  "answer_key": "WITH flagged AS (SELECT patient_id, event_ts, CASE WHEN LAG(event_ts) OVER (PARTITION BY patient_id ORDER BY event_ts) IS NULL OR event_ts - LAG(event_ts) OVER (PARTITION BY patient_id ORDER BY event_ts) > INTERVAL '15 minutes' THEN 1 ELSE 0 END AS new_session_flag FROM portal_events), sessioned AS (SELECT patient_id, event_ts, SUM(new_session_flag) OVER (PARTITION BY patient_id ORDER BY event_ts ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS session_id FROM flagged) SELECT patient_id, session_id, MIN(event_ts) AS session_start, MAX(event_ts) AS session_end, COUNT(*) AS event_count FROM sessioned GROUP BY patient_id, session_id ORDER BY patient_id, session_start;",
+  "_meta": {
+    "question_type": "window_sessionization",
+    "original_qtype": "window_sessionization",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "health_wellness",
+    "generated_at": "2026-06-18T16:57:41.158823",
+    "problem_id": "39ea04a7cf3e",
+    "validation_attempts": 1,
+    "scenario": "a telehealth platform tracking visit completion and follow-up scheduling",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "subtype": null
+  }
+}

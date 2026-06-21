@@ -1,0 +1,102 @@
+{
+  "problem": {
+    "title": "At-Risk Subscribers with Skip History",
+    "prompt": "You are analyzing subscriber engagement for a D2C subscription box service. Write a function named `get_at_risk_subscribers` that takes two parameters: `p_min_skipped_shipments` (INTEGER) and `p_max_days_since_last_order` (INTEGER). The function should identify subscribers who are at risk of churning based on their skip behavior and order recency. Return subscribers who have skipped at least `p_min_skipped_shipments` shipments AND whose `days_since_last_order` (calculated as `next_renewal_date - last_order_date`) is greater than `p_max_days_since_last_order`. The function signature is: `CREATE OR REPLACE FUNCTION get_at_risk_subscribers(p_min_skipped_shipments INTEGER, p_max_days_since_last_order INTEGER) RETURNS TABLE (subscriber_id INTEGER, email VARCHAR(100), total_skipped INTEGER, days_since_last_order INTEGER, renewal_tier VARCHAR(20)) ...`. Order results by `total_skipped` descending, then by `days_since_last_order` descending. Test your function by calling: `SELECT * FROM get_at_risk_subscribers(2, 30);`",
+    "schema_ddl": "CREATE TABLE subscribers (subscriber_id INTEGER PRIMARY KEY, email VARCHAR(100), next_renewal_date DATE, renewal_tier VARCHAR(20)); CREATE TABLE shipments (shipment_id INTEGER PRIMARY KEY, subscriber_id INTEGER, shipment_date DATE, status VARCHAR(20)); CREATE TABLE orders (order_id INTEGER PRIMARY KEY, subscriber_id INTEGER, order_date DATE, total_amount DECIMAL(10,2));",
+    "example_input_data": "INSERT INTO subscribers (subscriber_id, email, next_renewal_date, renewal_tier) VALUES (1, 'alice@example.com', '2024-03-15', 'premium'), (2, 'bob@example.com', '2024-03-20', 'basic'), (3, 'carol@example.com', '2024-03-10', 'premium'), (4, 'dave@example.com', '2024-03-25', 'basic'), (5, 'eve@example.com', '2024-03-18', 'standard'); INSERT INTO shipments (shipment_id, subscriber_id, shipment_date, status) VALUES (101, 1, '2024-01-05', 'skipped'), (102, 1, '2024-02-05', 'skipped'), (103, 2, '2024-01-10', 'delivered'), (104, 2, '2024-02-10', 'skipped'), (105, 3, '2024-01-15', 'skipped'), (106, 3, '2024-02-15', 'skipped'), (107, 3, '2024-03-01', 'skipped'), (108, 4, '2024-01-20', 'delivered'), (109, 5, '2024-01-25', 'skipped'), (110, 5, '2024-02-25', 'delivered'); INSERT INTO orders (order_id, subscriber_id, order_date, total_amount) VALUES (201, 1, '2023-12-10', 49.99), (202, 2, '2024-02-28', 29.99), (203, 3, '2024-01-05', 49.99), (204, 4, '2024-03-01', 29.99), (205, 5, '2024-02-20', 39.99);",
+    "example_output_columns": [
+      "subscriber_id",
+      "email",
+      "total_skipped",
+      "days_since_last_order",
+      "renewal_tier"
+    ],
+    "example_output_rows": [
+      [
+        3,
+        "carol@example.com",
+        3,
+        65,
+        "premium"
+      ],
+      [
+        1,
+        "alice@example.com",
+        2,
+        96,
+        "premium"
+      ]
+    ],
+    "test_data": "INSERT INTO subscribers (subscriber_id, email, next_renewal_date, renewal_tier) VALUES (1, 'alice@example.com', '2024-04-15', 'premium'), (2, 'bob@example.com', '2024-04-20', 'basic'), (3, 'carol@example.com', '2024-04-10', 'premium'), (4, 'dave@example.com', '2024-04-25', 'basic'), (5, 'eve@example.com', '2024-04-18', 'standard'), (6, 'frank@example.com', '2024-04-22', 'premium'), (7, 'grace@example.com', '2024-04-30', 'basic'), (8, 'hank@example.com', '2024-04-05', 'standard'), (9, 'iris@example.com', '2024-04-12', 'premium'), (10, 'jack@example.com', '2024-04-28', 'basic'), (11, 'karen@example.com', '2024-04-16', 'standard'), (12, 'leo@example.com', '2024-04-08', 'premium'); INSERT INTO shipments (shipment_id, subscriber_id, shipment_date, status) VALUES (101, 1, '2024-01-05', 'skipped'), (102, 1, '2024-02-05', 'skipped'), (103, 1, '2024-03-05', 'skipped'), (104, 2, '2024-01-10', 'delivered'), (105, 2, '2024-02-10', 'skipped'), (106, 2, '2024-03-10', 'delivered'), (107, 3, '2024-01-15', 'skipped'), (108, 3, '2024-02-15', 'skipped'), (109, 3, '2024-03-15', 'skipped'), (110, 3, '2024-04-01', 'skipped'), (111, 4, '2024-01-20', 'delivered'), (112, 4, '2024-02-20', 'delivered'), (113, 5, '2024-01-25', 'skipped'), (114, 5, '2024-02-25', 'delivered'), (115, 6, '2024-02-01', 'skipped'), (116, 6, '2024-03-01', 'skipped'), (117, 7, '2024-02-05', 'skipped'), (118, 7, '2024-03-05', 'skipped'), (119, 7, '2024-04-05', 'skipped'), (120, 8, '2024-02-10', 'delivered'), (121, 9, '2024-02-15', 'skipped'), (122, 10, '2024-02-20', 'delivered'), (123, 11, '2024-02-25', 'skipped'), (124, 11, '2024-03-25', 'delivered'), (125, 12, '2024-03-01', 'delivered'); INSERT INTO orders (order_id, subscriber_id, order_date, total_amount) VALUES (201, 1, '2024-01-01', 49.99), (202, 2, '2024-03-28', 29.99), (203, 3, '2024-01-10', 49.99), (204, 4, '2024-03-20', 29.99), (205, 5, '2024-03-15', 39.99), (206, 6, '2024-01-20', 49.99), (207, 7, '2024-01-25', 29.99), (208, 8, '2024-03-25', 39.99), (209, 9, '2024-03-30', 49.99), (210, 10, '2024-03-22', 29.99), (211, 11, '2024-03-18', 39.99), (212, 12, '2024-03-28', 49.99);",
+    "test_expected_columns": [
+      "subscriber_id",
+      "email",
+      "total_skipped",
+      "days_since_last_order",
+      "renewal_tier"
+    ],
+    "test_expected_rows": [
+      [
+        3,
+        "carol@example.com",
+        4,
+        91,
+        "premium"
+      ],
+      [
+        1,
+        "alice@example.com",
+        3,
+        105,
+        "premium"
+      ],
+      [
+        7,
+        "grace@example.com",
+        3,
+        96,
+        "basic"
+      ],
+      [
+        6,
+        "frank@example.com",
+        2,
+        93,
+        "premium"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "enrich-aggregate",
+      "composite_moves": [
+        "enrich-aggregate: join subscribers to aggregated shipments (skip_count) via subquery with GROUP BY + HAVING",
+        "enrich-join: join to aggregated orders (last_order_date) via subquery with MAX",
+        "row-filter: WHERE days_since_last_order > parameter",
+        "row-transform: compute days_since_last_order as date difference"
+      ]
+    },
+    "hints": [
+      "You'll need to aggregate shipments by subscriber to count how many were skipped, and separately find each subscriber's most recent order date.",
+      "Use subqueries or CTEs to compute skip_count (with HAVING) and last_order_date (with MAX), then join both to the subscribers table.",
+      "Calculate days_since_last_order as the difference between next_renewal_date and the most recent order_date, and filter where this exceeds the parameter and skip_count meets the threshold."
+    ],
+    "answer_key": "CREATE OR REPLACE FUNCTION get_at_risk_subscribers(p_min_skipped_shipments INTEGER, p_max_days_since_last_order INTEGER) RETURNS TABLE (subscriber_id INTEGER, email VARCHAR(100), total_skipped INTEGER, days_since_last_order INTEGER, renewal_tier VARCHAR(20)) AS $$ BEGIN RETURN QUERY ( SELECT s.subscriber_id, s.email, skipped.skip_count::INTEGER AS total_skipped, (s.next_renewal_date - last_order.last_order_date)::INTEGER AS days_since_last_order, s.renewal_tier FROM subscribers s INNER JOIN ( SELECT sh.subscriber_id, COUNT(*)::INTEGER AS skip_count FROM shipments sh WHERE sh.status = 'skipped' GROUP BY sh.subscriber_id HAVING COUNT(*) >= p_min_skipped_shipments ) skipped ON s.subscriber_id = skipped.subscriber_id INNER JOIN ( SELECT o.subscriber_id, MAX(o.order_date) AS last_order_date FROM orders o GROUP BY o.subscriber_id ) last_order ON s.subscriber_id = last_order.subscriber_id WHERE (s.next_renewal_date - last_order.last_order_date) > p_max_days_since_last_order ORDER BY total_skipped DESC, days_since_last_order DESC ); END; $$ LANGUAGE plpgsql; SELECT * FROM get_at_risk_subscribers(2, 30);",
+    "_meta": {
+      "question_type": "returns_table",
+      "original_qtype": "returns_table",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-17T14:01:36.969378",
+      "problem_id": "0135f999529c",
+      "validation_attempts": 2,
+      "scenario": "a D2C subscription box service tracking renewal and churn",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "CREATE OR REPLACE FUNCTION get_at_risk_subscribers(p_min_skipped_shipments INT, p_max_days_since_last_order INT)\nRETURNS TABLE (subscriber_id INT, email VARCHAR, total_skipped INT, days_since_last_order INT, renewal_tier VARCHAR) AS $$\nBEGIN\nRETURN QUERY (\n    SELECT\n        sub.subscriber_id::INT,\n        sub.email::VARCHAR,\n        sh.total_skipped::INT,\n        (sub.next_renewal_date - o.order_date)::INT AS days_since_last_order,\n        sub.renewal_tier::VARCHAR\n    FROM subscribers AS sub\n    LEFT JOIN orders AS o\n    USING(subscriber_id)\n    LEFT JOIN (SELECT sh.subscriber_id, \n                      SUM(CASE WHEN sh.status = 'skipped' THEN 1 ELSE 0 END)  AS total_skipped\n                FROM shipments AS sh\n                GROUP BY 1) AS sh\n    USING(subscriber_id)\n    WHERE sh.total_skipped >= p_min_skipped_shipments AND (sub.next_renewal_date - o.order_date) > p_max_days_since_last_order\n    ORDER BY total_skipped DESC, days_since_last_order DESC\n\n    );\nEND;\n$$ LANGUAGE PLPGSQL;\n\nSELECT * FROM get_at_risk_subscribers(2, 30);\n\n\n\n",
+  "solved_at": "2026-06-17T14:43:23.708234"
+}

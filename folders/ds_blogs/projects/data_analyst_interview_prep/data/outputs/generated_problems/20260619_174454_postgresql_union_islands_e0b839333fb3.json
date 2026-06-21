@@ -1,0 +1,91 @@
+{
+  "title": "Consecutive Prescription Batch Number Ranges",
+  "prompt": "A pharmacy benefit manager (PBM) assigns sequential batch numbers to prescription submissions. Your task is to identify all ranges of consecutive batch numbers in the submissions table. Each range should show the starting and ending batch number. A range may be a single batch number (where start equals end) if that batch number has no consecutive neighbors. Output columns must be `start_batch` and `end_batch`. Order the results by `start_batch` ASC.",
+  "schema_ddl": "CREATE TABLE prescription_submissions (\n  batch_number INTEGER PRIMARY KEY,\n  submission_timestamp TIMESTAMP NOT NULL,\n  pharmacy_id VARCHAR(10) NOT NULL\n);",
+  "example_input_data": "INSERT INTO prescription_submissions (batch_number, submission_timestamp, pharmacy_id) VALUES\n(101, '2024-01-15 08:00:00', 'PH001'),\n(102, '2024-01-15 08:15:00', 'PH002'),\n(103, '2024-01-15 08:30:00', 'PH001'),\n(105, '2024-01-15 09:00:00', 'PH003'),\n(106, '2024-01-15 09:15:00', 'PH001'),\n(110, '2024-01-15 10:00:00', 'PH002');",
+  "example_output_columns": [
+    "start_batch",
+    "end_batch"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      103
+    ],
+    [
+      105,
+      106
+    ],
+    [
+      110,
+      110
+    ]
+  ],
+  "test_data": "INSERT INTO prescription_submissions (batch_number, submission_timestamp, pharmacy_id) VALUES\n(201, '2024-02-01 07:00:00', 'PH001'),\n(202, '2024-02-01 07:10:00', 'PH002'),\n(203, '2024-02-01 07:20:00', 'PH003'),\n(204, '2024-02-01 07:30:00', 'PH001'),\n(205, '2024-02-01 07:40:00', 'PH002'),\n(208, '2024-02-01 08:00:00', 'PH004'),\n(209, '2024-02-01 08:10:00', 'PH001'),\n(210, '2024-02-01 08:20:00', 'PH002'),\n(215, '2024-02-01 09:00:00', 'PH003'),\n(220, '2024-02-01 09:30:00', 'PH001'),\n(221, '2024-02-01 09:40:00', 'PH002'),\n(222, '2024-02-01 09:50:00', 'PH003'),\n(223, '2024-02-01 10:00:00', 'PH001'),\n(224, '2024-02-01 10:10:00', 'PH002'),\n(225, '2024-02-01 10:20:00', 'PH003'),\n(230, '2024-02-01 11:00:00', 'PH004'),\n(231, '2024-02-01 11:10:00', 'PH001'),\n(235, '2024-02-01 11:30:00', 'PH002'),\n(240, '2024-02-01 12:00:00', 'PH003'),\n(241, '2024-02-01 12:10:00', 'PH001'),\n(242, '2024-02-01 12:20:00', 'PH002'),\n(243, '2024-02-01 12:30:00', 'PH003'),\n(244, '2024-02-01 12:40:00', 'PH001');",
+  "test_expected_columns": [
+    "start_batch",
+    "end_batch"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      205
+    ],
+    [
+      208,
+      210
+    ],
+    [
+      215,
+      215
+    ],
+    [
+      220,
+      225
+    ],
+    [
+      230,
+      231
+    ],
+    [
+      235,
+      235
+    ],
+    [
+      240,
+      244
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "gaps-and-islands",
+    "composite_moves": [
+      "assign island group using batch_number - ROW_NUMBER() OVER (ORDER BY batch_number)",
+      "group by island identifier",
+      "aggregate MIN(batch_number) as start_batch, MAX(batch_number) as end_batch",
+      "order by start_batch"
+    ]
+  },
+  "hints": [
+    "Think about how consecutive integers can be grouped together using a calculated offset.",
+    "The difference between an integer and its position in a sorted sequence remains constant for consecutive values.",
+    "Use ROW_NUMBER() OVER (ORDER BY batch_number) and subtract it from batch_number to create an island identifier, then GROUP BY that identifier to find MIN and MAX batch numbers."
+  ],
+  "answer_key": "WITH numbered AS (\n  SELECT\n    batch_number,\n    batch_number - ROW_NUMBER() OVER (ORDER BY batch_number) AS grp\n  FROM prescription_submissions\n)\nSELECT\n  MIN(batch_number) AS start_batch,\n  MAX(batch_number) AS end_batch\nFROM numbered\nGROUP BY grp\nORDER BY start_batch;",
+  "_meta": {
+    "question_type": "union_islands",
+    "original_qtype": "union_islands",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-19T17:44:53.973666",
+    "problem_id": "e0b839333fb3",
+    "validation_attempts": 1,
+    "scenario": "a digital pharmacy tracking prescription submissions through PBM adjudication",
+    "dml_op": null,
+    "islands_flavor": "integer_seq",
+    "percentile_flavor": null,
+    "subtype": null
+  }
+}

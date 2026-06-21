@@ -1,0 +1,69 @@
+{
+  "problem": {
+    "title": "Calculate Driver Acceptance Rate by City",
+    "prompt": "A ride-share platform wants to analyze driver acceptance rates across different cities. Write a query that returns each city's name and acceptance rate (the percentage of ride requests that were accepted by a driver). Only include cities where at least 5 ride requests were made. The acceptance rate should be calculated as (number of accepted requests / total requests) * 100, rounded to 2 decimal places. Order results by acceptance_rate descending, then by city_name ascending. Note that some requests may have NULL in the driver_id column if no driver was ever assigned.",
+    "schema_ddl": "CREATE TABLE cities (city_id INT PRIMARY KEY, city_name VARCHAR(100)); CREATE TABLE ride_requests (request_id INT PRIMARY KEY, city_id INT, requested_at TIMESTAMP, status VARCHAR(20), driver_id INT);",
+    "example_input_data": "INSERT INTO cities (city_id, city_name) VALUES (1, 'Austin'), (2, 'Boston'), (3, 'Chicago'), (4, 'Denver'); INSERT INTO ride_requests (request_id, city_id, requested_at, status, driver_id) VALUES (101, 1, '2024-01-15 08:00:00', 'accepted', 501), (102, 1, '2024-01-15 09:30:00', 'accepted', 502), (103, 1, '2024-01-15 10:15:00', 'declined', NULL), (104, 1, '2024-01-15 11:00:00', 'accepted', 503), (105, 1, '2024-01-15 12:45:00', 'cancelled', NULL), (106, 1, '2024-01-15 14:20:00', 'accepted', 504), (107, 2, '2024-01-15 08:30:00', 'accepted', 505), (108, 2, '2024-01-15 09:00:00', 'declined', NULL), (109, 2, '2024-01-15 10:30:00', 'accepted', 506), (110, 3, '2024-01-15 07:00:00', 'accepted', 507);",
+    "example_output_columns": [
+      "city_name",
+      "acceptance_rate"
+    ],
+    "example_output_rows": [
+      [
+        "Austin",
+        "66.67"
+      ]
+    ],
+    "test_data": "INSERT INTO cities (city_id, city_name) VALUES (1, 'Austin'), (2, 'Boston'), (3, 'Chicago'), (4, 'Denver'), (5, 'El Paso'), (6, 'Fresno'); INSERT INTO ride_requests (request_id, city_id, requested_at, status, driver_id) VALUES (101, 1, '2024-01-15 08:00:00', 'accepted', 501), (102, 1, '2024-01-15 09:30:00', 'accepted', 502), (103, 1, '2024-01-15 10:15:00', 'declined', NULL), (104, 1, '2024-01-15 11:00:00', 'accepted', 503), (105, 1, '2024-01-15 12:45:00', 'cancelled', NULL), (106, 1, '2024-01-15 14:20:00', 'accepted', 504), (107, 1, '2024-01-15 15:00:00', 'declined', NULL), (108, 1, '2024-01-15 16:30:00', 'accepted', 505), (109, 2, '2024-01-15 08:30:00', 'accepted', 506), (110, 2, '2024-01-15 09:00:00', 'declined', NULL), (111, 2, '2024-01-15 10:30:00', 'accepted', 507), (112, 2, '2024-01-15 11:15:00', 'accepted', 508), (113, 2, '2024-01-15 12:00:00', 'declined', NULL), (114, 2, '2024-01-15 13:45:00', 'cancelled', NULL), (115, 3, '2024-01-15 07:00:00', 'accepted', 509), (116, 3, '2024-01-15 08:00:00', 'accepted', 510), (117, 3, '2024-01-15 09:00:00', 'accepted', 511), (118, 3, '2024-01-15 10:00:00', 'declined', NULL), (119, 4, '2024-01-15 08:00:00', 'accepted', 512), (120, 4, '2024-01-15 09:00:00', 'declined', NULL), (121, 4, '2024-01-15 10:00:00', 'declined', NULL), (122, 4, '2024-01-15 11:00:00', 'cancelled', NULL), (123, 5, '2024-01-15 08:00:00', 'accepted', 513), (124, 5, '2024-01-15 09:00:00', 'declined', NULL), (125, 5, '2024-01-15 10:00:00', 'accepted', 514), (126, 6, '2024-01-15 08:00:00', 'declined', NULL), (127, 6, '2024-01-15 09:00:00', 'declined', NULL), (128, 6, '2024-01-15 10:00:00', 'declined', NULL), (129, 6, '2024-01-15 11:00:00', 'cancelled', NULL);",
+    "test_expected_columns": [
+      "city_name",
+      "acceptance_rate"
+    ],
+    "test_expected_rows": [
+      [
+        "Austin",
+        "62.50"
+      ],
+      [
+        "Boston",
+        "50.00"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "enrich-join",
+      "composite_moves": [
+        "join cities to ride_requests",
+        "group by city with status aggregation",
+        "filter groups with HAVING count >= 5",
+        "calculate acceptance percentage",
+        "order by rate desc, name asc"
+      ]
+    },
+    "hints": [
+      "You'll need to join the tables and group by city to calculate statistics per city.",
+      "Use a HAVING clause to filter cities with at least 5 requests. Calculate the acceptance rate using SUM with a CASE expression to count accepted requests.",
+      "Join cities and ride_requests on city_id, then GROUP BY city_name. Use SUM(CASE WHEN status = 'accepted' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) for the rate, and HAVING COUNT(*) >= 5 to filter."
+    ],
+    "answer_key": "SELECT c.city_name, ROUND(SUM(CASE WHEN r.status = 'accepted' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS acceptance_rate FROM cities c JOIN ride_requests r ON c.city_id = r.city_id GROUP BY c.city_name HAVING COUNT(*) >= 5 ORDER BY acceptance_rate DESC, c.city_name ASC;",
+    "_meta": {
+      "question_type": "select_analytical",
+      "original_qtype": "random_any",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-20T13:05:12.415233",
+      "problem_id": "344ca193306c",
+      "validation_attempts": 1,
+      "scenario": "a ride share app tracking match rate from request to driver acceptance",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": null
+    }
+  },
+  "user_solution": "/*\nA ride-share platform wants to analyze driver acceptance rates across different cities.\nWrite a query that returns each city's name and acceptance rate (the percentage of ride requests that were accepted by a driver).\nOnly include cities where at least 5 ride requests were made.\nThe acceptance rate should be calculated as (number of accepted requests / total requests) * 100, rounded to 2 decimal places.\nOrder results by acceptance_rate descending, then by city_name ascending.\nNote that some requests may have NULL in the driver_id column if no driver was ever assigned.\n*/\n\n\nSELECT\n    c.city_name,\n    ROUND(AVG(CASE WHEN r.status = 'accepted' THEN 1.0 ELSE 0 END) * 100,2) AS acceptance_rate\nFROM ride_requests AS r\nJOIN cities AS c\n    ON r.city_id = c.city_id\nGROUP BY c.city_name\nHAVING COUNT(*) >= 5;\n\n\n\n\n\n\n",
+  "solved_at": "2026-06-20T13:17:42.580790"
+}

@@ -1,0 +1,121 @@
+{
+  "title": "Find Listings Never Purchased",
+  "prompt": "A P2P resale marketplace tracks listings and their sales. The `listings` table contains items posted for sale, and the `sales` table records completed purchases. Write a query to find all listings that have NEVER been sold. Return the listing ID, seller ID, and item name for these unsold listings. Note that the `sales` table may contain NULL values in the `listing_id` column for cancelled transactions. Order the results by `listing_id` ascending.",
+  "schema_ddl": "CREATE TABLE listings (listing_id INT PRIMARY KEY, seller_id INT NOT NULL, item_name VARCHAR(100) NOT NULL, asking_price DECIMAL(10,2) NOT NULL); CREATE TABLE sales (sale_id INT PRIMARY KEY, listing_id INT, buyer_id INT NOT NULL, sale_price DECIMAL(10,2) NOT NULL, sale_date DATE NOT NULL);",
+  "example_input_data": "INSERT INTO listings (listing_id, seller_id, item_name, asking_price) VALUES (101, 5, 'Vintage Camera', 150.00), (102, 5, 'Film Projector', 200.00), (103, 8, 'Guitar Pedal', 75.00), (104, 12, 'Vinyl Records Set', 120.00), (105, 8, 'Amplifier', 300.00), (106, 15, 'Microphone', 90.00); INSERT INTO sales (sale_id, listing_id, buyer_id, sale_price, sale_date) VALUES (1, 101, 20, 140.00, '2024-01-15'), (2, 103, 22, 75.00, '2024-01-18'), (3, NULL, 25, 50.00, '2024-01-20'), (4, 101, 28, 145.00, '2024-02-01');",
+  "example_output_columns": [
+    "listing_id",
+    "seller_id",
+    "item_name"
+  ],
+  "example_output_rows": [
+    [
+      102,
+      5,
+      "Film Projector"
+    ],
+    [
+      104,
+      12,
+      "Vinyl Records Set"
+    ],
+    [
+      105,
+      8,
+      "Amplifier"
+    ],
+    [
+      106,
+      15,
+      "Microphone"
+    ]
+  ],
+  "test_data": "INSERT INTO listings (listing_id, seller_id, item_name, asking_price) VALUES (201, 10, 'Keyboard', 180.00), (202, 10, 'MIDI Controller', 220.00), (203, 15, 'Studio Monitors', 400.00), (204, 18, 'Audio Interface', 250.00), (205, 15, 'Headphones', 100.00), (206, 22, 'Cable Set', 30.00), (207, 22, 'Power Supply', 45.00), (208, 25, 'Drum Machine', 350.00), (209, 28, 'Sampler', 500.00), (210, 28, 'Synthesizer', 600.00), (211, 30, 'Loop Station', 200.00), (212, 30, 'Tuner', 25.00), (213, 35, 'Metronome', 35.00), (214, 35, 'Music Stand', 40.00), (215, 38, 'Guitar Strap', 20.00), (216, 38, 'Picks Pack', 10.00), (217, 40, 'Capo', 15.00), (218, 40, 'String Set', 12.00); INSERT INTO sales (sale_id, listing_id, buyer_id, sale_price, sale_date) VALUES (10, 201, 50, 175.00, '2024-01-10'), (11, 203, 52, 380.00, '2024-01-12'), (12, NULL, 55, 100.00, '2024-01-14'), (13, 204, 58, 250.00, '2024-01-16'), (14, 201, 60, 180.00, '2024-01-18'), (15, 208, 62, 340.00, '2024-01-20'), (16, NULL, 65, 75.00, '2024-01-22'), (17, 210, 68, 580.00, '2024-01-24'), (18, 203, 70, 400.00, '2024-01-26'), (19, 212, 72, 25.00, '2024-01-28'), (20, NULL, 75, 50.00, '2024-01-30'), (21, 215, 78, 20.00, '2024-02-01'), (22, 217, 80, 15.00, '2024-02-03'), (23, 210, 82, 600.00, '2024-02-05');",
+  "test_expected_columns": [
+    "listing_id",
+    "seller_id",
+    "item_name"
+  ],
+  "test_expected_rows": [
+    [
+      202,
+      10,
+      "MIDI Controller"
+    ],
+    [
+      205,
+      15,
+      "Headphones"
+    ],
+    [
+      206,
+      22,
+      "Cable Set"
+    ],
+    [
+      207,
+      22,
+      "Power Supply"
+    ],
+    [
+      209,
+      28,
+      "Sampler"
+    ],
+    [
+      211,
+      30,
+      "Loop Station"
+    ],
+    [
+      213,
+      35,
+      "Metronome"
+    ],
+    [
+      214,
+      35,
+      "Music Stand"
+    ],
+    [
+      216,
+      38,
+      "Picks Pack"
+    ],
+    [
+      218,
+      40,
+      "String Set"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "row-filter",
+    "composite_moves": [
+      "anti-join filter (NOT EXISTS or LEFT JOIN WHERE right IS NULL)",
+      "ORDER BY"
+    ]
+  },
+  "hints": [
+    "You need to identify listings that don't appear in the sales table. Consider using an anti-join pattern.",
+    "Be careful with NULL values in the sales table's listing_id column. NOT IN might not work as expected if the subquery can return NULL.",
+    "Use NOT EXISTS with a correlated subquery, or LEFT JOIN the sales table and filter WHERE sales.listing_id IS NULL to safely handle NULLs."
+  ],
+  "answer_key": "SELECT l.listing_id, l.seller_id, l.item_name FROM listings l WHERE NOT EXISTS (SELECT 1 FROM sales s WHERE s.listing_id = l.listing_id) ORDER BY l.listing_id;",
+  "_meta": {
+    "question_type": "anti_join",
+    "original_qtype": "anti_join",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-19T16:29:52.852572",
+    "problem_id": "a13bdc8e3a00",
+    "validation_attempts": 1,
+    "scenario": "a P2P resale marketplace tracking listing-to-sale conversion",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "subtype": null
+  }
+}

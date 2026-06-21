@@ -1,0 +1,96 @@
+{
+  "title": "First and Last Session Mood Per User",
+  "prompt": "A mental health app tracks therapy sessions with mood ratings recorded at the end of each session. Write a query that shows each user's first session mood and last session mood across all their sessions. For each user, return their `user_id`, the mood from their earliest session (`first_mood`), and the mood from their most recent session (`last_mood`), ordered by chronological session time. The result should have one row per user. Handle users with only one session (where first and last mood are the same). Order the final output by `user_id` ascending.",
+  "schema_ddl": "CREATE TABLE therapy_sessions (\n  session_id SERIAL PRIMARY KEY,\n  user_id INTEGER NOT NULL,\n  session_date TIMESTAMP NOT NULL,\n  mood_rating VARCHAR(20) NOT NULL\n);",
+  "example_input_data": "INSERT INTO therapy_sessions (session_id, user_id, session_date, mood_rating) VALUES\n(1, 101, '2024-01-05 10:00:00', 'anxious'),\n(2, 101, '2024-01-12 10:00:00', 'calm'),\n(3, 101, '2024-01-19 10:00:00', 'hopeful'),\n(4, 102, '2024-01-08 14:00:00', 'stressed'),\n(5, 102, '2024-01-15 14:00:00', 'neutral'),\n(6, 103, '2024-01-10 09:00:00', 'content');",
+  "example_output_columns": [
+    "user_id",
+    "first_mood",
+    "last_mood"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "anxious",
+      "hopeful"
+    ],
+    [
+      102,
+      "stressed",
+      "neutral"
+    ],
+    [
+      103,
+      "content",
+      "content"
+    ]
+  ],
+  "test_data": "INSERT INTO therapy_sessions (session_id, user_id, session_date, mood_rating) VALUES\n(101, 201, '2024-02-01 08:00:00', 'depressed'),\n(102, 201, '2024-02-03 08:00:00', 'anxious'),\n(103, 201, '2024-02-05 08:00:00', 'calm'),\n(104, 201, '2024-02-07 08:00:00', 'hopeful'),\n(105, 201, '2024-02-09 08:00:00', 'optimistic'),\n(106, 202, '2024-02-02 11:00:00', 'stressed'),\n(107, 202, '2024-02-04 11:00:00', 'overwhelmed'),\n(108, 202, '2024-02-06 11:00:00', 'neutral'),\n(109, 202, '2024-02-08 11:00:00', 'calm'),\n(110, 203, '2024-02-01 15:00:00', 'hopeful'),\n(111, 203, '2024-02-10 15:00:00', 'content'),\n(112, 204, '2024-02-05 10:00:00', 'anxious'),\n(113, 205, '2024-02-03 13:00:00', 'stressed'),\n(114, 205, '2024-02-07 13:00:00', 'anxious'),\n(115, 205, '2024-02-09 13:00:00', 'calm'),\n(116, 205, '2024-02-11 13:00:00', 'hopeful'),\n(117, 205, '2024-02-13 13:00:00', 'optimistic'),\n(118, 205, '2024-02-15 13:00:00', 'content'),\n(119, 206, '2024-02-01 16:00:00', 'neutral'),\n(120, 206, '2024-02-14 16:00:00', 'hopeful');",
+  "test_expected_columns": [
+    "user_id",
+    "first_mood",
+    "last_mood"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "depressed",
+      "optimistic"
+    ],
+    [
+      202,
+      "stressed",
+      "calm"
+    ],
+    [
+      203,
+      "hopeful",
+      "content"
+    ],
+    [
+      204,
+      "anxious",
+      "anxious"
+    ],
+    [
+      205,
+      "stressed",
+      "content"
+    ],
+    [
+      206,
+      "neutral",
+      "hopeful"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "rank-partition",
+    "composite_moves": [
+      "window: FIRST_VALUE and LAST_VALUE OVER (PARTITION BY user_id ORDER BY session_date ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)",
+      "deduplicate partitions: DISTINCT or row-level filter to get one row per user_id"
+    ]
+  },
+  "hints": [
+    "You need to find the mood from the earliest and latest session for each user separately.",
+    "Window functions FIRST_VALUE and LAST_VALUE can retrieve values at partition boundaries when ordered by session_date.",
+    "LAST_VALUE requires a frame specification `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING` to see the partition's true last row, not just the current row."
+  ],
+  "answer_key": "SELECT DISTINCT\n  user_id,\n  FIRST_VALUE(mood_rating) OVER (PARTITION BY user_id ORDER BY session_date) AS first_mood,\n  LAST_VALUE(mood_rating) OVER (PARTITION BY user_id ORDER BY session_date ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_mood\nFROM therapy_sessions\nORDER BY user_id;",
+  "_meta": {
+    "question_type": "window_first_last",
+    "original_qtype": "window_first_last",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "health_wellness",
+    "generated_at": "2026-06-18T16:12:17.896286",
+    "problem_id": "7a8464c06fc7",
+    "validation_attempts": 1,
+    "scenario": "a mental health app tracking session completion and journal entries",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "subtype": null
+  }
+}

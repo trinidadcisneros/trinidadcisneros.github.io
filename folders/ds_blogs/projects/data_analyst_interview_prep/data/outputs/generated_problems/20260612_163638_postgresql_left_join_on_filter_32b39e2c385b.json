@@ -1,0 +1,107 @@
+{
+  "title": "Customer Order Counts by Year with LEFT JOIN Filter Placement",
+  "prompt": "A food delivery service wants to see how many orders each customer placed in 2024. Write a query that returns every customer in the system, showing their full name and the count of completed orders they placed in 2024. Customers who placed no completed orders in 2024 (either because they have no orders at all, or because all their orders were in other years, or because none were completed) should still appear in the result with a count of 0. The output should have columns `customer_name` and `order_count_2024`, ordered by `customer_name` alphabetically. An order is in scope for 2024 if its `order_date` is between '2024-01-01' (inclusive) and '2025-01-01' (exclusive), and its `status` is 'completed'. The challenge here is ensuring that the date and status filters do not eliminate customers from the output\u2014every customer must be present.",
+  "schema_ddl": "CREATE TABLE customers (customer_id INT PRIMARY KEY, customer_name VARCHAR(100) NOT NULL); CREATE TABLE orders (order_id INT PRIMARY KEY, customer_id INT, order_date DATE NOT NULL, status VARCHAR(20) NOT NULL, total_amount DECIMAL(10,2));",
+  "example_input_data": "INSERT INTO customers (customer_id, customer_name) VALUES (1, 'Alice Chen'), (2, 'Bob Martinez'), (3, 'Carla Singh'), (4, 'David Lee'); INSERT INTO orders (order_id, customer_id, order_date, status, total_amount) VALUES (101, 1, '2024-03-15', 'completed', 42.50), (102, 1, '2024-05-20', 'completed', 38.00), (103, 1, '2024-07-10', 'cancelled', 25.00), (104, 2, '2023-11-05', 'completed', 55.00), (105, 2, '2023-12-20', 'completed', 60.00), (106, 3, '2024-02-14', 'pending', 30.00), (107, 3, '2024-06-18', 'completed', 45.00);",
+  "example_output_columns": [
+    "customer_name",
+    "order_count_2024"
+  ],
+  "example_output_rows": [
+    [
+      "Alice Chen",
+      2
+    ],
+    [
+      "Bob Martinez",
+      0
+    ],
+    [
+      "Carla Singh",
+      1
+    ],
+    [
+      "David Lee",
+      0
+    ]
+  ],
+  "test_data": "INSERT INTO customers (customer_id, customer_name) VALUES (1, 'Alice Chen'), (2, 'Bob Martinez'), (3, 'Carla Singh'), (4, 'David Lee'), (5, 'Emma Wilson'), (6, 'Frank Torres'), (7, 'Grace Kim'), (8, 'Henry Park'), (9, 'Iris Johnson'), (10, 'Jack Brown'); INSERT INTO orders (order_id, customer_id, order_date, status, total_amount) VALUES (101, 1, '2024-03-15', 'completed', 42.50), (102, 1, '2024-05-20', 'completed', 38.00), (103, 1, '2024-07-10', 'cancelled', 25.00), (104, 1, '2024-09-05', 'completed', 50.00), (105, 2, '2023-11-05', 'completed', 55.00), (106, 2, '2023-12-20', 'completed', 60.00), (107, 2, '2023-08-15', 'completed', 40.00), (108, 3, '2024-02-14', 'pending', 30.00), (109, 3, '2024-06-18', 'completed', 45.00), (110, 3, '2024-08-22', 'cancelled', 35.00), (111, 5, '2024-01-01', 'completed', 28.00), (112, 5, '2024-01-15', 'completed', 32.00), (113, 5, '2024-11-30', 'completed', 48.00), (114, 6, '2024-04-10', 'pending', 22.00), (115, 6, '2024-05-05', 'pending', 27.00), (116, 7, '2023-06-10', 'completed', 65.00), (117, 7, '2023-09-20', 'completed', 70.00), (118, 7, '2024-03-01', 'cancelled', 33.00), (119, 8, '2024-02-28', 'completed', 41.00), (120, 8, '2024-07-14', 'completed', 39.00), (121, 8, '2024-10-20', 'completed', 44.00), (122, 8, '2024-12-01', 'completed', 52.00), (123, 9, '2025-01-05', 'completed', 36.00), (124, 9, '2025-02-10', 'completed', 29.00), (125, 1, '2024-12-31', 'completed', 47.00);",
+  "test_expected_columns": [
+    "customer_name",
+    "order_count_2024"
+  ],
+  "test_expected_rows": [
+    [
+      "Alice Chen",
+      4
+    ],
+    [
+      "Bob Martinez",
+      0
+    ],
+    [
+      "Carla Singh",
+      1
+    ],
+    [
+      "David Lee",
+      0
+    ],
+    [
+      "Emma Wilson",
+      3
+    ],
+    [
+      "Frank Torres",
+      0
+    ],
+    [
+      "Grace Kim",
+      0
+    ],
+    [
+      "Henry Park",
+      4
+    ],
+    [
+      "Iris Johnson",
+      0
+    ],
+    [
+      "Jack Brown",
+      0
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "LEFT JOIN customers to orders",
+      "place right-side filters (order_date window AND status='completed') in ON clause to preserve unmatched left rows",
+      "GROUP BY customer",
+      "COUNT(order_id) to get 0 for customers with no matching orders (avoid COUNT(*))",
+      "ORDER BY customer_name"
+    ]
+  },
+  "hints": [
+    "Think carefully about where you place the date and status filters\u2014should they be in the ON clause or the WHERE clause?",
+    "A LEFT JOIN with conditions on the right table in the WHERE clause will drop rows from the left table that don't match, effectively turning it into an INNER JOIN. To keep all customers, move those conditions into the ON clause.",
+    "Use `LEFT JOIN orders o ON o.customer_id = c.customer_id AND o.order_date >= DATE '2024-01-01' AND o.order_date < DATE '2025-01-01' AND o.status = 'completed'` then GROUP BY customer and COUNT(o.order_id) to get 0 for non-matching customers."
+  ],
+  "answer_key": "SELECT c.customer_name, COUNT(o.order_id) AS order_count_2024 FROM customers c LEFT JOIN orders o ON o.customer_id = c.customer_id AND o.order_date >= DATE '2024-01-01' AND o.order_date < DATE '2025-01-01' AND o.status = 'completed' GROUP BY c.customer_id, c.customer_name ORDER BY c.customer_name;",
+  "_meta": {
+    "question_type": "left_join_on_filter",
+    "original_qtype": "left_join_on_filter",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-12T16:36:38.621952",
+    "problem_id": "32b39e2c385b",
+    "validation_attempts": 1,
+    "scenario": "a food delivery service tracking order completion and delivery time",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

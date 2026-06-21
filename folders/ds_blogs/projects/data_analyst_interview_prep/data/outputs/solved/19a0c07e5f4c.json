@@ -1,0 +1,72 @@
+{
+  "problem": {
+    "title": "Identify Binge-Watching Members with 5-Day Streaks",
+    "prompt": "Your video streaming service wants to find members who have demonstrated sustained engagement by watching content on at least 5 consecutive days. Write a query that returns the `member_id` and `member_name` of all members who have watched content on 5 or more consecutive calendar days at any point in their history. The `watch_sessions` table may contain duplicate rows for the same `(member_id, watch_date)` because a member can have multiple watch sessions on the same day. Return only the columns `member_id` and `member_name`, ordered by `member_id` ascending. A member should appear in the output at most once, even if they have multiple qualifying streaks.",
+    "schema_ddl": "CREATE TABLE members (member_id INT PRIMARY KEY, member_name VARCHAR(100)); CREATE TABLE watch_sessions (session_id INT PRIMARY KEY, member_id INT, watch_date DATE);",
+    "example_input_data": "INSERT INTO members (member_id, member_name) VALUES (1, 'Alice Chen'), (2, 'Bob Martinez'), (3, 'Carol White'); INSERT INTO watch_sessions (session_id, member_id, watch_date) VALUES (1, 1, '2024-01-10'), (2, 1, '2024-01-11'), (3, 1, '2024-01-12'), (4, 1, '2024-01-13'), (5, 1, '2024-01-14'), (6, 2, '2024-01-05'), (7, 2, '2024-01-07'), (8, 3, '2024-01-20');",
+    "example_output_columns": [
+      "member_id",
+      "member_name"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "Alice Chen"
+      ]
+    ],
+    "test_data": "INSERT INTO members (member_id, member_name) VALUES (1, 'Alice Chen'), (2, 'Bob Martinez'), (3, 'Carol White'), (4, 'Diana Ross'), (5, 'Evan Lee'), (6, 'Fiona Green'); INSERT INTO watch_sessions (session_id, member_id, watch_date) VALUES (1, 1, '2024-01-10'), (2, 1, '2024-01-11'), (3, 1, '2024-01-12'), (4, 1, '2024-01-13'), (5, 1, '2024-01-14'), (6, 1, '2024-01-15'), (7, 1, '2024-01-16'), (8, 2, '2024-01-05'), (9, 2, '2024-01-07'), (10, 2, '2024-01-09'), (11, 2, '2024-01-11'), (12, 3, '2024-01-20'), (13, 3, '2024-01-22'), (14, 3, '2024-01-25'), (15, 4, '2024-02-01'), (16, 4, '2024-02-02'), (17, 4, '2024-02-03'), (18, 4, '2024-02-04'), (19, 4, '2024-02-05'), (20, 4, '2024-02-20'), (21, 4, '2024-02-21'), (22, 4, '2024-02-22'), (23, 4, '2024-02-23'), (24, 4, '2024-02-24'), (25, 4, '2024-02-25'), (26, 5, '2024-03-01'), (27, 5, '2024-03-01'), (28, 5, '2024-03-02'), (29, 5, '2024-03-03'), (30, 5, '2024-03-04'), (31, 5, '2024-03-05'), (32, 5, '2024-03-06'), (33, 6, '2024-04-10'), (34, 6, '2024-04-11'), (35, 6, '2024-04-13');",
+    "test_expected_columns": [
+      "member_id",
+      "member_name"
+    ],
+    "test_expected_rows": [
+      [
+        1,
+        "Alice Chen"
+      ],
+      [
+        4,
+        "Diana Ross"
+      ],
+      [
+        5,
+        "Evan Lee"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "gaps-and-islands",
+      "composite_moves": [
+        "dedupe: SELECT DISTINCT member_id, watch_date FROM watch_sessions to collapse duplicate same-day sessions",
+        "date_groups: Apply ROW_NUMBER() OVER (PARTITION BY member_id ORDER BY watch_date) and subtract from watch_date to create grp identifier",
+        "streaks: GROUP BY member_id, grp and HAVING COUNT(*) >= 5 to find qualifying streaks",
+        "membership: JOIN members to streaks using EXISTS or IN to select entities with at least one qualifying streak",
+        "final: ORDER BY member_id ASC"
+      ]
+    },
+    "hints": [
+      "Members can watch multiple times on the same day; you'll need to consider each unique date only once per member.",
+      "Use the ROW_NUMBER window function partitioned by member to identify consecutive date sequences, then subtract the row number from the date to create a grouping key.",
+      "After grouping by member and the computed grouping key, filter for groups with at least 5 dates, then join back to the members table to get names."
+    ],
+    "answer_key": "WITH base AS (SELECT DISTINCT member_id, watch_date FROM watch_sessions), date_groups AS (SELECT member_id, watch_date, watch_date - ROW_NUMBER() OVER (PARTITION BY member_id ORDER BY watch_date)::int AS grp FROM base), streaks AS (SELECT member_id FROM date_groups GROUP BY member_id, grp HAVING COUNT(*) >= 5) SELECT m.member_id, m.member_name FROM members m WHERE EXISTS (SELECT 1 FROM streaks s WHERE s.member_id = m.member_id) ORDER BY m.member_id;",
+    "_meta": {
+      "question_type": "union_islands",
+      "original_qtype": "union_islands",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-19T19:28:46.918878",
+      "problem_id": "19a0c07e5f4c",
+      "validation_attempts": 1,
+      "scenario": "a streaming video service tracking watch time and binge depth",
+      "dml_op": null,
+      "islands_flavor": "consecutive_day_streak_per_entity",
+      "percentile_flavor": null,
+      "subtype": null
+    }
+  },
+  "user_solution": "/*\n1. COLLAPSE watch_sessions TO DISTINCT DAYS\n2. ADD DATE GROUP\n3. COUNT THOSE HAVING AT LEAST 5 AND ALSO JOIN MEMBERS\n*/\nSELECT\n    member_id, member_name\nFROM (\n    SELECT\n        member_id,\n        member_name,\n        watch_date,\n        ROW_NUMBER() OVER(ORDER BY watch_date)\n        - ROW_NUMBER() OVER(PARTITION BY member_id, member_name ORDER BY watch_date) AS grp\n    FROM(\n        SELECT\n            DISTINCT ON (w.watch_date)\n            m.member_id,\n            m.member_name,\n            w.watch_date\n        FROM members AS m\n        JOIN watch_sessions AS w\n        USING(member_id)\n        ORDER BY w.watch_date\n    )\n)\nGROUP BY member_id, member_name\nHAVING COUNT(*) >=5\nORDER BY 1\n;\n\n\n",
+  "solved_at": "2026-06-19T19:47:14.857671"
+}

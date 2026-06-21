@@ -1,0 +1,128 @@
+{
+  "title": "Approved Provider Lowest-Rate Selection",
+  "prompt": "A telehealth platform tracks provider profiles (table `providers`) and their service offerings (table `service_rates`). Each provider has an `approval_status` ('approved', 'pending', 'suspended'). Each provider may offer multiple services at different hourly rates. Write a query that returns one row per provider showing their `provider_id`, `provider_name`, and `lowest_rate` (the minimum `hourly_rate` among their services). However, only include the actual lowest rate if the provider's `approval_status` is 'approved'; otherwise output `0` as the `lowest_rate`. Every provider must appear in the result. Order the output by `provider_id` ascending.",
+  "schema_ddl": "CREATE TABLE providers (provider_id INT PRIMARY KEY, provider_name VARCHAR(100), approval_status VARCHAR(20)); CREATE TABLE service_rates (rate_id INT PRIMARY KEY, provider_id INT, service_name VARCHAR(100), hourly_rate DECIMAL(6,2));",
+  "example_input_data": "INSERT INTO providers (provider_id, provider_name, approval_status) VALUES (1, 'Dr. Alice Chen', 'approved'), (2, 'Dr. Bob Martinez', 'pending'), (3, 'Dr. Carol Singh', 'approved'), (4, 'Dr. Dan Lee', 'suspended'); INSERT INTO service_rates (rate_id, provider_id, service_name, hourly_rate) VALUES (101, 1, 'General Consultation', 120.00), (102, 1, 'Follow-up Visit', 80.00), (103, 2, 'General Consultation', 110.00), (104, 2, 'Specialist Consult', 150.00), (105, 3, 'General Consultation', 95.00), (106, 4, 'General Consultation', 100.00), (107, 4, 'Follow-up Visit', 70.00);",
+  "example_output_columns": [
+    "provider_id",
+    "provider_name",
+    "lowest_rate"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Dr. Alice Chen",
+      "80.00"
+    ],
+    [
+      2,
+      "Dr. Bob Martinez",
+      "0"
+    ],
+    [
+      3,
+      "Dr. Carol Singh",
+      "95.00"
+    ],
+    [
+      4,
+      "Dr. Dan Lee",
+      "0"
+    ]
+  ],
+  "test_data": "INSERT INTO providers (provider_id, provider_name, approval_status) VALUES (10, 'Dr. Emma Watson', 'approved'), (11, 'Dr. Frank Zhao', 'approved'), (12, 'Dr. Grace Park', 'pending'), (13, 'Dr. Henry Kim', 'suspended'), (14, 'Dr. Iris Jones', 'approved'), (15, 'Dr. Jack Brown', 'pending'), (16, 'Dr. Kate Wilson', 'approved'), (17, 'Dr. Leo Garcia', 'suspended'), (18, 'Dr. Maya Patel', 'approved'), (19, 'Dr. Nina Clark', 'approved'), (20, 'Dr. Oscar Rivera', 'pending'); INSERT INTO service_rates (rate_id, provider_id, service_name, hourly_rate) VALUES (201, 10, 'General Consultation', 130.00), (202, 10, 'Follow-up Visit', 85.00), (203, 10, 'Specialist Consult', 180.00), (204, 11, 'General Consultation', 105.00), (205, 12, 'General Consultation', 115.00), (206, 12, 'Follow-up Visit', 75.00), (207, 12, 'Mental Health Session', 140.00), (208, 13, 'General Consultation', 90.00), (209, 14, 'Pediatric Consult', 125.00), (210, 15, 'General Consultation', 98.00), (211, 15, 'Follow-up Visit', 65.00), (212, 16, 'General Consultation', 110.00), (213, 16, 'Specialist Consult', 160.00), (214, 16, 'Follow-up Visit', 80.00), (215, 16, 'Mental Health Session', 135.00), (216, 17, 'General Consultation', 100.00), (217, 17, 'Follow-up Visit', 60.00), (218, 18, 'General Consultation', 122.00), (219, 18, 'Follow-up Visit', 88.00), (220, 18, 'Specialist Consult', 175.00), (221, 18, 'Mental Health Session', 145.00), (222, 19, 'General Consultation', 108.00), (223, 20, 'General Consultation', 112.00), (224, 20, 'Follow-up Visit', 72.00);",
+  "test_expected_columns": [
+    "provider_id",
+    "provider_name",
+    "lowest_rate"
+  ],
+  "test_expected_rows": [
+    [
+      10,
+      "Dr. Emma Watson",
+      "85.00"
+    ],
+    [
+      11,
+      "Dr. Frank Zhao",
+      "105.00"
+    ],
+    [
+      12,
+      "Dr. Grace Park",
+      "0"
+    ],
+    [
+      13,
+      "Dr. Henry Kim",
+      "0"
+    ],
+    [
+      14,
+      "Dr. Iris Jones",
+      "125.00"
+    ],
+    [
+      15,
+      "Dr. Jack Brown",
+      "0"
+    ],
+    [
+      16,
+      "Dr. Kate Wilson",
+      "80.00"
+    ],
+    [
+      17,
+      "Dr. Leo Garcia",
+      "0"
+    ],
+    [
+      18,
+      "Dr. Maya Patel",
+      "88.00"
+    ],
+    [
+      19,
+      "Dr. Nina Clark",
+      "108.00"
+    ],
+    [
+      20,
+      "Dr. Oscar Rivera",
+      "0"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "same_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "lookup gate attribute (approval_status) from providers",
+      "per-entity pick: identify minimum hourly_rate per provider_id using ROW_NUMBER() OVER (PARTITION BY provider_id ORDER BY hourly_rate ASC)",
+      "gate with CASE: if approval_status = 'approved' then use picked rate, else 0"
+    ]
+  },
+  "hints": [
+    "You need to combine information from both tables to determine which rate to show for each provider.",
+    "Use a window function to identify the lowest rate per provider, then join that result with the provider status table.",
+    "A CASE expression can output the actual lowest rate when the status is 'approved' and 0 otherwise. Use ROW_NUMBER() OVER (PARTITION BY provider_id ORDER BY hourly_rate) to pick the minimum rate row per provider."
+  ],
+  "answer_key": "WITH ranked_rates AS (SELECT provider_id, hourly_rate, ROW_NUMBER() OVER (PARTITION BY provider_id ORDER BY hourly_rate ASC) AS rn FROM service_rates) SELECT p.provider_id, p.provider_name, CASE WHEN p.approval_status = 'approved' THEN COALESCE(r.hourly_rate, 0) ELSE 0 END AS lowest_rate FROM providers p LEFT JOIN ranked_rates r ON p.provider_id = r.provider_id AND r.rn = 1 ORDER BY p.provider_id ASC;",
+  "_meta": {
+    "question_type": "gated_lookup",
+    "original_qtype": "random_any",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-20T13:28:06.036767",
+    "problem_id": "9d4a287d2daf",
+    "validation_attempts": 1,
+    "scenario": "a telehealth visit completion funnel from booking to provider sign-off",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "rownumber_pick"
+  }
+}

@@ -1,0 +1,149 @@
+{
+  "title": "Portfolio Rebalancing: Qualified AUM Lowest Fee",
+  "prompt": "A robo-advisor tracks client portfolios and available rebalancing trade routes. Table `portfolios` records each client's account; each row has a `risk_score` (integer 1\u201310) indicating the client's risk tolerance. Table `rebalancing_quotes` lists potential rebalancing trades: multiple rows per `portfolio_id`, each with a `fee_bps` (basis points charged for that trade route) and `route_name`. Your task: for each portfolio with `risk_score >= 7`, find the trade route with the LOWEST `fee_bps`; for portfolios with `risk_score < 7`, output `NULL` for both the route name and fee. Return columns `portfolio_id`, `route_name`, `fee_bps` ordered by `portfolio_id` ascending. Every portfolio must appear in the output exactly once. Example input shows portfolio P001 (risk_score 8) has three quotes; the cheapest is 12 bps. Portfolio P003 (risk_score 5) fails the gate so both columns are NULL.",
+  "schema_ddl": "CREATE TABLE portfolios (portfolio_id VARCHAR(10) PRIMARY KEY, client_name VARCHAR(50) NOT NULL, risk_score INT NOT NULL); CREATE TABLE rebalancing_quotes (quote_id SERIAL PRIMARY KEY, portfolio_id VARCHAR(10) NOT NULL, route_name VARCHAR(50) NOT NULL, fee_bps DECIMAL(6,2) NOT NULL);",
+  "example_input_data": "INSERT INTO portfolios (portfolio_id, client_name, risk_score) VALUES ('P001', 'Alice Chen', 8), ('P002', 'Bob Martinez', 9), ('P003', 'Carol Lee', 5), ('P004', 'Diana Kim', 7); INSERT INTO rebalancing_quotes (portfolio_id, route_name, fee_bps) VALUES ('P001', 'Route_A', 15.00), ('P001', 'Route_B', 12.00), ('P001', 'Route_C', 18.50), ('P002', 'Route_D', 9.75), ('P002', 'Route_E', 11.00), ('P003', 'Route_F', 8.00), ('P004', 'Route_G', 14.25);",
+  "example_output_columns": [
+    "portfolio_id",
+    "route_name",
+    "fee_bps"
+  ],
+  "example_output_rows": [
+    [
+      "P001",
+      "Route_B",
+      "12.00"
+    ],
+    [
+      "P002",
+      "Route_D",
+      "9.75"
+    ],
+    [
+      "P003",
+      null,
+      null
+    ],
+    [
+      "P004",
+      "Route_G",
+      "14.25"
+    ]
+  ],
+  "test_data": "INSERT INTO portfolios (portfolio_id, client_name, risk_score) VALUES ('P101', 'Eve Thompson', 10), ('P102', 'Frank Wu', 6), ('P103', 'Grace Patel', 7), ('P104', 'Henry Jones', 4), ('P105', 'Iris Nguyen', 8), ('P106', 'Jack Smith', 9), ('P107', 'Karen Brown', 3), ('P108', 'Leo Garcia', 7), ('P109', 'Mia Davis', 5), ('P110', 'Noah Wilson', 8), ('P111', 'Olivia Moore', 1), ('P112', 'Paul Taylor', 10), ('P113', 'Quinn Anderson', 6), ('P114', 'Rachel Thomas', 9), ('P115', 'Sam Jackson', 7); INSERT INTO rebalancing_quotes (portfolio_id, route_name, fee_bps) VALUES ('P101', 'Route_Alpha', 10.50), ('P101', 'Route_Beta', 8.25), ('P101', 'Route_Gamma', 12.00), ('P101', 'Route_Delta', 9.00), ('P102', 'Route_Epsilon', 7.50), ('P102', 'Route_Zeta', 6.75), ('P103', 'Route_Eta', 11.50), ('P103', 'Route_Theta', 13.00), ('P103', 'Route_Iota', 10.00), ('P105', 'Route_Kappa', 15.25), ('P105', 'Route_Lambda', 14.00), ('P105', 'Route_Mu', 14.00), ('P106', 'Route_Nu', 5.50), ('P106', 'Route_Xi', 6.00), ('P108', 'Route_Omicron', 16.75), ('P110', 'Route_Pi', 9.50), ('P110', 'Route_Rho', 9.50), ('P110', 'Route_Sigma', 10.25), ('P112', 'Route_Tau', 7.00), ('P112', 'Route_Upsilon', 7.00), ('P112', 'Route_Phi', 8.50), ('P114', 'Route_Chi', 12.75), ('P114', 'Route_Psi', 11.00), ('P115', 'Route_Omega', 13.50);",
+  "test_expected_columns": [
+    "portfolio_id",
+    "route_name",
+    "fee_bps"
+  ],
+  "test_expected_rows": [
+    [
+      "P101",
+      "Route_Beta",
+      "8.25"
+    ],
+    [
+      "P102",
+      null,
+      null
+    ],
+    [
+      "P103",
+      "Route_Iota",
+      "10.00"
+    ],
+    [
+      "P104",
+      null,
+      null
+    ],
+    [
+      "P105",
+      "Route_Lambda",
+      "14.00"
+    ],
+    [
+      "P106",
+      "Route_Nu",
+      "5.50"
+    ],
+    [
+      "P107",
+      null,
+      null
+    ],
+    [
+      "P108",
+      "Route_Omicron",
+      "16.75"
+    ],
+    [
+      "P109",
+      null,
+      null
+    ],
+    [
+      "P110",
+      "Route_Pi",
+      "9.50"
+    ],
+    [
+      "P111",
+      null,
+      null
+    ],
+    [
+      "P112",
+      "Route_Tau",
+      "7.00"
+    ],
+    [
+      "P113",
+      null,
+      null
+    ],
+    [
+      "P114",
+      "Route_Psi",
+      "11.00"
+    ],
+    [
+      "P115",
+      "Route_Omega",
+      "13.50"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "same_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "LEFT JOIN portfolios to rebalancing_quotes with risk_score >= 7 gate in ON clause",
+      "Per portfolio MIN(fee_bps) aggregation",
+      "Pick arbitrary route_name among tied MIN fee rows using MIN(route_name) or DISTINCT ON",
+      "Output every portfolio with NULL fallback for non-qualifiers"
+    ]
+  },
+  "hints": [
+    "Start by identifying which portfolios meet the risk threshold and have available quotes.",
+    "For each qualifying portfolio, use an aggregate function to find the minimum fee across all its quotes; you will need a GROUP BY on portfolio_id.",
+    "A LEFT JOIN with the gate condition in the ON clause will keep all portfolios in the result while applying NULL to those that don't qualify; then aggregate to pick the cheapest route."
+  ],
+  "answer_key": "WITH qualified_routes AS (\n  SELECT \n    rq.portfolio_id,\n    rq.route_name,\n    rq.fee_bps,\n    ROW_NUMBER() OVER (PARTITION BY rq.portfolio_id ORDER BY rq.fee_bps, rq.route_name) AS rn\n  FROM rebalancing_quotes rq\n  JOIN portfolios p ON rq.portfolio_id = p.portfolio_id AND p.risk_score >= 7\n)\nSELECT \n  p.portfolio_id,\n  qr.route_name,\n  qr.fee_bps\nFROM portfolios p\nLEFT JOIN qualified_routes qr ON p.portfolio_id = qr.portfolio_id AND qr.rn = 1\nORDER BY p.portfolio_id;",
+  "_meta": {
+    "question_type": "gated_lookup",
+    "original_qtype": "gated_lookup",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-20T14:26:45.513442",
+    "problem_id": "d670fc1366a0",
+    "validation_attempts": 1,
+    "scenario": "a robo advisor tracking portfolio rebalancing and AUM growth",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "gate_on"
+  }
+}

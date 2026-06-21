@@ -1,0 +1,133 @@
+{
+  "title": "Schema Design: Match Completion Fact Table",
+  "scenario": "A battle royale mobile game tracks match outcomes and squad invite responses. The analytics team needs a fact table to power a daily ops dashboard showing completion rate, invite conversion, and match duration by game mode, region, and player tier.",
+  "prompt": "STAKEHOLDER CONTEXT\n\nYou met with the product analytics team. The fact table you're designing will populate a daily dashboard. The dashboard needs:\n\n- Match Completion Rate: count of matches with match_end event divided by count of matches with match_start event, by game_mode\n- Invite Conversion Rate: count of invites with invite_accepted event divided by count of invites with invite_sent event, by player_tier\n- Median Match Duration: median of (match_end_ts minus match_start_ts) in seconds, by region\n- Squad Fill Rate: count of matches with full_squad=true divided by count of matches with at least one squad_invite_sent event, by game_mode\n\nVOLUME AND UPDATE FREQUENCY\n\n- Daily source volume: ~2.5M events per day (match lifecycle events plus invite events)\n- Dashboard freshness need: every 15 minutes\n- Total fact rows after 1 year: ~180M rows (one row per match_id, ~500K matches/day)\n\nWHAT YOU HAVE IN SOURCE\n\n- Source event table: `match_events` at event grain (one row per state change). See schema below.\n- dim_player: player_id (PK), account_tier (bronze/silver/gold/platinum), signup_date, region\n- dim_game_mode: game_mode_id (PK), mode_name (solo/duo/squad), max_players, map_size\n- dim_region: region_id (PK), region_name, server_cluster, timezone\n- dim_date: date_id (PK), calendar_date, week_start_date, month_start_date, is_weekend\n- dim_season: season_id (PK), season_name, start_date, end_date, battle_pass_tier_count\n\nYOUR TASK\n\nDesign the FACT TABLE that the dashboard reads from. Dims are already built \u2014 you specify how to JOIN them and what SCD type each is. Use the response form in section 2 to record your design choices.",
+  "instructions": "Fill out each form field in section 2 (the schema design response form). Dropdowns are used where the answer set is finite (SCD types, idempotency strategies, late-arriving handling); text fields for grain, fact columns, and rationale. Expected length: 200-400 words across all fields combined. Click Get Schema Design Feedback to grade.",
+  "expected_themes": [
+    "grain (one row per match_id)",
+    "fact-dim split",
+    "SCD Type 1 for dim_game_mode",
+    "SCD Type 2 for dim_player (tier changes)",
+    "surrogate key for dim_player",
+    "dbt staging vs marts",
+    "conformed dim_date",
+    "idempotency under duplicate events",
+    "late-arriving match_end events",
+    "dbt tests (unique match_id, not_null match_start_ts)",
+    "incremental materialization",
+    "junk dim for match abandon reason"
+  ],
+  "reference_answer": "## Grain\n\nOne row per `match_id` (~180M rows after 1 year). Each row represents the complete lifecycle of a single match from match_start to match_end (or abandonment).\n\n## Fact Columns\n\n- `match_id` (PK)\n- `player_id`, `game_mode_id`, `region_id`, `season_id`, `match_date_id` (FKs)\n- `match_start_ts`, `match_end_ts` (timestamps)\n- `match_duration_sec` (derived: match_end_ts - match_start_ts)\n- `invites_sent_count`, `invites_accepted_count` (measures)\n- `squad_filled_flag` (boolean)\n- `final_status` (completed/abandoned/disconnected, junk dim candidate)\n\n## Dim Joins and SCD Type\n\n- `dim_player`: Type 2 (account_tier changes over seasons; need historical tier at match time for Invite Conversion by tier)\n- `dim_game_mode`: Type 1 (mode rules stable; no history needed)\n- `dim_region`: Type 1 (server assignments stable)\n- `dim_date`: Type 0 (conformed time dim, immutable)\n- `dim_season`: Type 1 (season metadata doesn't change after season ends)\n\n## dbt Layer Placement\n\n- `stg_match_events`: dedupe on (match_id, event_type, event_ts), rename columns, cast types\n- `int_match_lifecycle`: pivot event-grain to match-grain (one row per match_id with first/last event timestamps)\n- `fct_match_completion`: join to dims via surrogate keys (dim_player_sk for Type 2 lookup), compute derived measures\n\n## Idempotency and Late Arrivals\n\nIdempotency: Use `incremental` materialization with `unique_key = match_id`. If duplicate match_end events arrive, COALESCE(new.match_end_ts, old.match_end_ts) preserves first-seen value.\n\nLate arrivals: 3-day lookback window in incremental runs. If match_end arrives >3 days late, re-state the closed match row (update match_duration_sec and final_status).\n\n## dbt Tests\n\n- `unique` on match_id\n- `not_null` on match_id, match_start_ts\n- `relationships` to dim_player, dim_game_mode, dim_region\n- `accepted_values` for final_status IN ('completed','abandoned','disconnected')",
+  "grading_rubric": [
+    {
+      "criterion": "Grain correctness",
+      "description": "States 'one row per match_id' and ties this to the dashboard's need to count matches, not events. Recognizes the source is event-grain and the fact must pivot to match-grain.",
+      "weight": 25
+    },
+    {
+      "criterion": "Fact/dim split and FK strategy",
+      "description": "Assigns measure columns (invites_sent_count, match_duration_sec) to fact; assigns filtering attributes (tier, mode, region) to dims. Names surrogate key (dim_player_sk) for Type 2 dim. Identifies dim_date as conformed across multiple facts.",
+      "weight": 25
+    },
+    {
+      "criterion": "SCD type reasoning per dim",
+      "description": "Chooses Type 2 for dim_player (tier changes) and Type 1 for dim_game_mode (rules stable). Rationale references whether the dashboard needs historical values ('Invite Conversion by tier at match time').",
+      "weight": 20
+    },
+    {
+      "criterion": "dbt layer placement and idempotency",
+      "description": "Proposes stg_ for cleanup, int_ for event-to-match pivot, fct_ for dim joins and business rules. Names incremental materialization with unique_key=match_id. Specifies how duplicate match_end events are handled (COALESCE or last-value-wins).",
+      "weight": 20
+    },
+    {
+      "criterion": "Edge cases and tests",
+      "description": "Names at least one realistic edge case (late-arriving match_end, duplicate events, tier changes mid-match). Proposes at least 2 dbt tests with the specific column they apply to (unique on match_id, relationships to dims).",
+      "weight": 10
+    }
+  ],
+  "hints": [
+    "The dashboard aggregates match counts and durations \u2014 what grain allows counting matches without double-counting?",
+    "The source is event-grain (multiple rows per match). Your fact needs ONE row per match. What dbt layer does the pivot?",
+    "dim_player tier can change over time. If a player was silver when they played match X, the Invite Conversion metric needs to know they were silver THEN, not their current tier."
+  ],
+  "common_mistakes": [
+    "Leaving the fact at event-grain (multiple rows per match_id) \u2014 this double-counts matches in completion rate",
+    "Ignoring late-arriving match_end events \u2014 incremental models need a lookback window to catch late updates",
+    "Treating dim_player as Type 1 \u2014 tier changes over seasons, so historical tier at match time is needed for the Invite Conversion by tier metric",
+    "Putting the event-to-match pivot logic in staging models \u2014 that's business logic and belongs in intermediate or mart",
+    "Omitting surrogate keys for Type 2 dims \u2014 joining on natural key (player_id) would return current tier, not tier-at-match-time"
+  ],
+  "schema_ddl": "CREATE TABLE match_events (\n  event_id BIGINT PRIMARY KEY,\n  match_id VARCHAR NOT NULL,\n  player_id VARCHAR NOT NULL,\n  event_type VARCHAR NOT NULL,\n  event_ts TIMESTAMP NOT NULL,\n  game_mode_id VARCHAR,\n  region_id VARCHAR,\n  season_id VARCHAR,\n  invite_target_player_id VARCHAR,\n  squad_filled_flag BOOLEAN,\n  abandon_reason VARCHAR\n);",
+  "candidate_dimensions": [
+    {
+      "name": "dim_player",
+      "key": "player_id",
+      "description": "player demographics and tier (Type 2 for tier changes)"
+    },
+    {
+      "name": "dim_game_mode",
+      "key": "game_mode_id",
+      "description": "game mode metadata (solo/duo/squad, max players, map size)"
+    },
+    {
+      "name": "dim_region",
+      "key": "region_id",
+      "description": "server region, cluster, timezone"
+    },
+    {
+      "name": "dim_date",
+      "key": "date_id",
+      "description": "calendar date, week/month start, is_weekend (conformed time dim)"
+    },
+    {
+      "name": "dim_season",
+      "key": "season_id",
+      "description": "season name, start/end dates, battle pass tier count"
+    }
+  ],
+  "stakeholder_asks": [
+    "Match Completion Rate (count of matches with match_end event divided by count of matches with match_start event) by game_mode",
+    "Invite Conversion Rate (count of invites with invite_accepted event divided by count of invites with invite_sent event) by player_tier",
+    "Median Match Duration (median of match_end_ts minus match_start_ts in seconds) by region",
+    "Squad Fill Rate (count of matches with full_squad=true divided by count of matches with at least one squad_invite_sent event) by game_mode"
+  ],
+  "field_hints": {
+    "business_process": "For this problem, the business process is a match lifecycle from match_start to match_end (or abandonment). Every fact column should describe the lifecycle of ONE match.",
+    "grain": "The dashboard counts matches and computes match-level metrics (completion rate, duration). The source is event-grain (multiple rows per match). What grain lets you count each match exactly once?",
+    "fact_columns": "You need timestamps (match_start_ts, match_end_ts), derived measures (match_duration_sec), counts (invites_sent, invites_accepted), and flags (squad_filled_flag). Each ask maps to one or two of these.",
+    "key_strategy": "dim_player is Type 2 (tier changes). You need a surrogate key to join to the player row that was active at match_start_ts, not the current player row.",
+    "dim_joins": "The asks filter by game_mode, player_tier, and region. You need dim_game_mode, dim_player (for tier), and dim_region. dim_date adds calendar context for daily rollups.",
+    "scd_per_dim": "dim_player tier changes over seasons \u2014 you need Type 2 to see tier-at-match-time. dim_game_mode rules are stable \u2014 Type 1 is fine. dim_date is immutable (Type 0).",
+    "conformed_dims": "dim_date is the canonical time dim shared across all fact tables (matches, player sessions, purchases). Conformed dims let you join facts consistently.",
+    "models": "stg_ cleans and dedupes events. int_ pivots from event-grain to match-grain (one row per match_id). fct_ joins to dims and computes derived measures. Business rules go in int_ or fct_, never stg_.",
+    "tests": "Every fact needs unique PK (match_id), not_null on PK and timestamps, relationships to dims, and accepted_values for categorical columns (final_status).",
+    "idempotency": "The source can send duplicate match_end events. Incremental materialization with unique_key=match_id overwrites the row. Decide: keep first-seen match_end_ts or last-seen?",
+    "late_arriving": "A match_end event can arrive hours after match_start. Incremental runs need a lookback window (e.g., 3 days) to catch late events and update already-closed matches.",
+    "edge_cases": "Realistic edge cases: match abandoned before end (match_end_ts IS NULL), duplicate match_end events, player tier changes between match_start and dashboard query, invites sent but match starts before all accepted."
+  },
+  "worked_example_per_field": {
+    "business_process": "Answer: A match lifecycle from match_start to match_end (or abandonment), including squad invite sends/accepts.\n\nWhy: The dashboard asks for match-level metrics (Completion Rate, Duration, Squad Fill Rate). Each row in the fact must represent ONE match so counting matches is straightforward. Invite metrics (Invite Conversion Rate) are still match-scoped \u2014 we count invites sent and accepted WITHIN each match.",
+    "grain": "Answer: One row per match_id (~180M rows after 1 year).\n\nWhy: The prompt says 'Total fact rows after 1 year: ~180M rows (one row per match_id, ~500K matches/day)' \u2014 that sentence locks the grain. The dashboard aggregates UP from match-level (counts by game_mode, region, tier), so storing pre-aggregated rows would freeze the slicing and waste flexibility. Lower grain (event-level) would have multiple rows per match and break unique match counts.",
+    "fact_columns": "Answer: match_id (PK), player_id, game_mode_id, region_id, season_id, match_date_id (FKs), match_start_ts, match_end_ts (timestamps), match_duration_sec (derived), invites_sent_count, invites_accepted_count (measures), squad_filled_flag (boolean), final_status (completed/abandoned/disconnected).\n\nWhy: Every dashboard metric maps to these raw ingredients. Completion Rate = COUNT(match_end_ts NOT NULL) / COUNT(match_start_ts NOT NULL). Invite Conversion = SUM(invites_accepted_count) / SUM(invites_sent_count). Median Duration = MEDIAN(match_duration_sec). Squad Fill Rate = COUNT(squad_filled_flag=true) / COUNT(invites_sent_count>0). Storing rates as columns would lock the slicing; storing raw counts and timestamps lets any BI query slice by mode, tier, region at query time.",
+    "key_strategy": "Answer: Natural keys for Type 1 dims (game_mode_id, region_id, season_id). Surrogate key (dim_player_sk) for dim_player (Type 2).\n\nWhy: dim_player is Type 2 because account_tier changes over seasons. Joining on player_id alone would return the player's CURRENT tier, not their tier at match_start_ts. A surrogate key (dim_player_sk) points to the specific player row that was active when the match started. Type 1 dims (game_mode, region, season) don't version, so natural keys are fine.",
+    "dim_joins": "Answer: dim_player (for account_tier filter), dim_game_mode (for mode filter and max_players context), dim_region (for region filter), dim_date (for calendar rollups), dim_season (for seasonal trends).\n\nWhy: The asks explicitly filter by game_mode, player_tier, and region \u2014 those three dims are mandatory. dim_date is a conformed time dim needed for daily/weekly rollups. dim_season adds seasonal context (e.g., completion rate by season). All five dims appear in the source event columns (player_id, game_mode_id, region_id, season_id, event_ts \u2192 match_date_id).",
+    "scd_per_dim": "Answer: dim_player Type 2 (tier changes), dim_game_mode Type 1 (rules stable), dim_region Type 1 (server stable), dim_date Type 0 (immutable), dim_season Type 1 (metadata doesn't change after season ends).\n\nWhy: The Invite Conversion Rate ask filters 'by player_tier.' If a player was silver when they played match X, the metric needs to see 'silver' even if they're now gold. That requires Type 2 (historical rows). Game mode rules and region assignments don't change mid-season, so Type 1 is fine. dim_date is a standard conformed dim (Type 0, never updates). dim_season metadata (season_name, start_date) is set once and never revised, so Type 1.",
+    "conformed_dims": "Answer: dim_date is conformed across fct_match_completion, fct_player_session, fct_in_game_purchase. dim_player and dim_season are also conformed.\n\nWhy: Conformed dims let you join facts consistently. If the product team wants to correlate match completion with purchase behavior, both facts must join to the SAME dim_date rows (same date_id for the same calendar date). dim_player is shared because both match and session facts filter by tier. dim_season is shared because seasonal trends span multiple fact tables.",
+    "models": "Answer: sources (match_events raw), stg_match_events (dedupe + rename), int_match_lifecycle (event-grain \u2192 match-grain pivot), fct_match_completion (dim joins + derived measures).\n\nWhy: stg_match_events cleans the raw event log (dedupe on event_id, rename event_type values, cast timestamps). int_match_lifecycle does the pivot work: one row per match_id with match_start_ts = MIN(event_ts WHERE event_type='match_start'), match_end_ts = MIN(event_ts WHERE event_type='match_end'), invites_sent_count = COUNT(event_type='invite_sent'). fct_match_completion joins to dims via surrogate keys and computes match_duration_sec. Business rules (what counts as 'completed' vs 'abandoned') belong in int_ or fct_, NEVER in stg_.",
+    "tests": "Answer: unique(match_id), not_null(match_id), not_null(match_start_ts), relationships(player_id to dim_player), relationships(game_mode_id to dim_game_mode), accepted_values(final_status in ['completed','abandoned','disconnected']).\n\nWhy: unique(match_id) catches duplicate match rows (the grain violation). not_null on PK and match_start_ts catches missing core data. relationships tests catch orphaned FKs (player_id that doesn't exist in dim_player, often from test data pollution). accepted_values on final_status catches typos in the event_type \u2192 final_status mapping logic. These six tests cover the most common fact table bugs.",
+    "idempotency": "Answer: Incremental materialization with unique_key=match_id. On duplicate match_end events, keep the FIRST match_end_ts (COALESCE(new.match_end_ts, old.match_end_ts)).\n\nWhy: The source can send duplicate match_end events (e.g., client retry). Incremental with unique_key=match_id means dbt UPSERTS on match_id \u2014 if a row already exists, it updates. Keeping the first match_end_ts is safer than last-value-wins because the first event is usually the truth (later duplicates are retries). Alternative: keep last-value if the business says 'match_end can be revised' (rare in games).",
+    "late_arriving": "Answer: Use a 3-day lookback window in incremental runs (WHERE match_start_ts >= CURRENT_DATE - INTERVAL '3 days'). Re-state closed matches if match_end arrives late.\n\nWhy: A match_end event can arrive hours (or days) after match_start due to network issues or batching delays. Without a lookback window, the incremental run only processes NEW match_start events and misses the late match_end. The 3-day window means every incremental run re-checks the last 3 days of matches and updates match_end_ts / final_status if the event finally arrived. Trade-off: lookback increases scan volume but ensures correctness.",
+    "edge_cases": "Answer: (1) Match abandoned before end (match_end_ts IS NULL, final_status='abandoned'), (2) Player tier changes between match_start and dashboard query (need Type 2 to see tier-at-match-time), (3) Invites sent but match starts before all accepted (invites_accepted_count < invites_sent_count).\n\nWhy: (1) Abandoned matches are ~5-10% of all matches in battle royale games (disconnects, rage quits). The fact must handle match_end_ts=NULL without breaking duration calculations (use COALESCE or a separate abandonment timestamp). (2) If you use player_id alone to join dim_player (Type 1), a player who was silver at match time but is now gold would be counted in the gold tier bucket, inflating gold's Invite Conversion Rate. Type 2 with surrogate keys fixes this. (3) Squad Fill logic must account for partial accepts (squad_filled_flag = invites_accepted_count >= 3 AND game_mode='squad')."
+  },
+  "_meta": {
+    "category": "transformation_modeling",
+    "subtopic": "schema_design",
+    "kind": "kpi",
+    "scenario": "a battle royale mobile game tracking match completion and squad invites",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-16T18:49:44.534020",
+    "problem_id": "90a3fb1cd04d",
+    "validation_attempts": 1,
+    "notebook": "nb02_analyst_interview_drills"
+  }
+}

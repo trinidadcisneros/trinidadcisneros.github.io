@@ -1,0 +1,124 @@
+{
+  "title": "Display Completion-Gated Subscription Offers by Region",
+  "prompt": "You're building a feature that shows the best subscription offer for each content region, but only when the region has proven reader engagement. Write a query that returns one row per region showing `region_id`, `region_name`, and `best_monthly_price`. For each region, pick the LOWEST `monthly_price` from the `subscription_offers` table. However, only show this best price if the region's `avg_completion_rate` (from the `content_regions` table) is >= 0.65. If the completion rate is below 0.65, set `best_monthly_price` to NULL instead. Include all regions in the output. Order the results by `region_id` ascending.",
+  "schema_ddl": "CREATE TABLE content_regions (region_id INT PRIMARY KEY, region_name VARCHAR(100), avg_completion_rate DECIMAL(4,3)); CREATE TABLE subscription_offers (offer_id INT PRIMARY KEY, region_id INT, plan_name VARCHAR(50), monthly_price DECIMAL(6,2));",
+  "example_input_data": "INSERT INTO content_regions (region_id, region_name, avg_completion_rate) VALUES (1, 'North America', 0.72), (2, 'Europe', 0.58), (3, 'Asia Pacific', 0.81), (4, 'Latin America', 0.45); INSERT INTO subscription_offers (offer_id, region_id, plan_name, monthly_price) VALUES (101, 1, 'Basic', 9.99), (102, 1, 'Premium', 14.99), (103, 2, 'Basic', 8.99), (104, 2, 'Standard', 11.99), (105, 3, 'Basic', 7.99), (106, 3, 'Premium', 12.99), (107, 3, 'Ultimate', 19.99), (108, 4, 'Basic', 6.99);",
+  "example_output_columns": [
+    "region_id",
+    "region_name",
+    "best_monthly_price"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "North America",
+      "9.99"
+    ],
+    [
+      2,
+      "Europe",
+      null
+    ],
+    [
+      3,
+      "Asia Pacific",
+      "7.99"
+    ],
+    [
+      4,
+      "Latin America",
+      null
+    ]
+  ],
+  "test_data": "INSERT INTO content_regions (region_id, region_name, avg_completion_rate) VALUES (1, 'North America', 0.72), (2, 'Europe', 0.58), (3, 'Asia Pacific', 0.81), (4, 'Latin America', 0.45), (5, 'Middle East', 0.65), (6, 'Africa', 0.92), (7, 'Southeast Asia', 0.62), (8, 'Oceania', 0.88), (9, 'Central Asia', 0.51), (10, 'Caribbean', 0.78); INSERT INTO subscription_offers (offer_id, region_id, plan_name, monthly_price) VALUES (101, 1, 'Basic', 9.99), (102, 1, 'Premium', 14.99), (103, 1, 'Standard', 12.49), (104, 2, 'Basic', 8.99), (105, 2, 'Standard', 11.99), (106, 2, 'Premium', 15.49), (107, 2, 'Ultimate', 20.99), (108, 3, 'Basic', 7.99), (109, 3, 'Premium', 12.99), (110, 3, 'Ultimate', 19.99), (111, 3, 'Standard', 10.49), (112, 4, 'Basic', 6.99), (113, 4, 'Standard', 9.49), (114, 5, 'Basic', 8.49), (115, 5, 'Premium', 13.99), (116, 6, 'Basic', 5.99), (117, 6, 'Standard', 8.99), (118, 6, 'Premium', 11.99), (119, 6, 'Ultimate', 16.99), (120, 7, 'Basic', 7.49), (121, 7, 'Premium', 12.49), (122, 8, 'Basic', 9.49), (123, 8, 'Standard', 13.49), (124, 8, 'Premium', 17.99), (125, 9, 'Basic', 6.49), (126, 10, 'Basic', 7.99), (127, 10, 'Premium', 13.49), (128, 10, 'Standard', 10.99);",
+  "test_expected_columns": [
+    "region_id",
+    "region_name",
+    "best_monthly_price"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "North America",
+      "9.99"
+    ],
+    [
+      2,
+      "Europe",
+      null
+    ],
+    [
+      3,
+      "Asia Pacific",
+      "7.99"
+    ],
+    [
+      4,
+      "Latin America",
+      null
+    ],
+    [
+      5,
+      "Middle East",
+      "8.49"
+    ],
+    [
+      6,
+      "Africa",
+      "5.99"
+    ],
+    [
+      7,
+      "Southeast Asia",
+      null
+    ],
+    [
+      8,
+      "Oceania",
+      "9.49"
+    ],
+    [
+      9,
+      "Central Asia",
+      null
+    ],
+    [
+      10,
+      "Caribbean",
+      "7.99"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "same_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "look up gate attribute (avg_completion_rate) via JOIN on region_id",
+      "per-entity pick: use ROW_NUMBER() OVER (PARTITION BY region_id ORDER BY monthly_price) to find lowest price offer per region",
+      "gate with CASE: if avg_completion_rate >= 0.65 return picked monthly_price, else NULL",
+      "one row per region in output"
+    ]
+  },
+  "hints": [
+    "You need to combine information from both tables using the region_id key.",
+    "Use a window function to identify the cheapest offer for each region, then apply the completion rate threshold to decide whether to show it.",
+    "ROW_NUMBER() OVER (PARTITION BY region_id ORDER BY monthly_price) will help you pick the lowest price per region; then use a CASE expression that checks avg_completion_rate >= 0.65 to decide between the price and NULL."
+  ],
+  "answer_key": "WITH ranked_offers AS (SELECT so.region_id, so.monthly_price, ROW_NUMBER() OVER (PARTITION BY so.region_id ORDER BY so.monthly_price) AS rn FROM subscription_offers so), best_offers AS (SELECT region_id, monthly_price FROM ranked_offers WHERE rn = 1) SELECT cr.region_id, cr.region_name, CASE WHEN cr.avg_completion_rate >= 0.65 THEN bo.monthly_price ELSE NULL END AS best_monthly_price FROM content_regions cr LEFT JOIN best_offers bo ON cr.region_id = bo.region_id ORDER BY cr.region_id;",
+  "_meta": {
+    "question_type": "gated_lookup",
+    "original_qtype": "gated_lookup",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-20T14:55:09.501082",
+    "problem_id": "f02aaa904c27",
+    "validation_attempts": 1,
+    "scenario": "a news app tracking article completion and subscription conversion",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "rownumber_pick"
+  }
+}

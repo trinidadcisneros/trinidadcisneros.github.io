@@ -1,0 +1,125 @@
+{
+  "title": "Purge Expired Ride Requests",
+  "prompt": "You are a database administrator for a ride share app. The `ride_requests` table stores all ride requests, and the `driver_responses` table stores driver acceptance/rejection records linked to those requests. To comply with data retention policies, you need to delete all ride requests that are older than 90 days AND have no associated driver responses. Write a single DELETE statement that removes these expired, unmatched requests. A request is considered \"older than 90 days\" if its `created_at` timestamp is before `DATE '2024-01-01' - INTERVAL '90 days'` (which equals September 3, 2023). After the deletion, return all remaining ride requests ordered by `request_id` ascending.",
+  "schema_ddl": "CREATE TABLE ride_requests (request_id SERIAL PRIMARY KEY, passenger_id INTEGER NOT NULL, pickup_location VARCHAR(100) NOT NULL, created_at DATE NOT NULL); CREATE TABLE driver_responses (response_id SERIAL PRIMARY KEY, request_id INTEGER NOT NULL REFERENCES ride_requests(request_id), driver_id INTEGER NOT NULL, response_type VARCHAR(20) NOT NULL, responded_at TIMESTAMP NOT NULL);",
+  "example_input_data": "INSERT INTO ride_requests (request_id, passenger_id, pickup_location, created_at) VALUES (1, 101, 'Downtown Plaza', '2023-08-15'), (2, 102, 'Airport Terminal', '2023-09-01'), (3, 103, 'Mall Entrance', '2023-09-05'), (4, 104, 'Train Station', '2023-10-10'), (5, 105, 'City Park', '2023-12-20'), (6, 106, 'Beach Road', '2023-08-20'); INSERT INTO driver_responses (response_id, request_id, driver_id, response_type, responded_at) VALUES (1, 1, 201, 'accepted', '2023-08-15 10:05:00'), (2, 4, 202, 'rejected', '2023-10-10 14:22:00'), (3, 5, 203, 'accepted', '2023-12-20 09:15:00');",
+  "example_output_columns": [
+    "request_id",
+    "passenger_id",
+    "pickup_location",
+    "created_at"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      101,
+      "Downtown Plaza",
+      "2023-08-15"
+    ],
+    [
+      4,
+      104,
+      "Train Station",
+      "2023-10-10"
+    ],
+    [
+      5,
+      105,
+      "City Park",
+      "2023-12-20"
+    ]
+  ],
+  "test_data": "INSERT INTO ride_requests (request_id, passenger_id, pickup_location, created_at) VALUES (101, 1001, 'North Station', '2023-06-01'), (102, 1002, 'South Mall', '2023-07-15'), (103, 1003, 'East Plaza', '2023-08-25'), (104, 1004, 'West Terminal', '2023-09-02'), (105, 1005, 'Central Park', '2023-09-03'), (106, 1006, 'Harbor View', '2023-09-04'), (107, 1007, 'University Ave', '2023-09-10'), (108, 1008, 'Market Street', '2023-10-05'), (109, 1009, 'River Road', '2023-11-12'), (110, 1010, 'Hill District', '2023-12-01'), (111, 1011, 'Old Town', '2023-08-01'), (112, 1012, 'Tech Campus', '2023-08-10'), (113, 1013, 'Sports Arena', '2023-08-30'), (114, 1014, 'Convention Center', '2023-09-01'), (115, 1015, 'Museum District', '2023-07-20'), (116, 1016, 'Financial District', '2023-06-15'), (117, 1017, 'Waterfront', '2023-09-03'), (118, 1018, 'Shopping Plaza', '2023-10-20'), (119, 1019, 'Residential Area', '2023-11-30'), (120, 1020, 'Industrial Zone', '2023-12-15'); INSERT INTO driver_responses (response_id, request_id, driver_id, response_type, responded_at) VALUES (101, 101, 2001, 'rejected', '2023-06-01 08:10:00'), (102, 105, 2002, 'accepted', '2023-09-03 12:30:00'), (103, 108, 2003, 'accepted', '2023-10-05 15:45:00'), (104, 110, 2004, 'rejected', '2023-12-01 09:20:00'), (105, 113, 2005, 'accepted', '2023-08-30 11:15:00'), (106, 118, 2006, 'accepted', '2023-10-20 16:05:00'), (107, 120, 2007, 'rejected', '2023-12-15 10:50:00');",
+  "test_expected_columns": [
+    "request_id",
+    "passenger_id",
+    "pickup_location",
+    "created_at"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      1001,
+      "North Station",
+      "2023-06-01"
+    ],
+    [
+      105,
+      1005,
+      "Central Park",
+      "2023-09-03"
+    ],
+    [
+      108,
+      1008,
+      "Market Street",
+      "2023-10-05"
+    ],
+    [
+      109,
+      1009,
+      "River Road",
+      "2023-11-12"
+    ],
+    [
+      110,
+      1010,
+      "Hill District",
+      "2023-12-01"
+    ],
+    [
+      113,
+      1013,
+      "Sports Arena",
+      "2023-08-30"
+    ],
+    [
+      118,
+      1018,
+      "Shopping Plaza",
+      "2023-10-20"
+    ],
+    [
+      119,
+      1019,
+      "Residential Area",
+      "2023-11-30"
+    ],
+    [
+      120,
+      1020,
+      "Industrial Zone",
+      "2023-12-15"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "state_mutation",
+    "recipe": "row-filter",
+    "composite_moves": [
+      "join-filter: anti-join to exclude requests with responses",
+      "time-filter: compare created_at to cutoff"
+    ]
+  },
+  "hints": [
+    "You need to delete requests that meet two conditions: they are old AND they have no driver responses.",
+    "Use a subquery or NOT EXISTS to check if a request has any associated driver responses in the driver_responses table.",
+    "The cutoff date is DATE '2024-01-01' - INTERVAL '90 days', and you want requests created BEFORE (less than) that date. Combine the date filter with the absence of driver responses using AND and NOT EXISTS."
+  ],
+  "answer_key": "DELETE FROM ride_requests WHERE created_at < DATE '2024-01-01' - INTERVAL '90 days' AND NOT EXISTS (SELECT 1 FROM driver_responses WHERE driver_responses.request_id = ride_requests.request_id); SELECT * FROM ride_requests ORDER BY request_id;",
+  "_meta": {
+    "question_type": "dml_delete",
+    "original_qtype": "dml_delete",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-18T19:06:04.483232",
+    "problem_id": "b2db80906249",
+    "validation_attempts": 2,
+    "scenario": "a ride share app tracking match rate from request to driver acceptance",
+    "dml_op": "DELETE",
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "subtype": null
+  }
+}

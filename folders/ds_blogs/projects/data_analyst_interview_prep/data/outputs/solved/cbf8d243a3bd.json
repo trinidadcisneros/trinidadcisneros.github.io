@@ -1,0 +1,104 @@
+{
+  "problem": {
+    "title": "Certified Course Minimum Price Lookup",
+    "prompt": "You manage a course platform that tracks course certification status and pricing tiers. Write a query that returns the lowest current price for each course that has earned full certification status. A course is certified if its `certification_status` column is 'full'. For certified courses, find the minimum `tier_price` from the `course_pricing` table. Only include certified courses in the output; non-certified courses should be excluded entirely. Return columns `course_id`, `course_title`, and `min_price`, ordered by `course_id` ascending. If a certified course has multiple pricing tiers, select the lowest tier price. You may assume every certified course has at least one pricing tier row.",
+    "schema_ddl": "CREATE TABLE courses (course_id INT PRIMARY KEY, course_title VARCHAR(100), certification_status VARCHAR(20)); CREATE TABLE course_pricing (pricing_id INT PRIMARY KEY, course_id INT, tier_name VARCHAR(50), tier_price DECIMAL(8,2));",
+    "example_input_data": "INSERT INTO courses (course_id, course_title, certification_status) VALUES (101, 'Python for Data Science', 'full'), (102, 'Advanced SQL Queries', 'provisional'), (103, 'Machine Learning Fundamentals', 'full'), (104, 'Web Development Bootcamp', 'none'); INSERT INTO course_pricing (pricing_id, course_id, tier_name, tier_price) VALUES (1, 101, 'basic', 49.99), (2, 101, 'premium', 89.99), (3, 102, 'basic', 39.99), (4, 102, 'premium', 79.99), (5, 103, 'basic', 59.99), (6, 103, 'premium', 99.99), (7, 103, 'enterprise', 149.99), (8, 104, 'basic', 29.99);",
+    "example_output_columns": [
+      "course_id",
+      "course_title",
+      "min_price"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "Python for Data Science",
+        "49.99"
+      ],
+      [
+        103,
+        "Machine Learning Fundamentals",
+        "59.99"
+      ]
+    ],
+    "test_data": "INSERT INTO courses (course_id, course_title, certification_status) VALUES (201, 'Cloud Architecture Essentials', 'full'), (202, 'DevOps Practices', 'provisional'), (203, 'Cybersecurity Fundamentals', 'full'), (204, 'Mobile App Development', 'none'), (205, 'Blockchain Technology', 'full'), (206, 'UI/UX Design Principles', 'provisional'), (207, 'Data Visualization', 'full'), (208, 'API Design and Development', 'full'), (209, 'Agile Project Management', 'none'), (210, 'Quantum Computing Intro', 'provisional'), (211, 'Network Engineering', 'full'), (212, 'Digital Marketing Strategy', 'full'); INSERT INTO course_pricing (pricing_id, course_id, tier_name, tier_price) VALUES (101, 201, 'basic', 44.99), (102, 201, 'premium', 84.99), (103, 201, 'enterprise', 124.99), (104, 202, 'basic', 34.99), (105, 202, 'premium', 64.99), (106, 203, 'basic', 54.99), (107, 204, 'basic', 24.99), (108, 204, 'premium', 49.99), (109, 205, 'basic', 69.99), (110, 205, 'premium', 109.99), (111, 205, 'enterprise', 159.99), (112, 205, 'ultimate', 199.99), (113, 206, 'basic', 39.99), (114, 207, 'basic', 41.99), (115, 207, 'premium', 71.99), (116, 208, 'basic', 52.99), (117, 208, 'premium', 92.99), (118, 208, 'enterprise', 132.99), (119, 209, 'basic', 19.99), (120, 210, 'basic', 79.99), (121, 210, 'premium', 119.99), (122, 211, 'basic', 47.99), (123, 212, 'basic', 36.99), (124, 212, 'premium', 66.99);",
+    "test_expected_columns": [
+      "course_id",
+      "course_title",
+      "min_price"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "Cloud Architecture Essentials",
+        "44.99"
+      ],
+      [
+        203,
+        "Cybersecurity Fundamentals",
+        "54.99"
+      ],
+      [
+        205,
+        "Blockchain Technology",
+        "69.99"
+      ],
+      [
+        207,
+        "Data Visualization",
+        "41.99"
+      ],
+      [
+        208,
+        "API Design and Development",
+        "52.99"
+      ],
+      [
+        211,
+        "Network Engineering",
+        "47.99"
+      ],
+      [
+        212,
+        "Digital Marketing Strategy",
+        "36.99"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "enrich-join",
+      "composite_moves": [
+        "lookup gate attribute (certification_status) from courses table",
+        "per-entity pick: minimum tier_price from course_pricing table",
+        "gate with WHERE on certification_status = 'full' to exclude non-certified courses",
+        "join courses to aggregated pricing data",
+        "order by course_id"
+      ]
+    },
+    "hints": [
+      "You need to determine which courses meet the certification requirement and then find pricing information for only those courses.",
+      "Consider first identifying the minimum price per course from the pricing table using GROUP BY, then joining with the courses table and filtering by certification status.",
+      "Use an INNER JOIN between courses and a grouped course_pricing subquery that computes MIN(tier_price) per course_id, with WHERE certification_status = 'full' to exclude non-certified courses."
+    ],
+    "answer_key": "SELECT c.course_id, c.course_title, p.min_price FROM courses c JOIN (SELECT course_id, MIN(tier_price) AS min_price FROM course_pricing GROUP BY course_id) p ON c.course_id = p.course_id WHERE c.certification_status = 'full' ORDER BY c.course_id;",
+    "_meta": {
+      "question_type": "gated_lookup",
+      "original_qtype": "gated_lookup",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-20T15:15:55.138203",
+      "problem_id": "cbf8d243a3bd",
+      "validation_attempts": 1,
+      "scenario": "an online course platform tracking course completion and certification",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "where_exclude"
+    }
+  },
+  "user_solution": "/*\n- returns the lowest current price for each course that has earned full certification status.\n- WHERE c.certification_status = 'full' THEN MIN(cp.tier_price) \n\n- Only include certified courses in the output; \n- non-certified courses should be excluded entirely.\nReturn columns `course_id`, `course_title`, and `min_price`, ordered by `course_id` ascending.\nIf a certified course has multiple pricing tiers, select the lowest tier price.\nYou may assume every certified course has at least one pricing tier row.\n*/\nSELECT\n    c.course_id,\n    c.course_title,\n    MIN(cp.tier_price) AS min_price\nFROM courses AS c\nJOIN course_pricing AS cp\n    ON c.course_id = cp.course_id\nWHERE c.certification_status = 'full'\nGROUP BY c.course_id\nORDER BY c.course_id;\n\n\n\n",
+  "solved_at": "2026-06-20T15:46:43.881617"
+}

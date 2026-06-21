@@ -1,0 +1,162 @@
+{
+  "title": "Cumulative Completed Visits by Provider",
+  "prompt": "You are analyzing a telehealth platform's visit completion funnel. The `visits` table records each patient visit with a booking timestamp, the assigned provider, and a completion timestamp (NULL if the visit was never completed). Calculate a running total of completed visits for each provider, ordered chronologically by completion date. For each completed visit, show the provider ID, completion date, and the cumulative count of visits that provider has completed up to and including that date. Exclude visits that were never completed (completion_timestamp IS NULL). Order the final result by provider_id, then completion_timestamp.",
+  "schema_ddl": "CREATE TABLE visits (visit_id INTEGER PRIMARY KEY, provider_id INTEGER NOT NULL, patient_id INTEGER NOT NULL, booking_timestamp TIMESTAMP NOT NULL, completion_timestamp TIMESTAMP);",
+  "example_input_data": "INSERT INTO visits (visit_id, provider_id, patient_id, booking_timestamp, completion_timestamp) VALUES (1, 101, 5001, '2024-03-01 08:00:00', '2024-03-01 09:15:00'), (2, 101, 5002, '2024-03-01 10:00:00', '2024-03-01 11:00:00'), (3, 102, 5003, '2024-03-01 09:00:00', '2024-03-01 09:45:00'), (4, 101, 5004, '2024-03-02 08:00:00', NULL), (5, 102, 5005, '2024-03-02 10:00:00', '2024-03-02 11:30:00'), (6, 101, 5006, '2024-03-03 07:00:00', '2024-03-03 08:20:00'), (7, 102, 5007, '2024-03-03 09:00:00', '2024-03-03 10:00:00'), (8, 103, 5008, '2024-03-01 14:00:00', NULL);",
+  "example_output_columns": [
+    "provider_id",
+    "completion_date",
+    "cumulative_completed"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "2024-03-01",
+      1
+    ],
+    [
+      101,
+      "2024-03-01",
+      2
+    ],
+    [
+      101,
+      "2024-03-03",
+      3
+    ],
+    [
+      102,
+      "2024-03-01",
+      1
+    ],
+    [
+      102,
+      "2024-03-02",
+      2
+    ],
+    [
+      102,
+      "2024-03-03",
+      3
+    ]
+  ],
+  "test_data": "INSERT INTO visits (visit_id, provider_id, patient_id, booking_timestamp, completion_timestamp) VALUES (101, 201, 6001, '2024-04-01 08:00:00', '2024-04-01 09:00:00'), (102, 201, 6002, '2024-04-01 10:00:00', '2024-04-01 11:00:00'), (103, 201, 6003, '2024-04-01 12:00:00', NULL), (104, 202, 6004, '2024-04-01 08:30:00', '2024-04-01 09:30:00'), (105, 201, 6005, '2024-04-02 08:00:00', '2024-04-02 09:00:00'), (106, 202, 6006, '2024-04-02 10:00:00', NULL), (107, 201, 6007, '2024-04-02 14:00:00', '2024-04-02 15:00:00'), (108, 203, 6008, '2024-04-01 09:00:00', '2024-04-01 10:00:00'), (109, 202, 6009, '2024-04-03 08:00:00', '2024-04-03 09:00:00'), (110, 201, 6010, '2024-04-03 08:00:00', '2024-04-03 09:00:00'), (111, 203, 6011, '2024-04-03 10:00:00', '2024-04-03 11:00:00'), (112, 202, 6012, '2024-04-03 12:00:00', '2024-04-03 13:00:00'), (113, 201, 6013, '2024-04-04 08:00:00', NULL), (114, 203, 6014, '2024-04-04 09:00:00', NULL), (115, 202, 6015, '2024-04-04 10:00:00', '2024-04-04 11:00:00'), (116, 201, 6016, '2024-04-05 08:00:00', '2024-04-05 09:00:00'), (117, 203, 6017, '2024-04-05 10:00:00', '2024-04-05 11:00:00'), (118, 202, 6018, '2024-04-05 12:00:00', '2024-04-05 13:00:00'), (119, 201, 6019, '2024-04-05 14:00:00', '2024-04-05 15:00:00'), (120, 203, 6020, '2024-04-06 08:00:00', '2024-04-06 09:00:00');",
+  "test_expected_columns": [
+    "provider_id",
+    "completion_date",
+    "cumulative_completed"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "2024-04-01",
+      1
+    ],
+    [
+      201,
+      "2024-04-01",
+      2
+    ],
+    [
+      201,
+      "2024-04-02",
+      3
+    ],
+    [
+      201,
+      "2024-04-02",
+      4
+    ],
+    [
+      201,
+      "2024-04-03",
+      5
+    ],
+    [
+      201,
+      "2024-04-05",
+      6
+    ],
+    [
+      201,
+      "2024-04-05",
+      7
+    ],
+    [
+      202,
+      "2024-04-01",
+      1
+    ],
+    [
+      202,
+      "2024-04-03",
+      2
+    ],
+    [
+      202,
+      "2024-04-03",
+      3
+    ],
+    [
+      202,
+      "2024-04-04",
+      4
+    ],
+    [
+      202,
+      "2024-04-05",
+      5
+    ],
+    [
+      203,
+      "2024-04-01",
+      1
+    ],
+    [
+      203,
+      "2024-04-03",
+      2
+    ],
+    [
+      203,
+      "2024-04-05",
+      3
+    ],
+    [
+      203,
+      "2024-04-06",
+      4
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "row-filter (exclude NULL completion)",
+      "time-window (cumulative SUM OVER PARTITION BY provider ORDER BY completion)",
+      "row-transform (extract date from timestamp)"
+    ]
+  },
+  "hints": [
+    "You need to compute a running total that resets for each provider.",
+    "Use a window function with PARTITION BY to separate each provider's visits, and ORDER BY to accumulate chronologically.",
+    "The frame should be UNBOUNDED PRECEDING (or the default for ORDER BY with SUM OVER) so each row includes all prior rows in its partition."
+  ],
+  "answer_key": "SELECT provider_id, DATE(completion_timestamp) AS completion_date, SUM(1) OVER (PARTITION BY provider_id ORDER BY completion_timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_completed FROM visits WHERE completion_timestamp IS NOT NULL ORDER BY provider_id, completion_timestamp;",
+  "_meta": {
+    "question_type": "window_running_total",
+    "original_qtype": "window_running_total",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "pharmacy_care",
+    "generated_at": "2026-06-18T12:06:01.657481",
+    "problem_id": "24a2168a033a",
+    "validation_attempts": 1,
+    "scenario": "a telehealth visit completion funnel from booking to provider sign-off",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "subtype": null
+  }
+}

@@ -1,0 +1,123 @@
+{
+  "title": "Players Who Never Accepted a Match",
+  "prompt": "Your multiplayer matchmaking service tracks player accounts and match acceptances. A player can be invited to many matches, but some players have never accepted any match invitation. Write a query to find all players who have NEVER accepted a match. Return the player's `player_id`, `username`, and `account_tier`. Order the results by `player_id` ascending. The output should include players who exist in the players table but have no corresponding row in the match_acceptances table.",
+  "schema_ddl": "CREATE TABLE players (player_id INTEGER PRIMARY KEY, username VARCHAR(100) NOT NULL, account_tier VARCHAR(20) NOT NULL, region VARCHAR(50) NOT NULL); CREATE TABLE match_acceptances (acceptance_id INTEGER PRIMARY KEY, player_id INTEGER NOT NULL, match_id VARCHAR(50) NOT NULL, accepted_at TIMESTAMP NOT NULL);",
+  "example_input_data": "INSERT INTO players (player_id, username, account_tier, region) VALUES (101, 'shadow_striker', 'gold', 'us-east'), (102, 'lunar_knight', 'platinum', 'eu-west'), (103, 'ghost_recon', 'silver', 'us-west'), (104, 'void_hunter', 'gold', 'asia'), (105, 'storm_chaser', 'bronze', 'eu-west'), (106, 'iron_fist', 'silver', 'us-east'); INSERT INTO match_acceptances (acceptance_id, player_id, match_id, accepted_at) VALUES (1, 101, 'M-5001', '2024-01-15 14:30:00'), (2, 101, 'M-5012', '2024-01-16 09:45:00'), (3, 103, 'M-5020', '2024-01-17 18:20:00'), (4, 104, 'M-5025', '2024-01-18 11:10:00');",
+  "example_output_columns": [
+    "player_id",
+    "username",
+    "account_tier"
+  ],
+  "example_output_rows": [
+    [
+      102,
+      "lunar_knight",
+      "platinum"
+    ],
+    [
+      105,
+      "storm_chaser",
+      "bronze"
+    ],
+    [
+      106,
+      "iron_fist",
+      "silver"
+    ]
+  ],
+  "test_data": "INSERT INTO players (player_id, username, account_tier, region) VALUES (201, 'alpha_wolf', 'diamond', 'us-east'), (202, 'beta_storm', 'platinum', 'eu-west'), (203, 'gamma_ray', 'gold', 'us-west'), (204, 'delta_force', 'silver', 'asia'), (205, 'epsilon_blade', 'bronze', 'eu-central'), (206, 'zeta_prime', 'gold', 'us-east'), (207, 'eta_wave', 'platinum', 'us-west'), (208, 'theta_nova', 'silver', 'asia'), (209, 'iota_shade', 'bronze', 'eu-west'), (210, 'kappa_fire', 'gold', 'us-east'), (211, 'lambda_ice', 'diamond', 'eu-west'), (212, 'mu_thunder', 'platinum', 'us-west'), (213, 'nu_shadow', 'silver', 'asia'), (214, 'xi_light', 'bronze', 'eu-central'), (215, 'omicron_dark', 'gold', 'us-east'), (216, 'pi_steel', 'platinum', 'eu-west'), (217, 'rho_flame', 'silver', 'us-west'), (218, 'sigma_frost', 'bronze', 'asia'), (219, 'tau_void', 'gold', 'eu-central'), (220, 'upsilon_star', 'diamond', 'us-east'); INSERT INTO match_acceptances (acceptance_id, player_id, match_id, accepted_at) VALUES (101, 201, 'M-6001', '2024-02-01 10:00:00'), (102, 201, 'M-6002', '2024-02-01 11:30:00'), (103, 203, 'M-6010', '2024-02-02 14:20:00'), (104, 206, 'M-6015', '2024-02-03 09:45:00'), (105, 206, 'M-6016', '2024-02-03 10:15:00'), (106, 206, 'M-6017', '2024-02-03 11:00:00'), (107, 208, 'M-6025', '2024-02-04 16:30:00'), (108, 210, 'M-6030', '2024-02-05 08:50:00'), (109, 212, 'M-6040', '2024-02-06 13:10:00'), (110, 212, 'M-6041', '2024-02-06 14:00:00'), (111, 215, 'M-6050', '2024-02-07 17:20:00'), (112, 217, 'M-6060', '2024-02-08 12:40:00'), (113, 220, 'M-6070', '2024-02-09 15:55:00'), (114, 220, 'M-6071', '2024-02-09 16:30:00'), (115, 220, 'M-6072', '2024-02-09 17:00:00');",
+  "test_expected_columns": [
+    "player_id",
+    "username",
+    "account_tier"
+  ],
+  "test_expected_rows": [
+    [
+      202,
+      "beta_storm",
+      "platinum"
+    ],
+    [
+      204,
+      "delta_force",
+      "silver"
+    ],
+    [
+      205,
+      "epsilon_blade",
+      "bronze"
+    ],
+    [
+      207,
+      "eta_wave",
+      "platinum"
+    ],
+    [
+      209,
+      "iota_shade",
+      "bronze"
+    ],
+    [
+      211,
+      "lambda_ice",
+      "diamond"
+    ],
+    [
+      213,
+      "nu_shadow",
+      "silver"
+    ],
+    [
+      214,
+      "xi_light",
+      "bronze"
+    ],
+    [
+      216,
+      "pi_steel",
+      "platinum"
+    ],
+    [
+      218,
+      "sigma_frost",
+      "bronze"
+    ],
+    [
+      219,
+      "tau_void",
+      "gold"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "row-filter",
+    "composite_moves": [
+      "anti-join using NOT EXISTS to exclude players with match acceptances",
+      "filter players table",
+      "return non-matching rows"
+    ]
+  },
+  "hints": [
+    "You need to identify players who do not appear in the match acceptances table.",
+    "Consider using NOT EXISTS with a correlated subquery to check for the absence of match acceptances.",
+    "The pattern is: SELECT columns FROM players WHERE NOT EXISTS (SELECT 1 FROM match_acceptances WHERE match_acceptances.player_id = players.player_id)."
+  ],
+  "answer_key": "SELECT player_id, username, account_tier FROM players WHERE NOT EXISTS (SELECT 1 FROM match_acceptances WHERE match_acceptances.player_id = players.player_id) ORDER BY player_id;",
+  "_meta": {
+    "question_type": "anti_join",
+    "original_qtype": "random_any",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-20T12:29:16.556102",
+    "problem_id": "5a2f377d305a",
+    "validation_attempts": 1,
+    "scenario": "a console online service tracking multiplayer match acceptance",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "not_exists"
+  }
+}

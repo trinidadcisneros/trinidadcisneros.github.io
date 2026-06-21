@@ -1,0 +1,126 @@
+{
+  "problem": {
+    "title": "Process Forum Thread Moderation Queue",
+    "prompt": "You are building a moderation pipeline for a community forum. The `threads` table tracks each discussion thread's current moderation state and assigned moderator. The `moderation_events` table is a chronological log of moderation actions: each event references a thread and carries an event type (1 = assign_moderator, 2 = escalate, 3 = close_thread). You must write a DO block that processes the events in chronological order (by `event_id`), reading each thread's current state before deciding whether to apply the event's action. Subsequent events in the same run must see the prior event's updates. After the DO block, include a trailing `SELECT * FROM threads ORDER BY thread_id;` to show the final state.\n\nEvent type rules (process in `event_id` order, reading fresh state each iteration):\n\n\u2022 When `event_type` = 1 ('assign_moderator') applies:\n  - Preconditions:\n    + current `status` must be 'open'.\n    + current `assigned_moderator_id` must be NULL.\n  - Actions:\n    + set `assigned_moderator_id` to the event's `moderator_id`.\n    + set `status` to 'under_review'.\n\n\u2022 When `event_type` = 2 ('escalate') applies:\n  - Preconditions:\n    + current `status` must be 'under_review'.\n    + the event's `moderator_id` must equal the current `assigned_moderator_id`.\n  - Actions:\n    + set `status` to 'escalated'.\n    + set `escalation_count` to `escalation_count + 1`.\n\n\u2022 When `event_type` = 3 ('close_thread') applies:\n  - Preconditions:\n    + current `status` must be 'under_review' OR 'escalated'.\n  - Actions:\n    + set `status` to 'closed'.\n\n\u2022 Events that fail their preconditions are no-ops (the thread row is unchanged).\n\nDesign your loop so that each iteration freshly reads `status`, `assigned_moderator_id`, and `escalation_count` from the thread referenced by the event's `thread_id`, branches on both the event type and the current state, and conditionally updates the thread only when all preconditions pass.",
+    "schema_ddl": "CREATE TABLE threads (thread_id INT PRIMARY KEY, status VARCHAR(20) NOT NULL, assigned_moderator_id INT, escalation_count INT NOT NULL DEFAULT 0); CREATE TABLE moderation_events (event_id INT PRIMARY KEY, thread_id INT NOT NULL REFERENCES threads(thread_id), event_type INT NOT NULL, moderator_id INT);",
+    "example_input_data": "INSERT INTO threads (thread_id, status, assigned_moderator_id, escalation_count) VALUES (101, 'open', NULL, 0), (102, 'open', NULL, 0), (103, 'open', NULL, 0); INSERT INTO moderation_events (event_id, thread_id, event_type, moderator_id) VALUES (1, 101, 1, 5), (2, 101, 2, 5), (3, 102, 1, 7), (4, 103, 1, 5), (5, 103, 3, 5), (6, 102, 2, 9), (7, 102, 3, 7);",
+    "example_output_columns": [
+      "thread_id",
+      "status",
+      "assigned_moderator_id",
+      "escalation_count"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "escalated",
+        5,
+        1
+      ],
+      [
+        102,
+        "closed",
+        7,
+        0
+      ],
+      [
+        103,
+        "closed",
+        5,
+        0
+      ]
+    ],
+    "test_data": "INSERT INTO threads (thread_id, status, assigned_moderator_id, escalation_count) VALUES (201, 'open', NULL, 0), (202, 'open', NULL, 0), (203, 'open', NULL, 0), (204, 'open', NULL, 0), (205, 'open', NULL, 0), (206, 'open', NULL, 0), (207, 'open', NULL, 0), (208, 'open', NULL, 0); INSERT INTO moderation_events (event_id, thread_id, event_type, moderator_id) VALUES (1, 201, 1, 10), (2, 202, 1, 11), (3, 201, 2, 10), (4, 203, 1, 12), (5, 201, 3, 10), (6, 202, 2, 11), (7, 204, 1, 10), (8, 205, 1, 13), (9, 202, 3, 11), (10, 203, 2, 14), (11, 204, 2, 10), (12, 206, 1, 15), (13, 203, 3, 12), (14, 204, 3, 10), (15, 207, 1, 16), (16, 205, 2, 13), (17, 208, 1, 17), (18, 206, 2, 15), (19, 207, 2, 16), (20, 205, 3, 13), (21, 208, 3, 17), (22, 206, 3, 15), (23, 207, 3, 16);",
+    "test_expected_columns": [
+      "thread_id",
+      "status",
+      "assigned_moderator_id",
+      "escalation_count"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "closed",
+        10,
+        1
+      ],
+      [
+        202,
+        "closed",
+        11,
+        1
+      ],
+      [
+        203,
+        "closed",
+        12,
+        0
+      ],
+      [
+        204,
+        "closed",
+        10,
+        1
+      ],
+      [
+        205,
+        "closed",
+        13,
+        1
+      ],
+      [
+        206,
+        "closed",
+        15,
+        1
+      ],
+      [
+        207,
+        "closed",
+        16,
+        1
+      ],
+      [
+        208,
+        "closed",
+        17,
+        0
+      ]
+    ],
+    "classification": {
+      "input_arrival": "procedural",
+      "output_shape": "state_mutation",
+      "recipe": "do-block-sequential",
+      "composite_moves": [
+        "for-loop over moderation_events in event_id order",
+        "per-iteration SELECT INTO to read current thread state",
+        "IF/ELSIF branch on event_type AND current state columns",
+        "conditional UPDATE of threads row when preconditions pass",
+        "trailing SELECT * FROM threads ORDER BY thread_id"
+      ]
+    },
+    "hints": [
+      "You will need a FOR loop over the moderation_events table ordered by event_id, plus a RECORD variable to hold each event row.",
+      "Inside the loop, use SELECT ... INTO to read the current status, assigned_moderator_id, and escalation_count from the threads table for the event's thread_id. Then use IF/ELSIF to branch on both the event_type and those current values.",
+      "The three branches correspond to event_type 1 (assign_moderator: only fires when status='open' AND assigned_moderator_id IS NULL), event_type 2 (escalate: only fires when status='under_review' AND the event's moderator_id matches the current assigned_moderator_id, incrementing escalation_count), and event_type 3 (close_thread: only fires when status='under_review' OR status='escalated'). Events that fail their preconditions do nothing. After the loop, SELECT * FROM threads ORDER BY thread_id to return the final state."
+    ],
+    "answer_key": "DO $$\nDECLARE\n  rec RECORD;\n  cur_status VARCHAR(20);\n  cur_mod_id INT;\n  cur_esc_count INT;\nBEGIN\n  FOR rec IN SELECT * FROM moderation_events ORDER BY event_id LOOP\n    SELECT status, assigned_moderator_id, escalation_count\n      INTO cur_status, cur_mod_id, cur_esc_count\n      FROM threads\n     WHERE thread_id = rec.thread_id;\n\n    IF rec.event_type = 1 AND cur_status = 'open' AND cur_mod_id IS NULL THEN\n      UPDATE threads\n         SET assigned_moderator_id = rec.moderator_id,\n             status = 'under_review'\n       WHERE thread_id = rec.thread_id;\n    ELSIF rec.event_type = 2 AND cur_status = 'under_review' AND cur_mod_id = rec.moderator_id THEN\n      UPDATE threads\n         SET status = 'escalated',\n             escalation_count = escalation_count + 1\n       WHERE thread_id = rec.thread_id;\n    ELSIF rec.event_type = 3 AND (cur_status = 'under_review' OR cur_status = 'escalated') THEN\n      UPDATE threads\n         SET status = 'closed'\n       WHERE thread_id = rec.thread_id;\n    END IF;\n  END LOOP;\nEND $$;\n\nSELECT * FROM threads ORDER BY thread_id;",
+    "_meta": {
+      "question_type": "do_block_queue",
+      "original_qtype": "do_block_queue",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "consumer_social",
+      "generated_at": "2026-06-18T17:49:34.447462",
+      "problem_id": "9854bf9c0335",
+      "validation_attempts": 1,
+      "scenario": "a community forum tracking thread participation and member retention",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "subtype": null
+    }
+  },
+  "user_solution": "/* \n\nWhen `event_type` = 3 ('close_thread') applies:\ncurrent `status` must be 'under_review' OR 'escalated'.\nActions:\nset `status` to 'closed'.\n*/\n\nDO $$\nDECLARE\n    r RECORD;\n    curr_status VARCHAR(20);\n    curr_assigned_moderator_id INT;\nBEGIN\n    FOR r IN SELECT * FROM moderation_events ORDER BY event_id LOOP\n        SELECT status, assigned_moderator_id INTO curr_status, curr_assigned_moderator_id\n        FROM threads\n        WHERE thread_id = r.thread_id;\n\n        IF r.event_type = 1 AND curr_status = 'open' AND curr_assigned_moderator_id IS NULL THEN\n            UPDATE threads\n            SET assigned_moderator_id = r.moderator_id,\n                status = 'under_review'\n            WHERE thread_id = r.thread_id;\n\n        ELSIF r.event_type = 2 AND curr_status = 'under_review' AND curr_assigned_moderator_id = r.moderator_id THEN\n            UPDATE threads\n            SET  status = 'escalated',\n                escalation_count = escalation_count + 1\n            WHERE thread_id = r.thread_id;\n\n        ELSIF r.event_type = 3  AND (curr_status = 'under_review' OR curr_status = 'escalated') THEN\n            UPDATE threads\n            SET  status = 'closed'\n            WHERE thread_id = r.thread_id;\n\n        END IF;\n    END LOOP;\nEND $$;\n\n\nSELECT * FROM threads ORDER BY thread_id;",
+  "solved_at": "2026-06-18T18:08:55.192429"
+}

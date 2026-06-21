@@ -1,0 +1,113 @@
+{
+  "problem": {
+    "title": "Prior Auth Session Cycle Time Analysis",
+    "prompt": "A prior authorization tracking system logs each status change event for authorization requests. Clinical staff often work on multiple requests in discrete work sessions separated by breaks. You need to group each staff member's events into sessions, where a new session starts if more than 20 minutes have elapsed since their previous event. Calculate the cycle time (duration from first to last event) for each session that contains at least 2 events. A session is defined per staff member: events from different staff members are always in separate sessions, even if timestamps overlap. Return columns `staff_member_id`, `session_id` (a sequential number per staff member, starting at 1 for their earliest session), and `cycle_time_minutes` (the difference in minutes between the session's last and first event timestamp, rounded to 2 decimal places). Order results by `staff_member_id`, then `session_id`.",
+    "schema_ddl": "CREATE TABLE auth_events (event_id SERIAL PRIMARY KEY, staff_member_id INT NOT NULL, payer_auth_request_id VARCHAR(20) NOT NULL, event_timestamp TIMESTAMP NOT NULL, status_code VARCHAR(20) NOT NULL);",
+    "example_input_data": "INSERT INTO auth_events (event_id, staff_member_id, payer_auth_request_id, event_timestamp, status_code) VALUES (1, 101, 'AUTH-2024-001', '2024-01-15 09:00:00', 'submitted'), (2, 101, 'AUTH-2024-001', '2024-01-15 09:05:00', 'pending_review'), (3, 101, 'AUTH-2024-002', '2024-01-15 09:18:00', 'submitted'), (4, 101, 'AUTH-2024-003', '2024-01-15 09:50:00', 'submitted'), (5, 101, 'AUTH-2024-003', '2024-01-15 10:05:00', 'approved'), (6, 102, 'AUTH-2024-004', '2024-01-15 10:00:00', 'submitted'), (7, 102, 'AUTH-2024-004', '2024-01-15 10:12:00', 'pending_review'), (8, 102, 'AUTH-2024-005', '2024-01-15 10:40:00', 'submitted');",
+    "example_output_columns": [
+      "staff_member_id",
+      "session_id",
+      "cycle_time_minutes"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        1,
+        "18.00"
+      ],
+      [
+        101,
+        2,
+        "15.00"
+      ],
+      [
+        102,
+        1,
+        "12.00"
+      ]
+    ],
+    "test_data": "INSERT INTO auth_events (event_id, staff_member_id, payer_auth_request_id, event_timestamp, status_code) VALUES (101, 201, 'AUTH-2024-100', '2024-02-01 08:00:00', 'submitted'), (102, 201, 'AUTH-2024-100', '2024-02-01 08:10:00', 'pending_review'), (103, 201, 'AUTH-2024-100', '2024-02-01 08:25:00', 'approved'), (104, 201, 'AUTH-2024-101', '2024-02-01 08:50:00', 'submitted'), (105, 201, 'AUTH-2024-101', '2024-02-01 09:05:00', 'denied'), (106, 201, 'AUTH-2024-102', '2024-02-01 10:00:00', 'submitted'), (107, 201, 'AUTH-2024-102', '2024-02-01 10:08:00', 'pending_review'), (108, 201, 'AUTH-2024-102', '2024-02-01 10:22:00', 'approved'), (109, 201, 'AUTH-2024-103', '2024-02-01 11:00:00', 'submitted'), (110, 202, 'AUTH-2024-104', '2024-02-01 09:00:00', 'submitted'), (111, 202, 'AUTH-2024-104', '2024-02-01 09:18:00', 'pending_review'), (112, 202, 'AUTH-2024-104', '2024-02-01 09:35:00', 'approved'), (113, 202, 'AUTH-2024-105', '2024-02-01 10:10:00', 'submitted'), (114, 202, 'AUTH-2024-105', '2024-02-01 10:25:00', 'pending_review'), (115, 202, 'AUTH-2024-106', '2024-02-01 11:00:00', 'submitted'), (116, 202, 'AUTH-2024-106', '2024-02-01 11:12:00', 'approved'), (117, 203, 'AUTH-2024-107', '2024-02-01 08:30:00', 'submitted'), (118, 203, 'AUTH-2024-107', '2024-02-01 08:55:00', 'approved'), (119, 203, 'AUTH-2024-108', '2024-02-01 09:20:00', 'submitted'), (120, 203, 'AUTH-2024-108', '2024-02-01 09:45:00', 'pending_review'), (121, 203, 'AUTH-2024-108', '2024-02-01 10:02:00', 'approved'), (122, 203, 'AUTH-2024-109', '2024-02-01 11:30:00', 'submitted'), (123, 204, 'AUTH-2024-110', '2024-02-01 07:00:00', 'submitted'), (124, 204, 'AUTH-2024-111', '2024-02-01 07:05:00', 'submitted'), (125, 204, 'AUTH-2024-111', '2024-02-01 07:30:00', 'approved'), (126, 205, 'AUTH-2024-112', '2024-02-01 14:00:00', 'submitted');",
+    "test_expected_columns": [
+      "staff_member_id",
+      "session_id",
+      "cycle_time_minutes"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        1,
+        "25.00"
+      ],
+      [
+        201,
+        2,
+        "15.00"
+      ],
+      [
+        201,
+        3,
+        "22.00"
+      ],
+      [
+        202,
+        1,
+        "35.00"
+      ],
+      [
+        202,
+        2,
+        "15.00"
+      ],
+      [
+        202,
+        3,
+        "12.00"
+      ],
+      [
+        203,
+        4,
+        "17.00"
+      ],
+      [
+        204,
+        1,
+        "5.00"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "CTE 1: LAG(event_timestamp) OVER (PARTITION BY staff_member_id ORDER BY event_timestamp) to get previous_ts per staff member",
+        "CTE 1: CASE WHEN previous_ts IS NULL OR event_timestamp - previous_ts > INTERVAL '20 minutes' THEN 1 ELSE 0 END as new_session_flag",
+        "CTE 2: SUM(new_session_flag) OVER (PARTITION BY staff_member_id ORDER BY event_timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) as session_id",
+        "GROUP BY staff_member_id, session_id with HAVING COUNT(*) >= 2",
+        "Aggregate: ROUND(EXTRACT(EPOCH FROM MAX(event_timestamp) - MIN(event_timestamp)) / 60, 2) as cycle_time_minutes",
+        "ORDER BY staff_member_id, session_id"
+      ]
+    },
+    "hints": [
+      "Consider how to identify when a new work session begins for each staff member based on time gaps between consecutive events.",
+      "Use LAG() to compare each event's timestamp with the previous event's timestamp for the same staff member, then flag rows where the gap exceeds 20 minutes or is the first event.",
+      "After flagging session boundaries, use a cumulative SUM() over the flags to assign a sequential session_id per staff member, then group by staff_member_id and session_id to calculate the time span from MIN to MAX event timestamp within each session, filtering for sessions with at least 2 events."
+    ],
+    "answer_key": "WITH event_gaps AS (SELECT staff_member_id, event_timestamp, LAG(event_timestamp) OVER (PARTITION BY staff_member_id ORDER BY event_timestamp) AS previous_ts, CASE WHEN LAG(event_timestamp) OVER (PARTITION BY staff_member_id ORDER BY event_timestamp) IS NULL OR event_timestamp - LAG(event_timestamp) OVER (PARTITION BY staff_member_id ORDER BY event_timestamp) > INTERVAL '20 minutes' THEN 1 ELSE 0 END AS new_session_flag FROM auth_events), sessions AS (SELECT staff_member_id, event_timestamp, SUM(new_session_flag) OVER (PARTITION BY staff_member_id ORDER BY event_timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS session_id FROM event_gaps) SELECT staff_member_id, session_id, ROUND(EXTRACT(EPOCH FROM MAX(event_timestamp) - MIN(event_timestamp)) / 60, 2) AS cycle_time_minutes FROM sessions GROUP BY staff_member_id, session_id HAVING COUNT(*) >= 2 ORDER BY staff_member_id, session_id;",
+    "_meta": {
+      "question_type": "window_sessionization",
+      "original_qtype": "window_sessionization",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-14T19:28:18.205717",
+      "problem_id": "60be462ae4a8",
+      "validation_attempts": 1,
+      "scenario": "a prior authorization cycle time tracking system across payers",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\nWITH add_prev_time AS (\n    SELECT\n        staff_member_id,\n        event_timestamp,\n        LAG(event_timestamp) OVER (PARTITION BY staff_member_id ORDER BY event_timestamp) AS prev_ts\n    FROM auth_events\n),\nflag_new_session as (\n    SELECT\n        staff_member_id,\n        event_timestamp,\n        CASE \n            WHEN prev_ts IS NULL OR\n                 event_timestamp - prev_ts > INTERVAL '20 minutes' THEN 1 ELSE 0 END AS is_new_session\n    FROM add_prev_time\n\n),\nassign_session_id AS (\n    SELECT\n        staff_member_id,\n        event_timestamp,\n        SUM(is_new_session) OVER (PARTITION BY staff_member_id ORDER BY event_timestamp) AS session_id\n    FROM flag_new_session\n\n)\nSELECT\n    staff_member_id, \n    session_id,\n    ROUND( \n        EXTRACT(\n            EPOCH FROM (MAX(event_timestamp) - MIN(event_timestamp)) / 60\n        )\n    ,2) AS cycle_time_minutes\nFROM assign_session_id\nGROUP BY staff_member_id, session_id\nHAVING COUNT(*) >= 2\nORDER BY 1;\n",
+  "solved_at": "2026-06-14T22:04:02.631629"
+}

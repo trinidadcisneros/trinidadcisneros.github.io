@@ -1,0 +1,148 @@
+{
+  "title": "Trial Feature Exposure Gated Pricing",
+  "prompt": "You are analyzing which trial accounts should see premium pricing versus a fallback. Write a query that returns one row per trial account showing the `account_id`, `account_name`, and `lowest_seat_price`. If the account's `engagement_score` is 75 or higher, `lowest_seat_price` should be the MINIMUM value of `monthly_price_per_seat` from the `pricing_tiers` table for that account. If the engagement score is below 75, set `lowest_seat_price` to 0 (zero). Every account in the `trial_accounts` table should appear in the output. Order the result by `account_id` ascending. The `trial_accounts` table holds one row per account with its engagement score; the `pricing_tiers` table may have multiple pricing options per account. Your query must apply the engagement gate to the picked price, not filter the pricing tiers themselves.",
+  "schema_ddl": "CREATE TABLE trial_accounts (account_id INT PRIMARY KEY, account_name VARCHAR(100), engagement_score INT); CREATE TABLE pricing_tiers (tier_id SERIAL PRIMARY KEY, account_id INT, tier_name VARCHAR(50), monthly_price_per_seat DECIMAL(10,2));",
+  "example_input_data": "INSERT INTO trial_accounts (account_id, account_name, engagement_score) VALUES (1, 'DevCorp', 88), (2, 'BuildLabs', 62), (3, 'CodeStream', 75), (4, 'ShipFast', 45); INSERT INTO pricing_tiers (account_id, tier_name, monthly_price_per_seat) VALUES (1, 'Starter', 29.99), (1, 'Pro', 49.99), (1, 'Enterprise', 99.99), (2, 'Starter', 24.99), (2, 'Pro', 44.99), (3, 'Pro', 39.99), (4, 'Starter', 19.99), (4, 'Pro', 34.99);",
+  "example_output_columns": [
+    "account_id",
+    "account_name",
+    "lowest_seat_price"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "DevCorp",
+      "29.99"
+    ],
+    [
+      2,
+      "BuildLabs",
+      "0"
+    ],
+    [
+      3,
+      "CodeStream",
+      "39.99"
+    ],
+    [
+      4,
+      "ShipFast",
+      "0"
+    ]
+  ],
+  "test_data": "INSERT INTO trial_accounts (account_id, account_name, engagement_score) VALUES (101, 'AlphaTools', 92), (102, 'BetaSoft', 68), (103, 'GammaLabs', 75), (104, 'DeltaDev', 48), (105, 'EpsilonCode', 81), (106, 'ZetaBuild', 55), (107, 'EtaShip', 90), (108, 'ThetaOps', 72), (109, 'IotaStack', 78), (110, 'KappaTech', 41), (111, 'LambdaFlow', 87), (112, 'MuStream', 64), (113, 'NuForge', 76), (114, 'XiCloud', 52), (115, 'OmicronPipe', 95); INSERT INTO pricing_tiers (account_id, tier_name, monthly_price_per_seat) VALUES (101, 'Starter', 27.50), (101, 'Pro', 52.00), (101, 'Enterprise', 105.00), (102, 'Starter', 22.00), (102, 'Pro', 41.50), (102, 'Enterprise', 88.00), (103, 'Pro', 38.75), (103, 'Enterprise', 82.50), (104, 'Starter', 18.99), (105, 'Starter', 31.00), (105, 'Pro', 56.00), (106, 'Starter', 20.50), (106, 'Pro', 37.25), (107, 'Pro', 48.00), (107, 'Enterprise', 110.00), (108, 'Starter', 25.00), (108, 'Pro', 45.00), (109, 'Starter', 26.50), (109, 'Pro', 50.50), (109, 'Enterprise', 95.50), (110, 'Starter', 17.75), (111, 'Starter', 30.00), (111, 'Pro', 54.00), (111, 'Enterprise', 102.00), (112, 'Starter', 23.50), (112, 'Pro', 43.00), (113, 'Starter', 28.00), (113, 'Pro', 51.00), (114, 'Starter', 21.00), (114, 'Pro', 39.00), (115, 'Starter', 32.00), (115, 'Pro', 58.00), (115, 'Enterprise', 115.00);",
+  "test_expected_columns": [
+    "account_id",
+    "account_name",
+    "lowest_seat_price"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      "AlphaTools",
+      "27.50"
+    ],
+    [
+      102,
+      "BetaSoft",
+      "0"
+    ],
+    [
+      103,
+      "GammaLabs",
+      "38.75"
+    ],
+    [
+      104,
+      "DeltaDev",
+      "0"
+    ],
+    [
+      105,
+      "EpsilonCode",
+      "31.00"
+    ],
+    [
+      106,
+      "ZetaBuild",
+      "0"
+    ],
+    [
+      107,
+      "EtaShip",
+      "48.00"
+    ],
+    [
+      108,
+      "ThetaOps",
+      "0"
+    ],
+    [
+      109,
+      "IotaStack",
+      "26.50"
+    ],
+    [
+      110,
+      "KappaTech",
+      "0"
+    ],
+    [
+      111,
+      "LambdaFlow",
+      "30.00"
+    ],
+    [
+      112,
+      "MuStream",
+      "0"
+    ],
+    [
+      113,
+      "NuForge",
+      "28.00"
+    ],
+    [
+      114,
+      "XiCloud",
+      "0"
+    ],
+    [
+      115,
+      "OmicronPipe",
+      "32.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "same_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "join trial_accounts to pricing_tiers on account_id",
+      "per-account pick: MIN(monthly_price_per_seat) grouped by account_id",
+      "gate: CASE WHEN engagement_score >= 75 THEN picked_price ELSE 0 END",
+      "ensure all accounts appear (LEFT JOIN or CASE fallback)"
+    ]
+  },
+  "hints": [
+    "You need to combine information from both tables for each account, then decide whether to show the real price or a fallback.",
+    "Find the minimum price per account from the pricing_tiers table, then check the engagement_score from trial_accounts to decide if that price should be used or replaced with 0.",
+    "Use a LEFT JOIN from trial_accounts to a subquery that groups pricing_tiers by account_id and takes MIN(monthly_price_per_seat), then wrap the price in a CASE expression that checks engagement_score >= 75."
+  ],
+  "answer_key": "SELECT ta.account_id, ta.account_name, CASE WHEN ta.engagement_score >= 75 THEN COALESCE(pt_min.min_price, 0) ELSE 0 END AS lowest_seat_price FROM trial_accounts ta LEFT JOIN (SELECT account_id, MIN(monthly_price_per_seat) AS min_price FROM pricing_tiers GROUP BY account_id) pt_min ON ta.account_id = pt_min.account_id ORDER BY ta.account_id;",
+  "_meta": {
+    "question_type": "gated_lookup",
+    "original_qtype": "gated_lookup",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-17T19:10:26.277956",
+    "problem_id": "aca7ce8fae69",
+    "validation_attempts": 1,
+    "scenario": "a developer tools company tracking trial-to-paid conversion and seat expansion",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "subtype": null
+  }
+}

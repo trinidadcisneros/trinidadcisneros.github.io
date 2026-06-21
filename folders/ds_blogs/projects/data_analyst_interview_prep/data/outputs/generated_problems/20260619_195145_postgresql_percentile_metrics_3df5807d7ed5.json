@@ -1,0 +1,80 @@
+{
+  "title": "Sleep Score Percentiles by Age Group",
+  "prompt": "You are analyzing sleep quality data from a sleep tracking app. Write a query that calculates the median (50th percentile) sleep score for each age group using continuous interpolation. The output should show the age group name and the median sleep score rounded to 1 decimal place. Use PERCENTILE_CONT for the calculation. Order results by age_group_name ascending. Output columns: age_group_name, median_sleep_score.",
+  "schema_ddl": "CREATE TABLE age_groups (age_group_id INTEGER PRIMARY KEY, age_group_name VARCHAR(50)); CREATE TABLE sleep_sessions (session_id INTEGER PRIMARY KEY, user_id INTEGER, age_group_id INTEGER, sleep_score DECIMAL(5,2), session_date DATE);",
+  "example_input_data": "INSERT INTO age_groups (age_group_id, age_group_name) VALUES (1, '18-25'), (2, '26-35'), (3, '36-45'); INSERT INTO sleep_sessions (session_id, user_id, age_group_id, sleep_score, session_date) VALUES (1, 101, 1, 78.5, '2024-01-15'), (2, 102, 1, 82.0, '2024-01-16'), (3, 103, 1, 85.5, '2024-01-17'), (4, 104, 2, 72.0, '2024-01-15'), (5, 105, 2, 76.5, '2024-01-16'), (6, 106, 2, 79.0, '2024-01-17'), (7, 107, 2, 81.5, '2024-01-18'), (8, 108, 3, 68.0, '2024-01-15'), (9, 109, 3, 70.5, '2024-01-16');",
+  "example_output_columns": [
+    "age_group_name",
+    "median_sleep_score"
+  ],
+  "example_output_rows": [
+    [
+      "18-25",
+      "82.0"
+    ],
+    [
+      "26-35",
+      "77.8"
+    ],
+    [
+      "36-45",
+      "69.3"
+    ]
+  ],
+  "test_data": "INSERT INTO age_groups (age_group_id, age_group_name) VALUES (1, '18-25'), (2, '26-35'), (3, '36-45'), (4, '46-55'); INSERT INTO sleep_sessions (session_id, user_id, age_group_id, sleep_score, session_date) VALUES (1, 101, 1, 78.5, '2024-01-15'), (2, 102, 1, 82.0, '2024-01-16'), (3, 103, 1, 85.5, '2024-01-17'), (4, 104, 1, 88.0, '2024-01-18'), (5, 105, 1, 90.5, '2024-01-19'), (6, 106, 1, 92.0, '2024-01-20'), (7, 107, 2, 65.0, '2024-01-15'), (8, 108, 2, 68.5, '2024-01-16'), (9, 109, 2, 72.0, '2024-01-17'), (10, 110, 2, 75.5, '2024-01-18'), (11, 111, 2, 79.0, '2024-01-19'), (12, 112, 3, 60.0, '2024-01-15'), (13, 113, 3, 63.5, '2024-01-16'), (14, 114, 3, 67.0, '2024-01-17'), (15, 115, 3, 70.5, '2024-01-18'), (16, 116, 3, 74.0, '2024-01-19'), (17, 117, 3, 77.5, '2024-01-20'), (18, 118, 3, 81.0, '2024-01-21'), (19, 119, 4, 55.0, '2024-01-15'), (20, 120, 4, 58.5, '2024-01-16'), (21, 121, 4, 62.0, '2024-01-17');",
+  "test_expected_columns": [
+    "age_group_name",
+    "median_sleep_score"
+  ],
+  "test_expected_rows": [
+    [
+      "18-25",
+      "86.8"
+    ],
+    [
+      "26-35",
+      "72.0"
+    ],
+    [
+      "36-45",
+      "70.5"
+    ],
+    [
+      "46-55",
+      "58.5"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "rank-partition",
+    "composite_moves": [
+      "join age_groups to sleep_sessions",
+      "group by age_group_id",
+      "PERCENTILE_CONT aggregate per group",
+      "round to 1 decimal",
+      "order by age_group_name"
+    ]
+  },
+  "hints": [
+    "You'll need to use an aggregate function that computes percentiles within each group",
+    "PERCENTILE_CONT with WITHIN GROUP (ORDER BY ...) computes interpolated percentiles, and you can group by age_group_id",
+    "Join age_groups to sleep_sessions, GROUP BY age_group_id and age_group_name, then use PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sleep_score) and cast the result to NUMERIC before rounding"
+  ],
+  "answer_key": "SELECT ag.age_group_name, ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ss.sleep_score)::NUMERIC, 1) AS median_sleep_score FROM age_groups ag JOIN sleep_sessions ss ON ag.age_group_id = ss.age_group_id GROUP BY ag.age_group_id, ag.age_group_name ORDER BY ag.age_group_name;",
+  "_meta": {
+    "question_type": "percentile_metrics",
+    "original_qtype": "percentile_metrics",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-19T19:51:45.746077",
+    "problem_id": "3df5807d7ed5",
+    "validation_attempts": 2,
+    "scenario": "a sleep tracking app tracking sleep score and goal achievement",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": "percentile_aggregate",
+    "subtype": null
+  }
+}

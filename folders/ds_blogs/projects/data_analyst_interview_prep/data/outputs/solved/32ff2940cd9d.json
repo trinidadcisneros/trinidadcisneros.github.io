@@ -1,0 +1,85 @@
+{
+  "problem": {
+    "title": "Onboarding Completion Report by Department",
+    "prompt": "Write a PostgreSQL function named `get_department_onboarding_summary` that accepts two parameters: `min_employees INT` and `completion_threshold DECIMAL(5,2)` (representing a percentage). The function should return a table with columns: `department_name VARCHAR(100)`, `employee_count BIGINT`, `avg_completion_pct DECIMAL(5,2)`, and `enrolled_in_benefits_count BIGINT`. For each department that has at least `min_employees` employees, calculate the average onboarding completion percentage across all employees in that department. Only include departments where the average completion percentage is greater than or equal to `completion_threshold`. Also count how many employees in each qualifying department are enrolled in benefits (where `benefits_enrolled` is TRUE). If an employee has a NULL `completion_percentage`, treat it as 0.0 for the average calculation. Order results by `avg_completion_pct` descending, then by `department_name` ascending. The function signature must be: `CREATE OR REPLACE FUNCTION get_department_onboarding_summary(min_employees INT, completion_threshold DECIMAL(5,2)) RETURNS TABLE (department_name VARCHAR(100), employee_count BIGINT, avg_completion_pct DECIMAL(5,2), enrolled_in_benefits_count BIGINT)`. Test your function by calling: `SELECT * FROM get_department_onboarding_summary(2, 60.00);`",
+    "schema_ddl": "CREATE TABLE departments (department_id INT PRIMARY KEY, department_name VARCHAR(100) NOT NULL); CREATE TABLE employees (employee_id INT PRIMARY KEY, department_id INT NOT NULL, employee_name VARCHAR(100) NOT NULL, completion_percentage DECIMAL(5,2), benefits_enrolled BOOLEAN NOT NULL, FOREIGN KEY (department_id) REFERENCES departments(department_id));",
+    "example_input_data": "INSERT INTO departments (department_id, department_name) VALUES (1, 'Engineering'), (2, 'Sales'), (3, 'Marketing'), (4, 'HR'); INSERT INTO employees (employee_id, department_id, employee_name, completion_percentage, benefits_enrolled) VALUES (101, 1, 'Alice Chen', 85.50, TRUE), (102, 1, 'Bob Smith', 72.00, TRUE), (103, 1, 'Carol Lee', NULL, FALSE), (104, 2, 'David Park', 95.00, TRUE), (105, 2, 'Emma Wilson', 88.00, TRUE), (106, 3, 'Frank Torres', 45.00, FALSE), (107, 4, 'Grace Kim', 100.00, TRUE);",
+    "example_output_columns": [
+      "department_name",
+      "employee_count",
+      "avg_completion_pct",
+      "enrolled_in_benefits_count"
+    ],
+    "example_output_rows": [
+      [
+        "Sales",
+        2,
+        "91.50",
+        2
+      ]
+    ],
+    "test_data": "INSERT INTO departments (department_id, department_name) VALUES (1, 'Engineering'), (2, 'Sales'), (3, 'Marketing'), (4, 'HR'), (5, 'Finance'), (6, 'Operations'), (7, 'Legal'); INSERT INTO employees (employee_id, department_id, employee_name, completion_percentage, benefits_enrolled) VALUES (101, 1, 'Alice Chen', 85.50, TRUE), (102, 1, 'Bob Smith', 72.00, TRUE), (103, 1, 'Carol Lee', NULL, FALSE), (104, 1, 'Dan Park', 90.00, TRUE), (105, 1, 'Emma Stone', 68.00, FALSE), (106, 2, 'Frank White', 95.00, TRUE), (107, 2, 'Grace Lee', 88.00, TRUE), (108, 2, 'Henry Wu', 77.50, FALSE), (109, 2, 'Iris Chen', NULL, TRUE), (110, 3, 'Jack Brown', 45.00, FALSE), (111, 3, 'Kate Lin', 55.00, FALSE), (112, 3, 'Leo Garcia', 50.00, TRUE), (113, 4, 'Maria Santos', 100.00, TRUE), (114, 4, 'Nina Patel', 92.00, TRUE), (115, 4, 'Oscar Kim', 88.00, FALSE), (116, 5, 'Paul Zhang', 65.00, TRUE), (117, 5, 'Quinn Moore', 70.00, TRUE), (118, 5, 'Rachel Adams', NULL, FALSE), (119, 6, 'Sam Taylor', 40.00, FALSE), (120, 6, 'Tina Lopez', 35.00, FALSE), (121, 7, 'Uma Singh', 80.00, TRUE), (122, 1, 'Victor Tran', 55.00, TRUE), (123, 2, 'Wendy Clark', 82.00, TRUE), (124, 3, 'Xander Hill', 62.00, TRUE), (125, 4, 'Yuki Tanaka', 95.00, TRUE), (126, 5, 'Zoe Martinez', 68.00, FALSE);",
+    "test_expected_columns": [
+      "department_name",
+      "employee_count",
+      "avg_completion_pct",
+      "enrolled_in_benefits_count"
+    ],
+    "test_expected_rows": [
+      [
+        "HR",
+        4,
+        "93.75",
+        3
+      ],
+      [
+        "Sales",
+        5,
+        "68.50",
+        4
+      ],
+      [
+        "Engineering",
+        6,
+        "61.75",
+        4
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "enrich-aggregate",
+      "composite_moves": [
+        "join departments to employees",
+        "coalesce NULL completion_percentage to 0",
+        "group by department",
+        "aggregate avg completion, count employees, count benefits_enrolled=TRUE",
+        "filter having avg >= threshold and count >= min",
+        "order by avg desc, department asc"
+      ]
+    },
+    "hints": [
+      "You'll need to join the departments and employees tables, then group by department to calculate aggregates.",
+      "Use COALESCE to treat NULL completion percentages as 0.0 when calculating the average. Apply HAVING to filter groups by both the employee count and the average completion threshold.",
+      "Inside your RETURN QUERY, join departments d and employees e on department_id, use COALESCE(e.completion_percentage, 0.0) in the AVG, COUNT(*) for employee_count, and SUM(CASE WHEN e.benefits_enrolled THEN 1 ELSE 0 END) for enrolled count. Group by d.department_name, filter with HAVING COUNT(*) >= min_employees AND AVG(...) >= completion_threshold, then order by AVG DESC, d.department_name ASC."
+    ],
+    "answer_key": "CREATE OR REPLACE FUNCTION get_department_onboarding_summary(min_employees INT, completion_threshold DECIMAL(5,2))\nRETURNS TABLE (\n  department_name VARCHAR(100),\n  employee_count BIGINT,\n  avg_completion_pct DECIMAL(5,2),\n  enrolled_in_benefits_count BIGINT\n)\nAS $$\nBEGIN\n  RETURN QUERY (\n    SELECT\n      d.department_name,\n      COUNT(*)::BIGINT AS employee_count,\n      ROUND(AVG(COALESCE(e.completion_percentage, 0.0)), 2) AS avg_completion_pct,\n      SUM(CASE WHEN e.benefits_enrolled THEN 1 ELSE 0 END)::BIGINT AS enrolled_in_benefits_count\n    FROM departments d\n    INNER JOIN employees e ON d.department_id = e.department_id\n    GROUP BY d.department_name\n    HAVING COUNT(*) >= min_employees\n       AND AVG(COALESCE(e.completion_percentage, 0.0)) >= completion_threshold\n    ORDER BY avg_completion_pct DESC, d.department_name ASC\n  );\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT * FROM get_department_onboarding_summary(2, 60.00);",
+    "_meta": {
+      "question_type": "returns_table",
+      "original_qtype": "returns_table",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-18T18:10:19.519722",
+      "problem_id": "32ff2940cd9d",
+      "validation_attempts": 1,
+      "scenario": "an HR platform tracking onboarding completion and benefits enrollment",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "subtype": null
+    }
+  },
+  "user_solution": "/*\n\nTable: departments\ndepartment_id\t                INT PRIMARY KEY\ndepartment_name\t                VARCHAR(100) NOT NULL\n\nTable: employees\nemployee_id\t                    INT PRIMARY KEY\ndepartment_id\t                INT NOT NULL\nemployee_name\t                VARCHAR(100) NOT NULL\ncompletion_percentage\t        DECIMAL(5,2)\nbenefits_enrolled\t            BOOLEAN NOT NULL\n\nget_department_onboarding_summary(min_employees INT, completion_threshold DECIMAL(5,2))\n\nOUTPUT\ndepartment_name                departments\nemployee_count                 COUNT(employee_name)\navg_completion_pct             AVG(completion_percentage)\nenrolled_in_benefits_count     SUM(CASE WHEN benefits_enrolled = TRUE THEN 1 ELSE O END)\n\n\nCREATE OR REPLACE FUNCTION get_department_onboarding_summary(min_employees INT, completion_threshold DECIMAL(5,2)) RETURNS TABLE (department_name VARCHAR(100), employee_count BIGINT, avg_completion_pct DECIMAL(5,2), enrolled_in_benefits_count BIGINT)\n\n1. group by\n2. filter\n3. join\n\n\n\n\n*/\nCREATE OR REPLACE FUNCTION get_department_onboarding_summary(min_employees INT, completion_threshold DECIMAL(5,2)) \nRETURNS TABLE (department_name VARCHAR(100), employee_count BIGINT, avg_completion_pct DECIMAL(5,2), enrolled_in_benefits_count BIGINT) AS $$\nBEGIN\n    RETURN QUERY (\n        SELECT\n            d.department_name,\n            COUNT(e.*) AS employee_count,\n            ROUND(AVG(COALESCE(e.completion_percentage, 0)),2) AS avg_completion_pct,\n            SUM(CASE WHEN e.benefits_enrolled = true THEN 1 ELSE 0 END) AS enrolled_in_benefits_count\n        FROM departments AS d\n        LEFT JOIN employees AS e\n        USING(department_id)\n        GROUP BY department_id\n        HAVING COUNT(e.*) >= min_employees AND ROUND(AVG(COALESCE(e.completion_percentage, 0)),2) >= completion_threshold\n        );\nEND;\n$$ LANGUAGE PLPGSQL;\n\n\nSELECT * FROM get_department_onboarding_summary(2, 60.00);\n\n\n\n\n\n",
+  "solved_at": "2026-06-18T18:40:03.037348"
+}

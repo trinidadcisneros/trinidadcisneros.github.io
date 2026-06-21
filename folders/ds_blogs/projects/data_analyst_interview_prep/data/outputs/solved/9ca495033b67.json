@@ -1,0 +1,138 @@
+{
+  "problem": {
+    "title": "Rebalancing Trades for Qualified Portfolios Only",
+    "prompt": "You manage a robo advisor platform. The `portfolios` table records each client portfolio with a unique `portfolio_id`, the `aum_tier` (1 through 5, where 5 is the highest), and a `qualified_for_options` boolean indicating regulatory approval to trade options. The `rebalance_trades` table logs proposed rebalancing trades for each portfolio; a single portfolio may have multiple trade proposals with different `trade_id`, each carrying a `potential_savings` amount in dollars. Your task: for every portfolio where `qualified_for_options = true`, find the trade with the HIGHEST `potential_savings` and report the `portfolio_id`, `aum_tier`, and that maximum `potential_savings` as `top_savings`. Portfolios where `qualified_for_options = false` should be EXCLUDED from the output entirely. Order results by `portfolio_id` ascending. Output columns: `portfolio_id`, `aum_tier`, `top_savings`.",
+    "schema_ddl": "CREATE TABLE portfolios (portfolio_id INTEGER PRIMARY KEY, aum_tier INTEGER NOT NULL, qualified_for_options BOOLEAN NOT NULL); CREATE TABLE rebalance_trades (trade_id INTEGER PRIMARY KEY, portfolio_id INTEGER NOT NULL, potential_savings DECIMAL(10,2) NOT NULL);",
+    "example_input_data": "INSERT INTO portfolios (portfolio_id, aum_tier, qualified_for_options) VALUES (101, 5, true), (102, 3, false), (103, 4, true), (104, 2, false), (105, 5, true), (106, 1, true); INSERT INTO rebalance_trades (trade_id, portfolio_id, potential_savings) VALUES (1, 101, 1200.00), (2, 101, 950.00), (3, 102, 800.00), (4, 103, 1500.00), (5, 103, 1350.00), (6, 103, 1100.00), (7, 105, 2000.00), (8, 106, 300.00), (9, 106, 450.00);",
+    "example_output_columns": [
+      "portfolio_id",
+      "aum_tier",
+      "top_savings"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        5,
+        "1200.00"
+      ],
+      [
+        103,
+        4,
+        "1500.00"
+      ],
+      [
+        105,
+        5,
+        "2000.00"
+      ],
+      [
+        106,
+        1,
+        "450.00"
+      ]
+    ],
+    "test_data": "INSERT INTO portfolios (portfolio_id, aum_tier, qualified_for_options) VALUES (201, 5, true), (202, 4, false), (203, 3, true), (204, 2, false), (205, 5, true), (206, 1, false), (207, 4, true), (208, 3, false), (209, 5, true), (210, 2, true), (211, 4, false), (212, 3, true), (213, 5, true), (214, 1, false), (215, 4, true), (216, 2, false), (217, 5, true), (218, 3, true), (219, 4, false), (220, 5, true); INSERT INTO rebalance_trades (trade_id, portfolio_id, potential_savings) VALUES (101, 201, 2500.00), (102, 201, 2300.00), (103, 201, 2700.00), (104, 202, 1800.00), (105, 203, 900.00), (106, 203, 1050.00), (107, 204, 600.00), (108, 205, 3200.00), (109, 205, 3100.00), (110, 205, 3400.00), (111, 206, 500.00), (112, 207, 1600.00), (113, 207, 1750.00), (114, 207, 1500.00), (115, 208, 700.00), (116, 209, 2900.00), (117, 210, 400.00), (118, 210, 550.00), (119, 211, 1200.00), (120, 212, 1100.00), (121, 212, 1250.00), (122, 213, 3500.00), (123, 215, 1800.00), (124, 215, 2000.00), (125, 216, 650.00), (126, 217, 3000.00), (127, 217, 3200.00), (128, 217, 2800.00), (129, 218, 950.00), (130, 218, 1050.00), (131, 218, 900.00), (132, 219, 1400.00), (133, 220, 3100.00), (134, 220, 3300.00);",
+    "test_expected_columns": [
+      "portfolio_id",
+      "aum_tier",
+      "top_savings"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        5,
+        "2700.00"
+      ],
+      [
+        203,
+        3,
+        "1050.00"
+      ],
+      [
+        205,
+        5,
+        "3400.00"
+      ],
+      [
+        207,
+        4,
+        "1750.00"
+      ],
+      [
+        209,
+        5,
+        "2900.00"
+      ],
+      [
+        210,
+        2,
+        "550.00"
+      ],
+      [
+        212,
+        3,
+        "1250.00"
+      ],
+      [
+        213,
+        5,
+        "3500.00"
+      ],
+      [
+        215,
+        4,
+        "2000.00"
+      ],
+      [
+        217,
+        5,
+        "3200.00"
+      ],
+      [
+        218,
+        3,
+        "1050.00"
+      ],
+      [
+        220,
+        5,
+        "3300.00"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "enrich-join",
+      "composite_moves": [
+        "join portfolios and rebalance_trades on portfolio_id",
+        "filter WHERE qualified_for_options = true",
+        "per portfolio_id, pick MAX(potential_savings) using GROUP BY or window function",
+        "output portfolio_id, aum_tier, top_savings"
+      ]
+    },
+    "hints": [
+      "You need to combine data from both tables using the shared portfolio_id key.",
+      "Apply the qualified_for_options filter first, then for each remaining portfolio find the highest potential_savings among its trades.",
+      "Use a JOIN between portfolios and rebalance_trades, filter WHERE qualified_for_options = true, then GROUP BY portfolio_id and aum_tier with MAX(potential_savings)."
+    ],
+    "answer_key": "SELECT p.portfolio_id, p.aum_tier, MAX(rt.potential_savings) AS top_savings FROM portfolios p JOIN rebalance_trades rt ON p.portfolio_id = rt.portfolio_id WHERE p.qualified_for_options = true GROUP BY p.portfolio_id, p.aum_tier ORDER BY p.portfolio_id;",
+    "_meta": {
+      "question_type": "gated_lookup",
+      "original_qtype": "gated_lookup",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-20T13:37:43.805240",
+      "problem_id": "9ca495033b67",
+      "validation_attempts": 1,
+      "scenario": "a robo advisor tracking portfolio rebalancing and AUM growth",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "where_exclude"
+    }
+  },
+  "user_solution": "/*\n\n- portfolios: each client portfolio \n- rebalance_trades\n\nCASE WHEN qualified_for_options = true THEN MAX(potential_savings)\nwhere `qualified_for_options = true`, find the trade with the HIGHEST `potential_savings` and report the `portfolio_id`, `aum_tier`, and that maximum `potential_savings` as `top_savings`.\n\nPortfolios where `qualified_for_options = false` should be EXCLUDED from the output entirely.\nOrder results by `portfolio_id` ascending.\nOutput columns: `portfolio_id`, `aum_tier`, `top_savings`.\n*/\nSELECT\n    b.portfolio_id,\n    p.aum_tier,\n    b.top_savings\nFROM (\n    SELECT\n        p.portfolio_id,\n        CASE WHEN p.qualified_for_options = true THEN MAX(r.potential_savings) END AS top_savings\n    FROM portfolios AS p\n    JOIN rebalance_trades AS r\n        ON p.portfolio_id = r.portfolio_id\n    GROUP BY p.portfolio_id\n) AS b\nJOIN portfolios AS p\nOn p.portfolio_id = b.portfolio_id\nWHERE  b.top_savings IS NOT NULL\nORDER BY 1, 2, 3;\n\n\n\n",
+  "solved_at": "2026-06-20T13:53:06.605245"
+}

@@ -1,0 +1,264 @@
+{
+  "title": "Sleep Score Trailing 7-Day Average with Frame Clause",
+  "prompt": "You are analyzing sleep quality trends for users of a sleep tracking app. The `sleep_logs` table records each user's daily sleep score (0-100). For each sleep log entry, compute a `trailing_avg_7d` column that represents the average sleep score over the current day and the 6 preceding days (7 days total, including today). If fewer than 7 days are available (e.g., at the start of a user's tracking history), average only the available days. Return columns: `user_id`, `log_date`, `sleep_score`, `trailing_avg_7d` (rounded to 2 decimals). Order results by `user_id`, then `log_date` ascending. Important: The trailing window must include EXACTLY the current row and the 6 preceding rows (not 7 preceding rows, which would exclude the current row). At least one user should have fewer than 7 total logs so you can verify the partial-window behavior.",
+  "schema_ddl": "CREATE TABLE sleep_logs (user_id INT NOT NULL, log_date DATE NOT NULL, sleep_score DECIMAL(5,2) NOT NULL, PRIMARY KEY (user_id, log_date));",
+  "example_input_data": "INSERT INTO sleep_logs (user_id, log_date, sleep_score) VALUES (1, '2024-01-01', 75.00), (1, '2024-01-02', 80.00), (1, '2024-01-03', 70.00), (1, '2024-01-04', 85.00), (1, '2024-01-05', 90.00), (1, '2024-01-06', 78.00), (1, '2024-01-07', 82.00), (1, '2024-01-08', 88.00), (2, '2024-01-05', 65.00), (2, '2024-01-06', 68.00);",
+  "example_output_columns": [
+    "user_id",
+    "log_date",
+    "sleep_score",
+    "trailing_avg_7d"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "2024-01-01",
+      "75.00",
+      "75.00"
+    ],
+    [
+      1,
+      "2024-01-02",
+      "80.00",
+      "77.50"
+    ],
+    [
+      1,
+      "2024-01-03",
+      "70.00",
+      "75.00"
+    ],
+    [
+      1,
+      "2024-01-04",
+      "85.00",
+      "77.50"
+    ],
+    [
+      1,
+      "2024-01-05",
+      "90.00",
+      "80.00"
+    ],
+    [
+      1,
+      "2024-01-06",
+      "78.00",
+      "79.67"
+    ],
+    [
+      1,
+      "2024-01-07",
+      "82.00",
+      "80.00"
+    ],
+    [
+      1,
+      "2024-01-08",
+      "88.00",
+      "81.86"
+    ],
+    [
+      2,
+      "2024-01-05",
+      "65.00",
+      "65.00"
+    ],
+    [
+      2,
+      "2024-01-06",
+      "68.00",
+      "66.50"
+    ]
+  ],
+  "test_data": "INSERT INTO sleep_logs (user_id, log_date, sleep_score) VALUES (1, '2024-01-01', 72.50), (1, '2024-01-02', 75.00), (1, '2024-01-03', 68.00), (1, '2024-01-04', 80.00), (1, '2024-01-05', 85.00), (1, '2024-01-06', 78.50), (1, '2024-01-07', 82.00), (1, '2024-01-08', 88.00), (1, '2024-01-09', 90.00), (1, '2024-01-10', 77.00), (1, '2024-01-11', 83.00), (1, '2024-01-12', 79.50), (2, '2024-01-06', 60.00), (2, '2024-01-07', 65.00), (2, '2024-01-08', 70.00), (2, '2024-01-09', 68.00), (2, '2024-01-10', 72.00), (2, '2024-01-11', 75.00), (2, '2024-01-12', 73.00), (2, '2024-01-13', 71.00), (3, '2024-01-10', 50.00), (3, '2024-01-11', 55.00), (3, '2024-01-12', 52.00), (3, '2024-01-13', 58.00), (3, '2024-01-14', 60.00);",
+  "test_expected_columns": [
+    "user_id",
+    "log_date",
+    "sleep_score",
+    "trailing_avg_7d"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "2024-01-01",
+      "72.50",
+      "72.50"
+    ],
+    [
+      1,
+      "2024-01-02",
+      "75.00",
+      "73.75"
+    ],
+    [
+      1,
+      "2024-01-03",
+      "68.00",
+      "71.83"
+    ],
+    [
+      1,
+      "2024-01-04",
+      "80.00",
+      "73.88"
+    ],
+    [
+      1,
+      "2024-01-05",
+      "85.00",
+      "76.10"
+    ],
+    [
+      1,
+      "2024-01-06",
+      "78.50",
+      "76.50"
+    ],
+    [
+      1,
+      "2024-01-07",
+      "82.00",
+      "77.29"
+    ],
+    [
+      1,
+      "2024-01-08",
+      "88.00",
+      "79.50"
+    ],
+    [
+      1,
+      "2024-01-09",
+      "90.00",
+      "81.64"
+    ],
+    [
+      1,
+      "2024-01-10",
+      "77.00",
+      "82.93"
+    ],
+    [
+      1,
+      "2024-01-11",
+      "83.00",
+      "83.36"
+    ],
+    [
+      1,
+      "2024-01-12",
+      "79.50",
+      "82.57"
+    ],
+    [
+      2,
+      "2024-01-06",
+      "60.00",
+      "60.00"
+    ],
+    [
+      2,
+      "2024-01-07",
+      "65.00",
+      "62.50"
+    ],
+    [
+      2,
+      "2024-01-08",
+      "70.00",
+      "65.00"
+    ],
+    [
+      2,
+      "2024-01-09",
+      "68.00",
+      "65.75"
+    ],
+    [
+      2,
+      "2024-01-10",
+      "72.00",
+      "67.00"
+    ],
+    [
+      2,
+      "2024-01-11",
+      "75.00",
+      "68.33"
+    ],
+    [
+      2,
+      "2024-01-12",
+      "73.00",
+      "69.00"
+    ],
+    [
+      2,
+      "2024-01-13",
+      "71.00",
+      "70.57"
+    ],
+    [
+      3,
+      "2024-01-10",
+      "50.00",
+      "50.00"
+    ],
+    [
+      3,
+      "2024-01-11",
+      "55.00",
+      "52.50"
+    ],
+    [
+      3,
+      "2024-01-12",
+      "52.00",
+      "52.33"
+    ],
+    [
+      3,
+      "2024-01-13",
+      "58.00",
+      "53.75"
+    ],
+    [
+      3,
+      "2024-01-14",
+      "60.00",
+      "55.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "partition by user_id order by log_date",
+      "apply ROWS BETWEEN 6 PRECEDING AND CURRENT ROW frame",
+      "compute AVG(sleep_score) over the trailing 7-day window",
+      "round to 2 decimals"
+    ]
+  },
+  "hints": [
+    "You need a window function that computes an average over a trailing window that includes the current row and the 6 prior rows within each user's partition.",
+    "Use PARTITION BY user_id ORDER BY log_date, then apply a frame clause: ROWS BETWEEN ... PRECEDING AND CURRENT ROW. The frame should include exactly 7 rows total when available (6 preceding + current).",
+    "The exact frame clause is: ROWS BETWEEN 6 PRECEDING AND CURRENT ROW. Combine it with AVG(sleep_score) OVER (PARTITION BY user_id ORDER BY log_date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW), then ROUND to 2 decimals."
+  ],
+  "answer_key": "SELECT user_id, log_date, sleep_score, ROUND(AVG(sleep_score) OVER (PARTITION BY user_id ORDER BY log_date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW), 2) AS trailing_avg_7d FROM sleep_logs ORDER BY user_id, log_date;",
+  "_meta": {
+    "question_type": "window_frames",
+    "original_qtype": "window_frames",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-16T20:05:44.784558",
+    "problem_id": "96d09604eed5",
+    "validation_attempts": 1,
+    "scenario": "a sleep tracking app tracking sleep score and goal achievement",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null
+  }
+}

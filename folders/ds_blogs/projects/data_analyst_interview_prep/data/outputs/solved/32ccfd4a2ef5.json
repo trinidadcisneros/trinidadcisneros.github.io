@@ -1,0 +1,119 @@
+{
+  "problem": {
+    "title": "Match Queue Availability Island Ranges",
+    "prompt": "You are analyzing a console gaming service's matchmaking queue system. The service tracks two states: days when the queue was **accepting** new match requests and days when it was **paused** for maintenance or updates. You have two tables: `queue_accepting` (one row per day the queue was open) and `queue_paused` (one row per day the queue was closed). Every day in the analysis window is covered by exactly one of these two tables\u2014there are no missing days. Your task is to find all consecutive-day periods (islands) for each state and return one row per island showing `state` ('accepting' or 'paused'), `start_date`, and `end_date`. A single-day island should have `start_date = end_date`. The analysis window is January 1\u201320, 2024. Filter each source table to this range before unioning. Output columns must be named `state`, `start_date`, `end_date`, sorted by `start_date` ascending.",
+    "schema_ddl": "CREATE TABLE queue_accepting (accept_date DATE NOT NULL); CREATE TABLE queue_paused (pause_date DATE NOT NULL);",
+    "example_input_data": "INSERT INTO queue_accepting (accept_date) VALUES ('2024-01-01'), ('2024-01-02'), ('2024-01-03'), ('2024-01-06'), ('2024-01-09'), ('2024-01-10'), ('2024-01-11'), ('2024-01-12'); INSERT INTO queue_paused (pause_date) VALUES ('2024-01-04'), ('2024-01-05'), ('2024-01-07'), ('2024-01-08');",
+    "example_output_columns": [
+      "state",
+      "start_date",
+      "end_date"
+    ],
+    "example_output_rows": [
+      [
+        "accepting",
+        "2024-01-01",
+        "2024-01-03"
+      ],
+      [
+        "paused",
+        "2024-01-04",
+        "2024-01-05"
+      ],
+      [
+        "accepting",
+        "2024-01-06",
+        "2024-01-06"
+      ],
+      [
+        "paused",
+        "2024-01-07",
+        "2024-01-08"
+      ],
+      [
+        "accepting",
+        "2024-01-09",
+        "2024-01-12"
+      ]
+    ],
+    "test_data": "INSERT INTO queue_accepting (accept_date) VALUES ('2024-01-01'), ('2024-01-02'), ('2024-01-05'), ('2024-01-06'), ('2024-01-07'), ('2024-01-08'), ('2024-01-09'), ('2024-01-10'), ('2024-01-13'), ('2024-01-16'), ('2024-01-17'), ('2024-01-18'), ('2024-01-19'), ('2024-01-20'); INSERT INTO queue_paused (pause_date) VALUES ('2024-01-03'), ('2024-01-04'), ('2024-01-11'), ('2024-01-12'), ('2024-01-14'), ('2024-01-15');",
+    "test_expected_columns": [
+      "state",
+      "start_date",
+      "end_date"
+    ],
+    "test_expected_rows": [
+      [
+        "accepting",
+        "2024-01-01",
+        "2024-01-02"
+      ],
+      [
+        "paused",
+        "2024-01-03",
+        "2024-01-04"
+      ],
+      [
+        "accepting",
+        "2024-01-05",
+        "2024-01-10"
+      ],
+      [
+        "paused",
+        "2024-01-11",
+        "2024-01-12"
+      ],
+      [
+        "accepting",
+        "2024-01-13",
+        "2024-01-13"
+      ],
+      [
+        "paused",
+        "2024-01-14",
+        "2024-01-15"
+      ],
+      [
+        "accepting",
+        "2024-01-16",
+        "2024-01-20"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "union",
+      "output_shape": "fewer_rows",
+      "recipe": "gaps-and-islands",
+      "composite_moves": [
+        "UNION two single-state date tables with state literal",
+        "apply date-range filter in each UNION branch WHERE clause",
+        "partition by state, order by date, compute ROW_NUMBER()",
+        "subtract ROW_NUMBER()::INT from date to form island group key",
+        "GROUP BY state and group key",
+        "aggregate MIN(date) as start_date, MAX(date) as end_date",
+        "ORDER BY start_date ASC"
+      ]
+    },
+    "hints": [
+      "Combine both tables using UNION ALL, tagging each row with its state. Every day in the range appears exactly once across both tables.",
+      "Use the row-number trick: subtract ROW_NUMBER() (cast to integer) from the date within each state partition. Consecutive dates yield the same difference, forming an island group.",
+      "Group by state and the computed island key, then take MIN and MAX of the date to get the start and end of each consecutive period. Order the final output by start_date."
+    ],
+    "answer_key": "WITH combined AS (\n  SELECT 'accepting' AS state, accept_date AS d\n  FROM queue_accepting\n  WHERE accept_date BETWEEN DATE '2024-01-01' AND DATE '2024-01-20'\n  UNION ALL\n  SELECT 'paused' AS state, pause_date AS d\n  FROM queue_paused\n  WHERE pause_date BETWEEN DATE '2024-01-01' AND DATE '2024-01-20'\n),\nwith_grp AS (\n  SELECT state, d,\n         d - (ROW_NUMBER() OVER (PARTITION BY state ORDER BY d))::INT AS grp\n  FROM combined\n)\nSELECT state,\n       MIN(d) AS start_date,\n       MAX(d) AS end_date\nFROM with_grp\nGROUP BY state, grp\nORDER BY start_date;",
+    "_meta": {
+      "question_type": "union_islands",
+      "original_qtype": "union_islands",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-17T16:21:35.599272",
+      "problem_id": "32ccfd4a2ef5",
+      "validation_attempts": 1,
+      "scenario": "a console online service tracking multiplayer match acceptance",
+      "dml_op": null,
+      "islands_flavor": "date_calendar",
+      "percentile_flavor": null
+    }
+  },
+  "user_solution": "/* notes */\nWITH base AS (\n    SELECT\n        'accepting' AS state,\n        accept_date AS activity_date\n    FROM queue_accepting\n\n    UNION ALL\n\n    SELECT\n        'paused' AS state,\n        pause_date AS activity_date\n    FROM queue_paused\n\n),\ndate_groups AS (\nSELECT\n    state,\n    activity_date,\n    activity_date - (ROW_NUMBER() OVER (\n                        PARTITION BY state \n                        ORDER BY activity_date\n                        ))::INT AS grp\nFROM base\n)\nSELECT\n    state,\n    MIN(activity_date) AS start_date,\n    MAX(activity_date) AS end_date\nFROM date_groups\nGROUP BY state, grp\nORDER BY MIN(activity_date);\n",
+  "solved_at": "2026-06-17T16:28:46.719081"
+}

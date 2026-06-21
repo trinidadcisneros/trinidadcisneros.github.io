@@ -1,0 +1,95 @@
+{
+  "title": "Listing Sales by Category with Q1 Filter",
+  "prompt": "Write a query that returns each listing category and the count of sales completed in Q1 2024 (January through March). Your output must include EVERY category that appears in the `categories` table, even if it has zero Q1 2024 sales. A sale is considered completed in Q1 2024 if its `completed_at` timestamp falls in the half-open interval [2024-01-01, 2024-04-01). Return columns `category_name` and `q1_sales_count`, ordered by `category_name` ascending. Categories with no Q1 2024 sales should show a count of 0, not be omitted from the result.",
+  "schema_ddl": "CREATE TABLE categories (category_id INTEGER PRIMARY KEY, category_name VARCHAR(100) NOT NULL); CREATE TABLE listings (listing_id INTEGER PRIMARY KEY, category_id INTEGER NOT NULL, seller_id INTEGER NOT NULL, posted_at TIMESTAMP NOT NULL); CREATE TABLE sales (sale_id INTEGER PRIMARY KEY, listing_id INTEGER NOT NULL, buyer_id INTEGER NOT NULL, completed_at TIMESTAMP NOT NULL, sale_price DECIMAL(10,2) NOT NULL);",
+  "example_input_data": "INSERT INTO categories (category_id, category_name) VALUES (1, 'Electronics'), (2, 'Furniture'), (3, 'Books'), (4, 'Clothing'); INSERT INTO listings (listing_id, category_id, seller_id, posted_at) VALUES (101, 1, 501, '2023-12-01 10:00:00'), (102, 1, 502, '2024-01-05 09:00:00'), (103, 2, 503, '2024-01-10 11:00:00'), (104, 3, 504, '2024-02-01 08:00:00'), (105, 4, 505, '2024-01-15 12:00:00'); INSERT INTO sales (sale_id, listing_id, buyer_id, completed_at, sale_price) VALUES (201, 101, 601, '2024-02-10 14:30:00', 120.00), (202, 102, 602, '2024-01-20 16:00:00', 85.50), (203, 103, 603, '2023-12-28 10:00:00', 200.00), (204, 103, 604, '2024-03-15 09:45:00', 180.00), (205, 104, 605, '2024-04-02 11:20:00', 12.99), (206, 101, 606, '2024-02-25 13:10:00', 110.00);",
+  "example_output_columns": [
+    "category_name",
+    "q1_sales_count"
+  ],
+  "example_output_rows": [
+    [
+      "Books",
+      0
+    ],
+    [
+      "Clothing",
+      0
+    ],
+    [
+      "Electronics",
+      3
+    ],
+    [
+      "Furniture",
+      1
+    ]
+  ],
+  "test_data": "INSERT INTO categories (category_id, category_name) VALUES (1, 'Electronics'), (2, 'Furniture'), (3, 'Books'), (4, 'Clothing'), (5, 'Toys'), (6, 'Sports'), (7, 'Music'); INSERT INTO listings (listing_id, category_id, seller_id, posted_at) VALUES (101, 1, 501, '2023-11-01 10:00:00'), (102, 1, 502, '2024-01-05 09:00:00'), (103, 2, 503, '2024-01-10 11:00:00'), (104, 3, 504, '2024-02-01 08:00:00'), (105, 4, 505, '2024-01-15 12:00:00'), (106, 1, 506, '2024-02-20 14:00:00'), (107, 2, 507, '2023-12-15 16:00:00'), (108, 5, 508, '2024-03-01 10:30:00'), (109, 6, 509, '2024-01-25 11:45:00'), (110, 3, 510, '2024-02-10 09:15:00'), (111, 4, 511, '2024-03-05 13:20:00'), (112, 7, 512, '2024-01-08 15:00:00'); INSERT INTO sales (sale_id, listing_id, buyer_id, completed_at, sale_price) VALUES (201, 101, 601, '2024-02-10 14:30:00', 120.00), (202, 102, 602, '2024-01-20 16:00:00', 85.50), (203, 103, 603, '2023-12-28 10:00:00', 200.00), (204, 103, 604, '2024-03-15 09:45:00', 180.00), (205, 104, 605, '2024-04-02 11:20:00', 12.99), (206, 101, 606, '2024-02-25 13:10:00', 110.00), (207, 102, 607, '2024-03-30 17:00:00', 90.00), (208, 106, 608, '2024-01-18 12:00:00', 75.00), (209, 107, 609, '2023-11-20 08:30:00', 250.00), (210, 108, 610, '2024-03-22 10:15:00', 45.00), (211, 109, 611, '2024-01-28 14:45:00', 65.00), (212, 110, 612, '2024-02-14 11:30:00', 8.50), (213, 111, 613, '2024-04-05 09:00:00', 55.00), (214, 112, 614, '2024-02-05 16:20:00', 22.00), (215, 101, 615, '2024-03-10 13:00:00', 115.00), (216, 102, 616, '2024-02-08 15:30:00', 88.00), (217, 106, 617, '2024-03-25 10:45:00', 80.00), (218, 108, 618, '2024-01-30 12:20:00', 50.00), (219, 109, 619, '2023-12-15 14:00:00', 70.00), (220, 110, 620, '2024-03-18 09:30:00', 9.99);",
+  "test_expected_columns": [
+    "category_name",
+    "q1_sales_count"
+  ],
+  "test_expected_rows": [
+    [
+      "Books",
+      2
+    ],
+    [
+      "Clothing",
+      0
+    ],
+    [
+      "Electronics",
+      8
+    ],
+    [
+      "Furniture",
+      1
+    ],
+    [
+      "Music",
+      1
+    ],
+    [
+      "Sports",
+      1
+    ],
+    [
+      "Toys",
+      2
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "same_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "LEFT JOIN categories \u2192 listings \u2192 sales with Q1 date window in ON",
+      "COUNT sales.sale_id per category (0 when no qualifying sales)",
+      "GROUP BY category",
+      "ORDER BY category_name"
+    ]
+  },
+  "hints": [
+    "A LEFT JOIN ensures every category appears in the output, but you need to carefully decide where to place the date filter.",
+    "Filtering sales by `completed_at` in the WHERE clause will remove categories that have no Q1 sales; the filter must be part of the join condition instead.",
+    "Use `COUNT(s.sale_id)` in the SELECT with a LEFT JOIN where the Q1 date range (`>= DATE '2024-01-01' AND < DATE '2024-04-01'`) is in the ON clause, then GROUP BY category."
+  ],
+  "answer_key": "SELECT c.category_name, COUNT(s.sale_id) AS q1_sales_count FROM categories c LEFT JOIN listings l ON c.category_id = l.category_id LEFT JOIN sales s ON l.listing_id = s.listing_id AND s.completed_at >= DATE '2024-01-01' AND s.completed_at < DATE '2024-04-01' GROUP BY c.category_name ORDER BY c.category_name;",
+  "_meta": {
+    "question_type": "left_join_on_filter",
+    "original_qtype": "left_join_on_filter",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-17T20:01:27.970990",
+    "problem_id": "945d454ee4bc",
+    "validation_attempts": 1,
+    "scenario": "a P2P resale marketplace tracking listing-to-sale conversion",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "subtype": null
+  }
+}
