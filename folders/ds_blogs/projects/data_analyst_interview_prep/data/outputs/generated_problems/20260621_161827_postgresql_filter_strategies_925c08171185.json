@@ -1,0 +1,68 @@
+{
+  "title": "Players Who Accepted Both Ranked and Casual Matches",
+  "prompt": "You are analyzing a console online service that tracks multiplayer match acceptance. The `match_acceptances` table records each time a player accepts a match invitation, including the match type ('ranked' or 'casual') and whether they actually joined. Write a query to find all players who have accepted at least 3 ranked matches AND at least 2 casual matches (counting only rows where `joined = TRUE`). A player qualifies only if they meet BOTH thresholds. Return columns `player_id` and `player_name`, ordered by `player_id` ascending. Note that a single acceptance row can only be one match type, so you must aggregate across multiple rows to check both conditions.",
+  "schema_ddl": "CREATE TABLE match_acceptances (acceptance_id INTEGER PRIMARY KEY, player_id INTEGER NOT NULL, player_name VARCHAR(100) NOT NULL, match_type VARCHAR(20) NOT NULL, joined BOOLEAN NOT NULL, accepted_at TIMESTAMP NOT NULL);",
+  "example_input_data": "INSERT INTO match_acceptances (acceptance_id, player_id, player_name, match_type, joined, accepted_at) VALUES (1, 101, 'Alice', 'ranked', TRUE, '2024-01-10 14:00:00'), (2, 101, 'Alice', 'ranked', TRUE, '2024-01-11 15:00:00'), (3, 101, 'Alice', 'ranked', TRUE, '2024-01-12 16:00:00'), (4, 101, 'Alice', 'casual', TRUE, '2024-01-13 17:00:00'), (5, 101, 'Alice', 'casual', TRUE, '2024-01-14 18:00:00'), (6, 102, 'Bob', 'ranked', TRUE, '2024-01-10 14:00:00'), (7, 102, 'Bob', 'ranked', TRUE, '2024-01-11 15:00:00'), (8, 102, 'Bob', 'casual', TRUE, '2024-01-12 16:00:00'), (9, 103, 'Carol', 'ranked', TRUE, '2024-01-10 14:00:00'), (10, 103, 'Carol', 'ranked', TRUE, '2024-01-11 15:00:00'), (11, 103, 'Carol', 'ranked', TRUE, '2024-01-12 16:00:00'), (12, 103, 'Carol', 'ranked', TRUE, '2024-01-13 17:00:00'), (13, 103, 'Carol', 'casual', FALSE, '2024-01-14 18:00:00');",
+  "example_output_columns": [
+    "player_id",
+    "player_name"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Alice"
+    ]
+  ],
+  "test_data": "INSERT INTO match_acceptances (acceptance_id, player_id, player_name, match_type, joined, accepted_at) VALUES (101, 201, 'David', 'ranked', TRUE, '2024-02-01 10:00:00'), (102, 201, 'David', 'ranked', TRUE, '2024-02-02 10:00:00'), (103, 201, 'David', 'ranked', TRUE, '2024-02-03 10:00:00'), (104, 201, 'David', 'casual', TRUE, '2024-02-04 10:00:00'), (105, 201, 'David', 'casual', TRUE, '2024-02-05 10:00:00'), (106, 201, 'David', 'casual', TRUE, '2024-02-06 10:00:00'), (107, 202, 'Eve', 'ranked', TRUE, '2024-02-01 11:00:00'), (108, 202, 'Eve', 'ranked', TRUE, '2024-02-02 11:00:00'), (109, 202, 'Eve', 'ranked', TRUE, '2024-02-03 11:00:00'), (110, 202, 'Eve', 'ranked', TRUE, '2024-02-04 11:00:00'), (111, 202, 'Eve', 'casual', TRUE, '2024-02-05 11:00:00'), (112, 203, 'Frank', 'ranked', TRUE, '2024-02-01 12:00:00'), (113, 203, 'Frank', 'ranked', TRUE, '2024-02-02 12:00:00'), (114, 203, 'Frank', 'casual', TRUE, '2024-02-03 12:00:00'), (115, 203, 'Frank', 'casual', TRUE, '2024-02-04 12:00:00'), (116, 203, 'Frank', 'casual', TRUE, '2024-02-05 12:00:00'), (117, 204, 'Grace', 'casual', TRUE, '2024-02-01 13:00:00'), (118, 204, 'Grace', 'casual', TRUE, '2024-02-02 13:00:00'), (119, 204, 'Grace', 'casual', TRUE, '2024-02-03 13:00:00'), (120, 205, 'Hank', 'ranked', TRUE, '2024-02-01 14:00:00'), (121, 205, 'Hank', 'ranked', FALSE, '2024-02-02 14:00:00'), (122, 205, 'Hank', 'ranked', TRUE, '2024-02-03 14:00:00'), (123, 205, 'Hank', 'ranked', TRUE, '2024-02-04 14:00:00'), (124, 205, 'Hank', 'casual', TRUE, '2024-02-05 14:00:00'), (125, 205, 'Hank', 'casual', TRUE, '2024-02-06 14:00:00'), (126, 206, 'Ivy', 'ranked', TRUE, '2024-02-01 15:00:00'), (127, 206, 'Ivy', 'ranked', TRUE, '2024-02-02 15:00:00'), (128, 206, 'Ivy', 'ranked', TRUE, '2024-02-03 15:00:00'), (129, 206, 'Ivy', 'ranked', TRUE, '2024-02-04 15:00:00'), (130, 206, 'Ivy', 'casual', TRUE, '2024-02-05 15:00:00'), (131, 206, 'Ivy', 'casual', TRUE, '2024-02-06 15:00:00'), (132, 206, 'Ivy', 'casual', TRUE, '2024-02-07 15:00:00');",
+  "test_expected_columns": [
+    "player_id",
+    "player_name"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "David"
+    ],
+    [
+      205,
+      "Hank"
+    ],
+    [
+      206,
+      "Ivy"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "row-filter",
+    "composite_moves": [
+      "GROUP BY player",
+      "SUM(CASE WHEN match_type='ranked' AND joined=TRUE THEN 1 ELSE 0 END) for ranked count",
+      "SUM(CASE WHEN match_type='casual' AND joined=TRUE THEN 1 ELSE 0 END) for casual count",
+      "HAVING both counts meet thresholds"
+    ]
+  },
+  "hints": [
+    "You need to count acceptances by match type for each player, but a single row can only contribute to one type's count.",
+    "Use GROUP BY player_id and conditional aggregation (SUM with CASE) to count ranked and casual acceptances separately, filtering for joined = TRUE.",
+    "Apply HAVING clauses to ensure the player has at least 3 ranked acceptances AND at least 2 casual acceptances."
+  ],
+  "answer_key": "SELECT player_id, MAX(player_name) AS player_name FROM match_acceptances WHERE joined = TRUE GROUP BY player_id HAVING SUM(CASE WHEN match_type = 'ranked' THEN 1 ELSE 0 END) >= 3 AND SUM(CASE WHEN match_type = 'casual' THEN 1 ELSE 0 END) >= 2 ORDER BY player_id ASC;",
+  "_meta": {
+    "question_type": "filter_strategies",
+    "original_qtype": "filter_strategies",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-21T16:18:27.012636",
+    "problem_id": "925c08171185",
+    "validation_attempts": 1,
+    "scenario": "a console online service tracking multiplayer match acceptance",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "group_threshold"
+  }
+}

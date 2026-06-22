@@ -1,0 +1,133 @@
+{
+  "title": "Remove Duplicate Trial Signups by Email",
+  "prompt": "Your developer tools platform occasionally records duplicate trial signups when users submit the registration form multiple times. The `trial_signups` table contains a `signup_id` (primary key), `email`, `signup_timestamp`, and `initial_seats`. Multiple rows with the same `email` are considered duplicates. Delete all duplicate rows, keeping only the EARLIEST signup (lowest `signup_timestamp`) for each email. If two signups for the same email have identical timestamps, keep the one with the lower `signup_id`. After deletion, return all surviving rows ordered by `signup_id`. Write a DELETE statement followed by a SELECT statement that shows the final table contents.",
+  "schema_ddl": "CREATE TABLE trial_signups (signup_id INT PRIMARY KEY, email VARCHAR(255) NOT NULL, signup_timestamp TIMESTAMP NOT NULL, initial_seats INT NOT NULL);",
+  "example_input_data": "INSERT INTO trial_signups (signup_id, email, signup_timestamp, initial_seats) VALUES (1, 'alice@devco.com', '2024-01-15 09:00:00', 5), (2, 'bob@startup.io', '2024-01-15 10:30:00', 3), (3, 'alice@devco.com', '2024-01-15 09:05:00', 5), (4, 'carol@techfirm.com', '2024-01-16 08:00:00', 10), (5, 'alice@devco.com', '2024-01-15 09:00:00', 8), (6, 'bob@startup.io', '2024-01-16 14:00:00', 3), (7, 'dave@solo.dev', '2024-01-17 11:00:00', 1);",
+  "example_output_columns": [
+    "signup_id",
+    "email",
+    "signup_timestamp",
+    "initial_seats"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "alice@devco.com",
+      "2024-01-15 09:00:00",
+      5
+    ],
+    [
+      2,
+      "bob@startup.io",
+      "2024-01-15 10:30:00",
+      3
+    ],
+    [
+      4,
+      "carol@techfirm.com",
+      "2024-01-16 08:00:00",
+      10
+    ],
+    [
+      7,
+      "dave@solo.dev",
+      "2024-01-17 11:00:00",
+      1
+    ]
+  ],
+  "test_data": "INSERT INTO trial_signups (signup_id, email, signup_timestamp, initial_seats) VALUES (101, 'emma@cloud.dev', '2024-02-01 08:00:00', 2), (102, 'emma@cloud.dev', '2024-02-01 08:00:00', 2), (103, 'emma@cloud.dev', '2024-02-01 08:05:00', 4), (104, 'frank@api.co', '2024-02-01 09:00:00', 6), (105, 'frank@api.co', '2024-02-01 09:00:00', 6), (106, 'grace@mobile.io', '2024-02-02 10:00:00', 3), (107, 'grace@mobile.io', '2024-02-02 10:15:00', 3), (108, 'grace@mobile.io', '2024-02-02 10:00:00', 5), (109, 'heidi@saas.com', '2024-02-03 07:00:00', 1), (110, 'heidi@saas.com', '2024-02-03 07:30:00', 1), (111, 'heidi@saas.com', '2024-02-03 06:45:00', 2), (112, 'ivan@startup.dev', '2024-02-04 11:00:00', 8), (113, 'judy@code.org', '2024-02-05 12:00:00', 4), (114, 'judy@code.org', '2024-02-05 12:00:00', 4), (115, 'judy@code.org', '2024-02-05 12:00:00', 7), (116, 'karen@build.co', '2024-02-06 14:00:00', 10), (117, 'leo@tools.io', '2024-02-07 09:00:00', 5), (118, 'leo@tools.io', '2024-02-07 09:10:00', 5), (119, 'leo@tools.io', '2024-02-07 08:50:00', 3), (120, 'mike@deploy.dev', '2024-02-08 15:00:00', 12);",
+  "test_expected_columns": [
+    "signup_id",
+    "email",
+    "signup_timestamp",
+    "initial_seats"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      "emma@cloud.dev",
+      "2024-02-01 08:00:00",
+      2
+    ],
+    [
+      104,
+      "frank@api.co",
+      "2024-02-01 09:00:00",
+      6
+    ],
+    [
+      106,
+      "grace@mobile.io",
+      "2024-02-02 10:00:00",
+      3
+    ],
+    [
+      111,
+      "heidi@saas.com",
+      "2024-02-03 06:45:00",
+      2
+    ],
+    [
+      112,
+      "ivan@startup.dev",
+      "2024-02-04 11:00:00",
+      8
+    ],
+    [
+      113,
+      "judy@code.org",
+      "2024-02-05 12:00:00",
+      4
+    ],
+    [
+      116,
+      "karen@build.co",
+      "2024-02-06 14:00:00",
+      10
+    ],
+    [
+      119,
+      "leo@tools.io",
+      "2024-02-07 08:50:00",
+      3
+    ],
+    [
+      120,
+      "mike@deploy.dev",
+      "2024-02-08 15:00:00",
+      12
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "state_mutation",
+    "recipe": "delete-duplicates",
+    "composite_moves": [
+      "row-number-partition",
+      "delete-where-rn-gt-1",
+      "select-survivors"
+    ]
+  },
+  "hints": [
+    "Consider using a window function to assign a rank to each signup within the same email group, ordering by timestamp and then by signup_id.",
+    "Use ROW_NUMBER() OVER (PARTITION BY email ORDER BY signup_timestamp, signup_id) in a CTE to identify which rows to keep (rn = 1) versus delete (rn > 1).",
+    "Write a CTE that numbers each row within its email partition, then DELETE FROM trial_signups WHERE signup_id IN (SELECT signup_id FROM cte WHERE rn > 1), followed by SELECT * FROM trial_signups ORDER BY signup_id."
+  ],
+  "answer_key": "WITH ranked AS (SELECT signup_id, ROW_NUMBER() OVER (PARTITION BY email ORDER BY signup_timestamp, signup_id) AS rn FROM trial_signups) DELETE FROM trial_signups WHERE signup_id IN (SELECT signup_id FROM ranked WHERE rn > 1); SELECT * FROM trial_signups ORDER BY signup_id;",
+  "_meta": {
+    "question_type": "delete_duplicates",
+    "original_qtype": "delete_duplicates",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-20T19:42:25.696175",
+    "problem_id": "4ad010a3d746",
+    "validation_attempts": 1,
+    "scenario": "a developer tools company tracking trial-to-paid conversion and seat expansion",
+    "dml_op": "DELETE",
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "row_number"
+  }
+}

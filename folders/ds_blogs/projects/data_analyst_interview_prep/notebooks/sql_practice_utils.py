@@ -1717,6 +1717,7 @@ SUBTYPES = {
         ("cross_join", "Cross join: all combinations, then LEFT JOIN"),
         ("per_group", "Match each row to a per-group value"),
         ("compound", "Compound eligibility (roll up, then multi-condition filter)"),
+        ("threshold_no_recent", "Threshold AND not active in a recent window (anti-join)"),
     ],
     "union_islands": [
         ("date_calendar", "Consecutive calendar days (date - rn)"),
@@ -2145,7 +2146,16 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml
             "NOT EXISTS.\n"
             "3) Do NOT make the headline an aggregate -- this is a row filter, not a count. "
             "The prompt MUST name the output columns and the ORDER BY. classification.recipe "
-            "= `row-filter`; classification.output_shape is `filtered_rows`."
+            "= `row-filter`; classification.output_shape is `filtered_rows`.\n"
+            "4) CRITICAL -- NOT a count threshold. 'No match' MUST mean the entity appears "
+            "ZERO times in the OTHER set (never ordered, never logged in, no payment on file). "
+            "FORBIDDEN framings, because they are COUNT(*) = N conditions that belong to the "
+            "HAVING-count recipe, NOT an anti-join: 'exactly one X', 'only one X', 'never "
+            "REORDERED / no second purchase', 'appears only once', 'placed a single order', "
+            "'bought exactly N times'. The qualifying entity must have NO row at all in the "
+            "joined set -- never 'a specific number of rows'. If the natural solution needs "
+            "GROUP BY ... HAVING COUNT(*) = / >= / <= N, the problem is mis-scoped; rewrite it "
+            "as a true zero-match case (e.g. 'customers who never placed ANY order')."
         )
         if subtype in _aj_forms:
             base += "\n\n" + _aj_forms[subtype]
@@ -2202,7 +2212,7 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml
             "only matches should appear. Design at least one row that exposes that choice.\n"
             "- classification.recipe = `enrich-join`."
         )
-        _ej_opts = ("straight_lookup", "self_join", "cross_join", "per_group", "compound")
+        _ej_opts = ("straight_lookup", "self_join", "cross_join", "per_group", "compound", "threshold_no_recent")
         _ej = subtype if subtype in _ej_opts else random.choice(list(_ej_opts))
         _EJ = {
             "straight_lookup": (
@@ -2236,6 +2246,26 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml
                 "qualify with a MULTI-condition filter (e.g. entities that did A at least N times "
                 "AND never did B). The CTE produces the per-entity facts; the outer query keeps "
                 "only entities meeting every condition."
+            ),
+            "threshold_no_recent": (
+                "\nSUBTYPE PIN — THRESHOLD AND NOT ACTIVE IN A RECENT WINDOW (anti-join). Two "
+                "tables sharing a key: a MASTER with a stored numeric column (a balance / points / "
+                "score) and a CHILD activity log with a date column. Keep master rows that (a) clear "
+                "a threshold (e.g. balance >= 500) AND (b) have NO child row in a recent window "
+                "(on or after a fixed cutoff DATE the prompt states explicitly, e.g. '2024-10-01'), "
+                "WHILE still reporting COUNT of ALL their child rows (older ones included). "
+                "THE TRAP TO TEACH: the recency rule EXCLUDES the whole entity, so it is a NOT "
+                "EXISTS anti-join in WHERE (SELECT 1 FROM child WHERE child.key = master.key AND "
+                "child.date >= cutoff) — it must NOT be a date in the counting join's ON. The count "
+                "join is a plain LEFT JOIN on the key only (no date), so entities with zero child "
+                "rows still appear with count 0 and the count sees every row. The answer key must "
+                "use this LEFT-JOIN-count + WHERE NOT EXISTS shape; an equivalent single-join form "
+                "with HAVING COUNT(CASE WHEN child.date >= cutoff THEN 1 END) = 0 is also correct. "
+                "REQUIRED test rows: one entity that clears the threshold but HAS a recent child row "
+                "(must be EXCLUDED), one entity with zero child rows ever (must appear with count 0), "
+                "one entity with only OLD child rows (must appear), and one below the threshold "
+                "(must be excluded). State the cutoff date as a literal in the prompt. "
+                "classification.recipe = enrich-join."
             ),
         }
         base += _EJ[_ej]
@@ -4872,6 +4902,7 @@ _PB_SUBTYPE = {
     ("filter_strategies", "pattern"):    ("rf-leaf-pattern",    "Pattern matching"),
     ("filter_strategies", "membership"): ("rf-leaf-membership", "Membership (IN / EXISTS)"),
     ("filter_strategies", "anti_join"):  ("rf-leaf-antijoin",   "Anti-join"),
+    ("filter_strategies", "group_threshold"): ("rf-leaf-having", "Qualify on thresholds across distinct rows (GROUP BY + HAVING)"),
     ("scalar_extract", "single_aggregate"): ("sc-leaf-aggregate", "Single aggregate"),
     ("scalar_extract", "top1"): ("sc-leaf-top1", "Top-1 row"),
     ("scalar_extract", "nth"):  ("sc-leaf-nth",  "Nth value"),
@@ -4911,6 +4942,7 @@ _PB_SUBTYPE = {
     ("enrich_join", "cross_join"):      ("ej-leaf-cross",    "Cross join: all combinations"),
     ("enrich_join", "per_group"):       ("ej-leaf-pergroup", "Match each row to a per-group value"),
     ("enrich_join", "compound"):        ("ej-leaf-compound", "Compound eligibility"),
+    ("enrich_join", "threshold_no_recent"): ("ej-leaf-compound", "Compound eligibility (threshold AND no recent activity)"),
     ("delete_duplicates", "keep_min_id"): ("dd-leaf-minid",    "Keep the lowest id (NOT IN MIN)"),
     ("delete_duplicates", "self_join"):   ("dd-leaf-selfjoin", "Self-join delete (remove the higher-id twin)"),
     ("delete_duplicates", "row_number"):  ("dd-leaf-rownumber","ROW_NUMBER then delete rn > 1"),

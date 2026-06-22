@@ -1,0 +1,77 @@
+{
+  "logged_at": "2026-06-21T12:49:35.179815",
+  "failure_kind": "wrong_answer",
+  "problem_id": "9d97b4144fca",
+  "question_type": "enrich_join",
+  "original_qtype": "enrich_join",
+  "subtype": "compound",
+  "scenario": "a telehealth visit completion funnel from booking to provider sign-off",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "enrich-join",
+  "title": "Find Providers Who Completed All Visit Types",
+  "prompt": "You are analyzing provider performance across a telehealth platform. Write a query that returns each provider who has successfully completed at least one visit in ALL three visit types: 'initial', 'follow_up', and 'urgent'. A visit is considered successfully completed when `status = 'signed_off'`. Return the provider's ID, name, and the total count of their signed-off visits across all types. Order results by total count descending, then by provider name ascending. If a provider has signed-off visits in only one or two visit types, do not include them. If a provider has zero signed-off visits, do not include them.",
+  "schema_ddl": "CREATE TABLE providers (provider_id INT PRIMARY KEY, provider_name VARCHAR(100) NOT NULL, specialty VARCHAR(50)); CREATE TABLE visits (visit_id INT PRIMARY KEY, provider_id INT NOT NULL, patient_id INT NOT NULL, visit_type VARCHAR(20) NOT NULL, status VARCHAR(20) NOT NULL, booked_at TIMESTAMP, completed_at TIMESTAMP);",
+  "answer_key": "WITH provider_stats AS (\n  SELECT\n    provider_id,\n    COUNT(DISTINCT visit_type) AS distinct_types,\n    COUNT(*) AS total_signed_off\n  FROM visits\n  WHERE status = 'signed_off'\n  GROUP BY provider_id\n  HAVING COUNT(DISTINCT visit_type) = 3\n)\nSELECT\n  p.provider_id,\n  p.provider_name,\n  ps.total_signed_off\nFROM provider_stats ps\nJOIN providers p ON ps.provider_id = p.provider_id\nORDER BY ps.total_signed_off DESC, p.provider_name ASC;",
+  "test_expected_columns": [
+    "provider_id",
+    "provider_name",
+    "total_signed_off"
+  ],
+  "test_expected_rows": [
+    [
+      6,
+      "Dr. Frank Wu",
+      6
+    ],
+    [
+      1,
+      "Dr. Alice Chen",
+      5
+    ],
+    [
+      5,
+      "Dr. Emma Taylor",
+      4
+    ],
+    [
+      2,
+      "Dr. Bob Martinez",
+      3
+    ]
+  ],
+  "user_solution": "/*\n- You are analyzing provider performance across a telehealth platform.\n- Return each provider who has successfully completed at least one visit in ALL three visit types: 'initial', 'follow_up', and 'urgent'.\n- A visit is considered successfully completed when `status = 'signed_off'`.\n\nReturn the provider's ID, name, and the total count of their signed-off visits across all types.\nOrder results by total count descending, then by provider name ascending.\nIf a provider has signed-off visits in only one or two visit types, do not include them.\nIf a provider has zero signed-off visits, do not include them.\n*/\n\nSELECT\n    p.provider_id,\n    p.provider_name,\n    COUNT(*) AS total_signed_off\nFROM providers AS p\nLEFT JOIN visits AS v\n    ON p.provider_id = v.provider_id\nGROUP BY 1, 2\nHAVING COUNT(DISTINCT v.visit_type) = 3\nORDER BY COUNT(*) DESC;\n\n\n\n\n\n\n",
+  "error_message": null,
+  "your_columns": [
+    "provider_id",
+    "provider_name",
+    "total_signed_off"
+  ],
+  "your_rows": [
+    [
+      6,
+      "Dr. Frank Wu",
+      6
+    ],
+    [
+      1,
+      "Dr. Alice Chen",
+      5
+    ],
+    [
+      2,
+      "Dr. Bob Martinez",
+      4
+    ],
+    [
+      5,
+      "Dr. Emma Taylor",
+      4
+    ],
+    [
+      3,
+      "Dr. Carol Lee",
+      3
+    ]
+  ]
+}

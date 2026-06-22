@@ -1,0 +1,143 @@
+{
+  "problem": {
+    "title": "High-Value Members Without Recent Activity",
+    "prompt": "Write a query that identifies loyalty program members who have a lifetime points balance of at least 500 AND have never redeemed any points in the last 90 days (on or after '2024-10-01'). For each qualifying member, return their member_id, full_name, lifetime_points_balance, and total_redemptions_count (the count of ALL their redemption transactions, including older ones). A member with zero redemptions ever should still appear if their points balance is at least 500. Order the results by lifetime_points_balance descending, then by member_id ascending.",
+    "schema_ddl": "CREATE TABLE loyalty_members (member_id INT PRIMARY KEY, full_name VARCHAR(100) NOT NULL, lifetime_points_balance INT NOT NULL, enrollment_date DATE NOT NULL); CREATE TABLE redemption_transactions (transaction_id INT PRIMARY KEY, member_id INT NOT NULL, points_redeemed INT NOT NULL, redemption_date DATE NOT NULL, product_sku VARCHAR(50));",
+    "example_input_data": "INSERT INTO loyalty_members (member_id, full_name, lifetime_points_balance, enrollment_date) VALUES (101, 'Alice Chen', 850, '2023-05-12'), (102, 'Bob Martinez', 620, '2023-06-20'), (103, 'Carol Kim', 490, '2023-07-15'), (104, 'David Patel', 1200, '2023-04-10'), (105, 'Eva Schmidt', 550, '2023-08-01'), (106, 'Frank Johnson', 780, '2023-03-22'); INSERT INTO redemption_transactions (transaction_id, member_id, points_redeemed, redemption_date, product_sku) VALUES (1, 101, 100, '2024-09-15', 'LIPSTICK-RED'), (2, 102, 50, '2024-10-05', 'SERUM-VITA'), (3, 104, 200, '2024-09-20', 'MASCARA-VOL'), (4, 104, 150, '2024-08-10', 'FOUNDATION-IVORY'), (5, 101, 75, '2024-07-22', 'BLUSH-PINK'), (6, 106, 120, '2024-09-28', 'PERFUME-FLORAL');",
+    "example_output_columns": [
+      "member_id",
+      "full_name",
+      "lifetime_points_balance",
+      "total_redemptions_count"
+    ],
+    "example_output_rows": [
+      [
+        104,
+        "David Patel",
+        1200,
+        2
+      ],
+      [
+        101,
+        "Alice Chen",
+        850,
+        2
+      ],
+      [
+        106,
+        "Frank Johnson",
+        780,
+        1
+      ],
+      [
+        105,
+        "Eva Schmidt",
+        550,
+        0
+      ]
+    ],
+    "test_data": "INSERT INTO loyalty_members (member_id, full_name, lifetime_points_balance, enrollment_date) VALUES (201, 'Grace Liu', 950, '2023-01-10'), (202, 'Henry Brown', 480, '2023-02-15'), (203, 'Iris Nguyen', 1500, '2023-03-20'), (204, 'Jack Wilson', 500, '2023-04-25'), (205, 'Kelly Davis', 750, '2023-05-30'), (206, 'Leo Garcia', 620, '2023-06-05'), (207, 'Maya Singh', 890, '2023-07-12'), (208, 'Noah Taylor', 550, '2023-08-18'), (209, 'Olivia Moore', 1100, '2023-09-22'), (210, 'Paul White', 700, '2023-10-28'), (211, 'Quinn Lee', 600, '2023-11-15'), (212, 'Rachel Green', 520, '2023-12-01'), (213, 'Sam Harris', 850, '2024-01-08'), (214, 'Tina Clark', 490, '2024-02-14'), (215, 'Uma Reddy', 1300, '2024-03-19'); INSERT INTO redemption_transactions (transaction_id, member_id, points_redeemed, redemption_date, product_sku) VALUES (101, 201, 80, '2024-10-12', 'EYESHADOW-GOLD'), (102, 203, 150, '2024-09-30', 'CREAM-NIGHT'), (103, 203, 100, '2024-08-15', 'TONER-ROSE'), (104, 205, 60, '2024-10-20', 'NAIL-POLISH'), (105, 206, 90, '2024-09-25', 'HAIRSPRAY-STRONG'), (106, 207, 120, '2024-09-18', 'CONDITIONER-SMOOTH'), (107, 209, 200, '2024-10-01', 'SUNSCREEN-SPF50'), (108, 210, 110, '2024-09-29', 'LIP-GLOSS'), (109, 211, 75, '2024-09-20', 'EYELINER-BLACK'), (110, 213, 95, '2024-09-27', 'MOISTURIZER-DAY'), (111, 201, 50, '2024-09-10', 'BRUSH-SET'), (112, 203, 130, '2024-07-22', 'PRIMER-PORE'), (113, 209, 180, '2024-08-05', 'POWDER-COMPACT'), (114, 211, 85, '2024-08-12', 'REMOVER-OIL'), (115, 204, 70, '2024-09-15', 'SCRUB-EXFO'), (116, 208, 60, '2024-09-22', 'SERUM-HYDRA'), (117, 212, 40, '2024-09-19', 'MASK-CLAY'), (118, 215, 110, '2024-09-28', 'LOTION-BODY');",
+    "test_expected_columns": [
+      "member_id",
+      "full_name",
+      "lifetime_points_balance",
+      "total_redemptions_count"
+    ],
+    "test_expected_rows": [
+      [
+        203,
+        "Iris Nguyen",
+        1500,
+        3
+      ],
+      [
+        215,
+        "Uma Reddy",
+        1300,
+        1
+      ],
+      [
+        207,
+        "Maya Singh",
+        890,
+        1
+      ],
+      [
+        213,
+        "Sam Harris",
+        850,
+        1
+      ],
+      [
+        210,
+        "Paul White",
+        700,
+        1
+      ],
+      [
+        206,
+        "Leo Garcia",
+        620,
+        1
+      ],
+      [
+        211,
+        "Quinn Lee",
+        600,
+        2
+      ],
+      [
+        208,
+        "Noah Taylor",
+        550,
+        1
+      ],
+      [
+        212,
+        "Rachel Green",
+        520,
+        1
+      ],
+      [
+        204,
+        "Jack Wilson",
+        500,
+        1
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "enrich-join",
+      "composite_moves": [
+        "prep: CTE aggregates redemption_transactions per member_id with total count and max redemption_date >= '2024-10-01' flag",
+        "enrich-join: LEFT JOIN loyalty_members to the CTE on member_id",
+        "row-filter: WHERE lifetime_points_balance >= 500 AND (recent_flag IS NULL OR recent_flag = 0)"
+      ]
+    },
+    "hints": [
+      "You need to determine both how many redemptions each member has in total and whether they had any recent ones.",
+      "A CTE can roll up redemption data per member, computing a count of all transactions and checking if any redemption_date is on or after '2024-10-01'.",
+      "LEFT JOIN the loyalty_members table to the CTE so members with zero redemptions still appear, then filter on lifetime_points_balance >= 500 and the absence of recent activity."
+    ],
+    "answer_key": "WITH member_redemption_summary AS (SELECT member_id, COUNT(*) AS total_redemptions_count, MAX(CASE WHEN redemption_date >= DATE '2024-10-01' THEN 1 ELSE 0 END) AS has_recent FROM redemption_transactions GROUP BY member_id) SELECT m.member_id, m.full_name, m.lifetime_points_balance, COALESCE(r.total_redemptions_count, 0) AS total_redemptions_count FROM loyalty_members m LEFT JOIN member_redemption_summary r ON m.member_id = r.member_id WHERE m.lifetime_points_balance >= 500 AND (r.has_recent IS NULL OR r.has_recent = 0) ORDER BY m.lifetime_points_balance DESC, m.member_id ASC;",
+    "_meta": {
+      "question_type": "enrich_join",
+      "original_qtype": "enrich_join",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-21T11:30:28.470168",
+      "problem_id": "ea36a413694c",
+      "validation_attempts": 1,
+      "scenario": "a beauty retailer tracking loyalty program redemption rates",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "compound"
+    }
+  },
+  "user_solution": "/*\n- Identifies loyalty program members who have a lifetime points balance of at least 500 AND have never redeemed any points in the last 90 days (on or after '2024-10-01').\n\nFor each qualifying member, return their member_id, full_name, lifetime_points_balance, and total_redemptions_count (the count of ALL their redemption transactions, including older ones).\n\nA member with zero redemptions ever should still appear if their points balance is at least 500.\nOrder the results by lifetime_points_balance descending, then by member_id ascending.\n*/\nSELECT\n    l.member_id,\n    l.full_name,\n    l.lifetime_points_balance,\n    COUNT(r.redemption_date) AS total_redemptions_count\nFROM loyalty_members AS l\nLEFT JOIN redemption_transactions AS r\n    ON l.member_id = r.member_id          -- no date here: count ALL redemptions\nWHERE l.lifetime_points_balance >= 500\n  AND NOT EXISTS (                         -- kick out anyone with a recent redemption\n        SELECT 1\n        FROM redemption_transactions AS x\n        WHERE x.member_id = l.member_id\n          AND x.redemption_date >= '2024-10-01'\n      )\nGROUP BY 1, 2, 3\nORDER BY 3 DESC, 1 ASC;\n\n",
+  "solved_at": "2026-06-21T12:21:20.222890"
+}

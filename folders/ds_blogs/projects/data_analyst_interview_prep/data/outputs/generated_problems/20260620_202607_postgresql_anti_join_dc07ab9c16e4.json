@@ -1,0 +1,90 @@
+{
+  "title": "Find Customers Who Never Reordered",
+  "prompt": "Your grocery service wants to identify customers who placed exactly one order and never came back. Write a query that returns all customers who have made purchases but have NEVER placed a reorder (no second purchase). A customer is considered to have reordered if they appear in the purchases table more than once. Return the customer_id and customer_name of customers with exactly one purchase, ordered by customer_id ascending. The purchases table tracks every individual order placed by customers, so multiple rows for the same customer_id indicate reorders.",
+  "schema_ddl": "CREATE TABLE customers (\n  customer_id INT PRIMARY KEY,\n  customer_name VARCHAR(100) NOT NULL,\n  signup_date DATE NOT NULL\n);\n\nCREATE TABLE purchases (\n  purchase_id INT PRIMARY KEY,\n  customer_id INT NOT NULL,\n  purchase_date DATE NOT NULL,\n  basket_total DECIMAL(10,2) NOT NULL,\n  FOREIGN KEY (customer_id) REFERENCES customers(customer_id)\n);",
+  "example_input_data": "INSERT INTO customers (customer_id, customer_name, signup_date) VALUES\n(101, 'Alice Chen', '2024-01-15'),\n(102, 'Bob Martinez', '2024-01-20'),\n(103, 'Carol Zhang', '2024-02-01'),\n(104, 'David Kim', '2024-02-10'),\n(105, 'Emma Johnson', '2024-03-05');\n\nINSERT INTO purchases (purchase_id, customer_id, purchase_date, basket_total) VALUES\n(1, 101, '2024-01-16', 45.50),\n(2, 101, '2024-02-03', 62.00),\n(3, 102, '2024-01-22', 38.75),\n(4, 103, '2024-02-02', 120.00),\n(5, 103, '2024-03-15', 95.50),\n(6, 103, '2024-04-01', 78.25),\n(7, 104, '2024-02-11', 55.00);",
+  "example_output_columns": [
+    "customer_id",
+    "customer_name"
+  ],
+  "example_output_rows": [
+    [
+      102,
+      "Bob Martinez"
+    ],
+    [
+      104,
+      "David Kim"
+    ]
+  ],
+  "test_data": "INSERT INTO customers (customer_id, customer_name, signup_date) VALUES\n(201, 'Frank Lopez', '2024-01-05'),\n(202, 'Grace Taylor', '2024-01-08'),\n(203, 'Henry Wilson', '2024-01-12'),\n(204, 'Iris Brown', '2024-01-18'),\n(205, 'Jack Davis', '2024-02-01'),\n(206, 'Kate Miller', '2024-02-05'),\n(207, 'Leo Garcia', '2024-02-12'),\n(208, 'Maya Rodriguez', '2024-02-20'),\n(209, 'Nina Anderson', '2024-03-01'),\n(210, 'Oscar Thomas', '2024-03-10'),\n(211, 'Paula Jackson', '2024-03-15'),\n(212, 'Quinn White', '2024-03-20'),\n(213, 'Ryan Harris', '2024-04-01'),\n(214, 'Sara Martin', '2024-04-05'),\n(215, 'Tom Thompson', '2024-04-10');\n\nINSERT INTO purchases (purchase_id, customer_id, purchase_date, basket_total) VALUES\n(101, 201, '2024-01-06', 75.00),\n(102, 201, '2024-02-10', 82.50),\n(103, 201, '2024-03-15', 68.00),\n(104, 202, '2024-01-09', 45.25),\n(105, 203, '2024-01-13', 92.00),\n(106, 204, '2024-01-19', 110.50),\n(107, 204, '2024-02-25', 95.75),\n(108, 205, '2024-02-02', 58.00),\n(109, 206, '2024-02-06', 120.00),\n(110, 206, '2024-03-12', 105.50),\n(111, 206, '2024-04-08', 88.25),\n(112, 207, '2024-02-13', 72.00),\n(113, 208, '2024-02-21', 55.50),\n(114, 208, '2024-03-28', 63.00),\n(115, 210, '2024-03-11', 48.75),\n(116, 211, '2024-03-16', 135.00),\n(117, 211, '2024-04-12', 102.50),\n(118, 212, '2024-03-21', 67.00),\n(119, 213, '2024-04-02', 91.25),\n(120, 215, '2024-04-11', 78.50);",
+  "test_expected_columns": [
+    "customer_id",
+    "customer_name"
+  ],
+  "test_expected_rows": [
+    [
+      202,
+      "Grace Taylor"
+    ],
+    [
+      203,
+      "Henry Wilson"
+    ],
+    [
+      205,
+      "Jack Davis"
+    ],
+    [
+      207,
+      "Leo Garcia"
+    ],
+    [
+      210,
+      "Oscar Thomas"
+    ],
+    [
+      212,
+      "Quinn White"
+    ],
+    [
+      213,
+      "Ryan Harris"
+    ],
+    [
+      215,
+      "Tom Thompson"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "row-filter",
+    "composite_moves": [
+      "anti-join using NOT EXISTS to filter customers",
+      "keep only customers with exactly one purchase"
+    ]
+  },
+  "hints": [
+    "You need to find customers who appear in the purchases table, but only once. Think about how to express 'never appears a second time'.",
+    "An anti-join pattern can identify customers who do NOT have a second purchase. Consider using NOT EXISTS with a correlated subquery that looks for a different purchase by the same customer.",
+    "Use NOT EXISTS to check for the absence of a second purchase: SELECT c.customer_id, c.customer_name FROM customers c WHERE EXISTS (SELECT 1 FROM purchases p1 WHERE p1.customer_id = c.customer_id) AND NOT EXISTS (SELECT 1 FROM purchases p2 WHERE p2.customer_id = c.customer_id AND p2.purchase_id != (SELECT MIN(purchase_id) FROM purchases WHERE customer_id = c.customer_id))."
+  ],
+  "answer_key": "SELECT c.customer_id, c.customer_name\nFROM customers c\nWHERE EXISTS (\n  SELECT 1 \n  FROM purchases p \n  WHERE p.customer_id = c.customer_id\n)\nAND NOT EXISTS (\n  SELECT 1 \n  FROM purchases p1 \n  WHERE p1.customer_id = c.customer_id \n  AND p1.purchase_id != (\n    SELECT MIN(p2.purchase_id) \n    FROM purchases p2 \n    WHERE p2.customer_id = c.customer_id\n  )\n)\nORDER BY c.customer_id;",
+  "_meta": {
+    "question_type": "anti_join",
+    "original_qtype": "anti_join",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-20T20:26:07.676804",
+    "problem_id": "dc07ab9c16e4",
+    "validation_attempts": 1,
+    "scenario": "an online grocery service tracking basket size and reorder rates",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "not_exists"
+  }
+}

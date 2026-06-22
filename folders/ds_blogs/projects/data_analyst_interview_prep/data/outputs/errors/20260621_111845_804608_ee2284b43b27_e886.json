@@ -1,0 +1,112 @@
+{
+  "logged_at": "2026-06-21T11:18:45.804608",
+  "failure_kind": "wrong_answer",
+  "problem_id": "ee2284b43b27",
+  "question_type": "left_join_on_filter",
+  "original_qtype": "left_join_on_filter",
+  "subtype": "numeric_threshold",
+  "scenario": "an at-home diagnostic test kit platform tracking kit shipped and results released",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "enrich-join",
+  "title": "Count High-Value Results by Kit Type",
+  "prompt": "You manage an at-home diagnostic test kit platform. Each `kit_type` record represents a diagnostic test category (vitamin panel, allergy screen, etc.). The `result_release` table records every time a patient's test results were released, including the `price_paid` for that specific test. Write a query that lists every kit type alongside the count of result releases where the patient paid MORE THAN $75. Some kit types may have had no high-value releases, or no releases at all; those kit types must still appear in the output with a count of 0. Return columns `kit_type_id`, `kit_name`, and `high_value_count`, ordered by `kit_type_id` ascending. The filter on price_paid belongs to the result_release table (the right side of the join); ensure your join structure keeps every kit_type row regardless of whether it has any qualifying result releases.",
+  "schema_ddl": "CREATE TABLE kit_type (kit_type_id INT PRIMARY KEY, kit_name VARCHAR(100) NOT NULL); CREATE TABLE result_release (release_id INT PRIMARY KEY, kit_type_id INT NOT NULL, patient_email VARCHAR(100) NOT NULL, price_paid DECIMAL(10,2) NOT NULL, released_at TIMESTAMP NOT NULL);",
+  "answer_key": "SELECT kt.kit_type_id, kt.kit_name, COUNT(r.release_id) AS high_value_count FROM kit_type kt LEFT JOIN result_release r ON kt.kit_type_id = r.kit_type_id AND r.price_paid > 75 GROUP BY kt.kit_type_id, kt.kit_name ORDER BY kt.kit_type_id;",
+  "test_expected_columns": [
+    "kit_type_id",
+    "kit_name",
+    "high_value_count"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "Vitamin D Panel",
+      3
+    ],
+    [
+      2,
+      "Allergy Screen",
+      2
+    ],
+    [
+      3,
+      "Thyroid Function",
+      0
+    ],
+    [
+      4,
+      "Lipid Panel",
+      0
+    ],
+    [
+      5,
+      "Iron Studies",
+      2
+    ],
+    [
+      6,
+      "Celiac Screen",
+      0
+    ],
+    [
+      7,
+      "Hormone Panel",
+      4
+    ],
+    [
+      8,
+      "Metabolic Panel",
+      0
+    ]
+  ],
+  "user_solution": "/*\nWrite a query that lists every kit type alongside the count of result releases where the patient paid MORE THAN $75.\nSome kit types may have had no high-value releases, or no releases at all; those kit types must still appear in the output with a count of 0.\nReturn columns `kit_type_id`, `kit_name`, and `high_value_count`, ordered by `kit_type_id` ascending.\n*/\nSELECT\n    k.kit_type_id,\n    k.kit_name,\n    CASE WHEN MAX(r.price_paid) > 75 THEN 1 ELSE 0 END AS high_value_count\nFROM kit_type AS k\nLEFT JOIN result_release AS r\nON k.kit_type_id = r.kit_type_id\nGROUP BY 1, 2\nORDER BY 1;\n\n",
+  "error_message": null,
+  "your_columns": [
+    "kit_type_id",
+    "kit_name",
+    "high_value_count"
+  ],
+  "your_rows": [
+    [
+      1,
+      "Vitamin D Panel",
+      1
+    ],
+    [
+      2,
+      "Allergy Screen",
+      1
+    ],
+    [
+      3,
+      "Thyroid Function",
+      0
+    ],
+    [
+      4,
+      "Lipid Panel",
+      0
+    ],
+    [
+      5,
+      "Iron Studies",
+      1
+    ],
+    [
+      6,
+      "Celiac Screen",
+      0
+    ],
+    [
+      7,
+      "Hormone Panel",
+      1
+    ],
+    [
+      8,
+      "Metabolic Panel",
+      0
+    ]
+  ]
+}

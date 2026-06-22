@@ -1,0 +1,82 @@
+{
+  "title": "Loyalty Members Meeting Multi-Month Spending Thresholds",
+  "prompt": "A beauty retailer tracks loyalty program member purchases in the `redemption_activity` table. Each row records one transaction with the member ID, transaction month, and points redeemed. Management wants to identify members who met BOTH of the following criteria: (1) redeemed at least 500 points during January 2024, AND (2) redeemed at least 500 points during February 2024. A member qualifies only if they clear both monthly thresholds; partial qualification does not count. Return columns `member_id` and `total_points_redeemed` (the sum across all months for that member). Order the result by `member_id` ascending. Note that some members may have activity in only one month, and some months may have zero activity for a given member.",
+  "schema_ddl": "CREATE TABLE redemption_activity (activity_id SERIAL PRIMARY KEY, member_id INT NOT NULL, transaction_month DATE NOT NULL, points_redeemed INT NOT NULL);",
+  "example_input_data": "INSERT INTO redemption_activity (member_id, transaction_month, points_redeemed) VALUES (101, '2024-01-15', 300), (101, '2024-01-20', 250), (101, '2024-02-10', 600), (102, '2024-01-12', 700), (102, '2024-03-05', 400), (103, '2024-01-18', 600), (103, '2024-02-22', 500), (104, '2024-02-14', 800);",
+  "example_output_columns": [
+    "member_id",
+    "total_points_redeemed"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      1150
+    ],
+    [
+      103,
+      1100
+    ]
+  ],
+  "test_data": "INSERT INTO redemption_activity (member_id, transaction_month, points_redeemed) VALUES (201, '2024-01-05', 250), (201, '2024-01-10', 260), (201, '2024-02-08', 500), (202, '2024-01-12', 500), (202, '2024-02-14', 499), (203, '2024-01-20', 600), (203, '2024-02-25', 600), (203, '2024-03-10', 300), (204, '2024-01-15', 1000), (205, '2024-02-18', 1200), (206, '2024-01-22', 250), (206, '2024-01-25', 250), (206, '2024-02-12', 250), (206, '2024-02-20', 250), (207, '2024-01-08', 500), (207, '2024-02-09', 500), (207, '2024-03-11', 100), (208, '2024-01-30', 0), (208, '2024-02-28', 600), (209, '2024-01-11', 600), (209, '2024-01-14', 50), (209, '2024-02-16', 550), (210, '2024-01-19', 499), (210, '2024-02-21', 501), (211, '2024-01-07', 500), (211, '2024-02-07', 500), (211, '2024-01-28', 100), (211, '2024-02-28', 100);",
+  "test_expected_columns": [
+    "member_id",
+    "total_points_redeemed"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      1010
+    ],
+    [
+      203,
+      1500
+    ],
+    [
+      206,
+      1000
+    ],
+    [
+      207,
+      1100
+    ],
+    [
+      209,
+      1200
+    ],
+    [
+      211,
+      1200
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "row-filter",
+    "composite_moves": [
+      "group-aggregate with conditional sums per slice",
+      "HAVING clause enforcing multiple thresholds"
+    ]
+  },
+  "hints": [
+    "You need to check whether each member hit a threshold in two different months.",
+    "Use GROUP BY member_id with conditional aggregation: SUM(CASE WHEN ... THEN points_redeemed ELSE 0 END) for each month.",
+    "In the HAVING clause, require that the January sum >= 500 AND the February sum >= 500, then also SELECT the overall SUM(points_redeemed) as total_points_redeemed."
+  ],
+  "answer_key": "SELECT member_id, SUM(points_redeemed) AS total_points_redeemed FROM redemption_activity GROUP BY member_id HAVING SUM(CASE WHEN DATE_TRUNC('month', transaction_month) = DATE '2024-01-01' THEN points_redeemed ELSE 0 END) >= 500 AND SUM(CASE WHEN DATE_TRUNC('month', transaction_month) = DATE '2024-02-01' THEN points_redeemed ELSE 0 END) >= 500 ORDER BY member_id;",
+  "_meta": {
+    "question_type": "filter_strategies",
+    "original_qtype": "filter_strategies",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-21T16:27:42.171317",
+    "problem_id": "9c03b92bfcf0",
+    "validation_attempts": 1,
+    "scenario": "a beauty retailer tracking loyalty program redemption rates",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "group_threshold"
+  }
+}

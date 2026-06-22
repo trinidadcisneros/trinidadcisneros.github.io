@@ -1,0 +1,124 @@
+{
+  "title": "Qualified Trader Lowest On-Ramp Fee Report",
+  "prompt": "Your crypto exchange rewards high-volume traders with access to discounted on-ramp deposit providers. Write a query that returns the lowest available deposit fee for each trader who qualifies based on their 30-day trading volume. A trader qualifies if their `total_volume_usd` is at least 50000. For each qualifying trader, find the cheapest `fee_percent` among all on-ramp providers they can access. Exclude traders who do not meet the volume threshold. Return columns `trader_id`, `trader_name`, and `lowest_fee_percent`, ordered by `trader_id` ascending. If a qualifying trader has multiple provider options, pick the one with the minimum fee; if they have only one provider, use that fee.",
+  "schema_ddl": "CREATE TABLE traders (trader_id INT PRIMARY KEY, trader_name VARCHAR(100), total_volume_usd DECIMAL(12,2)); CREATE TABLE onramp_offers (offer_id INT PRIMARY KEY, trader_id INT, provider_name VARCHAR(100), fee_percent DECIMAL(5,2));",
+  "example_input_data": "INSERT INTO traders (trader_id, trader_name, total_volume_usd) VALUES (1, 'Alice Chen', 75000.00), (2, 'Bob Kumar', 120000.50), (3, 'Carol Davis', 30000.00), (4, 'David Lee', 60000.00); INSERT INTO onramp_offers (offer_id, trader_id, provider_name, fee_percent) VALUES (101, 1, 'MoonPay', 1.50), (102, 1, 'Wyre', 1.20), (103, 2, 'Simplex', 2.00), (104, 3, 'MoonPay', 1.80), (105, 4, 'Wyre', 1.10), (106, 4, 'Ramp', 1.30), (107, 2, 'Ramp', 1.70);",
+  "example_output_columns": [
+    "trader_id",
+    "trader_name",
+    "lowest_fee_percent"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Alice Chen",
+      "1.20"
+    ],
+    [
+      2,
+      "Bob Kumar",
+      "1.70"
+    ],
+    [
+      4,
+      "David Lee",
+      "1.10"
+    ]
+  ],
+  "test_data": "INSERT INTO traders (trader_id, trader_name, total_volume_usd) VALUES (10, 'Emma Zhang', 95000.00), (11, 'Frank M\u00fcller', 48000.00), (12, 'Grace Park', 150000.00), (13, 'Henry Smith', 50000.00), (14, 'Iris Johnson', 25000.00), (15, 'Jack Brown', 200000.00), (16, 'Kate Wilson', 70000.00), (17, 'Leo Garcia', 49999.99), (18, 'Maya Singh', 80000.00), (19, 'Noah Lee', 60000.00), (20, 'Olivia Martinez', 110000.00), (21, 'Paul Taylor', 35000.00), (22, 'Quinn Davis', 90000.00), (23, 'Rachel Green', 55000.00), (24, 'Sam White', 65000.00); INSERT INTO onramp_offers (offer_id, trader_id, provider_name, fee_percent) VALUES (201, 10, 'MoonPay', 1.45), (202, 10, 'Wyre', 1.25), (203, 10, 'Simplex', 1.60), (204, 11, 'Ramp', 1.90), (205, 12, 'MoonPay', 0.95), (206, 12, 'Wyre', 1.05), (207, 13, 'Simplex', 1.80), (208, 14, 'Ramp', 2.10), (209, 15, 'MoonPay', 0.85), (210, 15, 'Wyre', 0.90), (211, 15, 'Simplex', 1.00), (212, 16, 'Ramp', 1.40), (213, 17, 'MoonPay', 1.75), (214, 18, 'Wyre', 1.15), (215, 18, 'Simplex', 1.35), (216, 19, 'MoonPay', 1.50), (217, 20, 'Wyre', 1.20), (218, 20, 'Ramp', 1.10), (219, 21, 'Simplex', 2.00), (220, 22, 'MoonPay', 1.30), (221, 22, 'Wyre', 1.25), (222, 23, 'Ramp', 1.65), (223, 24, 'Simplex', 1.55), (224, 24, 'MoonPay', 1.45);",
+  "test_expected_columns": [
+    "trader_id",
+    "trader_name",
+    "lowest_fee_percent"
+  ],
+  "test_expected_rows": [
+    [
+      10,
+      "Emma Zhang",
+      "1.25"
+    ],
+    [
+      12,
+      "Grace Park",
+      "0.95"
+    ],
+    [
+      13,
+      "Henry Smith",
+      "1.80"
+    ],
+    [
+      15,
+      "Jack Brown",
+      "0.85"
+    ],
+    [
+      16,
+      "Kate Wilson",
+      "1.40"
+    ],
+    [
+      18,
+      "Maya Singh",
+      "1.15"
+    ],
+    [
+      19,
+      "Noah Lee",
+      "1.50"
+    ],
+    [
+      20,
+      "Olivia Martinez",
+      "1.10"
+    ],
+    [
+      22,
+      "Quinn Davis",
+      "1.25"
+    ],
+    [
+      23,
+      "Rachel Green",
+      "1.65"
+    ],
+    [
+      24,
+      "Sam White",
+      "1.45"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "join traders to onramp_offers on trader_id to bring gate attribute total_volume_usd alongside fee values",
+      "filter WHERE total_volume_usd >= 50000 to gate on the threshold from traders table",
+      "per-entity pick: GROUP BY trader_id, trader_name and SELECT MIN(fee_percent) to find cheapest offer per qualifying trader",
+      "order by trader_id ascending"
+    ]
+  },
+  "hints": [
+    "You need to combine trader qualification data with their available on-ramp offers.",
+    "Use a JOIN to bring trader volume and offer fees together, then apply the 50000 volume threshold as a filter before grouping.",
+    "Group by trader and use MIN to find the lowest fee among each trader's offers, but only include traders whose volume meets the threshold."
+  ],
+  "answer_key": "SELECT t.trader_id, t.trader_name, MIN(o.fee_percent) AS lowest_fee_percent FROM traders t JOIN onramp_offers o ON t.trader_id = o.trader_id WHERE t.total_volume_usd >= 50000 GROUP BY t.trader_id, t.trader_name ORDER BY t.trader_id;",
+  "_meta": {
+    "question_type": "gated_lookup",
+    "original_qtype": "gated_lookup",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-21T11:09:29.529382",
+    "problem_id": "7fbe26a65e61",
+    "validation_attempts": 1,
+    "scenario": "a crypto exchange tracking trading volume and on-ramp deposits",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "where_exclude"
+  }
+}

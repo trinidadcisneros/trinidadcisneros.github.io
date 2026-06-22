@@ -1,0 +1,129 @@
+{
+  "problem": {
+    "title": "Find Consecutive Assignment Completion Streaks by State",
+    "prompt": "You are analyzing a K-12 homework app that tracks assignment submissions across two states: 'submitted' (assignments turned in) and 'revised' (assignments returned for edits). Each table records one type of event per day. Some days may have no records at all (neither submitted nor revised). Write a query that identifies consecutive date streaks for each state, where 'consecutive' means consecutive in the combined timeline of all events, ignoring missing days. For each streak, return the state, the earliest date in the streak (`start_date`), and the latest date in the streak (`end_date`). Order the results by `start_date` ascending. The output columns must be: `state`, `start_date`, `end_date`.",
+    "schema_ddl": "CREATE TABLE submitted_assignments (student_id INT, submission_date DATE); CREATE TABLE revised_assignments (student_id INT, revision_date DATE);",
+    "example_input_data": "INSERT INTO submitted_assignments (student_id, submission_date) VALUES (101, '2024-03-01'), (102, '2024-03-02'), (103, '2024-03-05'), (104, '2024-03-08'), (105, '2024-03-09'); INSERT INTO revised_assignments (student_id, revision_date) VALUES (201, '2024-03-03'), (202, '2024-03-04'), (203, '2024-03-10');",
+    "example_output_columns": [
+      "state",
+      "start_date",
+      "end_date"
+    ],
+    "example_output_rows": [
+      [
+        "submitted",
+        "2024-03-01",
+        "2024-03-02"
+      ],
+      [
+        "revised",
+        "2024-03-03",
+        "2024-03-04"
+      ],
+      [
+        "submitted",
+        "2024-03-05",
+        "2024-03-09"
+      ],
+      [
+        "revised",
+        "2024-03-10",
+        "2024-03-10"
+      ]
+    ],
+    "test_data": "INSERT INTO submitted_assignments (student_id, submission_date) VALUES (101, '2024-02-01'), (102, '2024-02-02'), (103, '2024-02-03'), (104, '2024-02-06'), (105, '2024-02-08'), (106, '2024-02-15'), (107, '2024-02-16'), (108, '2024-02-17'), (109, '2024-02-20'), (110, '2024-02-21'), (111, '2024-02-27'), (112, '2024-02-28'), (113, '2024-02-29'), (114, '2024-03-01'); INSERT INTO revised_assignments (student_id, revision_date) VALUES (201, '2024-02-04'), (202, '2024-02-05'), (203, '2024-02-09'), (204, '2024-02-10'), (205, '2024-02-11'), (206, '2024-02-12'), (207, '2024-02-18'), (208, '2024-02-19'), (209, '2024-02-22'), (210, '2024-02-23'), (211, '2024-02-24'), (212, '2024-02-25'), (213, '2024-02-26'), (214, '2024-03-02'), (215, '2024-03-03');",
+    "test_expected_columns": [
+      "state",
+      "start_date",
+      "end_date"
+    ],
+    "test_expected_rows": [
+      [
+        "submitted",
+        "2024-02-01",
+        "2024-02-03"
+      ],
+      [
+        "revised",
+        "2024-02-04",
+        "2024-02-05"
+      ],
+      [
+        "submitted",
+        "2024-02-06",
+        "2024-02-08"
+      ],
+      [
+        "revised",
+        "2024-02-09",
+        "2024-02-12"
+      ],
+      [
+        "submitted",
+        "2024-02-15",
+        "2024-02-17"
+      ],
+      [
+        "revised",
+        "2024-02-18",
+        "2024-02-19"
+      ],
+      [
+        "submitted",
+        "2024-02-20",
+        "2024-02-21"
+      ],
+      [
+        "revised",
+        "2024-02-22",
+        "2024-02-26"
+      ],
+      [
+        "submitted",
+        "2024-02-27",
+        "2024-03-01"
+      ],
+      [
+        "revised",
+        "2024-03-02",
+        "2024-03-03"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "union",
+      "output_shape": "fewer_rows",
+      "recipe": "gaps-and-islands",
+      "composite_moves": [
+        "UNION ALL two source tables with state labels",
+        "Apply two ROW_NUMBER() windows: one overall by date, one partitioned by state",
+        "Compute difference as island group",
+        "GROUP BY state and group, MIN/MAX for range endpoints",
+        "ORDER BY start ascending"
+      ]
+    },
+    "hints": [
+      "You need to combine both tables into a single timeline with a state label, then detect consecutive runs per state.",
+      "Use ROW_NUMBER() twice: once ordered by date alone, and once partitioned by state and ordered by date. Their difference identifies islands.",
+      "Group by state and the row-number difference, then take MIN and MAX of the date to get the start and end of each streak."
+    ],
+    "answer_key": "WITH combined AS (\n  SELECT 'submitted' AS state, submission_date AS d\n  FROM submitted_assignments\n  UNION ALL\n  SELECT 'revised' AS state, revision_date AS d\n  FROM revised_assignments\n),\nranked AS (\n  SELECT state, d,\n         ROW_NUMBER() OVER (ORDER BY d) - ROW_NUMBER() OVER (PARTITION BY state ORDER BY d) AS grp\n  FROM combined\n)\nSELECT state, MIN(d) AS start_date, MAX(d) AS end_date\nFROM ranked\nGROUP BY state, grp\nORDER BY start_date ASC;",
+    "_meta": {
+      "question_type": "union_islands",
+      "original_qtype": "union_islands",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-20T21:07:39.735071",
+      "problem_id": "267d870b71a2",
+      "validation_attempts": 1,
+      "scenario": "a K-12 homework app tracking assignment turn-in and grade improvement",
+      "dml_op": null,
+      "islands_flavor": "date_sequence",
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": null
+    }
+  },
+  "user_solution": "/*\nSELECT\n    state,\n    MIN(event_date) as start_date,\n    MAX(event_date) as end_date\nFROM add_groups\nGROUP BY 1, grp\nORDER BY MIN(event_date);\n*/\n\nWITH base AS (\n    SELECT\n        student_id,\n        'submitted' AS state,\n        submission_date AS event_date\n    FROM submitted_assignments\n\n    UNION ALL\n\n    SELECT\n        student_id,\n        'revised' AS state,\n        revision_date AS event_date\n    FROM revised_assignments\n\n),\nadd_group AS (\n    SELECT\n        state,\n        event_date,\n        ROW_NUMBER() OVER (ORDER BY event_date)\n        - ROW_NUMBER() OVER (PARTITION BY state ORDER BY event_date) AS grp\n    FROM base\n)\nSELECT\n    state,\n    MIN(event_date) as start_date,\n    MAX(event_date) as end_date\nFROM add_group\nGROUP BY state, grp\nORDER BY MIN(event_date);\n;\n",
+  "solved_at": "2026-06-20T21:25:34.998654"
+}

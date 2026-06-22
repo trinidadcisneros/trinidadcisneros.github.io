@@ -1,0 +1,167 @@
+{
+  "title": "7-Day Rolling Average Watch Time",
+  "prompt": "You are analyzing daily video watch metrics for a short video platform. Write a query that computes a **7-day rolling average** of total watch time for each day, including the current day and the 6 preceding days. The platform logs daily aggregated watch time in seconds. For the first 6 days in the dataset, the rolling average should include only the available days (partial window). Return columns: `metric_date`, `daily_watch_seconds`, and `rolling_avg_watch_seconds` (rounded to 2 decimal places). Order the results by `metric_date` ascending. The schema contains a `daily_video_metrics` table with one row per date. Some days may have zero watch time (edge case: the metric is recorded but the value is 0).",
+  "schema_ddl": "CREATE TABLE daily_video_metrics (metric_date DATE NOT NULL, daily_watch_seconds BIGINT NOT NULL);",
+  "example_input_data": "INSERT INTO daily_video_metrics (metric_date, daily_watch_seconds) VALUES ('2024-01-01', 50000), ('2024-01-02', 62000), ('2024-01-03', 58000), ('2024-01-04', 0), ('2024-01-05', 71000), ('2024-01-06', 68000), ('2024-01-07', 75000), ('2024-01-08', 80000);",
+  "example_output_columns": [
+    "metric_date",
+    "daily_watch_seconds",
+    "rolling_avg_watch_seconds"
+  ],
+  "example_output_rows": [
+    [
+      "2024-01-01",
+      50000,
+      "50000.00"
+    ],
+    [
+      "2024-01-02",
+      62000,
+      "56000.00"
+    ],
+    [
+      "2024-01-03",
+      58000,
+      "56666.67"
+    ],
+    [
+      "2024-01-04",
+      0,
+      "42500.00"
+    ],
+    [
+      "2024-01-05",
+      71000,
+      "48200.00"
+    ],
+    [
+      "2024-01-06",
+      68000,
+      "51500.00"
+    ],
+    [
+      "2024-01-07",
+      75000,
+      "54857.14"
+    ],
+    [
+      "2024-01-08",
+      80000,
+      "59142.86"
+    ]
+  ],
+  "test_data": "INSERT INTO daily_video_metrics (metric_date, daily_watch_seconds) VALUES ('2024-02-01', 120000), ('2024-02-02', 135000), ('2024-02-03', 128000), ('2024-02-04', 0), ('2024-02-05', 142000), ('2024-02-06', 150000), ('2024-02-07', 145000), ('2024-02-08', 138000), ('2024-02-09', 155000), ('2024-02-10', 160000), ('2024-02-11', 0), ('2024-02-12', 148000), ('2024-02-13', 152000), ('2024-02-14', 158000), ('2024-02-15', 162000);",
+  "test_expected_columns": [
+    "metric_date",
+    "daily_watch_seconds",
+    "rolling_avg_watch_seconds"
+  ],
+  "test_expected_rows": [
+    [
+      "2024-02-01",
+      120000,
+      "120000.00"
+    ],
+    [
+      "2024-02-02",
+      135000,
+      "127500.00"
+    ],
+    [
+      "2024-02-03",
+      128000,
+      "127666.67"
+    ],
+    [
+      "2024-02-04",
+      0,
+      "95750.00"
+    ],
+    [
+      "2024-02-05",
+      142000,
+      "105000.00"
+    ],
+    [
+      "2024-02-06",
+      150000,
+      "112500.00"
+    ],
+    [
+      "2024-02-07",
+      145000,
+      "117142.86"
+    ],
+    [
+      "2024-02-08",
+      138000,
+      "119714.29"
+    ],
+    [
+      "2024-02-09",
+      155000,
+      "122571.43"
+    ],
+    [
+      "2024-02-10",
+      160000,
+      "127142.86"
+    ],
+    [
+      "2024-02-11",
+      0,
+      "127142.86"
+    ],
+    [
+      "2024-02-12",
+      148000,
+      "128000.00"
+    ],
+    [
+      "2024-02-13",
+      152000,
+      "128285.71"
+    ],
+    [
+      "2024-02-14",
+      158000,
+      "130142.86"
+    ],
+    [
+      "2024-02-15",
+      162000,
+      "133571.43"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "time-window: apply ROWS BETWEEN 6 PRECEDING AND CURRENT ROW frame to compute rolling average",
+      "scalar-transform: round the average to 2 decimal places"
+    ]
+  },
+  "hints": [
+    "You need to compute an aggregate over a moving window of rows for each date.",
+    "Use a window function with an ORDER BY clause on the date column and specify a frame that includes the current row and 6 preceding rows.",
+    "The AVG() window function with ROWS BETWEEN 6 PRECEDING AND CURRENT ROW will give you the rolling average; round the result to 2 decimal places using ROUND(AVG(...), 2)."
+  ],
+  "answer_key": "SELECT metric_date, daily_watch_seconds, ROUND(AVG(daily_watch_seconds) OVER (ORDER BY metric_date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW), 2) AS rolling_avg_watch_seconds FROM daily_video_metrics ORDER BY metric_date;",
+  "_meta": {
+    "question_type": "window_sliding",
+    "original_qtype": "random_any",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-20T19:29:13.276961",
+    "problem_id": "d1e02b1d316b",
+    "validation_attempts": 1,
+    "scenario": "a short video platform tracking watch time and completion rates",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": null
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "problem": {
+    "title": "Identify Consecutive Deal ID Ranges",
+    "prompt": "Your CRM system assigns sequential deal IDs to opportunities. Due to data cleanup and deletions, some deal IDs no longer exist in the `deals` table. Write a query that identifies all ranges of consecutive deal IDs currently in the system. For each uninterrupted sequence of consecutive deal IDs (where each ID differs from the previous by exactly 1), output the starting and ending deal ID of that range. If a deal ID stands alone with no consecutive neighbors, it should appear as its own range where `start_deal_id` equals `end_deal_id`. The output should have two columns: `start_deal_id` and `end_deal_id`. Order the results by `start_deal_id` ascending.",
+    "schema_ddl": "CREATE TABLE deals (deal_id INTEGER PRIMARY KEY, deal_name VARCHAR(100), stage VARCHAR(50));",
+    "example_input_data": "INSERT INTO deals (deal_id, deal_name, stage) VALUES (101, 'Acme Corp Expansion', 'closed_won'), (102, 'Beta Industries', 'negotiation'), (103, 'Gamma LLC', 'proposal'), (105, 'Delta Systems', 'closed_won'), (106, 'Epsilon Tech', 'discovery'), (110, 'Zeta Partners', 'closed_lost');",
+    "example_output_columns": [
+      "start_deal_id",
+      "end_deal_id"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        103
+      ],
+      [
+        105,
+        106
+      ],
+      [
+        110,
+        110
+      ]
+    ],
+    "test_data": "INSERT INTO deals (deal_id, deal_name, stage) VALUES (200, 'Alpha Solutions', 'prospecting'), (201, 'Bravo Consulting', 'qualification'), (202, 'Charlie Enterprises', 'proposal'), (203, 'Delta Innovations', 'negotiation'), (204, 'Echo Systems', 'closed_won'), (207, 'Foxtrot Group', 'discovery'), (208, 'Golf Industries', 'proposal'), (209, 'Hotel Partners', 'closed_won'), (215, 'India Corp', 'prospecting'), (220, 'Juliet LLC', 'qualification'), (221, 'Kilo Tech', 'negotiation'), (222, 'Lima Enterprises', 'closed_won'), (223, 'Mike Solutions', 'proposal'), (224, 'November Group', 'discovery'), (230, 'Oscar Systems', 'closed_lost'), (240, 'Papa Industries', 'prospecting'), (241, 'Quebec Partners', 'qualification'), (250, 'Romeo Corp', 'closed_won');",
+    "test_expected_columns": [
+      "start_deal_id",
+      "end_deal_id"
+    ],
+    "test_expected_rows": [
+      [
+        200,
+        204
+      ],
+      [
+        207,
+        209
+      ],
+      [
+        215,
+        215
+      ],
+      [
+        220,
+        224
+      ],
+      [
+        230,
+        230
+      ],
+      [
+        240,
+        241
+      ],
+      [
+        250,
+        250
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "gaps-and-islands",
+      "composite_moves": [
+        "window-function: ROW_NUMBER() OVER (ORDER BY deal_id) to establish sequence position",
+        "derived-column: deal_id - rn to create island identifier",
+        "group-aggregate: GROUP BY island identifier, MIN/MAX to get range bounds",
+        "sort: ORDER BY start_deal_id"
+      ]
+    },
+    "hints": [
+      "Think about how consecutive integers differ from their position in a sorted sequence.",
+      "Use ROW_NUMBER() OVER (ORDER BY deal_id) to assign sequential positions, then subtract this from deal_id to identify groups of consecutive IDs.",
+      "Group by the difference (deal_id - ROW_NUMBER()), then use MIN and MAX to find the start and end of each consecutive range."
+    ],
+    "answer_key": "WITH numbered AS (\n  SELECT \n    deal_id,\n    deal_id - ROW_NUMBER() OVER (ORDER BY deal_id) AS grp\n  FROM deals\n)\nSELECT \n  MIN(deal_id) AS start_deal_id,\n  MAX(deal_id) AS end_deal_id\nFROM numbered\nGROUP BY grp\nORDER BY start_deal_id;",
+    "_meta": {
+      "question_type": "union_islands",
+      "original_qtype": "union_islands",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-20T20:52:37.010921",
+      "problem_id": "4564a8b93a21",
+      "validation_attempts": 1,
+      "scenario": "a CRM tracking pipeline coverage and won opportunity rates",
+      "dml_op": null,
+      "islands_flavor": "integer_seq",
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": null
+    }
+  },
+  "user_solution": "/* notes */\n\nSELECT \n    MIN(deal_id) as start_deal_id, \n    MAX(deal_id) AS end_deal_id\nFROM (\n    SELECT\n        deal_id,\n        deal_id - ROW_NUMBER() OVER (ORDER BY deal_id) AS grp\n    FROM deals\n)\nGROUP BY grp\nORDER BY MIN(deal_id);",
+  "solved_at": "2026-06-20T21:03:46.909826"
+}

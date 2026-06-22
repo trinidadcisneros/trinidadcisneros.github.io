@@ -1,0 +1,129 @@
+{
+  "problem": {
+    "title": "Archive Critical Unacknowledged Alerts to History",
+    "prompt": "You are managing an observability platform that tracks alerts and their acknowledgment times. The `alerts` table stores active alerts with severity, acknowledge timestamps, and MTTR (mean time to resolution) in minutes. The `alert_history` table archives critical unacknowledged alerts that exceed a 30-minute threshold for later analysis. Write a single INSERT statement that copies all rows from `alerts` where `severity` is 'critical', `acknowledged_at` IS NULL, and `created_at` is more than 30 minutes before the most recent alert creation time in the dataset. Transform the data as follows: set `archived_at` to the maximum `created_at` from the `alerts` table (representing the archive snapshot time), set `unacknowledged_duration_minutes` to the difference in minutes between `archived_at` and the alert's `created_at`, and carry forward `alert_id`, `service_name`, `severity`, `created_at`, and `mttr_minutes`. After the INSERT, select all rows from `alert_history` ordered by `alert_id`.",
+    "schema_ddl": "CREATE TABLE alerts (alert_id INT PRIMARY KEY, service_name VARCHAR(100), severity VARCHAR(20), created_at TIMESTAMP, acknowledged_at TIMESTAMP, mttr_minutes INT); CREATE TABLE alert_history (alert_id INT PRIMARY KEY, service_name VARCHAR(100), severity VARCHAR(20), created_at TIMESTAMP, archived_at TIMESTAMP, unacknowledged_duration_minutes INT, mttr_minutes INT);",
+    "example_input_data": "INSERT INTO alerts (alert_id, service_name, severity, created_at, acknowledged_at, mttr_minutes) VALUES (1, 'api-gateway', 'critical', '2024-01-15 10:00:00', NULL, NULL), (2, 'auth-service', 'warning', '2024-01-15 10:15:00', '2024-01-15 10:20:00', 5), (3, 'payment-processor', 'critical', '2024-01-15 10:20:00', NULL, NULL), (4, 'database-primary', 'critical', '2024-01-15 11:05:00', '2024-01-15 11:10:00', 5), (5, 'cache-cluster', 'critical', '2024-01-15 11:10:00', NULL, NULL), (6, 'log-aggregator', 'info', '2024-01-15 11:15:00', NULL, NULL);",
+    "example_output_columns": [
+      "alert_id",
+      "service_name",
+      "severity",
+      "created_at",
+      "archived_at",
+      "unacknowledged_duration_minutes",
+      "mttr_minutes"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "api-gateway",
+        "critical",
+        "2024-01-15 10:00:00",
+        "2024-01-15 11:15:00",
+        75,
+        null
+      ],
+      [
+        3,
+        "payment-processor",
+        "critical",
+        "2024-01-15 10:20:00",
+        "2024-01-15 11:15:00",
+        55,
+        null
+      ]
+    ],
+    "test_data": "INSERT INTO alerts (alert_id, service_name, severity, created_at, acknowledged_at, mttr_minutes) VALUES (101, 'api-gateway', 'critical', '2024-02-10 08:00:00', NULL, NULL), (102, 'auth-service', 'critical', '2024-02-10 08:05:00', '2024-02-10 08:15:00', 10), (103, 'payment-processor', 'critical', '2024-02-10 08:10:00', NULL, NULL), (104, 'database-primary', 'warning', '2024-02-10 08:45:00', NULL, NULL), (105, 'cache-cluster', 'critical', '2024-02-10 09:00:00', NULL, NULL), (106, 'log-aggregator', 'critical', '2024-02-10 09:05:00', NULL, NULL), (107, 'metrics-collector', 'critical', '2024-02-10 09:10:00', NULL, NULL), (108, 'notification-service', 'critical', '2024-02-10 09:42:00', NULL, NULL), (109, 'search-engine', 'critical', '2024-02-10 09:43:00', NULL, NULL), (110, 'file-storage', 'critical', '2024-02-10 09:44:00', NULL, NULL), (111, 'cdn-edge', 'info', '2024-02-10 09:45:00', NULL, NULL), (112, 'backup-service', 'critical', '2024-02-10 09:46:00', '2024-02-10 09:50:00', 4), (113, 'queue-manager', 'critical', '2024-02-10 09:47:00', NULL, NULL), (114, 'scheduler', 'critical', '2024-02-10 09:48:00', NULL, NULL), (115, 'web-server', 'critical', '2024-02-10 09:49:00', NULL, NULL);",
+    "test_expected_columns": [
+      "alert_id",
+      "service_name",
+      "severity",
+      "created_at",
+      "archived_at",
+      "unacknowledged_duration_minutes",
+      "mttr_minutes"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        "api-gateway",
+        "critical",
+        "2024-02-10 08:00:00",
+        "2024-02-10 09:49:00",
+        109,
+        null
+      ],
+      [
+        103,
+        "payment-processor",
+        "critical",
+        "2024-02-10 08:10:00",
+        "2024-02-10 09:49:00",
+        99,
+        null
+      ],
+      [
+        105,
+        "cache-cluster",
+        "critical",
+        "2024-02-10 09:00:00",
+        "2024-02-10 09:49:00",
+        49,
+        null
+      ],
+      [
+        106,
+        "log-aggregator",
+        "critical",
+        "2024-02-10 09:05:00",
+        "2024-02-10 09:49:00",
+        44,
+        null
+      ],
+      [
+        107,
+        "metrics-collector",
+        "critical",
+        "2024-02-10 09:10:00",
+        "2024-02-10 09:49:00",
+        39,
+        null
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "state_mutation",
+      "recipe": "enrich-aggregate",
+      "composite_moves": [
+        "scalar-extract: compute MAX(created_at) as archive snapshot time",
+        "row-filter: WHERE severity = 'critical' AND acknowledged_at IS NULL AND created_at < (MAX - 30 minutes)",
+        "row-transform: compute unacknowledged_duration_minutes as EXTRACT(EPOCH FROM (archived_at - created_at))/60",
+        "state_mutation: INSERT transformed rows into alert_history"
+      ]
+    },
+    "hints": [
+      "You need to find the maximum creation time across all alerts to use as the archive snapshot timestamp.",
+      "Filter for critical alerts that are unacknowledged and were created more than 30 minutes before the maximum creation time. Use EXTRACT(EPOCH FROM ...) to compute duration in seconds, then divide by 60.",
+      "Use a subquery or CTE to capture MAX(created_at), then INSERT INTO alert_history SELECT the required columns with EXTRACT(EPOCH FROM (max_time - created_at))/60 for the duration. The WHERE clause should check severity = 'critical', acknowledged_at IS NULL, and created_at < max_time - INTERVAL '30 minutes'."
+    ],
+    "answer_key": "INSERT INTO alert_history (alert_id, service_name, severity, created_at, archived_at, unacknowledged_duration_minutes, mttr_minutes)\nSELECT \n    alert_id,\n    service_name,\n    severity,\n    created_at,\n    (SELECT MAX(created_at) FROM alerts) AS archived_at,\n    EXTRACT(EPOCH FROM ((SELECT MAX(created_at) FROM alerts) - created_at))/60 AS unacknowledged_duration_minutes,\n    mttr_minutes\nFROM alerts\nWHERE severity = 'critical'\n  AND acknowledged_at IS NULL\n  AND created_at < (SELECT MAX(created_at) FROM alerts) - INTERVAL '30 minutes';\n\nSELECT * FROM alert_history ORDER BY alert_id;",
+    "_meta": {
+      "question_type": "dml_insert",
+      "original_qtype": "random_any",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-20T18:14:00.969815",
+      "problem_id": "903c103b1275",
+      "validation_attempts": 1,
+      "scenario": "an observability platform tracking alert acknowledge time and MTTR",
+      "dml_op": "INSERT",
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": null
+    }
+  },
+  "user_solution": "INSERT INTO alert_history (alert_id, service_name, severity, \n                created_at, archived_at, unacknowledged_duration_minutes, mttr_minutes)\nSELECT \n    alert_id,\n    service_name,\n    severity,\n    created_at,\n    (SELECT MAX(created_at) FROM alerts) AS archived_at,\n    (EXTRACT(EPOCH FROM ((SELECT MAX(created_at) FROM alerts) - created_at))/60)::INT AS unacknowledged_duration_minutes,\n    mttr_minutes\nFROM alerts\nWHERE severity = 'critical' AND \n            acknowledged_at IS NULL AND \n            created_at < (SELECT MAX(created_at) FROM alerts) - INTERVAL '30 minutes';\n\nSELECT * FROM alert_history ORDER BY alert_history, alert_id;\n",
+  "solved_at": "2026-06-20T18:34:29.888925"
+}

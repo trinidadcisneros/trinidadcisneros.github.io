@@ -1,0 +1,127 @@
+{
+  "problem": {
+    "title": "Flag High-Value Clean Claims for Review",
+    "prompt": "A digital pharmacy needs to identify high-value prescriptions that sailed through PBM adjudication without issues. Write a query that returns each prescription submission where: (1) the total adjudicated amount (`ingredient_cost + dispensing_fee`) is at least $500, AND (2) every claim line tied to that prescription was approved on the first attempt (no rejections ever occurred for any line in that prescription). Return `prescription_id`, `patient_id`, `total_amount` (the sum of ingredient_cost and dispensing_fee across all lines), and `line_count` (number of claim lines). Order by `total_amount` descending, then `prescription_id` ascending. A prescription may have multiple claim lines (one per medication component); if any line was ever rejected, exclude the entire prescription. Some prescriptions may have zero claim lines submitted yet (edge case: exclude these).",
+    "schema_ddl": "CREATE TABLE prescriptions (prescription_id INT PRIMARY KEY, patient_id INT NOT NULL, prescriber_id INT NOT NULL, submitted_at TIMESTAMP NOT NULL); CREATE TABLE claim_lines (claim_line_id INT PRIMARY KEY, prescription_id INT NOT NULL, medication_ndc VARCHAR(20) NOT NULL, ingredient_cost DECIMAL(10,2) NOT NULL, dispensing_fee DECIMAL(10,2) NOT NULL, adjudication_status VARCHAR(20) NOT NULL, adjudicated_at TIMESTAMP);",
+    "example_input_data": "INSERT INTO prescriptions (prescription_id, patient_id, prescriber_id, submitted_at) VALUES (101, 5001, 2001, '2024-01-15 09:30:00'), (102, 5002, 2002, '2024-01-16 10:00:00'), (103, 5003, 2001, '2024-01-17 11:00:00'), (104, 5004, 2003, '2024-01-18 14:00:00'), (105, 5005, 2002, '2024-01-19 15:00:00'), (106, 5006, 2001, '2024-01-20 16:00:00'); INSERT INTO claim_lines (claim_line_id, prescription_id, medication_ndc, ingredient_cost, dispensing_fee, adjudication_status, adjudicated_at) VALUES (1, 101, '12345-678-90', 450.00, 75.00, 'approved', '2024-01-15 10:00:00'), (2, 101, '23456-789-01', 200.00, 50.00, 'approved', '2024-01-15 10:05:00'), (3, 102, '34567-890-12', 300.00, 60.00, 'approved', '2024-01-16 11:00:00'), (4, 102, '45678-901-23', 150.00, 40.00, 'rejected', '2024-01-16 11:10:00'), (5, 103, '56789-012-34', 600.00, 80.00, 'approved', '2024-01-17 12:00:00'), (6, 104, '67890-123-45', 250.00, 50.00, 'approved', '2024-01-18 15:00:00'), (7, 105, '78901-234-56', 100.00, 25.00, 'approved', '2024-01-19 16:00:00');",
+    "example_output_columns": [
+      "prescription_id",
+      "patient_id",
+      "total_amount",
+      "line_count"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        5001,
+        "775.00",
+        2
+      ],
+      [
+        103,
+        5003,
+        "680.00",
+        1
+      ]
+    ],
+    "test_data": "INSERT INTO prescriptions (prescription_id, patient_id, prescriber_id, submitted_at) VALUES (201, 6001, 3001, '2024-02-01 08:00:00'), (202, 6002, 3002, '2024-02-02 09:00:00'), (203, 6003, 3003, '2024-02-03 10:00:00'), (204, 6004, 3004, '2024-02-04 11:00:00'), (205, 6005, 3005, '2024-02-05 12:00:00'), (206, 6006, 3006, '2024-02-06 13:00:00'), (207, 6007, 3007, '2024-02-07 14:00:00'), (208, 6008, 3008, '2024-02-08 15:00:00'), (209, 6009, 3009, '2024-02-09 16:00:00'), (210, 6010, 3010, '2024-02-10 17:00:00'), (211, 6011, 3011, '2024-02-11 18:00:00'), (212, 6012, 3012, '2024-02-12 19:00:00'), (213, 6013, 3013, '2024-02-13 20:00:00'), (214, 6014, 3014, '2024-02-14 21:00:00'), (215, 6015, 3015, '2024-02-15 22:00:00'); INSERT INTO claim_lines (claim_line_id, prescription_id, medication_ndc, ingredient_cost, dispensing_fee, adjudication_status, adjudicated_at) VALUES (101, 201, 'NDC-001', 400.00, 100.00, 'approved', '2024-02-01 09:00:00'), (102, 201, 'NDC-002', 300.00, 50.00, 'approved', '2024-02-01 09:15:00'), (103, 202, 'NDC-003', 250.00, 50.00, 'approved', '2024-02-02 10:00:00'), (104, 202, 'NDC-004', 200.00, 40.00, 'rejected', '2024-02-02 10:30:00'), (105, 202, 'NDC-004', 200.00, 40.00, 'approved', '2024-02-02 11:00:00'), (106, 203, 'NDC-005', 450.00, 75.00, 'approved', '2024-02-03 11:00:00'), (107, 203, 'NDC-006', 100.00, 25.00, 'approved', '2024-02-03 11:30:00'), (108, 204, 'NDC-007', 600.00, 100.00, 'approved', '2024-02-04 12:00:00'), (109, 205, 'NDC-008', 150.00, 30.00, 'approved', '2024-02-05 13:00:00'), (110, 206, 'NDC-009', 500.00, 80.00, 'approved', '2024-02-06 14:00:00'), (111, 207, 'NDC-010', 300.00, 60.00, 'approved', '2024-02-07 15:00:00'), (112, 207, 'NDC-011', 250.00, 50.00, 'rejected', '2024-02-07 15:30:00'), (113, 208, 'NDC-012', 350.00, 70.00, 'approved', '2024-02-08 16:00:00'), (114, 208, 'NDC-013', 200.00, 40.00, 'approved', '2024-02-08 16:30:00'), (115, 209, 'NDC-014', 100.00, 20.00, 'approved', '2024-02-09 17:00:00'), (116, 210, 'NDC-015', 800.00, 120.00, 'approved', '2024-02-10 18:00:00'), (117, 211, 'NDC-016', 450.00, 75.00, 'approved', '2024-02-11 19:00:00'), (118, 211, 'NDC-017', 100.00, 25.00, 'approved', '2024-02-11 19:30:00'), (119, 212, 'NDC-018', 499.99, 0.01, 'approved', '2024-02-12 20:00:00'), (120, 213, 'NDC-019', 250.00, 50.00, 'approved', '2024-02-13 21:00:00'), (121, 213, 'NDC-020', 250.00, 50.00, 'approved', '2024-02-13 21:30:00'), (122, 214, 'NDC-021', 600.00, 100.00, 'approved', '2024-02-14 22:00:00'), (123, 214, 'NDC-022', 50.00, 10.00, 'rejected', '2024-02-14 22:30:00');",
+    "test_expected_columns": [
+      "prescription_id",
+      "patient_id",
+      "total_amount",
+      "line_count"
+    ],
+    "test_expected_rows": [
+      [
+        210,
+        6010,
+        "920.00",
+        1
+      ],
+      [
+        201,
+        6001,
+        "850.00",
+        2
+      ],
+      [
+        204,
+        6004,
+        "700.00",
+        1
+      ],
+      [
+        208,
+        6008,
+        "660.00",
+        2
+      ],
+      [
+        203,
+        6003,
+        "650.00",
+        2
+      ],
+      [
+        211,
+        6011,
+        "650.00",
+        2
+      ],
+      [
+        213,
+        6013,
+        "600.00",
+        2
+      ],
+      [
+        206,
+        6006,
+        "580.00",
+        1
+      ],
+      [
+        212,
+        6012,
+        "500.00",
+        1
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "enrich-join",
+      "composite_moves": [
+        "CTE: aggregate claim_lines per prescription_id (SUM ingredient_cost+dispensing_fee, COUNT lines, check if any rejection exists)",
+        "JOIN prescriptions to CTE on prescription_id",
+        "FILTER: total_amount >= 500 AND no rejections AND line_count > 0",
+        "SELECT prescription_id, patient_id, total_amount, line_count",
+        "ORDER BY total_amount DESC, prescription_id ASC"
+      ]
+    },
+    "hints": [
+      "You need to combine information from both prescriptions and claim_lines, focusing on prescriptions that meet multiple criteria at once.",
+      "Consider aggregating claim data per prescription first: compute the total dollar amount, count claim lines, and detect whether any rejection occurred. A GROUP BY with conditional aggregation (CASE inside SUM or BOOL_OR) will help.",
+      "Use a CTE to roll up each prescription's claim stats (total cost, line count, rejection flag), then join it to prescriptions and filter where total >= 500, no rejections exist (BOOL_OR or MAX CASE = 0), and line_count > 0. Join type: INNER (prescriptions with no claims won't appear in the CTE and should be excluded)."
+    ],
+    "answer_key": "WITH prescription_stats AS (\n  SELECT\n    prescription_id,\n    SUM(ingredient_cost + dispensing_fee) AS total_amount,\n    COUNT(*) AS line_count,\n    BOOL_OR(adjudication_status = 'rejected') AS has_rejection\n  FROM claim_lines\n  GROUP BY prescription_id\n)\nSELECT\n  p.prescription_id,\n  p.patient_id,\n  ps.total_amount,\n  ps.line_count\nFROM prescriptions p\nINNER JOIN prescription_stats ps ON p.prescription_id = ps.prescription_id\nWHERE ps.total_amount >= 500\n  AND ps.has_rejection = false\nORDER BY ps.total_amount DESC, p.prescription_id ASC;",
+    "_meta": {
+      "question_type": "enrich_join",
+      "original_qtype": "enrich_join",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-21T13:39:57.307681",
+      "problem_id": "42f479eca23f",
+      "validation_attempts": 1,
+      "scenario": "a digital pharmacy tracking prescription submissions through PBM adjudication",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "compound"
+    }
+  },
+  "user_solution": "/*\nOUTPUT                 TABLE                CAL                                        FILTER    claim_lines\nprescription_id        prescriptions\npatient_id             prescriptions\ntotal_amount           claim_lines         SUM(ingredient_cost + dispensing_fee)        >=500 AND adjudication_status = 'approved'\nline_count             claim_lines         COUNT(*)         \n\n\n- Some prescriptions may have zero claim lines submitted yet (edge case: exclude these). INNER JOIN\n\n*/\nSELECT\n    p.prescription_id,\n    p.patient_id,\n    SUM(c.ingredient_cost + c.dispensing_fee) AS total_amount,\n    COUNT(c.claim_line_id) AS line_count\nFROM prescriptions AS p\nJOIN claim_lines AS c\nON c.prescription_id = p.prescription_id\nWHERE NOT EXISTS (SELECT 1 FROM claim_lines AS cc WHERE cc.prescription_id = c.prescription_id AND adjudication_status = 'rejected')\nGROUP BY 1, 2\nHAVING SUM(c.ingredient_cost + c.dispensing_fee) >= 500\nORDER BY total_amount DESC, prescription_id;\n",
+  "solved_at": "2026-06-21T13:48:56.107633"
+}

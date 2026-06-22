@@ -1,0 +1,76 @@
+{
+  "logged_at": "2026-06-20T19:01:16.103183",
+  "failure_kind": "wrong_answer",
+  "problem_id": "4c011b05481c",
+  "question_type": "returns_table",
+  "original_qtype": "random_any",
+  "subtype": null,
+  "scenario": "a short video platform tracking watch time and completion rates",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "enrich-aggregate",
+  "title": "Top Creators by Watch Time Window",
+  "prompt": "You are analyzing a short video platform to identify top-performing creators. Write a function named `get_top_creators` that accepts two parameters: `min_completion_rate` (DECIMAL(5,2)) and `top_n` (INTEGER). The function should return creators who have an average video completion rate at or above the given threshold, ranked by their total watch time in descending order, limited to the top N creators. Return columns: `creator_id` (INTEGER), `creator_name` (VARCHAR(100)), `total_watch_seconds` (BIGINT), and `avg_completion_rate` (DECIMAL(5,2)). Videos with NULL `completion_rate` should be excluded from the average calculation but their watch time should still count toward the total. Test your function by calling: `SELECT * FROM get_top_creators(65.00, 3);`",
+  "schema_ddl": "CREATE TABLE creators (creator_id INTEGER PRIMARY KEY, creator_name VARCHAR(100) NOT NULL, signup_date DATE NOT NULL); CREATE TABLE videos (video_id INTEGER PRIMARY KEY, creator_id INTEGER NOT NULL REFERENCES creators(creator_id), title VARCHAR(200) NOT NULL, duration_seconds INTEGER NOT NULL, upload_date DATE NOT NULL); CREATE TABLE video_analytics (analytics_id INTEGER PRIMARY KEY, video_id INTEGER NOT NULL REFERENCES videos(video_id), watch_time_seconds INTEGER NOT NULL, completion_rate DECIMAL(5,2), recorded_date DATE NOT NULL);",
+  "answer_key": "CREATE OR REPLACE FUNCTION get_top_creators(min_completion_rate DECIMAL(5,2), top_n INTEGER)\nRETURNS TABLE (\n  creator_id INTEGER,\n  creator_name VARCHAR(100),\n  total_watch_seconds BIGINT,\n  avg_completion_rate DECIMAL(5,2)\n)\nAS $$\nBEGIN\n  RETURN QUERY (\n    SELECT\n      c.creator_id,\n      c.creator_name,\n      SUM(va.watch_time_seconds)::BIGINT AS total_watch_seconds,\n      ROUND(AVG(va.completion_rate), 2) AS avg_completion_rate\n    FROM creators c\n    JOIN videos v ON c.creator_id = v.creator_id\n    JOIN video_analytics va ON v.video_id = va.video_id\n    GROUP BY c.creator_id, c.creator_name\n    HAVING AVG(va.completion_rate) >= min_completion_rate\n    ORDER BY total_watch_seconds DESC\n    LIMIT top_n\n  );\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT * FROM get_top_creators(65.00, 3);",
+  "test_expected_columns": [
+    "creator_id",
+    "creator_name",
+    "total_watch_seconds",
+    "avg_completion_rate"
+  ],
+  "test_expected_rows": [
+    [
+      6,
+      "Frank Stream",
+      16000,
+      "70.00"
+    ],
+    [
+      7,
+      "Grace Content",
+      8900,
+      "81.00"
+    ],
+    [
+      5,
+      "Emma Media",
+      7450,
+      "78.75"
+    ]
+  ],
+  "user_solution": "CREATE OR REPLACE FUNCTION get_top_creators(min_completion_rate DECIMAL(5,2), top_n INT)\nRETURNS TABLE (creator_id INT, \n            creator_name VARCHAR(100), \n            total_watch_seconds BIGINT, \n            avg_completion_rate DECIMAL(5,2)\n            ) AS $$\nBEGIN\nRETURN QUERY (\n        SELECT\n            b.creator_id::int,\n            b.creator_name::varchar,\n            b.total_watch_seconds::bigint,\n            b.avg_completion_rate::decimal\n        FROM (\n            SELECT\n                c.creator_id,\n                c.creator_name,\n                SUM(va.watch_time_seconds) AS total_watch_seconds,\n                ROUND(AVG(va.completion_rate),2) AS avg_completion_rate,\n                ROW_NUMBER() OVER (ORDER BY SUM(va.watch_time_seconds) DESC) AS rnk\n            FROM creators AS c\n            JOIN videos AS v\n                ON c.creator_id = v.creator_id\n            JOIN video_analytics AS va\n                ON v.video_id = va.video_id\n            GROUP BY 1, 2\n        ) AS b\n        WHERE b.avg_completion_rate >= min_completion_rate AND rnk >= top_n\n    );\nEND;\n$$ LANGUAGE PLPGSQL;\n\n\nSELECT * FROM get_top_creators(65.00, 3);\n\n",
+  "error_message": null,
+  "your_columns": [
+    "creator_id",
+    "creator_name",
+    "total_watch_seconds",
+    "avg_completion_rate"
+  ],
+  "your_rows": [
+    [
+      5,
+      "Emma Media",
+      7450,
+      "78.75"
+    ],
+    [
+      1,
+      "Alice Creator",
+      7350,
+      "79.17"
+    ],
+    [
+      8,
+      "Henry Vlogs",
+      5750,
+      "69.00"
+    ],
+    [
+      2,
+      "Bob Videos",
+      2450,
+      "81.00"
+    ]
+  ]
+}

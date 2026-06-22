@@ -1,0 +1,68 @@
+{
+  "problem": {
+    "title": "Multi-Threshold Thread Engagement Filter",
+    "prompt": "A community forum tracks thread participation through individual post events. Management wants to identify threads that meet multiple engagement criteria simultaneously: (1) received at least 5 posts tagged as 'helpful' and (2) received at least 3 posts tagged as 'insightful'. Each post has exactly one tag. Write a query that returns threads meeting BOTH thresholds. Return columns `thread_id` and `thread_title`, ordered by `thread_id` ascending. A thread qualifies only if it has enough posts in each required tag category.",
+    "schema_ddl": "CREATE TABLE threads (thread_id INT PRIMARY KEY, thread_title VARCHAR(200)); CREATE TABLE posts (post_id INT PRIMARY KEY, thread_id INT, member_id INT, tag VARCHAR(50));",
+    "example_input_data": "INSERT INTO threads (thread_id, thread_title) VALUES (101, 'Getting Started with PostgreSQL'), (102, 'Advanced Indexing Strategies'), (103, 'Query Optimization Tips'), (104, 'Database Design Patterns'); INSERT INTO posts (post_id, thread_id, member_id, tag) VALUES (1, 101, 201, 'helpful'), (2, 101, 202, 'helpful'), (3, 101, 203, 'helpful'), (4, 101, 204, 'helpful'), (5, 101, 205, 'helpful'), (6, 101, 206, 'insightful'), (7, 101, 207, 'insightful'), (8, 101, 208, 'insightful'), (9, 102, 209, 'helpful'), (10, 102, 210, 'helpful'), (11, 102, 211, 'insightful'), (12, 102, 212, 'insightful'), (13, 103, 213, 'helpful'), (14, 103, 214, 'helpful'), (15, 103, 215, 'helpful'), (16, 103, 216, 'helpful'), (17, 103, 217, 'helpful'), (18, 103, 218, 'helpful'), (19, 104, 219, 'insightful'), (20, 104, 220, 'insightful'), (21, 104, 221, 'insightful'), (22, 104, 222, 'insightful');",
+    "example_output_columns": [
+      "thread_id",
+      "thread_title"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "Getting Started with PostgreSQL"
+      ]
+    ],
+    "test_data": "INSERT INTO threads (thread_id, thread_title) VALUES (201, 'Thread Alpha'), (202, 'Thread Beta'), (203, 'Thread Gamma'), (204, 'Thread Delta'), (205, 'Thread Epsilon'), (206, 'Thread Zeta'), (207, 'Thread Eta'), (208, 'Thread Theta'); INSERT INTO posts (post_id, thread_id, member_id, tag) VALUES (301, 201, 1001, 'helpful'), (302, 201, 1002, 'helpful'), (303, 201, 1003, 'helpful'), (304, 201, 1004, 'helpful'), (305, 201, 1005, 'helpful'), (306, 201, 1006, 'insightful'), (307, 201, 1007, 'insightful'), (308, 201, 1008, 'insightful'), (309, 201, 1009, 'insightful'), (310, 202, 1010, 'helpful'), (311, 202, 1011, 'helpful'), (312, 202, 1012, 'helpful'), (313, 202, 1013, 'helpful'), (314, 202, 1014, 'helpful'), (315, 202, 1015, 'insightful'), (316, 202, 1016, 'insightful'), (317, 203, 1017, 'helpful'), (318, 203, 1018, 'helpful'), (319, 203, 1019, 'helpful'), (320, 203, 1020, 'insightful'), (321, 203, 1021, 'insightful'), (322, 203, 1022, 'insightful'), (323, 203, 1023, 'insightful'), (324, 204, 1024, 'helpful'), (325, 204, 1025, 'helpful'), (326, 204, 1026, 'helpful'), (327, 204, 1027, 'helpful'), (328, 204, 1028, 'helpful'), (329, 204, 1029, 'helpful'), (330, 204, 1030, 'insightful'), (331, 204, 1031, 'insightful'), (332, 204, 1032, 'insightful'), (333, 204, 1033, 'insightful'), (334, 205, 1034, 'helpful'), (335, 205, 1035, 'helpful'), (336, 205, 1036, 'helpful'), (337, 205, 1037, 'helpful'), (338, 205, 1038, 'helpful'), (339, 205, 1039, 'helpful'), (340, 205, 1040, 'helpful'), (341, 205, 1041, 'insightful'), (342, 205, 1042, 'insightful'), (343, 206, 1043, 'insightful'), (344, 206, 1044, 'insightful'), (345, 206, 1045, 'insightful'), (346, 206, 1046, 'insightful'), (347, 206, 1047, 'insightful'), (348, 207, 1048, 'helpful'), (349, 207, 1049, 'off-topic'), (350, 208, 1050, 'off-topic');",
+    "test_expected_columns": [
+      "thread_id",
+      "thread_title"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "Thread Alpha"
+      ],
+      [
+        204,
+        "Thread Delta"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "row-filter",
+      "composite_moves": [
+        "join threads and posts",
+        "group by thread",
+        "sum conditional counts for each tag threshold",
+        "filter groups in HAVING by both thresholds"
+      ]
+    },
+    "hints": [
+      "You need to count posts separately by tag category for each thread.",
+      "Use conditional aggregation: SUM(CASE WHEN tag = 'helpful' THEN 1 ELSE 0 END) and similar for 'insightful'.",
+      "Apply both threshold conditions in the HAVING clause after GROUP BY thread_id."
+    ],
+    "answer_key": "SELECT t.thread_id, t.thread_title FROM threads t JOIN posts p ON t.thread_id = p.thread_id GROUP BY t.thread_id, t.thread_title HAVING SUM(CASE WHEN p.tag = 'helpful' THEN 1 ELSE 0 END) >= 5 AND SUM(CASE WHEN p.tag = 'insightful' THEN 1 ELSE 0 END) >= 3 ORDER BY t.thread_id;",
+    "_meta": {
+      "question_type": "filter_strategies",
+      "original_qtype": "filter_strategies",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-21T16:24:32.220578",
+      "problem_id": "d426b7c05b09",
+      "validation_attempts": 2,
+      "scenario": "a community forum tracking thread participation and member retention",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "group_threshold"
+    }
+  },
+  "user_solution": "/* \n\nManagement wants to identify threads that\n- received at least 5 posts tagged as 'helpful' and\n- received at least 3 posts tagged as 'insightful'\n\nWrite a query that returns threads meeting BOTH thresholds.\nReturn columns `thread_id` and `thread_title`, ordered by `thread_id` ascending.\nA thread qualifies only if it has enough posts in each required tag category.\n*/\nSELECT\n    t.thread_id,\n    t.thread_title\nFROM threads AS t\nJOIN posts AS p\n    ON t.thread_id = p.thread_id\nGROUP BY 1, 2\nHAVING SUM(CASE WHEN tag = 'helpful' THEN 1 END) >= 5 AND\n        SUM(CASE WHEN tag = 'insightful' THEN 1 END) >= 3\nORDER BY thread_id;\n\n",
+  "solved_at": "2026-06-21T16:27:18.335663"
+}

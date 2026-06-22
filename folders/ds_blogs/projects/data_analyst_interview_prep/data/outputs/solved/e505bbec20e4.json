@@ -1,0 +1,198 @@
+{
+  "problem": {
+    "title": "Deduplicate Prior Authorization Requests by Case",
+    "prompt": "A `prior_auth_submissions` table tracks requests sent to insurance payers. Due to a system bug, some authorization cases were submitted multiple times with different `submission_id` values but identical `case_number`, `payer_id`, and `provider_npi`. For each duplicate set (same `case_number`, `payer_id`, `provider_npi`), keep only the submission with the lowest `submission_id` and delete all others. After deduplication, return all surviving rows ordered by `submission_id` ascending. The table uses `submission_id` as the primary key; duplicate keys are defined by the combination of `case_number`, `payer_id`, and `provider_npi`. Your solution must physically delete the duplicate rows and then show the final state of the table.",
+    "schema_ddl": "CREATE TABLE prior_auth_submissions (submission_id INT PRIMARY KEY, case_number VARCHAR(20) NOT NULL, payer_id INT NOT NULL, provider_npi VARCHAR(10) NOT NULL, submission_date DATE NOT NULL, status VARCHAR(20) NOT NULL);",
+    "example_input_data": "INSERT INTO prior_auth_submissions (submission_id, case_number, payer_id, provider_npi, submission_date, status) VALUES (101, 'PA-2024-001', 5, '1234567890', '2024-01-15', 'pending'), (102, 'PA-2024-001', 5, '1234567890', '2024-01-15', 'pending'), (103, 'PA-2024-002', 3, '9876543210', '2024-01-16', 'approved'), (104, 'PA-2024-003', 7, '5555555555', '2024-01-17', 'pending'), (105, 'PA-2024-003', 7, '5555555555', '2024-01-17', 'pending'), (106, 'PA-2024-003', 7, '5555555555', '2024-01-18', 'denied'), (107, 'PA-2024-004', 3, '1111111111', '2024-01-19', 'approved'), (108, 'PA-2024-001', 5, '1234567890', '2024-01-20', 'approved');",
+    "example_output_columns": [
+      "submission_id",
+      "case_number",
+      "payer_id",
+      "provider_npi",
+      "submission_date",
+      "status"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "PA-2024-001",
+        5,
+        "1234567890",
+        "2024-01-15",
+        "pending"
+      ],
+      [
+        103,
+        "PA-2024-002",
+        3,
+        "9876543210",
+        "2024-01-16",
+        "approved"
+      ],
+      [
+        104,
+        "PA-2024-003",
+        7,
+        "5555555555",
+        "2024-01-17",
+        "pending"
+      ],
+      [
+        107,
+        "PA-2024-004",
+        3,
+        "1111111111",
+        "2024-01-19",
+        "approved"
+      ]
+    ],
+    "test_data": "INSERT INTO prior_auth_submissions (submission_id, case_number, payer_id, provider_npi, submission_date, status) VALUES (201, 'PA-2024-100', 10, '2000000001', '2024-02-01', 'pending'), (202, 'PA-2024-100', 10, '2000000001', '2024-02-01', 'pending'), (203, 'PA-2024-100', 10, '2000000001', '2024-02-02', 'approved'), (204, 'PA-2024-101', 12, '2000000002', '2024-02-03', 'denied'), (205, 'PA-2024-102', 15, '2000000003', '2024-02-04', 'pending'), (206, 'PA-2024-102', 15, '2000000003', '2024-02-04', 'pending'), (207, 'PA-2024-103', 18, '2000000004', '2024-02-05', 'approved'), (208, 'PA-2024-104', 20, '2000000005', '2024-02-06', 'pending'), (209, 'PA-2024-104', 20, '2000000005', '2024-02-06', 'pending'), (210, 'PA-2024-104', 20, '2000000005', '2024-02-07', 'approved'), (211, 'PA-2024-105', 22, '2000000006', '2024-02-08', 'denied'), (212, 'PA-2024-105', 22, '2000000006', '2024-02-08', 'denied'), (213, 'PA-2024-105', 22, '2000000006', '2024-02-09', 'pending'), (214, 'PA-2024-105', 22, '2000000006', '2024-02-10', 'approved'), (215, 'PA-2024-106', 25, '2000000007', '2024-02-11', 'approved'), (216, 'PA-2024-107', 28, '2000000008', '2024-02-12', 'pending'), (217, 'PA-2024-107', 28, '2000000008', '2024-02-12', 'pending'), (218, 'PA-2024-108', 30, '2000000009', '2024-02-13', 'denied'), (219, 'PA-2024-109', 32, '2000000010', '2024-02-14', 'approved'), (220, 'PA-2024-109', 32, '2000000010', '2024-02-14', 'approved'), (221, 'PA-2024-109', 32, '2000000010', '2024-02-15', 'pending'), (222, 'PA-2024-110', 35, '2000000011', '2024-02-16', 'approved'), (223, 'PA-2024-111', 38, '2000000012', '2024-02-17', 'pending'), (224, 'PA-2024-111', 38, '2000000012', '2024-02-17', 'denied'), (225, 'PA-2024-112', 40, '2000000013', '2024-02-18', 'approved');",
+    "test_expected_columns": [
+      "submission_id",
+      "case_number",
+      "payer_id",
+      "provider_npi",
+      "submission_date",
+      "status"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "PA-2024-100",
+        10,
+        "2000000001",
+        "2024-02-01",
+        "pending"
+      ],
+      [
+        204,
+        "PA-2024-101",
+        12,
+        "2000000002",
+        "2024-02-03",
+        "denied"
+      ],
+      [
+        205,
+        "PA-2024-102",
+        15,
+        "2000000003",
+        "2024-02-04",
+        "pending"
+      ],
+      [
+        207,
+        "PA-2024-103",
+        18,
+        "2000000004",
+        "2024-02-05",
+        "approved"
+      ],
+      [
+        208,
+        "PA-2024-104",
+        20,
+        "2000000005",
+        "2024-02-06",
+        "pending"
+      ],
+      [
+        211,
+        "PA-2024-105",
+        22,
+        "2000000006",
+        "2024-02-08",
+        "denied"
+      ],
+      [
+        215,
+        "PA-2024-106",
+        25,
+        "2000000007",
+        "2024-02-11",
+        "approved"
+      ],
+      [
+        216,
+        "PA-2024-107",
+        28,
+        "2000000008",
+        "2024-02-12",
+        "pending"
+      ],
+      [
+        218,
+        "PA-2024-108",
+        30,
+        "2000000009",
+        "2024-02-13",
+        "denied"
+      ],
+      [
+        219,
+        "PA-2024-109",
+        32,
+        "2000000010",
+        "2024-02-14",
+        "approved"
+      ],
+      [
+        222,
+        "PA-2024-110",
+        35,
+        "2000000011",
+        "2024-02-16",
+        "approved"
+      ],
+      [
+        223,
+        "PA-2024-111",
+        38,
+        "2000000012",
+        "2024-02-17",
+        "pending"
+      ],
+      [
+        225,
+        "PA-2024-112",
+        40,
+        "2000000013",
+        "2024-02-18",
+        "approved"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "state_mutation",
+      "recipe": "delete-duplicates",
+      "composite_moves": [
+        "delete-duplicates: NOT IN + MIN aggregate to keep lowest id per dup key",
+        "trailing SELECT to show survivors"
+      ]
+    },
+    "hints": [
+      "Identify which column combination defines a duplicate and which column identifies the survivor to keep.",
+      "Use a subquery with MIN and GROUP BY to find the lowest submission_id for each duplicate group, then delete all rows not in that set.",
+      "DELETE FROM prior_auth_submissions WHERE submission_id NOT IN (SELECT MIN(submission_id) FROM prior_auth_submissions GROUP BY case_number, payer_id, provider_npi); then SELECT * FROM prior_auth_submissions ORDER BY submission_id;"
+    ],
+    "answer_key": "DELETE FROM prior_auth_submissions WHERE submission_id NOT IN (SELECT MIN(submission_id) FROM prior_auth_submissions GROUP BY case_number, payer_id, provider_npi); SELECT * FROM prior_auth_submissions ORDER BY submission_id;",
+    "_meta": {
+      "question_type": "delete_duplicates",
+      "original_qtype": "delete_duplicates",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-20T19:32:13.185571",
+      "problem_id": "e505bbec20e4",
+      "validation_attempts": 1,
+      "scenario": "a prior authorization cycle time tracking system across payers",
+      "dml_op": "DELETE",
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "keep_min_id"
+    }
+  },
+  "user_solution": "/*\n - identical `case_number`, `payer_id`, and `provider_npi` but submission_id\n\nFor each duplicate set (same `case_number`, `payer_id`, `provider_npi`), keep only the submission with the lowest `submission_id` and delete all others.\nKEEP LOWEST\n\n\n\n*/\n\nDELETE FROM prior_auth_submissions\nWHERE submission_id not in (SELECT MIN(submission_id) FROM prior_auth_submissions GROUP BY case_number, payer_id, provider_npi);\n\nSELECT * FROM prior_auth_submissions ORDER BY submission_id;\n\n",
+  "solved_at": "2026-06-20T19:38:48.816813"
+}

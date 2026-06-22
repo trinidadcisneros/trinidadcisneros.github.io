@@ -1,0 +1,106 @@
+{
+  "title": "Recommend Cheapest Reply Time for Active Threads",
+  "prompt": "A community forum tracks threads and member reply activity. The `threads` table records each thread's `thread_id`, `title`, `category`, and `is_active` flag (TRUE when the thread is open for discussion, FALSE when archived or locked). The `reply_times` table logs every member's reply to a thread, recording `reply_id`, `thread_id`, `member_id`, and `response_minutes` (how many minutes after the thread was created that member posted their reply). You need to find, for each active thread (`is_active = TRUE`), the fastest reply time across all members\u2014that is, the minimum `response_minutes` for that thread. Threads that are NOT active (where `is_active = FALSE`) should be excluded from the output entirely. Return one row per active thread showing `thread_id`, `title`, and `fastest_reply_minutes` (the minimum `response_minutes` for that thread). Order the result by `thread_id` ascending.",
+  "schema_ddl": "CREATE TABLE threads (thread_id INTEGER PRIMARY KEY, title TEXT NOT NULL, category TEXT NOT NULL, is_active BOOLEAN NOT NULL); CREATE TABLE reply_times (reply_id INTEGER PRIMARY KEY, thread_id INTEGER NOT NULL, member_id INTEGER NOT NULL, response_minutes INTEGER NOT NULL);",
+  "example_input_data": "INSERT INTO threads (thread_id, title, category, is_active) VALUES (1, 'PostgreSQL vs MySQL', 'Databases', TRUE), (2, 'Best IDE for Python', 'Tools', TRUE), (3, 'Archived: Old Debate', 'General', FALSE), (4, 'CI/CD Pipeline Tips', 'DevOps', TRUE); INSERT INTO reply_times (reply_id, thread_id, member_id, response_minutes) VALUES (101, 1, 501, 15), (102, 1, 502, 8), (103, 1, 503, 22), (104, 2, 504, 45), (105, 3, 505, 12), (106, 3, 506, 5), (107, 4, 507, 30);",
+  "example_output_columns": [
+    "thread_id",
+    "title",
+    "fastest_reply_minutes"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "PostgreSQL vs MySQL",
+      8
+    ],
+    [
+      2,
+      "Best IDE for Python",
+      45
+    ],
+    [
+      4,
+      "CI/CD Pipeline Tips",
+      30
+    ]
+  ],
+  "test_data": "INSERT INTO threads (thread_id, title, category, is_active) VALUES (10, 'Docker Best Practices', 'DevOps', TRUE), (11, 'Kubernetes 101', 'DevOps', TRUE), (12, 'Archived: Legacy Thread', 'General', FALSE), (13, 'React Hooks Deep Dive', 'Frontend', TRUE), (14, 'GraphQL vs REST', 'API', FALSE), (15, 'Microservices Patterns', 'Architecture', TRUE), (16, 'Test-Driven Development', 'Testing', TRUE), (17, 'Closed Discussion', 'Meta', FALSE), (18, 'No Replies Thread', 'Random', TRUE), (19, 'Vim vs Emacs', 'Tools', TRUE), (20, 'Git Workflow Tips', 'Tools', TRUE); INSERT INTO reply_times (reply_id, thread_id, member_id, response_minutes) VALUES (201, 10, 601, 12), (202, 10, 602, 7), (203, 10, 603, 20), (204, 10, 604, 9), (205, 11, 605, 33), (206, 11, 606, 18), (207, 11, 607, 25), (208, 12, 608, 3), (209, 12, 609, 10), (210, 13, 610, 55), (211, 14, 611, 8), (212, 14, 612, 15), (213, 15, 613, 40), (214, 15, 614, 28), (215, 15, 615, 50), (216, 16, 616, 5), (217, 17, 617, 22), (218, 19, 618, 60), (219, 19, 619, 42), (220, 19, 620, 38), (221, 20, 621, 11), (222, 20, 622, 14), (223, 20, 623, 9), (224, 20, 624, 16);",
+  "test_expected_columns": [
+    "thread_id",
+    "title",
+    "fastest_reply_minutes"
+  ],
+  "test_expected_rows": [
+    [
+      10,
+      "Docker Best Practices",
+      7
+    ],
+    [
+      11,
+      "Kubernetes 101",
+      18
+    ],
+    [
+      13,
+      "React Hooks Deep Dive",
+      55
+    ],
+    [
+      15,
+      "Microservices Patterns",
+      28
+    ],
+    [
+      16,
+      "Test-Driven Development",
+      5
+    ],
+    [
+      19,
+      "Vim vs Emacs",
+      38
+    ],
+    [
+      20,
+      "Git Workflow Tips",
+      9
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "join threads to reply_times on thread_id",
+      "look up is_active gate from threads",
+      "per-entity (thread_id) pick: MIN(response_minutes)",
+      "WHERE gate: is_active = TRUE (exclude non-active threads)",
+      "GROUP BY thread_id, title to aggregate the minimum",
+      "ORDER BY thread_id"
+    ]
+  },
+  "hints": [
+    "You need to combine information from both tables using the shared thread_id key.",
+    "Only include threads where is_active is TRUE; use a WHERE clause to filter before or after the join.",
+    "For each active thread, find the smallest response_minutes across all its replies\u2014GROUP BY and an aggregate function will help."
+  ],
+  "answer_key": "SELECT t.thread_id, t.title, MIN(rt.response_minutes) AS fastest_reply_minutes FROM threads t INNER JOIN reply_times rt ON t.thread_id = rt.thread_id WHERE t.is_active = TRUE GROUP BY t.thread_id, t.title ORDER BY t.thread_id;",
+  "_meta": {
+    "question_type": "gated_lookup",
+    "original_qtype": "gated_lookup",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-21T11:00:08.765783",
+    "problem_id": "e3351ca523ab",
+    "validation_attempts": 1,
+    "scenario": "a community forum tracking thread participation and member retention",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "where_exclude"
+  }
+}

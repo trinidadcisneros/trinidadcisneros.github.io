@@ -1,0 +1,195 @@
+{
+  "title": "Remove Duplicate Refill Records per Patient",
+  "prompt": "The `refill_records` table tracks prescription refill events, but data import errors have created duplicate entries for some patients on the same date and medication. Each duplicate set should be reduced to a single record, keeping the entry with the EARLIEST `created_at` timestamp (the original entry). If multiple duplicates share the same `created_at` time, keep the one with the lowest `record_id`. Write a DELETE statement that removes all duplicate records, then follow it with `SELECT * FROM refill_records ORDER BY record_id;` to show the surviving rows. A duplicate is defined by the combination of (`patient_id`, `medication_code`, `refill_date`)\u2014any rows sharing all three values are duplicates. Your solution must leave single-occurrence records untouched and ensure exactly one survivor per duplicate key.",
+  "schema_ddl": "CREATE TABLE refill_records (record_id SERIAL PRIMARY KEY, patient_id INTEGER NOT NULL, medication_code VARCHAR(20) NOT NULL, refill_date DATE NOT NULL, days_supply INTEGER NOT NULL, created_at TIMESTAMP NOT NULL);",
+  "example_input_data": "INSERT INTO refill_records (record_id, patient_id, medication_code, refill_date, days_supply, created_at) VALUES (1, 101, 'MED-A', '2024-01-15', 30, '2024-01-15 08:00:00'), (2, 101, 'MED-A', '2024-01-15', 30, '2024-01-15 08:05:00'), (3, 102, 'MED-B', '2024-01-20', 60, '2024-01-20 09:00:00'), (4, 103, 'MED-C', '2024-02-01', 90, '2024-02-01 10:00:00'), (5, 103, 'MED-C', '2024-02-01', 90, '2024-02-01 10:00:00'), (6, 103, 'MED-C', '2024-02-01', 90, '2024-02-01 10:10:00'), (7, 104, 'MED-D', '2024-02-10', 30, '2024-02-10 11:00:00'), (8, 101, 'MED-A', '2024-02-15', 30, '2024-02-15 08:00:00');",
+  "example_output_columns": [
+    "record_id",
+    "patient_id",
+    "medication_code",
+    "refill_date",
+    "days_supply",
+    "created_at"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      101,
+      "MED-A",
+      "2024-01-15",
+      30,
+      "2024-01-15 08:00:00"
+    ],
+    [
+      3,
+      102,
+      "MED-B",
+      "2024-01-20",
+      60,
+      "2024-01-20 09:00:00"
+    ],
+    [
+      4,
+      103,
+      "MED-C",
+      "2024-02-01",
+      90,
+      "2024-02-01 10:00:00"
+    ],
+    [
+      7,
+      104,
+      "MED-D",
+      "2024-02-10",
+      30,
+      "2024-02-10 11:00:00"
+    ],
+    [
+      8,
+      101,
+      "MED-A",
+      "2024-02-15",
+      30,
+      "2024-02-15 08:00:00"
+    ]
+  ],
+  "test_data": "INSERT INTO refill_records (record_id, patient_id, medication_code, refill_date, days_supply, created_at) VALUES (10, 201, 'MED-X', '2024-03-01', 30, '2024-03-01 07:00:00'), (11, 201, 'MED-X', '2024-03-01', 30, '2024-03-01 07:05:00'), (12, 201, 'MED-X', '2024-03-01', 30, '2024-03-01 07:10:00'), (13, 202, 'MED-Y', '2024-03-05', 60, '2024-03-05 08:00:00'), (14, 202, 'MED-Y', '2024-03-05', 60, '2024-03-05 08:00:00'), (15, 203, 'MED-Z', '2024-03-10', 90, '2024-03-10 09:00:00'), (16, 204, 'MED-W', '2024-03-12', 30, '2024-03-12 10:00:00'), (17, 204, 'MED-W', '2024-03-12', 30, '2024-03-12 09:55:00'), (18, 204, 'MED-W', '2024-03-12', 30, '2024-03-12 09:55:00'), (19, 205, 'MED-V', '2024-03-15', 60, '2024-03-15 11:00:00'), (20, 206, 'MED-U', '2024-03-20', 30, '2024-03-20 12:00:00'), (21, 206, 'MED-U', '2024-03-20', 30, '2024-03-20 12:00:00'), (22, 207, 'MED-T', '2024-03-25', 90, '2024-03-25 13:00:00'), (23, 208, 'MED-S', '2024-03-28', 30, '2024-03-28 14:00:00'), (24, 208, 'MED-S', '2024-03-28', 30, '2024-03-28 14:05:00'), (25, 208, 'MED-S', '2024-03-28', 30, '2024-03-28 14:05:00'), (26, 209, 'MED-R', '2024-03-30', 60, '2024-03-30 15:00:00'), (27, 210, 'MED-Q', '2024-04-01', 30, '2024-04-01 16:00:00'), (28, 210, 'MED-Q', '2024-04-01', 30, '2024-04-01 16:00:00'), (29, 211, 'MED-P', '2024-04-05', 90, '2024-04-05 17:00:00'), (30, 212, 'MED-O', '2024-04-10', 30, '2024-04-10 18:00:00');",
+  "test_expected_columns": [
+    "record_id",
+    "patient_id",
+    "medication_code",
+    "refill_date",
+    "days_supply",
+    "created_at"
+  ],
+  "test_expected_rows": [
+    [
+      10,
+      201,
+      "MED-X",
+      "2024-03-01",
+      30,
+      "2024-03-01 07:00:00"
+    ],
+    [
+      13,
+      202,
+      "MED-Y",
+      "2024-03-05",
+      60,
+      "2024-03-05 08:00:00"
+    ],
+    [
+      15,
+      203,
+      "MED-Z",
+      "2024-03-10",
+      90,
+      "2024-03-10 09:00:00"
+    ],
+    [
+      17,
+      204,
+      "MED-W",
+      "2024-03-12",
+      30,
+      "2024-03-12 09:55:00"
+    ],
+    [
+      19,
+      205,
+      "MED-V",
+      "2024-03-15",
+      60,
+      "2024-03-15 11:00:00"
+    ],
+    [
+      20,
+      206,
+      "MED-U",
+      "2024-03-20",
+      30,
+      "2024-03-20 12:00:00"
+    ],
+    [
+      22,
+      207,
+      "MED-T",
+      "2024-03-25",
+      90,
+      "2024-03-25 13:00:00"
+    ],
+    [
+      23,
+      208,
+      "MED-S",
+      "2024-03-28",
+      30,
+      "2024-03-28 14:00:00"
+    ],
+    [
+      26,
+      209,
+      "MED-R",
+      "2024-03-30",
+      60,
+      "2024-03-30 15:00:00"
+    ],
+    [
+      27,
+      210,
+      "MED-Q",
+      "2024-04-01",
+      30,
+      "2024-04-01 16:00:00"
+    ],
+    [
+      29,
+      211,
+      "MED-P",
+      "2024-04-05",
+      90,
+      "2024-04-05 17:00:00"
+    ],
+    [
+      30,
+      212,
+      "MED-O",
+      "2024-04-10",
+      30,
+      "2024-04-10 18:00:00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "state_mutation",
+    "recipe": "delete-duplicates",
+    "composite_moves": [
+      "window ROW_NUMBER partitioned by duplicate key columns ordered by survivor criteria",
+      "DELETE rows where row number > 1",
+      "trailing SELECT to show survivors"
+    ]
+  },
+  "hints": [
+    "Consider how you can assign a unique rank to each row within groups that share the same patient, medication, and refill date.",
+    "Use ROW_NUMBER() with PARTITION BY on the columns that define a duplicate and ORDER BY the criteria that determines which row to keep (earliest created_at, then lowest record_id).",
+    "Write a CTE that assigns row numbers, then DELETE from the original table WHERE record_id is in the set of IDs that have row number greater than 1."
+  ],
+  "answer_key": "WITH ranked AS (SELECT record_id, ROW_NUMBER() OVER (PARTITION BY patient_id, medication_code, refill_date ORDER BY created_at, record_id) AS rn FROM refill_records) DELETE FROM refill_records WHERE record_id IN (SELECT record_id FROM ranked WHERE rn > 1); SELECT * FROM refill_records ORDER BY record_id;",
+  "_meta": {
+    "question_type": "delete_duplicates",
+    "original_qtype": "delete_duplicates",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-20T20:07:42.652355",
+    "problem_id": "674135d54565",
+    "validation_attempts": 1,
+    "scenario": "a prescription refill adherence program tracking 30/60/90 day refill rates",
+    "dml_op": "DELETE",
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "row_number"
+  }
+}

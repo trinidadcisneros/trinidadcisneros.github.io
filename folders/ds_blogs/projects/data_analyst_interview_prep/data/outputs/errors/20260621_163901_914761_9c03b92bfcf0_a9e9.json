@@ -1,0 +1,78 @@
+{
+  "logged_at": "2026-06-21T16:39:01.914761",
+  "failure_kind": "wrong_answer",
+  "problem_id": "9c03b92bfcf0",
+  "question_type": "filter_strategies",
+  "original_qtype": "filter_strategies",
+  "subtype": "group_threshold",
+  "scenario": "a beauty retailer tracking loyalty program redemption rates",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "row-filter",
+  "title": "Loyalty Members Meeting Multi-Month Spending Thresholds",
+  "prompt": "A beauty retailer tracks loyalty program member purchases in the `redemption_activity` table. Each row records one transaction with the member ID, transaction month, and points redeemed. Management wants to identify members who met BOTH of the following criteria: (1) redeemed at least 500 points during January 2024, AND (2) redeemed at least 500 points during February 2024. A member qualifies only if they clear both monthly thresholds; partial qualification does not count. Return columns `member_id` and `total_points_redeemed` (the sum across all months for that member). Order the result by `member_id` ascending. Note that some members may have activity in only one month, and some months may have zero activity for a given member.",
+  "schema_ddl": "CREATE TABLE redemption_activity (activity_id SERIAL PRIMARY KEY, member_id INT NOT NULL, transaction_month DATE NOT NULL, points_redeemed INT NOT NULL);",
+  "answer_key": "SELECT member_id, SUM(points_redeemed) AS total_points_redeemed FROM redemption_activity GROUP BY member_id HAVING SUM(CASE WHEN DATE_TRUNC('month', transaction_month) = DATE '2024-01-01' THEN points_redeemed ELSE 0 END) >= 500 AND SUM(CASE WHEN DATE_TRUNC('month', transaction_month) = DATE '2024-02-01' THEN points_redeemed ELSE 0 END) >= 500 ORDER BY member_id;",
+  "test_expected_columns": [
+    "member_id",
+    "total_points_redeemed"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      1010
+    ],
+    [
+      203,
+      1500
+    ],
+    [
+      206,
+      1000
+    ],
+    [
+      207,
+      1100
+    ],
+    [
+      209,
+      1200
+    ],
+    [
+      211,
+      1200
+    ]
+  ],
+  "user_solution": "SELECT\n    member_id,\n    SUM(points_redeemed) AS total_points_redeemed\nFROM redemption_activity \nWHERE transaction_month >= '2024-01-01' AND transaction_month < '2024-03-01'\nGROUP BY 1\nHAVING SUM(CASE WHEN transaction_month >= '2024-01-01' AND\n            transaction_month < '2024-02-01' THEN points_redeemed END) >= 500 AND\n        SUM(CASE WHEN transaction_month >= '2024-02-01' AND\n            transaction_month < '2024-03-01' THEN points_redeemed END) >= 500\nORDER BY member_id;\n",
+  "error_message": null,
+  "your_columns": [
+    "member_id",
+    "total_points_redeemed"
+  ],
+  "your_rows": [
+    [
+      201,
+      1010
+    ],
+    [
+      203,
+      1200
+    ],
+    [
+      206,
+      1000
+    ],
+    [
+      207,
+      1000
+    ],
+    [
+      209,
+      1200
+    ],
+    [
+      211,
+      1200
+    ]
+  ]
+}

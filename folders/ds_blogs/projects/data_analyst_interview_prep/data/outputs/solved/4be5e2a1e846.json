@@ -1,0 +1,75 @@
+{
+  "problem": {
+    "title": "Find Active Users with Consistent Workouts",
+    "prompt": "You are analyzing user engagement in a fitness app. Write a query against the `user_workouts` table to find all users who completed at least 4 workouts in a single week AND achieved at least one workout longer than 45 minutes during that same week. Each row represents one completed workout with its duration in minutes and the week number of the year. A user may have multiple rows for the same week. Return columns `user_id`, `week_number`, and `workout_count` (the total number of workouts that user completed in that week). Order the results by `user_id` ascending, then `week_number` ascending.",
+    "schema_ddl": "CREATE TABLE user_workouts (workout_id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, week_number INTEGER NOT NULL, workout_date DATE NOT NULL, duration_minutes INTEGER NOT NULL, workout_type VARCHAR(50) NOT NULL);",
+    "example_input_data": "INSERT INTO user_workouts (user_id, week_number, workout_date, duration_minutes, workout_type) VALUES (101, 12, '2024-03-18', 30, 'Cardio'), (101, 12, '2024-03-19', 50, 'Strength'), (101, 12, '2024-03-20', 25, 'Yoga'), (101, 12, '2024-03-21', 40, 'Cardio'), (102, 12, '2024-03-18', 60, 'Strength'), (102, 12, '2024-03-19', 35, 'Cardio'), (102, 12, '2024-03-20', 20, 'Yoga'), (103, 13, '2024-03-25', 50, 'Cardio'), (103, 13, '2024-03-26', 55, 'Strength'), (103, 13, '2024-03-27', 30, 'Yoga');",
+    "example_output_columns": [
+      "user_id",
+      "week_number",
+      "workout_count"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        12,
+        4
+      ]
+    ],
+    "test_data": "INSERT INTO user_workouts (user_id, week_number, workout_date, duration_minutes, workout_type) VALUES (201, 15, '2024-04-08', 20, 'Cardio'), (201, 15, '2024-04-09', 30, 'Yoga'), (201, 15, '2024-04-10', 25, 'Strength'), (201, 15, '2024-04-11', 35, 'Cardio'), (202, 15, '2024-04-08', 50, 'Strength'), (202, 15, '2024-04-09', 55, 'Cardio'), (202, 15, '2024-04-10', 60, 'Strength'), (202, 15, '2024-04-11', 45, 'Yoga'), (203, 16, '2024-04-15', 70, 'Cardio'), (203, 16, '2024-04-16', 80, 'Strength'), (203, 16, '2024-04-17', 90, 'Cardio'), (203, 16, '2024-04-18', 40, 'Yoga'), (203, 16, '2024-04-19', 50, 'Strength'), (204, 16, '2024-04-15', 10, 'Yoga'), (204, 16, '2024-04-16', 15, 'Cardio'), (204, 16, '2024-04-17', 20, 'Strength'), (204, 16, '2024-04-18', 25, 'Yoga'), (205, 17, '2024-04-22', 100, 'Strength'), (205, 17, '2024-04-23', 30, 'Cardio'), (205, 17, '2024-04-24', 35, 'Yoga'), (206, 18, '2024-04-29', 46, 'Cardio'), (206, 18, '2024-04-30', 47, 'Strength'), (206, 18, '2024-05-01', 48, 'Cardio'), (206, 18, '2024-05-02', 49, 'Yoga'), (207, 18, '2024-04-29', 50, 'Strength'), (207, 18, '2024-04-30', 40, 'Cardio'), (207, 18, '2024-05-01', 30, 'Yoga'), (208, 19, '2024-05-06', 60, 'Cardio'), (208, 19, '2024-05-07', 20, 'Yoga'), (208, 19, '2024-05-08', 25, 'Strength');",
+    "test_expected_columns": [
+      "user_id",
+      "week_number",
+      "workout_count"
+    ],
+    "test_expected_rows": [
+      [
+        202,
+        15,
+        4
+      ],
+      [
+        203,
+        16,
+        5
+      ],
+      [
+        206,
+        18,
+        4
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "row-filter",
+      "composite_moves": [
+        "group-aggregate with HAVING combining two conditions via AND"
+      ]
+    },
+    "hints": [
+      "You need to group the workouts by user and week to count how many workouts each user did per week.",
+      "Use HAVING to filter groups based on aggregate conditions: one condition counts rows, another checks the maximum duration.",
+      "The HAVING clause should combine COUNT(*) >= 4 AND MAX(duration_minutes) > 45 to find qualifying user-week combinations."
+    ],
+    "answer_key": "SELECT user_id, week_number, COUNT(*) AS workout_count FROM user_workouts GROUP BY user_id, week_number HAVING COUNT(*) >= 4 AND MAX(duration_minutes) > 45 ORDER BY user_id ASC, week_number ASC;",
+    "_meta": {
+      "question_type": "filter_strategies",
+      "original_qtype": "random_any",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-20T19:05:12.956511",
+      "problem_id": "4be5e2a1e846",
+      "validation_attempts": 1,
+      "scenario": "a fitness app tracking workout completion and active days per week",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "comparison"
+    }
+  },
+  "user_solution": "/*\nfind all users who completed at least 4 workouts in a single week AND achieved at least one workout longer than 45 minutes during that same week.\n\n\nReturn columns \nuser_id, \nweek_number,\nworkout_count     (the total number of workouts that user completed in that week).\n\n*/\n\nSELECT\n    user_id,\n    week_number,\n    COUNT(*) AS workout_count\nFROM user_workouts\nGROUP BY 1, 2\nHAVING COUNT(*) >= 4 AND MAX(duration_minutes) >= 45\nORDER BY user_id, week_number;\n\n\n\n",
+  "solved_at": "2026-06-20T19:26:08.800517"
+}

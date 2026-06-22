@@ -1,0 +1,60 @@
+{
+  "problem": {
+    "title": "Calculate Premium Subscriber Conversion Rate",
+    "prompt": "You are analyzing conversion metrics for a news app. The `article_views` table tracks each time a user completes reading an article, including whether they were a free user or premium subscriber at the time. Calculate the premium conversion rate: the percentage of article views that were completed by premium subscribers. Return a single row with one column named `premium_conversion_rate` (rounded to 2 decimal places). If there are no article views in the table, return 0.00 instead of NULL. The result should be expressed as a percentage (e.g., 45.67 means 45.67%).",
+    "schema_ddl": "CREATE TABLE article_views (\n  view_id SERIAL PRIMARY KEY,\n  user_id INTEGER NOT NULL,\n  article_id INTEGER NOT NULL,\n  completed_at TIMESTAMP NOT NULL,\n  is_premium BOOLEAN NOT NULL\n);",
+    "example_input_data": "INSERT INTO article_views (view_id, user_id, article_id, completed_at, is_premium) VALUES\n(1, 101, 201, '2024-01-15 08:30:00', false),\n(2, 102, 202, '2024-01-15 09:15:00', true),\n(3, 103, 201, '2024-01-15 10:00:00', false),\n(4, 104, 203, '2024-01-15 11:20:00', true),\n(5, 105, 204, '2024-01-15 12:45:00', false),\n(6, 102, 205, '2024-01-15 14:00:00', true),\n(7, 106, 201, '2024-01-15 15:30:00', true),\n(8, 107, 206, '2024-01-15 16:10:00', false);",
+    "example_output_columns": [
+      "premium_conversion_rate"
+    ],
+    "example_output_rows": [
+      [
+        "50.00"
+      ]
+    ],
+    "test_data": "INSERT INTO article_views (view_id, user_id, article_id, completed_at, is_premium) VALUES\n(1, 201, 301, '2024-02-01 07:00:00', true),\n(2, 202, 302, '2024-02-01 07:30:00', false),\n(3, 203, 303, '2024-02-01 08:00:00', false),\n(4, 204, 304, '2024-02-01 08:30:00', true),\n(5, 205, 305, '2024-02-01 09:00:00', false),\n(6, 206, 306, '2024-02-01 09:30:00', false),\n(7, 207, 307, '2024-02-01 10:00:00', true),\n(8, 208, 308, '2024-02-01 10:30:00', false),\n(9, 209, 309, '2024-02-01 11:00:00', false),\n(10, 210, 310, '2024-02-01 11:30:00', true),\n(11, 211, 311, '2024-02-01 12:00:00', false),\n(12, 212, 312, '2024-02-01 12:30:00', false),\n(13, 213, 313, '2024-02-01 13:00:00', true),\n(14, 214, 314, '2024-02-01 13:30:00', false),\n(15, 215, 315, '2024-02-01 14:00:00', false),\n(16, 216, 316, '2024-02-01 14:30:00', true),\n(17, 217, 317, '2024-02-01 15:00:00', false),\n(18, 218, 318, '2024-02-01 15:30:00', true),\n(19, 219, 319, '2024-02-01 16:00:00', false),\n(20, 220, 320, '2024-02-01 16:30:00', false),\n(21, 221, 321, '2024-02-01 17:00:00', true),\n(22, 222, 322, '2024-02-01 17:30:00', false),\n(23, 223, 323, '2024-02-01 18:00:00', false),\n(24, 224, 324, '2024-02-01 18:30:00', true),\n(25, 225, 325, '2024-02-01 19:00:00', false);",
+    "test_expected_columns": [
+      "premium_conversion_rate"
+    ],
+    "test_expected_rows": [
+      [
+        "36.00"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "single_value",
+      "recipe": "scalar-extract",
+      "composite_moves": [
+        "aggregate COUNT with boolean filter",
+        "compute ratio with NULLIF denominator",
+        "ROUND to 2 decimals",
+        "COALESCE to handle empty table"
+      ]
+    },
+    "hints": [
+      "You need to calculate a percentage based on counting rows that meet a certain condition versus all rows.",
+      "Use COUNT with a FILTER or CASE to count premium views separately, then divide by total views. Multiply by 100 for percentage.",
+      "Wrap the denominator in NULLIF to avoid division by zero, and use COALESCE to return 0.00 when the table is empty. The formula is: ROUND(100.0 * COUNT(...) FILTER (WHERE is_premium) / NULLIF(COUNT(*), 0), 2)."
+    ],
+    "answer_key": "SELECT COALESCE(\n  ROUND(\n    100.0 * COUNT(*) FILTER (WHERE is_premium = true) / NULLIF(COUNT(*), 0),\n    2\n  ),\n  0.00\n) AS premium_conversion_rate\nFROM article_views;",
+    "_meta": {
+      "question_type": "scalar_extract",
+      "original_qtype": "random_any",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-20T18:06:13.998300",
+      "problem_id": "27a90a825ca0",
+      "validation_attempts": 1,
+      "scenario": "a news app tracking article completion and subscription conversion",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "ratio"
+    }
+  },
+  "user_solution": "/*\n\nCalculate premium conversion rate: \n- the percentage of article views that were completed by premium subscribers.\n\nReturn a single row with one column named `premium_conversion_rate` (rounded to 2 decimal places).\nIf there are no article views in the table, return 0.00 instead of NULL.\nThe result should be expressed as a percentage (e.g., 45.67 means 45.67%).\n\n*/\nSELECT\n    COALESCE(ROUND(AVG(CASE WHEN is_premium = true THEN 1.0 ELSE 0 END) * 100, 2), 00) AS premium_conversion_rate\nFROM article_views;\n\n",
+  "solved_at": "2026-06-20T18:11:42.114080"
+}

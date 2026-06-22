@@ -1,0 +1,118 @@
+{
+  "title": "Customers Who Never Placed Orders",
+  "prompt": "An online grocery service wants to identify customers who have registered accounts but have never placed any orders, so they can send targeted promotional emails. Write a query that returns the customer ID, email, and signup date for all customers who have zero orders in the system. A customer has \"never placed an order\" if their customer_id does not appear in the orders table at all. Order the results by signup_date ascending, then by customer_id ascending. The orders table may contain NULL values in some columns, but customer_id in orders is always non-NULL when a row exists.",
+  "schema_ddl": "CREATE TABLE customers (customer_id INT PRIMARY KEY, email VARCHAR(100) NOT NULL, signup_date DATE NOT NULL); CREATE TABLE orders (order_id INT PRIMARY KEY, customer_id INT NOT NULL, order_date DATE NOT NULL, total_amount DECIMAL(10,2) NOT NULL);",
+  "example_input_data": "INSERT INTO customers (customer_id, email, signup_date) VALUES (101, 'alice@example.com', '2024-01-15'), (102, 'bob@example.com', '2024-01-20'), (103, 'carol@example.com', '2024-02-01'), (104, 'dave@example.com', '2024-02-10'), (105, 'eve@example.com', '2024-02-15'), (106, 'frank@example.com', '2024-03-01'); INSERT INTO orders (order_id, customer_id, order_date, total_amount) VALUES (1001, 101, '2024-01-16', 45.50), (1002, 101, '2024-01-22', 32.00), (1003, 103, '2024-02-05', 78.25), (1004, 104, '2024-02-12', 15.99);",
+  "example_output_columns": [
+    "customer_id",
+    "email",
+    "signup_date"
+  ],
+  "example_output_rows": [
+    [
+      102,
+      "bob@example.com",
+      "2024-01-20"
+    ],
+    [
+      105,
+      "eve@example.com",
+      "2024-02-15"
+    ],
+    [
+      106,
+      "frank@example.com",
+      "2024-03-01"
+    ]
+  ],
+  "test_data": "INSERT INTO customers (customer_id, email, signup_date) VALUES (201, 'user201@example.com', '2023-11-01'), (202, 'user202@example.com', '2023-11-05'), (203, 'user203@example.com', '2023-11-10'), (204, 'user204@example.com', '2023-11-15'), (205, 'user205@example.com', '2023-11-20'), (206, 'user206@example.com', '2023-11-25'), (207, 'user207@example.com', '2023-12-01'), (208, 'user208@example.com', '2023-12-05'), (209, 'user209@example.com', '2023-12-10'), (210, 'user210@example.com', '2023-12-15'), (211, 'user211@example.com', '2023-12-20'), (212, 'user212@example.com', '2023-12-25'), (213, 'user213@example.com', '2024-01-01'), (214, 'user214@example.com', '2024-01-05'), (215, 'user215@example.com', '2024-01-10'), (216, 'user216@example.com', '2024-01-15'), (217, 'user217@example.com', '2024-01-20'), (218, 'user218@example.com', '2024-01-25'), (219, 'user219@example.com', '2024-02-01'), (220, 'user220@example.com', '2024-02-05'); INSERT INTO orders (order_id, customer_id, order_date, total_amount) VALUES (2001, 201, '2023-11-02', 25.00), (2002, 201, '2023-11-10', 40.00), (2003, 203, '2023-11-12', 55.00), (2004, 205, '2023-11-21', 33.50), (2005, 207, '2023-12-03', 88.75), (2006, 207, '2023-12-10', 22.00), (2007, 209, '2023-12-12', 45.00), (2008, 211, '2023-12-22', 67.80), (2009, 213, '2024-01-03', 19.99), (2010, 215, '2024-01-12', 102.50), (2011, 217, '2024-01-22', 44.00), (2012, 219, '2024-02-03', 31.25);",
+  "test_expected_columns": [
+    "customer_id",
+    "email",
+    "signup_date"
+  ],
+  "test_expected_rows": [
+    [
+      202,
+      "user202@example.com",
+      "2023-11-05"
+    ],
+    [
+      204,
+      "user204@example.com",
+      "2023-11-15"
+    ],
+    [
+      206,
+      "user206@example.com",
+      "2023-11-25"
+    ],
+    [
+      208,
+      "user208@example.com",
+      "2023-12-05"
+    ],
+    [
+      210,
+      "user210@example.com",
+      "2023-12-15"
+    ],
+    [
+      212,
+      "user212@example.com",
+      "2023-12-25"
+    ],
+    [
+      214,
+      "user214@example.com",
+      "2024-01-05"
+    ],
+    [
+      216,
+      "user216@example.com",
+      "2024-01-15"
+    ],
+    [
+      218,
+      "user218@example.com",
+      "2024-01-25"
+    ],
+    [
+      220,
+      "user220@example.com",
+      "2024-02-05"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "row-filter",
+    "composite_moves": [
+      "anti-join using NOT EXISTS to filter customers table",
+      "keep rows where no matching customer_id exists in orders",
+      "order by signup_date then customer_id"
+    ]
+  },
+  "hints": [
+    "You need to find customers whose ID does not appear anywhere in the orders table.",
+    "Use NOT EXISTS with a correlated subquery that checks if any order row matches the customer's ID.",
+    "The pattern is: SELECT ... FROM customers c WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id) ORDER BY ..."
+  ],
+  "answer_key": "SELECT customer_id, email, signup_date FROM customers c WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id) ORDER BY signup_date, customer_id;",
+  "_meta": {
+    "question_type": "anti_join",
+    "original_qtype": "anti_join",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-20T20:24:27.792036",
+    "problem_id": "8a6295ffeb6c",
+    "validation_attempts": 1,
+    "scenario": "an online grocery service tracking basket size and reorder rates",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "not_exists"
+  }
+}

@@ -1,0 +1,157 @@
+{
+  "problem": {
+    "title": "Filter Gig Workers by Platform Rating Threshold",
+    "prompt": "A gig marketplace tracks worker performance ratings and bid prices. The `workers` table stores each worker's `platform_rating` (a decimal score from 1.0 to 5.0). The `job_bids` table records multiple bids submitted by workers for various jobs, with each bid having a `bid_amount`. Write a query that returns one row per worker showing their `worker_id`, `platform_rating`, and their LOWEST bid amount as `best_bid`. However, ONLY workers with a `platform_rating >= 4.0` should show their actual lowest bid; workers below that threshold should have `best_bid` set to NULL (they are not displayed as competitive). Include ALL workers in the output (both above and below the threshold). Order the result by `worker_id` ascending.",
+    "schema_ddl": "CREATE TABLE workers (worker_id INT PRIMARY KEY, worker_name VARCHAR(100), platform_rating DECIMAL(3,2)); CREATE TABLE job_bids (bid_id INT PRIMARY KEY, worker_id INT, job_id INT, bid_amount DECIMAL(10,2));",
+    "example_input_data": "INSERT INTO workers (worker_id, worker_name, platform_rating) VALUES (1, 'Alice Chen', 4.5), (2, 'Bob Smith', 3.8), (3, 'Carol Lee', 4.2), (4, 'Dan Rivera', 5.0), (5, 'Eva Garcia', 3.5); INSERT INTO job_bids (bid_id, worker_id, job_id, bid_amount) VALUES (101, 1, 10, 150.00), (102, 1, 11, 120.00), (103, 1, 12, 180.00), (104, 2, 10, 100.00), (105, 2, 11, 90.00), (106, 3, 12, 200.00), (107, 4, 10, 110.00), (108, 4, 11, 95.00), (109, 4, 12, 105.00);",
+    "example_output_columns": [
+      "worker_id",
+      "platform_rating",
+      "best_bid"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "4.50",
+        "120.00"
+      ],
+      [
+        2,
+        "3.80",
+        null
+      ],
+      [
+        3,
+        "4.20",
+        "200.00"
+      ],
+      [
+        4,
+        "5.00",
+        "95.00"
+      ],
+      [
+        5,
+        "3.50",
+        null
+      ]
+    ],
+    "test_data": "INSERT INTO workers (worker_id, worker_name, platform_rating) VALUES (10, 'Frank Wu', 4.0), (11, 'Grace Kim', 3.9), (12, 'Henry Patel', 4.8), (13, 'Iris Zhang', 3.2), (14, 'Jack Liu', 4.1), (15, 'Karen Tran', 4.9), (16, 'Leo Diaz', 3.0), (17, 'Mia Johnson', 5.0), (18, 'Nick Brown', 4.3), (19, 'Olivia Davis', 3.7), (20, 'Paul Miller', 4.6), (21, 'Quinn Taylor', 2.8), (22, 'Rita Wilson', 4.4), (23, 'Sam Anderson', 3.1), (24, 'Tina Moore', 4.7); INSERT INTO job_bids (bid_id, worker_id, job_id, bid_amount) VALUES (201, 10, 20, 130.00), (202, 10, 21, 140.00), (203, 10, 22, 125.00), (204, 11, 20, 115.00), (205, 12, 21, 160.00), (206, 12, 22, 150.00), (207, 12, 23, 145.00), (208, 14, 20, 135.00), (209, 14, 21, 128.00), (210, 15, 22, 170.00), (211, 15, 23, 165.00), (212, 15, 24, 155.00), (213, 17, 20, 180.00), (214, 17, 21, 175.00), (215, 17, 22, 172.00), (216, 17, 23, 168.00), (217, 18, 24, 142.00), (218, 18, 25, 138.00), (219, 20, 20, 148.00), (220, 20, 21, 144.00), (221, 20, 22, 140.00), (222, 22, 23, 152.00), (223, 22, 24, 149.00), (224, 24, 25, 162.00), (225, 24, 26, 158.00);",
+    "test_expected_columns": [
+      "worker_id",
+      "platform_rating",
+      "best_bid"
+    ],
+    "test_expected_rows": [
+      [
+        10,
+        "4.00",
+        "125.00"
+      ],
+      [
+        11,
+        "3.90",
+        null
+      ],
+      [
+        12,
+        "4.80",
+        "145.00"
+      ],
+      [
+        13,
+        "3.20",
+        null
+      ],
+      [
+        14,
+        "4.10",
+        "128.00"
+      ],
+      [
+        15,
+        "4.90",
+        "155.00"
+      ],
+      [
+        16,
+        "3.00",
+        null
+      ],
+      [
+        17,
+        "5.00",
+        "168.00"
+      ],
+      [
+        18,
+        "4.30",
+        "138.00"
+      ],
+      [
+        19,
+        "3.70",
+        null
+      ],
+      [
+        20,
+        "4.60",
+        "140.00"
+      ],
+      [
+        21,
+        "2.80",
+        null
+      ],
+      [
+        22,
+        "4.40",
+        "149.00"
+      ],
+      [
+        23,
+        "3.10",
+        null
+      ],
+      [
+        24,
+        "4.70",
+        "158.00"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "same_rows",
+      "recipe": "enrich-join",
+      "composite_moves": [
+        "look_up_gate_attribute: JOIN workers to get platform_rating per worker",
+        "pick_per_entity_target: ROW_NUMBER() OVER (PARTITION BY worker_id ORDER BY bid_amount) to find lowest bid",
+        "apply_gate_with_CASE: CASE WHEN platform_rating >= 4.0 THEN bid_amount ELSE NULL END"
+      ]
+    },
+    "hints": [
+      "You need to combine information from both tables - one carries the rating gate, the other carries the bids to choose from.",
+      "For each worker, identify their lowest bid using a window function that partitions by worker and orders by bid amount, then keep only the row with rank 1.",
+      "Use a CASE expression to check if the platform_rating meets the threshold; if it does, show the lowest bid, otherwise return NULL. Join the workers table to get the rating, then apply the window function to job_bids."
+    ],
+    "answer_key": "WITH ranked_bids AS (SELECT b.worker_id, b.bid_amount, ROW_NUMBER() OVER (PARTITION BY b.worker_id ORDER BY b.bid_amount) AS rn FROM job_bids b) SELECT w.worker_id, w.platform_rating, CASE WHEN w.platform_rating >= 4.0 THEN rb.bid_amount ELSE NULL END AS best_bid FROM workers w LEFT JOIN ranked_bids rb ON w.worker_id = rb.worker_id AND rb.rn = 1 ORDER BY w.worker_id;",
+    "_meta": {
+      "question_type": "gated_lookup",
+      "original_qtype": "gated_lookup",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-20T22:41:22.405278",
+      "problem_id": "56c916465a70",
+      "validation_attempts": 1,
+      "scenario": "a gig labor marketplace tracking job acceptance and completion rates",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "rownumber_pick"
+    }
+  },
+  "user_solution": "/*\nHowever, ONLY workers with a `platform_rating >= 4.0` should show their actual lowest bid; workers below that threshold should have `best_bid` set to NULL (they are not displayed as competitive).\n*/\nSELECT\n    w.worker_id,\n    w.platform_rating,\n    CASE WHEN w.platform_rating >= 4 THEN MIN(j.bid_amount) ELSE NULL END AS best_bid\nFROM workers AS w\nLEFT JOIN job_bids AS j\nON w.worker_id = j.worker_id\nGROUP BY w.worker_id, w.platform_rating\nORDER BY w.worker_id;\n\n",
+  "solved_at": "2026-06-20T22:45:07.836834"
+}

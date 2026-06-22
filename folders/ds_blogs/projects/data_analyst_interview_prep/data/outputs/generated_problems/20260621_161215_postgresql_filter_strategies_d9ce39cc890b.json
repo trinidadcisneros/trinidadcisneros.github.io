@@ -1,0 +1,62 @@
+{
+  "title": "Workers Meeting Multiple Service Category Thresholds",
+  "prompt": "A gig labor marketplace tracks completed jobs across different service categories. Each row in the `job_completions` table represents one completed job. Management wants to identify workers who have demonstrated versatility by completing at least 5 jobs in the 'delivery' category AND at least 3 jobs in the 'assembly' category during 2024. Write a query that returns qualifying workers. Output columns: `worker_id`, `delivery_count`, `assembly_count`. Order results by `worker_id` ascending. Note: some workers may have completed jobs in only one category or neither; they should be excluded. A worker qualifies only if they meet BOTH thresholds.",
+  "schema_ddl": "CREATE TABLE job_completions (completion_id INT PRIMARY KEY, worker_id INT NOT NULL, service_category VARCHAR(50) NOT NULL, completion_date DATE NOT NULL, payment_amount DECIMAL(10,2) NOT NULL);",
+  "example_input_data": "INSERT INTO job_completions (completion_id, worker_id, service_category, completion_date, payment_amount) VALUES (1, 101, 'delivery', '2024-03-15', 25.00), (2, 101, 'delivery', '2024-04-10', 30.00), (3, 101, 'delivery', '2024-05-20', 28.00), (4, 101, 'delivery', '2024-06-05', 32.00), (5, 101, 'delivery', '2024-07-12', 27.00), (6, 101, 'assembly', '2024-08-01', 45.00), (7, 101, 'assembly', '2024-08-15', 50.00), (8, 101, 'assembly', '2024-09-10', 48.00), (9, 102, 'delivery', '2024-02-20', 22.00), (10, 102, 'delivery', '2024-03-25', 26.00), (11, 102, 'delivery', '2024-04-30', 24.00), (12, 102, 'assembly', '2024-05-05', 42.00), (13, 102, 'assembly', '2024-06-18', 46.00), (14, 103, 'delivery', '2024-01-10', 29.00), (15, 103, 'delivery', '2024-02-14', 31.00), (16, 103, 'delivery', '2024-03-22', 27.00), (17, 103, 'delivery', '2024-04-18', 33.00), (18, 103, 'delivery', '2024-05-25', 28.00), (19, 103, 'delivery', '2024-06-30', 30.00), (20, 104, 'assembly', '2024-07-08', 44.00), (21, 104, 'assembly', '2024-08-12', 47.00);",
+  "example_output_columns": [
+    "worker_id",
+    "delivery_count",
+    "assembly_count"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      5,
+      3
+    ]
+  ],
+  "test_data": "INSERT INTO job_completions (completion_id, worker_id, service_category, completion_date, payment_amount) VALUES (101, 201, 'delivery', '2024-01-05', 25.00), (102, 201, 'delivery', '2024-01-12', 28.00), (103, 201, 'delivery', '2024-02-08', 30.00), (104, 201, 'delivery', '2024-02-22', 27.00), (105, 201, 'delivery', '2024-03-10', 32.00), (106, 201, 'delivery', '2024-03-28', 29.00), (107, 201, 'assembly', '2024-04-15', 45.00), (108, 201, 'assembly', '2024-05-20', 48.00), (109, 201, 'assembly', '2024-06-12', 50.00), (110, 201, 'assembly', '2024-07-25', 46.00), (111, 202, 'delivery', '2024-01-18', 26.00), (112, 202, 'delivery', '2024-02-05', 24.00), (113, 202, 'delivery', '2024-03-14', 31.00), (114, 202, 'delivery', '2024-04-22', 28.00), (115, 202, 'delivery', '2024-05-30', 33.00), (116, 202, 'assembly', '2024-06-08', 42.00), (117, 202, 'assembly', '2024-07-19', 47.00), (118, 203, 'delivery', '2024-02-11', 27.00), (119, 203, 'delivery', '2024-03-05', 29.00), (120, 203, 'delivery', '2024-04-10', 25.00), (121, 203, 'assembly', '2024-05-15', 44.00), (122, 203, 'assembly', '2024-06-20', 49.00), (123, 203, 'assembly', '2024-07-08', 51.00), (124, 204, 'assembly', '2024-01-22', 43.00), (125, 204, 'assembly', '2024-02-18', 46.00), (126, 204, 'assembly', '2024-03-25', 48.00), (127, 204, 'assembly', '2024-04-30', 50.00), (128, 205, 'delivery', '2024-05-12', 30.00), (129, 205, 'delivery', '2024-06-18', 32.00), (130, 205, 'delivery', '2024-07-22', 28.00);",
+  "test_expected_columns": [
+    "worker_id",
+    "delivery_count",
+    "assembly_count"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      6,
+      4
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "row-filter",
+    "composite_moves": [
+      "group-threshold: GROUP BY worker_id with conditional aggregation",
+      "HAVING clause enforcing delivery_count >= 5 AND assembly_count >= 3"
+    ]
+  },
+  "hints": [
+    "You need to count jobs per worker separately for each service category, then filter workers who meet both minimum counts.",
+    "Use GROUP BY worker_id with conditional aggregation: SUM(CASE WHEN service_category = 'delivery' THEN 1 ELSE 0 END) and similar for assembly.",
+    "Apply a HAVING clause that checks both delivery_count >= 5 AND assembly_count >= 3 to keep only workers meeting both thresholds."
+  ],
+  "answer_key": "SELECT worker_id, SUM(CASE WHEN service_category = 'delivery' THEN 1 ELSE 0 END) AS delivery_count, SUM(CASE WHEN service_category = 'assembly' THEN 1 ELSE 0 END) AS assembly_count FROM job_completions WHERE completion_date >= DATE '2024-01-01' AND completion_date < DATE '2025-01-01' GROUP BY worker_id HAVING SUM(CASE WHEN service_category = 'delivery' THEN 1 ELSE 0 END) >= 5 AND SUM(CASE WHEN service_category = 'assembly' THEN 1 ELSE 0 END) >= 3 ORDER BY worker_id;",
+  "_meta": {
+    "question_type": "filter_strategies",
+    "original_qtype": "filter_strategies",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-21T16:12:15.029779",
+    "problem_id": "d9ce39cc890b",
+    "validation_attempts": 1,
+    "scenario": "a gig labor marketplace tracking job acceptance and completion rates",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "group_threshold"
+  }
+}
