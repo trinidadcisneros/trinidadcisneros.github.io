@@ -1,0 +1,63 @@
+{
+  "title": "Find Top Merchant by Transaction Volume",
+  "prompt": "You are analyzing debit card transaction patterns for a neobank. Write a query that returns the merchant name with the highest total transaction volume (sum of all transaction amounts) for the month of March 2024. If multiple merchants have the same highest volume, choose the one with the earliest first transaction timestamp as the tiebreaker. Your query must return exactly one row with two columns: `merchant_name` and `total_volume`. The `total_volume` should be formatted as a DECIMAL with 2 decimal places. If there are no transactions in March 2024, return a row with NULL for both columns.",
+  "schema_ddl": "CREATE TABLE card_transactions (transaction_id INTEGER PRIMARY KEY, cardholder_id INTEGER NOT NULL, merchant_name VARCHAR(100) NOT NULL, transaction_amount DECIMAL(10, 2) NOT NULL, transaction_timestamp TIMESTAMP NOT NULL, status VARCHAR(20) NOT NULL);",
+  "example_input_data": "INSERT INTO card_transactions (transaction_id, cardholder_id, merchant_name, transaction_amount, transaction_timestamp, status) VALUES (1, 101, 'Coffee Bean Cafe', 4.50, '2024-03-05 08:15:00', 'settled'), (2, 102, 'GreenGrocer Market', 45.20, '2024-03-06 14:30:00', 'settled'), (3, 101, 'Coffee Bean Cafe', 5.75, '2024-03-07 09:00:00', 'settled'), (4, 103, 'GreenGrocer Market', 62.30, '2024-03-08 16:45:00', 'settled'), (5, 104, 'TechHub Electronics', 299.99, '2024-03-10 11:20:00', 'settled'), (6, 102, 'Coffee Bean Cafe', 6.00, '2024-03-12 07:50:00', 'settled'), (7, 105, 'Downtown Pharmacy', 18.45, '2024-02-28 13:00:00', 'settled'), (8, 106, 'TechHub Electronics', 199.99, '2024-03-15 10:05:00', 'settled');",
+  "example_output_columns": [
+    "merchant_name",
+    "total_volume"
+  ],
+  "example_output_rows": [
+    [
+      "TechHub Electronics",
+      "499.98"
+    ]
+  ],
+  "test_data": "INSERT INTO card_transactions (transaction_id, cardholder_id, merchant_name, transaction_amount, transaction_timestamp, status) VALUES (101, 201, 'Urban Fitness Club', 89.00, '2024-03-01 06:00:00', 'settled'), (102, 202, 'Quick Bites Deli', 12.50, '2024-03-01 12:30:00', 'settled'), (103, 203, 'Urban Fitness Club', 89.00, '2024-03-02 07:15:00', 'settled'), (104, 204, 'MainStreet Grocery', 156.75, '2024-03-03 15:20:00', 'settled'), (105, 205, 'Quick Bites Deli', 8.25, '2024-03-04 11:45:00', 'settled'), (106, 206, 'Urban Fitness Club', 89.00, '2024-03-05 06:30:00', 'settled'), (107, 207, 'Quick Bites Deli', 15.00, '2024-03-06 13:00:00', 'settled'), (108, 208, 'MainStreet Grocery', 203.42, '2024-03-07 16:50:00', 'settled'), (109, 209, 'Urban Fitness Club', 89.00, '2024-03-08 06:45:00', 'settled'), (110, 210, 'Quick Bites Deli', 9.80, '2024-03-09 12:15:00', 'settled'), (111, 211, 'MainStreet Grocery', 45.67, '2024-03-10 14:30:00', 'settled'), (112, 212, 'Peak Performance Gym', 129.00, '2024-03-11 07:00:00', 'settled'), (113, 213, 'Peak Performance Gym', 129.00, '2024-03-12 07:30:00', 'settled'), (114, 214, 'MainStreet Grocery', 0.16, '2024-03-13 10:00:00', 'settled'), (115, 215, 'Quick Bites Deli', 7.45, '2024-03-14 11:30:00', 'settled'), (116, 216, 'Urban Fitness Club', 0.00, '2024-03-15 08:00:00', 'settled'), (117, 217, 'Quick Bites Deli', 11.00, '2024-03-16 12:45:00', 'settled'), (118, 218, 'MainStreet Grocery', 0.00, '2024-03-17 15:00:00', 'settled'), (119, 219, 'Peak Performance Gym', 129.00, '2024-03-18 06:15:00', 'settled'), (120, 220, 'Quick Bites Deli', 0.00, '2024-03-19 13:20:00', 'settled'), (121, 221, 'Peak Performance Gym', 19.00, '2024-03-20 08:00:00', 'settled'), (122, 222, 'MainStreet Grocery', 0.00, '2024-03-21 16:30:00', 'settled'), (123, 223, 'Urban Fitness Club', 89.00, '2024-03-22 07:45:00', 'settled'), (124, 224, 'Old Town Bookstore', 25.50, '2024-02-15 10:00:00', 'settled'), (125, 225, 'Old Town Bookstore', 18.99, '2024-02-20 14:30:00', 'settled'), (126, 226, 'Riverside Cafe', 0.00, '2024-04-01 09:00:00', 'settled');",
+  "test_expected_columns": [
+    "merchant_name",
+    "total_volume"
+  ],
+  "test_expected_rows": [
+    [
+      "Urban Fitness Club",
+      "445.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "single_value",
+    "recipe": "scalar-extract",
+    "composite_moves": [
+      "filter rows (WHERE month = March 2024)",
+      "group by merchant_name",
+      "aggregate SUM(transaction_amount)",
+      "order by total DESC, MIN(transaction_timestamp) ASC",
+      "limit 1",
+      "handle empty result with subquery-in-SELECT to return NULL row"
+    ]
+  },
+  "hints": [
+    "You need to filter transactions to a specific month and year, then aggregate by merchant.",
+    "Use DATE_TRUNC or EXTRACT to isolate March 2024 transactions, then GROUP BY merchant_name and compute SUM(transaction_amount). Order by the sum descending, with MIN(transaction_timestamp) as the tiebreaker.",
+    "Wrap your aggregation query in a subquery within the SELECT clause so that if no rows match the date filter, the outer query returns one row with NULLs instead of zero rows."
+  ],
+  "answer_key": "SELECT (SELECT merchant_name FROM card_transactions WHERE DATE_TRUNC('month', transaction_timestamp) = DATE '2024-03-01' GROUP BY merchant_name ORDER BY SUM(transaction_amount) DESC, MIN(transaction_timestamp) ASC LIMIT 1) AS merchant_name, (SELECT SUM(transaction_amount) FROM card_transactions WHERE DATE_TRUNC('month', transaction_timestamp) = DATE '2024-03-01' GROUP BY merchant_name ORDER BY SUM(transaction_amount) DESC, MIN(transaction_timestamp) ASC LIMIT 1) AS total_volume;",
+  "_meta": {
+    "question_type": "scalar_extract",
+    "original_qtype": "random_any",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-22T19:28:57.957099",
+    "problem_id": "0eaf0fe5c57c",
+    "validation_attempts": 1,
+    "scenario": "a neobank tracking debit card swipes and deposit funnel",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "top1",
+    "typecast_twist": false
+  }
+}

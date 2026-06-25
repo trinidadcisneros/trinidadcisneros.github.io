@@ -1,0 +1,151 @@
+{
+  "title": "Same-Day Pharmacy Delivery Route Compliance Tracker",
+  "prompt": "You are building a compliance monitoring system for a same-day medication delivery service. The system tracks whether each delivery route met on-time performance targets. The `delivery_routes` table holds the current state of each route: a compliance flag and the ID of the last driver who updated it. The `route_events` table is a chronological log of events that modify route state. Write a DO block that processes the events in `event_id` order. Each event must read the route's current `compliance_status` and `last_updated_by` values before deciding which action to apply. Subsequent events in the same run must see the prior event's updates. The rules are:\n\n\u2022 When `event_type` = 1 ('driver_assignment') applies:\n  - Preconditions:\n    + current `compliance_status` must be 0 ('not_started').\n  - Actions:\n    + set `compliance_status` to 1 ('in_progress').\n    + set `last_updated_by` to the event's `driver_id`.\n\n\u2022 When `event_type` = 2 ('delivery_completed') applies:\n  - Preconditions:\n    + current `compliance_status` must be 1 ('in_progress').\n    + the event's `driver_id` must equal the current `last_updated_by`.\n  - Actions:\n    + set `compliance_status` to 2 ('on_time').\n\n\u2022 When `event_type` = 3 ('late_delivery_reported') applies:\n  - Preconditions:\n    + current `compliance_status` must be 1 ('in_progress') or 2 ('on_time').\n  - Actions:\n    + set `compliance_status` to 3 ('late').\n    + set `last_updated_by` to the event's `driver_id`.\n\n\u2022 Events that fail their preconditions are no-ops (the route row is unchanged).\n\nAfter processing all events, return the final state with: `SELECT * FROM delivery_routes ORDER BY route_id;`",
+  "schema_ddl": "CREATE TABLE delivery_routes (route_id INT PRIMARY KEY, compliance_status INT NOT NULL, last_updated_by INT); CREATE TABLE route_events (event_id INT PRIMARY KEY, route_id INT NOT NULL, event_type INT NOT NULL, driver_id INT NOT NULL, FOREIGN KEY (route_id) REFERENCES delivery_routes(route_id));",
+  "example_input_data": "INSERT INTO delivery_routes (route_id, compliance_status, last_updated_by) VALUES (101, 0, 0), (102, 0, 0), (103, 0, 0), (104, 1, 50); INSERT INTO route_events (event_id, route_id, event_type, driver_id) VALUES (1, 101, 1, 10), (2, 101, 2, 10), (3, 102, 1, 20), (4, 102, 3, 20), (5, 103, 2, 30), (6, 104, 2, 40);",
+  "example_output_columns": [
+    "route_id",
+    "compliance_status",
+    "last_updated_by"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      2,
+      10
+    ],
+    [
+      102,
+      3,
+      20
+    ],
+    [
+      103,
+      0,
+      0
+    ],
+    [
+      104,
+      1,
+      50
+    ]
+  ],
+  "test_data": "INSERT INTO delivery_routes (route_id, compliance_status, last_updated_by) VALUES (201, 0, 0), (202, 0, 0), (203, 0, 0), (204, 1, 70), (205, 2, 80), (206, 0, 0), (207, 1, 90), (208, 0, 0), (209, 1, 95), (210, 2, 100), (211, 0, 0), (212, 0, 0), (213, 1, 110), (214, 0, 0), (215, 0, 0); INSERT INTO route_events (event_id, route_id, event_type, driver_id) VALUES (1, 201, 1, 50), (2, 201, 2, 50), (3, 201, 3, 60), (4, 202, 1, 55), (5, 202, 2, 55), (6, 203, 1, 65), (7, 203, 3, 65), (8, 204, 2, 70), (9, 204, 3, 75), (10, 205, 3, 85), (11, 206, 1, 90), (12, 206, 2, 95), (13, 207, 2, 90), (14, 207, 3, 92), (15, 208, 3, 100), (16, 209, 2, 95), (17, 209, 3, 96), (18, 210, 1, 105), (19, 211, 1, 106), (20, 211, 1, 107), (21, 212, 1, 108), (22, 212, 2, 108), (23, 212, 3, 109), (24, 213, 3, 111), (25, 214, 1, 112), (26, 215, 2, 113);",
+  "test_expected_columns": [
+    "route_id",
+    "compliance_status",
+    "last_updated_by"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      3,
+      60
+    ],
+    [
+      202,
+      2,
+      55
+    ],
+    [
+      203,
+      3,
+      65
+    ],
+    [
+      204,
+      3,
+      75
+    ],
+    [
+      205,
+      3,
+      85
+    ],
+    [
+      206,
+      1,
+      90
+    ],
+    [
+      207,
+      3,
+      92
+    ],
+    [
+      208,
+      0,
+      0
+    ],
+    [
+      209,
+      3,
+      96
+    ],
+    [
+      210,
+      2,
+      100
+    ],
+    [
+      211,
+      1,
+      106
+    ],
+    [
+      212,
+      3,
+      109
+    ],
+    [
+      213,
+      3,
+      111
+    ],
+    [
+      214,
+      1,
+      112
+    ],
+    [
+      215,
+      0,
+      0
+    ]
+  ],
+  "classification": {
+    "input_arrival": "procedural",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "declare_record_and_scalar_vars",
+      "for_loop_over_log_ordered_by_id",
+      "per_iteration_select_into_current_state",
+      "if_elsif_branch_on_event_type_and_state",
+      "conditional_update_inside_branch",
+      "trailing_select_star_from_state_table"
+    ]
+  },
+  "hints": [
+    "You will need a FOR loop that reads each event in event_id order, and inside the loop you must SELECT the route's current compliance_status and last_updated_by values into variables before deciding which branch to execute.",
+    "Use IF ... ELSIF ... END IF to branch on both the event_type and the current state values. Some events will be no-ops because the current compliance_status does not satisfy the precondition (for example, a delivery_completed event when the route is not in_progress, or when the driver_id does not match last_updated_by).",
+    "The solution structure is: DO $$ DECLARE rec RECORD; cur_status INT; cur_driver INT; BEGIN FOR rec IN SELECT * FROM route_events ORDER BY event_id LOOP SELECT compliance_status, last_updated_by INTO cur_status, cur_driver FROM delivery_routes WHERE route_id = rec.route_id; IF rec.event_type = 1 AND cur_status = 0 THEN UPDATE delivery_routes SET compliance_status = 1, last_updated_by = rec.driver_id WHERE route_id = rec.route_id; ELSIF rec.event_type = 2 AND cur_status = 1 AND cur_driver = rec.driver_id THEN UPDATE delivery_routes SET compliance_status = 2 WHERE route_id = rec.route_id; ELSIF rec.event_type = 3 AND (cur_status = 1 OR cur_status = 2) THEN UPDATE delivery_routes SET compliance_status = 3, last_updated_by = rec.driver_id WHERE route_id = rec.route_id; END IF; END LOOP; END $$; SELECT * FROM delivery_routes ORDER BY route_id;"
+  ],
+  "answer_key": "DO $$\nDECLARE\n  rec RECORD;\n  cur_status INT;\n  cur_driver INT;\nBEGIN\n  FOR rec IN SELECT * FROM route_events ORDER BY event_id LOOP\n    SELECT compliance_status, last_updated_by INTO cur_status, cur_driver\n    FROM delivery_routes\n    WHERE route_id = rec.route_id;\n\n    IF rec.event_type = 1 AND cur_status = 0 THEN\n      UPDATE delivery_routes\n      SET compliance_status = 1, last_updated_by = rec.driver_id\n      WHERE route_id = rec.route_id;\n    ELSIF rec.event_type = 2 AND cur_status = 1 AND cur_driver = rec.driver_id THEN\n      UPDATE delivery_routes\n      SET compliance_status = 2\n      WHERE route_id = rec.route_id;\n    ELSIF rec.event_type = 3 AND (cur_status = 1 OR cur_status = 2) THEN\n      UPDATE delivery_routes\n      SET compliance_status = 3, last_updated_by = rec.driver_id\n      WHERE route_id = rec.route_id;\n    END IF;\n  END LOOP;\nEND $$;\n\nSELECT * FROM delivery_routes ORDER BY route_id;",
+  "_meta": {
+    "question_type": "do_block_queue",
+    "original_qtype": "random_any",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-22T17:18:34.879565",
+    "problem_id": "63204866a19e",
+    "validation_attempts": 1,
+    "scenario": "a same day medication delivery service tracking on-time delivery performance",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": null
+  }
+}

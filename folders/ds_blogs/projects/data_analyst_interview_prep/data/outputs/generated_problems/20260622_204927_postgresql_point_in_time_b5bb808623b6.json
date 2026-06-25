@@ -1,0 +1,125 @@
+{
+  "title": "Sprint Velocity as of Cutoff Date",
+  "prompt": "You are analyzing sprint velocity snapshots for a project management tool. The `sprint_velocity_history` table logs the completed story points for each team at various dates. Write a query that returns the velocity in effect as of **2024-06-15** for every team that appears in the history table. For teams with no velocity record on or before that cutoff, return a default velocity of **0**. Your result should include `team_id` and `velocity_as_of_cutoff` (the most recent velocity on or before 2024-06-15, or 0 if none exists). Order the output by `team_id` ascending. Use ROW_NUMBER with a date guard to find the most recent applicable snapshot, then ensure all teams appear even when they have no history before the cutoff.",
+  "schema_ddl": "CREATE TABLE sprint_velocity_history (\n  team_id INTEGER NOT NULL,\n  effective_date DATE NOT NULL,\n  velocity INTEGER NOT NULL\n);",
+  "example_input_data": "INSERT INTO sprint_velocity_history (team_id, effective_date, velocity) VALUES\n(101, DATE '2024-05-01', 20),\n(101, DATE '2024-06-10', 25),\n(101, DATE '2024-06-20', 30),\n(102, DATE '2024-04-15', 18),\n(102, DATE '2024-06-14', 22),\n(103, DATE '2024-07-01', 15),\n(104, DATE '2024-06-01', 12),\n(104, DATE '2024-06-30', 14);",
+  "example_output_columns": [
+    "team_id",
+    "velocity_as_of_cutoff"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      25
+    ],
+    [
+      102,
+      22
+    ],
+    [
+      103,
+      0
+    ],
+    [
+      104,
+      12
+    ]
+  ],
+  "test_data": "INSERT INTO sprint_velocity_history (team_id, effective_date, velocity) VALUES\n(201, DATE '2024-01-10', 15),\n(201, DATE '2024-03-20', 18),\n(201, DATE '2024-06-05', 22),\n(201, DATE '2024-06-15', 24),\n(201, DATE '2024-07-10', 28),\n(202, DATE '2024-02-12', 10),\n(202, DATE '2024-06-14', 14),\n(202, DATE '2024-06-16', 16),\n(203, DATE '2024-06-20', 20),\n(203, DATE '2024-07-15', 25),\n(204, DATE '2024-04-01', 8),\n(204, DATE '2024-05-15', 12),\n(204, DATE '2024-06-15', 16),\n(205, DATE '2024-06-16', 30),\n(206, DATE '2024-01-05', 5),\n(206, DATE '2024-03-10', 7),\n(206, DATE '2024-06-10', 9),\n(206, DATE '2024-08-01', 11),\n(207, DATE '2024-07-01', 18),\n(208, DATE '2024-05-20', 11),\n(208, DATE '2024-06-12', 13),\n(208, DATE '2024-06-15', 15),\n(208, DATE '2024-06-18', 17),\n(209, DATE '2024-06-15', 19),\n(210, DATE '2024-08-10', 22),\n(211, DATE '2024-02-28', 6),\n(211, DATE '2024-06-14', 8),\n(212, DATE '2024-06-20', 12),\n(213, DATE '2024-06-15', 14),\n(214, DATE '2024-05-01', 10);",
+  "test_expected_columns": [
+    "team_id",
+    "velocity_as_of_cutoff"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      24
+    ],
+    [
+      202,
+      14
+    ],
+    [
+      203,
+      0
+    ],
+    [
+      204,
+      16
+    ],
+    [
+      205,
+      0
+    ],
+    [
+      206,
+      9
+    ],
+    [
+      207,
+      0
+    ],
+    [
+      208,
+      15
+    ],
+    [
+      209,
+      19
+    ],
+    [
+      210,
+      0
+    ],
+    [
+      211,
+      8
+    ],
+    [
+      212,
+      0
+    ],
+    [
+      213,
+      14
+    ],
+    [
+      214,
+      10
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "rank-partition",
+    "composite_moves": [
+      "prep: extract DISTINCT team_id to establish complete entity list",
+      "rank-partition: ROW_NUMBER() OVER (PARTITION BY team_id ORDER BY effective_date DESC) with date guard effective_date <= cutoff",
+      "prep: LEFT JOIN ranked rows (rn = 1) back to entity list",
+      "row-transform: COALESCE velocity to 0 for teams with no history before cutoff"
+    ]
+  },
+  "hints": [
+    "You need to list every team that appears anywhere in the history table, even if they have no snapshot on or before the cutoff.",
+    "Use ROW_NUMBER() partitioned by team_id and ordered by effective_date descending, filtering to rows on or before 2024-06-15, then pick rn = 1. LEFT JOIN that result to the full team list.",
+    "Build a CTE with DISTINCT team_id, another CTE ranking rows WHERE effective_date <= DATE '2024-06-15' with ROW_NUMBER() OVER (PARTITION BY team_id ORDER BY effective_date DESC), then LEFT JOIN and COALESCE the velocity to 0 when the join finds no match."
+  ],
+  "answer_key": "WITH all_teams AS (\n  SELECT DISTINCT team_id\n  FROM sprint_velocity_history\n),\nranked AS (\n  SELECT\n    team_id,\n    velocity,\n    ROW_NUMBER() OVER (PARTITION BY team_id ORDER BY effective_date DESC) AS rn\n  FROM sprint_velocity_history\n  WHERE effective_date <= DATE '2024-06-15'\n)\nSELECT\n  a.team_id,\n  COALESCE(r.velocity, 0) AS velocity_as_of_cutoff\nFROM all_teams a\nLEFT JOIN ranked r ON a.team_id = r.team_id AND r.rn = 1\nORDER BY a.team_id;",
+  "_meta": {
+    "question_type": "point_in_time",
+    "original_qtype": "point_in_time",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-22T20:49:27.125280",
+    "problem_id": "b5bb808623b6",
+    "validation_attempts": 1,
+    "scenario": "a project management tool tracking sprint completion and task throughput",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "default_no_history",
+    "typecast_twist": false
+  }
+}

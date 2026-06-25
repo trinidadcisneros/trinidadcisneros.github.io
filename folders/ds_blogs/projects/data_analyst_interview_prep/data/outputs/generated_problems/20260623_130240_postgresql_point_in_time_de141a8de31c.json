@@ -1,0 +1,84 @@
+{
+  "title": "Article Paywall Tier as of Campaign Launch",
+  "prompt": "Your news app tracks article paywall tiers in a history table that records whenever an article's tier changes. Each article can move between 'free', 'premium', or 'exclusive' over time. Marketing wants to know which tier each article was assigned as of DATE '2024-06-01' (the launch date of a summer campaign). Write a query that returns article_id and paywall_tier for every article that had a tier assignment on or before 2024-06-01. If an article has multiple tier changes on or before that date, return the most recent one. Articles whose first tier assignment occurred after 2024-06-01 should not appear in the result. Order by article_id ascending.",
+  "schema_ddl": "CREATE TABLE article_paywall_history (article_id INT NOT NULL, paywall_tier VARCHAR(20) NOT NULL, effective_date DATE NOT NULL); CREATE TABLE articles (article_id INT PRIMARY KEY, title VARCHAR(200) NOT NULL, published_date DATE NOT NULL);",
+  "example_input_data": "INSERT INTO articles (article_id, title, published_date) VALUES (101, 'Breaking: Market Rally Continues', '2024-04-15'), (102, 'Tech Giants Unveil New AI Tools', '2024-05-10'), (103, 'Climate Summit Reaches Agreement', '2024-05-20'), (104, 'Sports: Championship Finals Preview', '2024-06-05'); INSERT INTO article_paywall_history (article_id, paywall_tier, effective_date) VALUES (101, 'free', '2024-04-15'), (101, 'premium', '2024-05-01'), (101, 'exclusive', '2024-06-10'), (102, 'premium', '2024-05-10'), (102, 'free', '2024-05-25'), (103, 'exclusive', '2024-05-20'), (104, 'premium', '2024-06-05'), (105, 'free', '2024-06-15');",
+  "example_output_columns": [
+    "article_id",
+    "paywall_tier"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "premium"
+    ],
+    [
+      102,
+      "free"
+    ],
+    [
+      103,
+      "exclusive"
+    ]
+  ],
+  "test_data": "INSERT INTO articles (article_id, title, published_date) VALUES (201, 'Economy Shows Strong Growth', '2024-03-01'), (202, 'Election Coverage Begins', '2024-04-10'), (203, 'Science Breakthrough Announced', '2024-05-05'), (204, 'Local News: Community Event', '2024-05-15'), (205, 'International Relations Update', '2024-05-28'), (206, 'Entertainment: Film Festival', '2024-06-02'), (207, 'Health: New Treatment Approved', '2024-06-08'), (208, 'Opinion: Editorial on Policy', '2024-06-12'); INSERT INTO article_paywall_history (article_id, paywall_tier, effective_date) VALUES (201, 'free', '2024-03-01'), (201, 'premium', '2024-04-01'), (201, 'exclusive', '2024-05-01'), (201, 'premium', '2024-05-15'), (201, 'free', '2024-06-05'), (202, 'premium', '2024-04-10'), (202, 'exclusive', '2024-05-20'), (202, 'premium', '2024-06-10'), (203, 'free', '2024-05-05'), (203, 'premium', '2024-05-25'), (203, 'exclusive', '2024-06-15'), (204, 'exclusive', '2024-05-15'), (204, 'premium', '2024-05-28'), (204, 'free', '2024-05-31'), (205, 'premium', '2024-05-28'), (205, 'exclusive', '2024-06-01'), (206, 'free', '2024-06-02'), (207, 'premium', '2024-06-08'), (208, 'exclusive', '2024-06-12'), (209, 'free', '2024-07-01'), (210, 'premium', '2024-06-20');",
+  "test_expected_columns": [
+    "article_id",
+    "paywall_tier"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "premium"
+    ],
+    [
+      202,
+      "exclusive"
+    ],
+    [
+      203,
+      "premium"
+    ],
+    [
+      204,
+      "free"
+    ],
+    [
+      205,
+      "exclusive"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "rank-partition",
+    "composite_moves": [
+      "date guard: WHERE effective_date <= cutoff literal",
+      "rank-partition: ROW_NUMBER() OVER (PARTITION BY article_id ORDER BY effective_date DESC)",
+      "row-filter: keep rn = 1"
+    ]
+  },
+  "hints": [
+    "You need to find the most recent tier for each article, but only considering history entries up to a certain date.",
+    "Use ROW_NUMBER() with PARTITION BY article_id and ORDER BY effective_date DESC, but filter the rows before ranking to only include dates on or before 2024-06-01.",
+    "Wrap a CTE with WHERE effective_date <= DATE '2024-06-01', apply ROW_NUMBER() OVER (PARTITION BY article_id ORDER BY effective_date DESC), then select from that CTE WHERE rn = 1."
+  ],
+  "answer_key": "WITH ranked AS (\n  SELECT\n    article_id,\n    paywall_tier,\n    ROW_NUMBER() OVER (PARTITION BY article_id ORDER BY effective_date DESC) AS rn\n  FROM article_paywall_history\n  WHERE effective_date <= DATE '2024-06-01'\n)\nSELECT article_id, paywall_tier\nFROM ranked\nWHERE rn = 1\nORDER BY article_id;",
+  "_meta": {
+    "question_type": "point_in_time",
+    "original_qtype": "point_in_time",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-23T13:02:40.837611",
+    "problem_id": "de141a8de31c",
+    "validation_attempts": 1,
+    "scenario": "a news app tracking article completion and subscription conversion",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "asof_single",
+    "typecast_twist": false
+  }
+}

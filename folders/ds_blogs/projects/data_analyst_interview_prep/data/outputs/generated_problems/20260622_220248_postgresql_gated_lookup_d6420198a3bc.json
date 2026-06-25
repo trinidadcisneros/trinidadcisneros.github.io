@@ -1,0 +1,96 @@
+{
+  "title": "Minimum Payment for Approved Borrowers Only",
+  "prompt": "You manage a buy-now-pay-later platform. The `borrowers` table tracks which customers are approved to receive installment plans; column `approval_status` is either 'approved' or 'pending'. The `installment_offers` table records multiple payment plan offers per borrower_id, each with a different `monthly_payment` amount. Write a query that returns the borrower_id and the LOWEST monthly_payment amount among all their offers, but ONLY for borrowers whose approval_status is 'approved'. Exclude borrowers who are still 'pending' entirely. Output columns: borrower_id, min_monthly_payment. Order by borrower_id ascending.",
+  "schema_ddl": "CREATE TABLE borrowers (borrower_id INT PRIMARY KEY, full_name VARCHAR(100), approval_status VARCHAR(20)); CREATE TABLE installment_offers (offer_id INT PRIMARY KEY, borrower_id INT, plan_duration_months INT, monthly_payment DECIMAL(10,2));",
+  "example_input_data": "INSERT INTO borrowers (borrower_id, full_name, approval_status) VALUES (101, 'Alice Chen', 'approved'), (102, 'Bob Martinez', 'pending'), (103, 'Carol Wong', 'approved'), (104, 'Dan Kim', 'approved'); INSERT INTO installment_offers (offer_id, borrower_id, plan_duration_months, monthly_payment) VALUES (1, 101, 6, 120.00), (2, 101, 12, 65.00), (3, 102, 6, 95.00), (4, 102, 12, 52.00), (5, 103, 3, 300.00), (6, 104, 6, 180.00), (7, 104, 12, 98.00), (8, 104, 18, 70.00);",
+  "example_output_columns": [
+    "borrower_id",
+    "min_monthly_payment"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "65.00"
+    ],
+    [
+      103,
+      "300.00"
+    ],
+    [
+      104,
+      "70.00"
+    ]
+  ],
+  "test_data": "INSERT INTO borrowers (borrower_id, full_name, approval_status) VALUES (201, 'Ella Grant', 'approved'), (202, 'Frank Lee', 'pending'), (203, 'Grace Taylor', 'approved'), (204, 'Henry Zhang', 'approved'), (205, 'Iris Patel', 'pending'), (206, 'Jake Moore', 'approved'), (207, 'Kelly Nguyen', 'pending'), (208, 'Luis Hernandez', 'approved'), (209, 'Maya Singh', 'approved'), (210, 'Noah Brown', 'pending'), (211, 'Olivia Davis', 'approved'), (212, 'Paul Wilson', 'approved'); INSERT INTO installment_offers (offer_id, borrower_id, plan_duration_months, monthly_payment) VALUES (101, 201, 6, 150.00), (102, 201, 12, 82.00), (103, 201, 18, 60.00), (104, 202, 6, 110.00), (105, 202, 12, 63.00), (106, 203, 3, 400.00), (107, 204, 6, 200.00), (108, 204, 12, 115.00), (109, 204, 18, 85.00), (110, 204, 24, 70.00), (111, 205, 6, 90.00), (112, 206, 12, 95.00), (113, 207, 6, 130.00), (114, 207, 12, 72.00), (115, 208, 3, 350.00), (116, 208, 6, 190.00), (117, 209, 6, 140.00), (118, 209, 12, 78.00), (119, 209, 18, 56.00), (120, 210, 6, 105.00), (121, 211, 12, 88.00), (122, 211, 18, 64.00), (123, 211, 24, 52.00), (124, 212, 6, 175.00);",
+  "test_expected_columns": [
+    "borrower_id",
+    "min_monthly_payment"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "60.00"
+    ],
+    [
+      203,
+      "400.00"
+    ],
+    [
+      204,
+      "70.00"
+    ],
+    [
+      206,
+      "95.00"
+    ],
+    [
+      208,
+      "190.00"
+    ],
+    [
+      209,
+      "56.00"
+    ],
+    [
+      211,
+      "52.00"
+    ],
+    [
+      212,
+      "175.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "lookup gate attribute (approval_status) from borrowers table",
+      "per-entity MIN pick of monthly_payment from installment_offers table",
+      "gate with WHERE clause to exclude non-approved borrowers"
+    ]
+  },
+  "hints": [
+    "You need to combine data from both tables, filtering out borrowers who don't meet a specific condition.",
+    "First find the minimum monthly payment for each borrower, then apply the approval status filter from the borrowers table.",
+    "Use a GROUP BY on borrower_id to get MIN(monthly_payment), then JOIN to borrowers and add WHERE approval_status = 'approved'."
+  ],
+  "answer_key": "SELECT io.borrower_id, MIN(io.monthly_payment) AS min_monthly_payment FROM installment_offers io JOIN borrowers b ON io.borrower_id = b.borrower_id WHERE b.approval_status = 'approved' GROUP BY io.borrower_id ORDER BY io.borrower_id;",
+  "_meta": {
+    "question_type": "gated_lookup",
+    "original_qtype": "random_any",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-22T22:02:48.205825",
+    "problem_id": "d6420198a3bc",
+    "validation_attempts": 1,
+    "scenario": "a buy-now-pay-later service tracking installment payment compliance",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "where_exclude",
+    "typecast_twist": false
+  }
+}

@@ -26,9 +26,8 @@ import pandas as pd
 # --------------------------------------------------------------------------
 # Config (paths are anchored to this file so logs/fallback sit next to it)
 # --------------------------------------------------------------------------
-SHEET_ID = "16Q9w45SOG5MPgKZo7pSbuRCNOS0MBDJcvl-rHXMVg3M"   # Fragrances sheet
+SHEET_ID = "16Q9w45SOG5MPgKZo7pSbuRCNOS0MBDJcvl-rHXMVg3M"   # Fragrances sheet (source of truth)
 GID = "0"                                                    # 'Inventory' tab; copy #gid=NNN if wrong
-LOCAL_FALLBACK = Path(__file__).with_name("fragrances_raw.csv")
 USAGE_LOG = Path(__file__).with_name("usage_log.csv")
 REC_LOG = Path(__file__).with_name("recommendations_log.csv")
 
@@ -95,16 +94,29 @@ def init_claude(model=None):
 
 
 # --------------------------------------------------------------------------
-# Inventory: live Google Drive pull + cleaning (local fallback)
+# Inventory: LIVE Google Sheet pull every run (no local copy, by design)
 # --------------------------------------------------------------------------
+# Headers are matched case-insensitively and trimmed, so 'Container ID',
+# 'container id', or 'Container ID ' all map correctly.
+_COLMAP = {'company': 'company', 'fragrance': 'fragrance', 'strength': 'strength',
+           'size ml': 'size', 'fragrantica score': 'score', 'container category': 'category',
+           'container id': 'container', 'season': 'season', 'time of day': 'time',
+           'top notes': 'top', 'middle notes': 'middle', 'base notes': 'base'}
+
+
 def clean_inventory(raw):
-    raw = raw.rename(columns=lambda c: str(c).strip())
-    colmap = {'Company': 'company', 'Fragrance': 'fragrance', 'Strength': 'strength',
-              'Size ml': 'size', 'Fragrantica Score': 'score', 'Container Category': 'category',
-              'Season': 'season', 'Time of Day': 'time',
-              'Top Notes': 'top', 'Middle Notes': 'middle', 'Base Notes': 'base'}
-    keep = [c for c in colmap if c in raw.columns]
-    d = raw[keep].rename(columns=colmap).fillna('')
+    rename = {}
+    for c in raw.columns:
+        key = str(c).strip().lower()
+        if key in _COLMAP:
+            rename[c] = _COLMAP[key]
+    d = raw.rename(columns=rename)
+    keep = [v for v in _COLMAP.values() if v in d.columns]
+    d = d[keep].fillna('')
+    for need in ['company', 'fragrance', 'strength', 'size', 'score', 'category',
+                 'container', 'season', 'time', 'top', 'middle', 'base']:
+        if need not in d.columns:
+            d[need] = ''
     for c in d.columns:
         d[c] = d[c].astype(str).str.strip()
     d['category'] = d['category'].apply(lambda c: _CM.get(c.lower(), c))
@@ -114,18 +126,34 @@ def clean_inventory(raw):
 
 
 def load_inventory(verbose=True):
+    """Pull the Google Sheet LIVE every run. No local copy is used, so the data is
+    never stale. Raises a clear error (instead of silently using old data) if the
+    sheet can't be reached."""
     url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={GID}"
     try:
         raw = pd.read_csv(url, dtype=str)
-        if 'Container Category' not in raw.columns:
-            raise ValueError("unexpected columns (sheet may be private)")
-        if verbose:
-            print(f"Pulled LIVE from Google Drive: {len(raw)} rows")
-        return clean_inventory(raw)
     except Exception as e:
-        if verbose:
-            print(f"Live pull failed ({e}).\nUsing local fallback: {LOCAL_FALLBACK.name}")
-        return clean_inventory(pd.read_csv(LOCAL_FALLBACK, dtype=str))
+        raise RuntimeError(
+            "LIVE PULL FAILED - could not reach your Google Sheet (" + str(e) + ").\n"
+            "This notebook reads your sheet live every run (no local copy by design), so it stops here\n"
+            "rather than show stale data. To fix: in Google Sheets open Share -> General access ->\n"
+            "'Anyone with the link' -> Viewer, then re-run. (Want to keep it fully private instead? "
+            "Ask me to switch to the Google service-account method.)")
+    cols = [str(c).strip().lower() for c in raw.columns]
+    if 'container category' not in cols:
+        raise RuntimeError(
+            "LIVE PULL returned a page that isn't your Inventory sheet (the sheet is likely private,\n"
+            "or GID points to the wrong tab). To fix: Share -> 'Anyone with the link' -> Viewer.\n"
+            "If it's the wrong tab, open the Inventory tab and set fp.GID to the number after #gid= in the URL.\n"
+            "(No local copy is used by design.)")
+    d = clean_inventory(raw)
+    if verbose:
+        n_id = int((d['container'] != '').sum())
+        print(f"Pulled LIVE from Google Drive: {len(d)} fragrances | "
+              f"Container ID filled for {n_id} of {len(d)}")
+        if n_id == 0:
+            print("  Note: no Container IDs detected - confirm the column is named 'Container ID' and has values.")
+    return d
 
 
 def setup(model=None, verbose=True):
@@ -283,7 +311,8 @@ def log_recommendation(activity, category, size, season, time, mode, picks):
 # Rendering
 # --------------------------------------------------------------------------
 def _records_from_df(pdf):
-    return pdf[['company', 'fragrance', 'category', 'size', 'score', 'season', 'time']].to_dict('records')
+    cols = ['company', 'fragrance', 'category', 'size', 'score', 'season', 'time', 'container']
+    return pdf[[c for c in cols if c in pdf.columns]].to_dict('records')
 
 
 def _enrich_picks(picks, pool):
@@ -297,7 +326,8 @@ def _enrich_picks(picks, pool):
         if not m.empty:
             r = m.iloc[0]
             rec.update({'category': r['category'], 'size': r['size'], 'score': r['score'],
-                        'season': r['season'], 'time': r['time']})
+                        'season': r['season'], 'time': r['time'],
+                        'container': r.get('container', '')})
         out.append(rec)
     return out
 
@@ -325,8 +355,13 @@ def show_results(records, occasion, mode_label, activity=None):
         reason = r.get('reason')
         reason_html = (f"<div style='color:#6b7280;font-size:12px;margin-top:4px;line-height:1.4'>{reason}</div>"
                        if reason else '')
+        box = r.get('container', '')
+        box_html = (f"<span style='background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;"
+                    f"padding:2px 8px;border-radius:6px;font-family:ui-monospace,Menlo,monospace;"
+                    f"font-size:12px;font-weight:600'>{box}</span>") if box else "<span style='color:#c0c4c9'>-</span>"
         rows += (f"<tr><td style='{td}'><div style='font-weight:600;color:#111827'>{r.get('fragrance','')}</div>{reason_html}</td>"
                  f"<td style='{td};color:#6b7280'>{r.get('company','')}</td>"
+                 f"<td style='{td}'>{box_html}</td>"
                  f"<td style='{td}'>{r.get('category','')}</td>"
                  f"<td style='{td}'>{r.get('size','')} ml</td>"
                  f"<td style='{td}'>{_badge(r.get('score',''))}</td>"
@@ -334,7 +369,7 @@ def show_results(records, occasion, mode_label, activity=None):
                  f"<td style='{td}'>{r.get('time','')}</td>"
                  f"<td style='{td};color:#6b7280'>{str(used)+'x' if used else '-'}</td></tr>")
     head = ''.join(f"<th style='{th}'>{h}</th>" for h in
-                   ['Fragrance', 'Company', 'Category', 'Size', 'Score', 'Season', 'Time', 'Used'])
+                   ['Fragrance', 'Company', 'Box', 'Category', 'Size', 'Score', 'Season', 'Time', 'Used'])
     html = (f"<div style='font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:920px'>"
             f"<div style='font-size:13px;color:#6b7280;margin:4px 0 10px'>{mode_label} for "
             f"<b style='color:#c0392b'>{occasion}</b></div>"
@@ -347,7 +382,7 @@ def show_results(records, occasion, mode_label, activity=None):
 # --------------------------------------------------------------------------
 # Interactive GUI
 # --------------------------------------------------------------------------
-_W = {'name': '250px', 'co': '140px', 'cat': '120px', 'sz': '55px', 'sc': '60px', 'us': '45px'}
+_W = {'name': '240px', 'co': '130px', 'con': '80px', 'cat': '120px', 'sz': '50px', 'sc': '58px', 'us': '45px'}
 
 
 def _render_interactive(records, activity, occasion, mode_label):
@@ -359,7 +394,7 @@ def _render_interactive(records, activity, occasion, mode_label):
         "<div style='display:flex;padding:0 0 6px 34px;border-bottom:2px solid #e6e8eb;"
         "font-family:-apple-system,Segoe UI,Roboto'>"
         + ''.join(f"<div style='width:{_W[k]};{thx}'>{lbl}</div>" for k, lbl in
-                  [('name', 'Fragrance'), ('co', 'Company'), ('cat', 'Category'),
+                  [('name', 'Fragrance'), ('co', 'Company'), ('con', 'Box'), ('cat', 'Category'),
                    ('sz', 'Size'), ('sc', 'Score'), ('us', 'Used')]) + "</div>")
     rows, checks = [], []
     for r in records:
@@ -372,6 +407,7 @@ def _render_interactive(records, activity, occasion, mode_label):
             "font-size:13px;color:#3c4149'>"
             f"<div style='width:{_W['name']}'><b style='color:#111827'>{r.get('fragrance','')}</b>{reason_html}</div>"
             f"<div style='width:{_W['co']};color:#6b7280'>{r.get('company','')}</div>"
+            f"<div style='width:{_W['con']}'>" + (f"<span style='background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;padding:1px 7px;border-radius:6px;font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:600'>{r.get('container','')}</span>" if r.get('container','') else "<span style='color:#c0c4c9'>-</span>") + "</div>"
             f"<div style='width:{_W['cat']}'>{r.get('category','')}</div>"
             f"<div style='width:{_W['sz']}'>{r.get('size','')}ml</div>"
             f"<div style='width:{_W['sc']}'>{_badge(r.get('score',''))}</div>"

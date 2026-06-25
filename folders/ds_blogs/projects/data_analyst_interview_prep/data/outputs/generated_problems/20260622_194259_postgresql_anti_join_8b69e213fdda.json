@@ -1,0 +1,115 @@
+{
+  "title": "Teams That Never Upgraded to Paid",
+  "prompt": "You manage a developer tools platform where teams start on a free trial and can upgrade to a paid plan. The `teams` table records all teams that signed up for trials. The `paid_subscriptions` table records teams that converted to a paid plan. Identify all teams that signed up for a trial but NEVER upgraded to any paid subscription. Return the team ID, team name, and trial signup date. Order the results by trial signup date (earliest first), then by team ID ascending. Your result should include teams even if they have no subscription record at all.",
+  "schema_ddl": "CREATE TABLE teams (team_id INT PRIMARY KEY, team_name VARCHAR(100) NOT NULL, trial_signup_date VARCHAR(20) NOT NULL, region VARCHAR(50)); CREATE TABLE paid_subscriptions (subscription_id INT PRIMARY KEY, team_id INT NOT NULL, plan_name VARCHAR(50) NOT NULL, subscription_start_date VARCHAR(20) NOT NULL, monthly_revenue DECIMAL(10,2));",
+  "example_input_data": "INSERT INTO teams (team_id, team_name, trial_signup_date, region) VALUES (101, 'Alpha Devs', '2024-01-15', 'US-West'), (102, 'Beta Labs', '2024-01-20', 'EU'), (103, 'Gamma Corp', '2024-02-01', 'US-East'), (104, 'Delta Systems', '2024-02-10', 'APAC'), (105, 'Epsilon Tech', '2024-02-15', 'US-West'), (106, 'Zeta Innovations', '2024-03-01', 'EU'); INSERT INTO paid_subscriptions (subscription_id, team_id, plan_name, subscription_start_date, monthly_revenue) VALUES (1, 101, 'Starter', '2024-02-01', 49.00), (2, 103, 'Professional', '2024-03-01', 199.00), (3, 103, 'Enterprise', '2024-04-15', 499.00), (4, 105, 'Starter', '2024-03-10', 49.00);",
+  "example_output_columns": [
+    "team_id",
+    "team_name",
+    "trial_signup_date"
+  ],
+  "example_output_rows": [
+    [
+      102,
+      "Beta Labs",
+      "2024-01-20"
+    ],
+    [
+      104,
+      "Delta Systems",
+      "2024-02-10"
+    ],
+    [
+      106,
+      "Zeta Innovations",
+      "2024-03-01"
+    ]
+  ],
+  "test_data": "INSERT INTO teams (team_id, team_name, trial_signup_date, region) VALUES (201, 'Acme Tools', '2023-11-01', 'US-West'), (202, 'BuildCo', '2023-11-15', 'EU'), (203, 'CodeFactory', '2023-12-01', 'US-East'), (204, 'DevOps Inc', '2023-12-10', 'APAC'), (205, 'EdgeTech', '2023-12-20', 'US-West'), (206, 'FutureSoft', '2024-01-05', 'EU'), (207, 'GigaStack', '2024-01-12', 'US-East'), (208, 'HyperScale', '2024-01-18', 'APAC'), (209, 'InnovateLabs', '2024-01-25', 'US-West'), (210, 'JetStream', '2024-02-02', 'EU'), (211, 'KiloBytes', '2024-02-08', 'US-East'), (212, 'LunarOps', '2024-02-14', 'APAC'), (213, 'MegaBuild', '2024-02-20', 'US-West'), (214, 'NexusCode', '2024-02-28', 'EU'), (215, 'OmniDev', '2024-03-05', 'US-East'), (216, 'PulseTech', '2024-03-12', 'APAC'), (217, 'QuantumOps', '2024-03-18', 'US-West'), (218, 'RapidDeploy', '2024-03-25', 'EU'); INSERT INTO paid_subscriptions (subscription_id, team_id, plan_name, subscription_start_date, monthly_revenue) VALUES (101, 201, 'Starter', '2023-12-01', 49.00), (102, 203, 'Professional', '2024-01-15', 199.00), (103, 203, 'Enterprise', '2024-02-01', 499.00), (104, 205, 'Starter', '2024-01-20', 49.00), (105, 207, 'Professional', '2024-02-10', 199.00), (106, 209, 'Starter', '2024-02-25', 49.00), (107, 211, 'Enterprise', '2024-03-15', 499.00), (108, 213, 'Professional', '2024-03-20', 199.00), (109, 215, 'Starter', '2024-04-01', 49.00), (110, 217, 'Professional', '2024-04-10', 199.00);",
+  "test_expected_columns": [
+    "team_id",
+    "team_name",
+    "trial_signup_date"
+  ],
+  "test_expected_rows": [
+    [
+      202,
+      "BuildCo",
+      "2023-11-15"
+    ],
+    [
+      204,
+      "DevOps Inc",
+      "2023-12-10"
+    ],
+    [
+      206,
+      "FutureSoft",
+      "2024-01-05"
+    ],
+    [
+      208,
+      "HyperScale",
+      "2024-01-18"
+    ],
+    [
+      210,
+      "JetStream",
+      "2024-02-02"
+    ],
+    [
+      212,
+      "LunarOps",
+      "2024-02-14"
+    ],
+    [
+      214,
+      "NexusCode",
+      "2024-02-28"
+    ],
+    [
+      216,
+      "PulseTech",
+      "2024-03-12"
+    ],
+    [
+      218,
+      "RapidDeploy",
+      "2024-03-25"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "row-filter",
+    "composite_moves": [
+      "left-join teams to paid_subscriptions",
+      "filter WHERE paid_subscriptions.team_id IS NULL",
+      "cast trial_signup_date to date for ordering",
+      "order by trial_signup_date, team_id"
+    ]
+  },
+  "hints": [
+    "Think about how to identify teams that have no corresponding record in another table.",
+    "A LEFT JOIN will keep all teams, even those without a match; you can then filter for the non-matches.",
+    "Check the data types in the schema carefully\u2014you may need to cast certain columns before using them in ORDER BY clauses."
+  ],
+  "answer_key": "SELECT t.team_id, t.team_name, t.trial_signup_date FROM teams t LEFT JOIN paid_subscriptions ps ON ps.team_id = t.team_id WHERE ps.team_id IS NULL ORDER BY t.trial_signup_date::date, t.team_id;",
+  "_meta": {
+    "question_type": "anti_join",
+    "original_qtype": "random_any",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-22T19:42:59.829646",
+    "problem_id": "8b69e213fdda",
+    "validation_attempts": 1,
+    "scenario": "a developer tools company tracking trial-to-paid conversion and seat expansion",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "left_join_null",
+    "typecast_twist": true
+  }
+}

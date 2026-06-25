@@ -1,0 +1,145 @@
+{
+  "problem": {
+    "title": "Fill-Forward Gig Worker Rate History",
+    "prompt": "A gig marketplace tracks commission rate changes for each worker in a history table. Each row records the commission_rate that became effective on a given date. Write a query that returns the commission rate in effect for worker_id 101 for EVERY day from DATE '2024-01-10' through DATE '2024-01-20' inclusive. For days without a new rate entry, carry forward the most recent rate from before that day. If no rate existed yet on a given day (no history on or before it), return NULL for that day's rate. Output columns: rate_date, commission_rate. Order by rate_date ascending.",
+    "schema_ddl": "CREATE TABLE worker_rate_history (worker_id INT NOT NULL, effective_date DATE NOT NULL, commission_rate DECIMAL(5,2) NOT NULL);",
+    "example_input_data": "INSERT INTO worker_rate_history (worker_id, effective_date, commission_rate) VALUES (101, DATE '2024-01-12', 0.15), (101, DATE '2024-01-15', 0.18), (101, DATE '2024-01-22', 0.20), (102, DATE '2024-01-11', 0.12), (102, DATE '2024-01-14', 0.14), (103, DATE '2024-01-25', 0.10);",
+    "example_output_columns": [
+      "rate_date",
+      "commission_rate"
+    ],
+    "example_output_rows": [
+      [
+        "2024-01-10",
+        null
+      ],
+      [
+        "2024-01-11",
+        null
+      ],
+      [
+        "2024-01-12",
+        "0.15"
+      ],
+      [
+        "2024-01-13",
+        "0.15"
+      ],
+      [
+        "2024-01-14",
+        "0.15"
+      ],
+      [
+        "2024-01-15",
+        "0.18"
+      ],
+      [
+        "2024-01-16",
+        "0.18"
+      ],
+      [
+        "2024-01-17",
+        "0.18"
+      ],
+      [
+        "2024-01-18",
+        "0.18"
+      ],
+      [
+        "2024-01-19",
+        "0.18"
+      ],
+      [
+        "2024-01-20",
+        "0.18"
+      ]
+    ],
+    "test_data": "INSERT INTO worker_rate_history (worker_id, effective_date, commission_rate) VALUES (101, DATE '2024-02-05', 0.12), (101, DATE '2024-02-08', 0.14), (101, DATE '2024-02-12', 0.16), (101, DATE '2024-02-15', 0.18), (101, DATE '2024-02-20', 0.20), (101, DATE '2024-02-25', 0.22), (101, DATE '2024-02-28', 0.24), (102, DATE '2024-02-06', 0.11), (102, DATE '2024-02-18', 0.13), (103, DATE '2024-02-01', 0.10), (103, DATE '2024-02-10', 0.12), (103, DATE '2024-02-22', 0.15), (104, DATE '2024-02-25', 0.09), (105, DATE '2024-01-15', 0.08), (106, DATE '2024-02-28', 0.07);",
+    "test_expected_columns": [
+      "rate_date",
+      "commission_rate"
+    ],
+    "test_expected_rows": [
+      [
+        "2024-01-10",
+        null
+      ],
+      [
+        "2024-01-11",
+        null
+      ],
+      [
+        "2024-01-12",
+        null
+      ],
+      [
+        "2024-01-13",
+        null
+      ],
+      [
+        "2024-01-14",
+        null
+      ],
+      [
+        "2024-01-15",
+        null
+      ],
+      [
+        "2024-01-16",
+        null
+      ],
+      [
+        "2024-01-17",
+        null
+      ],
+      [
+        "2024-01-18",
+        null
+      ],
+      [
+        "2024-01-19",
+        null
+      ],
+      [
+        "2024-01-20",
+        null
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "generate date spine with generate_series for target range",
+        "LEFT JOIN to history with date guard (effective_date <= spine_date AND worker_id match)",
+        "subquery or window function to pick most recent effective_date per spine_date",
+        "COALESCE or explicit NULL handling for days before first history row"
+      ]
+    },
+    "hints": [
+      "You need a row for every day in the range, even days without a history entry.",
+      "Use generate_series to create a date spine, then for each date find the most recent commission_rate on or before that date for the specified worker.",
+      "A LATERAL subquery or a window function (ROW_NUMBER) over rows with effective_date <= spine_date will let you pick the most recent rate; filter to worker_id 101 and handle the case where no rate exists yet (days before the first effective_date should return NULL)."
+    ],
+    "answer_key": "WITH date_spine AS (\n  SELECT generate_series(\n    DATE '2024-01-10',\n    DATE '2024-01-20',\n    INTERVAL '1 day'\n  )::DATE AS rate_date\n)\nSELECT\n  ds.rate_date,\n  (\n    SELECT commission_rate\n    FROM worker_rate_history\n    WHERE worker_id = 101\n      AND effective_date <= ds.rate_date\n    ORDER BY effective_date DESC\n    LIMIT 1\n  ) AS commission_rate\nFROM date_spine ds\nORDER BY ds.rate_date;",
+    "_meta": {
+      "question_type": "point_in_time",
+      "original_qtype": "point_in_time",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-23T14:07:15.709803",
+      "problem_id": "030d1bb7a05e",
+      "validation_attempts": 1,
+      "scenario": "a gig labor marketplace tracking job acceptance and completion rates",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "fill_forward",
+      "typecast_twist": false
+    }
+  },
+  "user_solution": "/* notes */\nWITH calendar AS (\n    SELECT generate_series(\n            '2024-01-10'::date,\n            '2024-01-20'::date,\n        INTERVAL '1 day'\n    )::date AS rate_date\n)\nSELECT\n    c.rate_date,\n    (SELECT h.commission_rate\n    FROM worker_rate_history AS h\n        WHERE h.worker_id = '101' \n            AND h.effective_date <= c.rate_date\n    ORDER BY h.effective_date DESC\n    LIMIT 1) AS commission_rate\nFROM calendar AS c\nORDER BY c.rate_date;",
+  "solved_at": "2026-06-23T14:23:10.216676"
+}

@@ -1,0 +1,114 @@
+{
+  "title": "Sleep Goal Status As-Of Cutoff Date",
+  "prompt": "You are building a report for a sleep tracking app that shows each user's active sleep goal as of a specific date. The `sleep_goal_history` table records every time a user sets or updates their nightly sleep goal (in hours), with an `effective_date` indicating when that goal went into effect. Write a query that returns each user's `user_id`, `username`, and the `goal_hours` that was in effect as of `DATE '2024-06-15'`. A goal is \"in effect\" on the cutoff date if its `effective_date` is on or before that date. If a user has multiple goal changes on or before the cutoff, return the most recent one. If a user's only goal record has an `effective_date` after the cutoff (meaning they had not yet set a goal as of that date), that user should NOT appear in the output. Order the results by `user_id` ascending.",
+  "schema_ddl": "CREATE TABLE sleep_goal_history (user_id INT NOT NULL, username VARCHAR(100) NOT NULL, goal_hours DECIMAL(3,1) NOT NULL, effective_date DATE NOT NULL); CREATE INDEX idx_goal_user_date ON sleep_goal_history(user_id, effective_date);",
+  "example_input_data": "INSERT INTO sleep_goal_history (user_id, username, goal_hours, effective_date) VALUES (101, 'alice_dreams', 8.0, '2024-05-01'), (101, 'alice_dreams', 7.5, '2024-06-10'), (101, 'alice_dreams', 9.0, '2024-06-20'), (102, 'bob_sleeper', 7.0, '2024-04-15'), (103, 'carol_rest', 8.5, '2024-06-18'), (104, 'dave_snooze', 8.0, '2024-06-01'), (104, 'dave_snooze', 7.0, '2024-06-12');",
+  "example_output_columns": [
+    "user_id",
+    "username",
+    "goal_hours"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "alice_dreams",
+      "7.5"
+    ],
+    [
+      102,
+      "bob_sleeper",
+      "7.0"
+    ],
+    [
+      104,
+      "dave_snooze",
+      "7.0"
+    ]
+  ],
+  "test_data": "INSERT INTO sleep_goal_history (user_id, username, goal_hours, effective_date) VALUES (101, 'alice_dreams', 8.0, '2024-05-01'), (101, 'alice_dreams', 7.5, '2024-06-10'), (101, 'alice_dreams', 9.0, '2024-06-20'), (102, 'bob_sleeper', 7.0, '2024-04-15'), (102, 'bob_sleeper', 6.5, '2024-06-15'), (103, 'carol_rest', 8.5, '2024-06-18'), (103, 'carol_rest', 9.0, '2024-06-25'), (104, 'dave_snooze', 8.0, '2024-06-01'), (104, 'dave_snooze', 7.0, '2024-06-12'), (104, 'dave_snooze', 7.5, '2024-06-14'), (105, 'eve_twilight', 8.5, '2024-03-10'), (105, 'eve_twilight', 8.0, '2024-05-20'), (105, 'eve_twilight', 7.5, '2024-06-05'), (105, 'eve_twilight', 9.0, '2024-06-16'), (106, 'frank_nap', 6.0, '2024-06-16'), (107, 'grace_lunar', 7.0, '2024-02-01'), (107, 'grace_lunar', 7.5, '2024-04-10'), (107, 'grace_lunar', 8.0, '2024-06-15'), (108, 'henry_rem', 8.5, '2024-06-20'), (109, 'iris_slumber', 7.0, '2024-06-15'), (110, 'jack_doze', 9.0, '2024-01-05'), (110, 'jack_doze', 8.5, '2024-03-12'), (110, 'jack_doze', 8.0, '2024-05-28'), (111, 'kate_nightowl', 6.5, '2024-06-14'), (111, 'kate_nightowl', 7.0, '2024-06-15'), (111, 'kate_nightowl', 7.5, '2024-06-15'), (112, 'leo_rest', 8.0, '2024-06-10'), (112, 'leo_rest', 7.5, '2024-06-15'), (112, 'leo_rest', 9.0, '2024-06-17');",
+  "test_expected_columns": [
+    "user_id",
+    "username",
+    "goal_hours"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      "alice_dreams",
+      "7.5"
+    ],
+    [
+      102,
+      "bob_sleeper",
+      "6.5"
+    ],
+    [
+      104,
+      "dave_snooze",
+      "7.5"
+    ],
+    [
+      105,
+      "eve_twilight",
+      "7.5"
+    ],
+    [
+      107,
+      "grace_lunar",
+      "8.0"
+    ],
+    [
+      109,
+      "iris_slumber",
+      "7.0"
+    ],
+    [
+      110,
+      "jack_doze",
+      "8.0"
+    ],
+    [
+      111,
+      "kate_nightowl",
+      "7.5"
+    ],
+    [
+      112,
+      "leo_rest",
+      "7.5"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "rank-partition",
+    "composite_moves": [
+      "date-guard: WHERE effective_date <= cutoff to exclude future-dated rows",
+      "rank-partition: ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY effective_date DESC) to find most recent",
+      "row-filter: keep rn = 1"
+    ]
+  },
+  "hints": [
+    "You need to find the most recent goal for each user, but only considering goals that were set on or before the cutoff date.",
+    "Use a window function to rank each user's goal records by date in descending order, filtering first to exclude any records after the cutoff.",
+    "Apply ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY effective_date DESC) on rows where effective_date <= '2024-06-15', then keep only rows with rank 1."
+  ],
+  "answer_key": "WITH ranked AS (\n  SELECT\n    user_id,\n    username,\n    goal_hours,\n    ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY effective_date DESC) AS rn\n  FROM sleep_goal_history\n  WHERE effective_date <= DATE '2024-06-15'\n)\nSELECT user_id, username, goal_hours\nFROM ranked\nWHERE rn = 1\nORDER BY user_id;",
+  "_meta": {
+    "question_type": "point_in_time",
+    "original_qtype": "point_in_time",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-23T13:37:51.616168",
+    "problem_id": "03b9c9ef9297",
+    "validation_attempts": 1,
+    "scenario": "a sleep tracking app tracking sleep score and goal achievement",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "asof_single",
+    "typecast_twist": false
+  }
+}

@@ -1,0 +1,169 @@
+{
+  "problem": {
+    "title": "Property Inquiry Status Timeline Ranges",
+    "prompt": "A real estate listing platform tracks property inquiries through two separate tables: one for inquiries in 'contacted' status and one for inquiries in 'responded' status. Each inquiry is identified by `inquiry_id`. Write a query that collapses consecutive status events into periods, showing one row per consecutive status run per inquiry. Two events are considered consecutive if they appear in adjacent positions when all events for that inquiry are sorted by date, even if calendar days are missing between them. Output columns: `inquiry_id`, `status`, `period_start`, `period_end`. Order the results by `period_start` ascending.",
+    "schema_ddl": "CREATE TABLE contacted_inquiries (inquiry_id INTEGER NOT NULL, contact_date VARCHAR(50) NOT NULL); CREATE TABLE responded_inquiries (inquiry_id INTEGER NOT NULL, response_date VARCHAR(50) NOT NULL);",
+    "example_input_data": "INSERT INTO contacted_inquiries (inquiry_id, contact_date) VALUES (101, '2024-01-05'), (101, '2024-01-06'), (102, '2024-01-07'), (101, '2024-01-10'); INSERT INTO responded_inquiries (inquiry_id, response_date) VALUES (101, '2024-01-08'), (101, '2024-01-09'), (102, '2024-01-08'), (102, '2024-01-09');",
+    "example_output_columns": [
+      "inquiry_id",
+      "status",
+      "period_start",
+      "period_end"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "contacted",
+        "2024-01-05",
+        "2024-01-06"
+      ],
+      [
+        102,
+        "contacted",
+        "2024-01-07",
+        "2024-01-07"
+      ],
+      [
+        102,
+        "responded",
+        "2024-01-08",
+        "2024-01-09"
+      ],
+      [
+        101,
+        "responded",
+        "2024-01-08",
+        "2024-01-09"
+      ],
+      [
+        101,
+        "contacted",
+        "2024-01-10",
+        "2024-01-10"
+      ]
+    ],
+    "test_data": "INSERT INTO contacted_inquiries (inquiry_id, contact_date) VALUES (201, '2024-02-01'), (201, '2024-02-02'), (201, '2024-02-03'), (202, '2024-02-01'), (203, '2024-02-05'), (203, '2024-02-06'), (201, '2024-02-10'), (201, '2024-02-11'), (202, '2024-02-08'), (202, '2024-02-09'), (204, '2024-02-15'), (203, '2024-02-12'), (203, '2024-02-13'), (204, '2024-02-16'); INSERT INTO responded_inquiries (inquiry_id, response_date) VALUES (201, '2024-02-04'), (201, '2024-02-05'), (201, '2024-02-06'), (202, '2024-02-02'), (202, '2024-02-03'), (202, '2024-02-04'), (203, '2024-02-07'), (203, '2024-02-08'), (203, '2024-02-09'), (202, '2024-02-10'), (202, '2024-02-11'), (204, '2024-02-17'), (204, '2024-02-18'), (204, '2024-02-19'), (203, '2024-02-14'), (203, '2024-02-15');",
+    "test_expected_columns": [
+      "inquiry_id",
+      "status",
+      "period_start",
+      "period_end"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "contacted",
+        "2024-02-01",
+        "2024-02-03"
+      ],
+      [
+        202,
+        "contacted",
+        "2024-02-01",
+        "2024-02-01"
+      ],
+      [
+        202,
+        "responded",
+        "2024-02-02",
+        "2024-02-04"
+      ],
+      [
+        201,
+        "responded",
+        "2024-02-04",
+        "2024-02-06"
+      ],
+      [
+        203,
+        "contacted",
+        "2024-02-05",
+        "2024-02-06"
+      ],
+      [
+        203,
+        "responded",
+        "2024-02-07",
+        "2024-02-09"
+      ],
+      [
+        202,
+        "contacted",
+        "2024-02-08",
+        "2024-02-09"
+      ],
+      [
+        202,
+        "responded",
+        "2024-02-10",
+        "2024-02-11"
+      ],
+      [
+        201,
+        "contacted",
+        "2024-02-10",
+        "2024-02-11"
+      ],
+      [
+        203,
+        "contacted",
+        "2024-02-12",
+        "2024-02-13"
+      ],
+      [
+        203,
+        "responded",
+        "2024-02-14",
+        "2024-02-15"
+      ],
+      [
+        204,
+        "contacted",
+        "2024-02-15",
+        "2024-02-16"
+      ],
+      [
+        204,
+        "responded",
+        "2024-02-17",
+        "2024-02-19"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "union",
+      "output_shape": "fewer_rows",
+      "recipe": "gaps-and-islands",
+      "composite_moves": [
+        "UNION ALL the two source tables, each tagged with its status label and casting date from text",
+        "ROW_NUMBER() OVER (PARTITION BY inquiry_id ORDER BY event_date) - ROW_NUMBER() OVER (PARTITION BY inquiry_id, status ORDER BY event_date) to identify consecutive runs",
+        "GROUP BY inquiry_id, status, grp and take MIN(event_date) as period_start, MAX(event_date) as period_end",
+        "ORDER BY period_start"
+      ]
+    },
+    "hints": [
+      "Consider combining both tables into a single timeline per inquiry, tagged by status.",
+      "Use the row-number difference technique separately for each inquiry's timeline to identify consecutive runs of the same status.",
+      "Group by inquiry, status, and the consecutive-run identifier, then take the min and max date of each group."
+    ],
+    "answer_key": "WITH union_events AS (\n  SELECT inquiry_id, 'contacted' AS status, contact_date::date AS event_date\n  FROM contacted_inquiries\n  UNION ALL\n  SELECT inquiry_id, 'responded' AS status, response_date::date AS event_date\n  FROM responded_inquiries\n),\nranked AS (\n  SELECT\n    inquiry_id,\n    status,\n    event_date,\n    ROW_NUMBER() OVER (PARTITION BY inquiry_id ORDER BY event_date) -\n    ROW_NUMBER() OVER (PARTITION BY inquiry_id, status ORDER BY event_date) AS grp\n  FROM union_events\n)\nSELECT\n  inquiry_id,\n  status,\n  MIN(event_date)::text AS period_start,\n  MAX(event_date)::text AS period_end\nFROM ranked\nGROUP BY inquiry_id, status, grp\nORDER BY period_start;",
+    "_meta": {
+      "question_type": "union_islands",
+      "original_qtype": "random_any",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-22T18:39:37.883537",
+      "problem_id": "835e0b22d992",
+      "validation_attempts": 1,
+      "scenario": "a real estate listing platform tracking saved searches and inquiry rates",
+      "dml_op": null,
+      "islands_flavor": "partitioned_status_periods",
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": null,
+      "typecast_twist": true
+    }
+  },
+  "user_solution": "/* notes */\n\nWITH base AS (\n\nSELECT\n    inquiry_id,\n    'contacted' AS status,\n    contact_date AS status_date\nFROM contacted_inquiries\n\nUNION ALL\n\nSELECT\n    inquiry_id,\n    'responded' AS status,\n    response_date AS status_date\nFROM responded_inquiries\n),\nadd_segments AS (\nSELECT *,\n       ROW_NUMBER() OVER (PARTITION BY inquiry_id ORDER BY status_date) \n        - ROW_NUMBER() OVER (PARTITION BY inquiry_id, status ORDER BY status_date) AS segments\nFROM base\n)\nSELECT\n    inquiry_id,\n    status,\n    MIN(status_date) AS period_start,\n    MAX(status_date) AS period_end\nFROM add_segments\nGROUP BY 1, 2, segments\nORDER BY MIN(status_date);",
+  "solved_at": "2026-06-22T19:02:49.633777"
+}

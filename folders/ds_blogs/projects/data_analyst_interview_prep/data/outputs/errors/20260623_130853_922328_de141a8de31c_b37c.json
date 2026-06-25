@@ -1,0 +1,82 @@
+{
+  "logged_at": "2026-06-23T13:08:53.922328",
+  "failure_kind": "wrong_answer",
+  "problem_id": "de141a8de31c",
+  "question_type": "point_in_time",
+  "original_qtype": "point_in_time",
+  "subtype": "asof_single",
+  "scenario": "a news app tracking article completion and subscription conversion",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "rank-partition",
+  "title": "Article Paywall Tier as of Campaign Launch",
+  "prompt": "Your news app tracks article paywall tiers in a history table that records whenever an article's tier changes. Each article can move between 'free', 'premium', or 'exclusive' over time. Marketing wants to know which tier each article was assigned as of DATE '2024-06-01' (the launch date of a summer campaign). Write a query that returns article_id and paywall_tier for every article that had a tier assignment on or before 2024-06-01. If an article has multiple tier changes on or before that date, return the most recent one. Articles whose first tier assignment occurred after 2024-06-01 should not appear in the result. Order by article_id ascending.",
+  "schema_ddl": "CREATE TABLE article_paywall_history (article_id INT NOT NULL, paywall_tier VARCHAR(20) NOT NULL, effective_date DATE NOT NULL); CREATE TABLE articles (article_id INT PRIMARY KEY, title VARCHAR(200) NOT NULL, published_date DATE NOT NULL);",
+  "answer_key": "WITH ranked AS (\n  SELECT\n    article_id,\n    paywall_tier,\n    ROW_NUMBER() OVER (PARTITION BY article_id ORDER BY effective_date DESC) AS rn\n  FROM article_paywall_history\n  WHERE effective_date <= DATE '2024-06-01'\n)\nSELECT article_id, paywall_tier\nFROM ranked\nWHERE rn = 1\nORDER BY article_id;",
+  "test_expected_columns": [
+    "article_id",
+    "paywall_tier"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "premium"
+    ],
+    [
+      202,
+      "exclusive"
+    ],
+    [
+      203,
+      "premium"
+    ],
+    [
+      204,
+      "free"
+    ],
+    [
+      205,
+      "exclusive"
+    ]
+  ],
+  "user_solution": "/*\nMarketing wants to know which tier each article was assigned as of DATE '2024-06-01' (the launch date of a summer campaign).\nWrite a query that returns article_id and paywall_tier for every article that had a tier assignment on or before 2024-06-01.\nIf an article has multiple tier changes on or before that date, return the most recent one.\nArticles whose first tier assignment occurred after 2024-06-01 should not appear in the result.\nOrder by article_id ascending.\n*/\nWITH entities AS (\n    SELECT DISTINCT article_id\n    FROM articles\n),\nranked AS (\n    SELECT\n        *,\n        ROW_NUMBER() OVER (PARTITION BY article_id ORDER BY effective_date DESC) as rn\n    FROM article_paywall_history\n    WHERE effective_date <= '2024-06-01' \n)\nSELECT\n    a.article_id,\n    r.paywall_tier\nFROM articles a\nLEFT JOIN ranked r\n    ON a.article_id = r.article_id AND r.rn = 1\nORDER BY a.article_id;\n",
+  "error_message": null,
+  "your_columns": [
+    "article_id",
+    "paywall_tier"
+  ],
+  "your_rows": [
+    [
+      201,
+      "premium"
+    ],
+    [
+      202,
+      "exclusive"
+    ],
+    [
+      203,
+      "premium"
+    ],
+    [
+      204,
+      "free"
+    ],
+    [
+      205,
+      "exclusive"
+    ],
+    [
+      206,
+      null
+    ],
+    [
+      207,
+      null
+    ],
+    [
+      208,
+      null
+    ]
+  ]
+}

@@ -1,0 +1,213 @@
+{
+  "title": "Parse and Convert Messy Enrollment Records",
+  "prompt": "Your HR platform imported a batch of benefits enrollment records from a legacy system, but the data arrived as TEXT fields with inconsistent formatting. The `enrollment_submissions` table contains: `employee_id` (clean integer), `submission_date_text` (dates formatted as DD.MM.YYYY like '15.03.2024'), `monthly_premium_text` (amounts with thousand separators like '1,245' or '875'), and `dependents_count_text` (either a number like '2' or a blank string ''). Write a query that produces a clean result set with columns: `employee_id`, `submission_date` (converted to an actual DATE), `monthly_premium` (converted to NUMERIC), and `dependents_count` (converted to INTEGER, treating blanks as NULL). Order the results by `submission_date` ascending, then by `employee_id` ascending. You must handle the formatting quirks: the comma in amounts, the period-delimited dates, and the blank strings that should become NULL.",
+  "schema_ddl": "CREATE TABLE enrollment_submissions (\n  employee_id INTEGER,\n  submission_date_text TEXT,\n  monthly_premium_text TEXT,\n  dependents_count_text TEXT\n);",
+  "example_input_data": "INSERT INTO enrollment_submissions (employee_id, submission_date_text, monthly_premium_text, dependents_count_text) VALUES\n(101, '15.03.2024', '1,245', '2'),\n(102, '12.03.2024', '875', ''),\n(103, '20.03.2024', '2,100', '3'),\n(104, '12.03.2024', '650', '1'),\n(105, '18.03.2024', '1,050', ''),\n(106, '15.03.2024', '3,200', '4');",
+  "example_output_columns": [
+    "employee_id",
+    "submission_date",
+    "monthly_premium",
+    "dependents_count"
+  ],
+  "example_output_rows": [
+    [
+      102,
+      "2024-03-12",
+      "875",
+      null
+    ],
+    [
+      104,
+      "2024-03-12",
+      "650",
+      1.0
+    ],
+    [
+      101,
+      "2024-03-15",
+      "1245",
+      2.0
+    ],
+    [
+      106,
+      "2024-03-15",
+      "3200",
+      4.0
+    ],
+    [
+      105,
+      "2024-03-18",
+      "1050",
+      null
+    ],
+    [
+      103,
+      "2024-03-20",
+      "2100",
+      3.0
+    ]
+  ],
+  "test_data": "INSERT INTO enrollment_submissions (employee_id, submission_date_text, monthly_premium_text, dependents_count_text) VALUES\n(201, '01.01.2024', '950', '0'),\n(202, '05.01.2024', '1,500', '2'),\n(203, '10.01.2024', '12,345', ''),\n(204, '15.01.2024', '780', '1'),\n(205, '20.01.2024', '2,250', '3'),\n(206, '25.01.2024', '1,100', ''),\n(207, '30.01.2024', '890', '0'),\n(208, '02.02.2024', '3,400', '5'),\n(209, '08.02.2024', '625', ''),\n(210, '12.02.2024', '15,000', '4'),\n(211, '18.02.2024', '1,975', '2'),\n(212, '22.02.2024', '500', ''),\n(213, '28.02.2024', '8,750', '6'),\n(214, '05.03.2024', '1,320', '1'),\n(215, '10.03.2024', '2,800', ''),\n(216, '15.03.2024', '950', '0'),\n(217, '20.03.2024', '4,100', '3'),\n(218, '25.03.2024', '775', ''),\n(219, '30.03.2024', '1,650', '2'),\n(220, '31.03.2024', '10,500', '');",
+  "test_expected_columns": [
+    "employee_id",
+    "submission_date",
+    "monthly_premium",
+    "dependents_count"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "2024-01-01",
+      "950",
+      0.0
+    ],
+    [
+      202,
+      "2024-01-05",
+      "1500",
+      2.0
+    ],
+    [
+      203,
+      "2024-01-10",
+      "12345",
+      null
+    ],
+    [
+      204,
+      "2024-01-15",
+      "780",
+      1.0
+    ],
+    [
+      205,
+      "2024-01-20",
+      "2250",
+      3.0
+    ],
+    [
+      206,
+      "2024-01-25",
+      "1100",
+      null
+    ],
+    [
+      207,
+      "2024-01-30",
+      "890",
+      0.0
+    ],
+    [
+      208,
+      "2024-02-02",
+      "3400",
+      5.0
+    ],
+    [
+      209,
+      "2024-02-08",
+      "625",
+      null
+    ],
+    [
+      210,
+      "2024-02-12",
+      "15000",
+      4.0
+    ],
+    [
+      211,
+      "2024-02-18",
+      "1975",
+      2.0
+    ],
+    [
+      212,
+      "2024-02-22",
+      "500",
+      null
+    ],
+    [
+      213,
+      "2024-02-28",
+      "8750",
+      6.0
+    ],
+    [
+      214,
+      "2024-03-05",
+      "1320",
+      1.0
+    ],
+    [
+      215,
+      "2024-03-10",
+      "2800",
+      null
+    ],
+    [
+      216,
+      "2024-03-15",
+      "950",
+      0.0
+    ],
+    [
+      217,
+      "2024-03-20",
+      "4100",
+      3.0
+    ],
+    [
+      218,
+      "2024-03-25",
+      "775",
+      null
+    ],
+    [
+      219,
+      "2024-03-30",
+      "1650",
+      2.0
+    ],
+    [
+      220,
+      "2024-03-31",
+      "10500",
+      null
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "row-transform",
+    "composite_moves": [
+      "cast-text-to-date",
+      "cast-text-to-numeric",
+      "cast-text-to-integer",
+      "nullif-blank-strings"
+    ]
+  },
+  "hints": [
+    "You'll need to convert text columns to their proper data types using PostgreSQL casting and conversion functions.",
+    "Use TO_DATE with the pattern 'DD.MM.YYYY' for dates, TO_NUMBER with '9G999G999' pattern for comma-separated amounts, and handle blank strings with NULLIF before casting to INTEGER.",
+    "The complete pattern is: TO_DATE(col, 'DD.MM.YYYY') for dates, TO_NUMBER(col, '9G999G999') for amounts, and CAST(NULLIF(col, '') AS INTEGER) for dependents where blanks should become NULL."
+  ],
+  "answer_key": "SELECT\n  employee_id,\n  TO_DATE(submission_date_text, 'DD.MM.YYYY') AS submission_date,\n  TO_NUMBER(monthly_premium_text, '9G999G999') AS monthly_premium,\n  CAST(NULLIF(dependents_count_text, '') AS INTEGER) AS dependents_count\nFROM enrollment_submissions\nORDER BY submission_date, employee_id;",
+  "_meta": {
+    "question_type": "parse_clean",
+    "original_qtype": "parse_clean",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-24T16:59:16.759721",
+    "problem_id": "aa0d1d9aa1a7",
+    "validation_attempts": 1,
+    "scenario": "an HR platform tracking onboarding completion and benefits enrollment",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "type_cast",
+    "typecast_twist": false
+  }
+}

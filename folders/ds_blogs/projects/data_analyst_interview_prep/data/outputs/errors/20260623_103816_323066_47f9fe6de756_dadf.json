@@ -1,0 +1,110 @@
+{
+  "logged_at": "2026-06-23T10:38:16.323066",
+  "failure_kind": "wrong_answer",
+  "problem_id": "47f9fe6de756",
+  "question_type": "point_in_time",
+  "original_qtype": "point_in_time",
+  "subtype": "fill_forward",
+  "scenario": "a project management tool tracking sprint completion and task throughput",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "time-window",
+  "title": "Sprint Velocity Tracking: Fill-Forward Daily Snapshot",
+  "prompt": "You are building a daily velocity dashboard for a project management tool. The `sprint_velocity_history` table records the story points completed per day for each sprint, but entries are only added when the velocity changes. Your task is to produce a daily snapshot for sprint 'SPRINT-42' covering all 10 days from '2024-03-01' through '2024-03-10' inclusive, showing the velocity in effect each day. Days without an explicit history row should inherit the most recent velocity from a prior day. If a day occurs before the sprint's first history entry, the velocity should be NULL. The output must have columns `report_date` and `velocity_on_date`, ordered by `report_date` ascending.",
+  "schema_ddl": "CREATE TABLE sprint_velocity_history (sprint_id VARCHAR(50) NOT NULL, effective_date TEXT NOT NULL, story_points_completed TEXT NOT NULL, recorded_at TIMESTAMP NOT NULL);",
+  "answer_key": "WITH date_spine AS (\n  SELECT generate_series(\n    DATE '2024-03-01',\n    DATE '2024-03-10',\n    INTERVAL '1 day'\n  )::date AS report_date\n)\nSELECT\n  ds.report_date,\n  (\n    SELECT story_points_completed::integer\n    FROM sprint_velocity_history h\n    WHERE h.sprint_id = 'SPRINT-42'\n      AND h.effective_date::date <= ds.report_date\n    ORDER BY h.effective_date::date DESC, h.recorded_at DESC\n    LIMIT 1\n  ) AS velocity_on_date\nFROM date_spine ds\nORDER BY ds.report_date;",
+  "test_expected_columns": [
+    "report_date",
+    "velocity_on_date"
+  ],
+  "test_expected_rows": [
+    [
+      "2024-03-01",
+      0
+    ],
+    [
+      "2024-03-02",
+      4
+    ],
+    [
+      "2024-03-03",
+      4
+    ],
+    [
+      "2024-03-04",
+      9
+    ],
+    [
+      "2024-03-05",
+      9
+    ],
+    [
+      "2024-03-06",
+      9
+    ],
+    [
+      "2024-03-07",
+      17
+    ],
+    [
+      "2024-03-08",
+      17
+    ],
+    [
+      "2024-03-09",
+      17
+    ],
+    [
+      "2024-03-10",
+      25
+    ]
+  ],
+  "user_solution": "/* \nSELECT d.day, e.entity,\n  (SELECT val FROM hist h\n   WHERE h.entity = e.entity AND h.ts <= d.day\n   ORDER BY h.ts DESC LIMIT 1) AS val_as_of\nFROM calendar d CROSS JOIN entities e;\n*/\n\n\nSELECT d.report_date,\n       (SELECT h.story_points_completed::int\n        FROM sprint_velocity_history AS h\n        WHERE h.sprint_id = 'SPRINT-42'\n          AND h.effective_date::date <= d.report_date\n        ORDER BY h.effective_date::date DESC      -- most recent change, NOT the biggest value\n        LIMIT 1) AS velocity_on_date\nFROM (\n    SELECT generate_series('2024-03-01'::date, '2024-03-10'::date, INTERVAL '1 day')::date AS report_date\n) AS d\nORDER BY d.report_date;\n",
+  "error_message": null,
+  "your_columns": [
+    "report_date",
+    "velocity_on_date"
+  ],
+  "your_rows": [
+    [
+      "2024-03-01",
+      0
+    ],
+    [
+      "2024-03-02",
+      3
+    ],
+    [
+      "2024-03-03",
+      3
+    ],
+    [
+      "2024-03-04",
+      9
+    ],
+    [
+      "2024-03-05",
+      9
+    ],
+    [
+      "2024-03-06",
+      9
+    ],
+    [
+      "2024-03-07",
+      16
+    ],
+    [
+      "2024-03-08",
+      16
+    ],
+    [
+      "2024-03-09",
+      16
+    ],
+    [
+      "2024-03-10",
+      25
+    ]
+  ]
+}

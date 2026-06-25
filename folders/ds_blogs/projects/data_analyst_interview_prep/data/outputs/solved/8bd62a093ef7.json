@@ -1,0 +1,224 @@
+{
+  "problem": {
+    "title": "Categorize Video Engagement with Safe Metrics",
+    "prompt": "The `video_analytics` table stores raw metrics for short videos, but the `watch_duration_sec` column contains NULL values when users didn't watch at all, and `total_duration_sec` can sometimes be zero due to encoding errors. Write a query that produces a clean report with these columns: `video_id`, `safe_watch_duration` (coalesce NULL watch durations to 0), `completion_rate` (watch_duration / total_duration as a percentage rounded to 1 decimal, but return NULL when total_duration is zero to avoid division by zero), and `engagement_tier` (a text label: 'high' if completion_rate >= 75, 'medium' if >= 40, 'low' if >= 10, 'minimal' if < 10, and 'no_data' if completion_rate is NULL). Order the results by `video_id` ascending. Use COALESCE to handle NULL watch durations, NULLIF to guard against zero denominators, and a CASE expression to assign the engagement tier.",
+    "schema_ddl": "CREATE TABLE video_analytics (video_id VARCHAR(20) PRIMARY KEY, video_title VARCHAR(100), watch_duration_sec INT, total_duration_sec INT, views_count INT);",
+    "example_input_data": "INSERT INTO video_analytics (video_id, video_title, watch_duration_sec, total_duration_sec, views_count) VALUES ('V001', 'Cooking Tips', 45, 60, 1200), ('V002', 'Dance Challenge', NULL, 30, 800), ('V003', 'Travel Vlog', 25, 50, 950), ('V004', 'Tech Review', 58, 60, 2100), ('V005', 'Comedy Skit', 8, 90, 400), ('V006', 'Music Cover', 40, 0, 650), ('V007', 'Fitness Routine', 12, 30, 320);",
+    "example_output_columns": [
+      "video_id",
+      "safe_watch_duration",
+      "completion_rate",
+      "engagement_tier"
+    ],
+    "example_output_rows": [
+      [
+        "V001",
+        45,
+        "75.0",
+        "high"
+      ],
+      [
+        "V002",
+        0,
+        "0.0",
+        "minimal"
+      ],
+      [
+        "V003",
+        25,
+        "50.0",
+        "medium"
+      ],
+      [
+        "V004",
+        58,
+        "96.7",
+        "high"
+      ],
+      [
+        "V005",
+        8,
+        "8.9",
+        "minimal"
+      ],
+      [
+        "V006",
+        40,
+        null,
+        "no_data"
+      ],
+      [
+        "V007",
+        12,
+        "40.0",
+        "medium"
+      ]
+    ],
+    "test_data": "INSERT INTO video_analytics (video_id, video_title, watch_duration_sec, total_duration_sec, views_count) VALUES ('T001', 'Morning Routine', 90, 120, 3500), ('T002', 'Pet Compilation', NULL, 45, 1800), ('T003', 'DIY Project', 0, 80, 220), ('T004', 'Gaming Highlights', 110, 110, 4200), ('T005', 'Food Review', 18, 60, 980), ('T006', 'Art Tutorial', NULL, 0, 150), ('T007', 'Prank Video', 7, 70, 560), ('T008', 'Fashion Haul', 65, 90, 2800), ('T009', 'Nature Documentary', 200, 240, 5100), ('T010', 'Quick Tips', 5, 15, 180), ('T011', 'Music Video', 42, 0, 920), ('T012', 'Study Vlog', NULL, 100, 450), ('T013', 'Reaction Video', 33, 40, 1150), ('T014', 'Workout Challenge', 15, 20, 670), ('T015', 'Travel Guide', 85, 100, 3200), ('T016', 'Product Unboxing', 25, 55, 890), ('T017', 'Comedy Sketch', 4, 25, 310), ('T018', 'Cooking Show', 0, 0, 0), ('T019', 'Daily Vlog', 110, 150, 2600), ('T020', 'Tech Tutorial', 48, 60, 1900);",
+    "test_expected_columns": [
+      "video_id",
+      "safe_watch_duration",
+      "completion_rate",
+      "engagement_tier"
+    ],
+    "test_expected_rows": [
+      [
+        "T001",
+        90,
+        "75.0",
+        "high"
+      ],
+      [
+        "T002",
+        0,
+        "0.0",
+        "minimal"
+      ],
+      [
+        "T003",
+        0,
+        "0.0",
+        "minimal"
+      ],
+      [
+        "T004",
+        110,
+        "100.0",
+        "high"
+      ],
+      [
+        "T005",
+        18,
+        "30.0",
+        "low"
+      ],
+      [
+        "T006",
+        0,
+        null,
+        "no_data"
+      ],
+      [
+        "T007",
+        7,
+        "10.0",
+        "low"
+      ],
+      [
+        "T008",
+        65,
+        "72.2",
+        "medium"
+      ],
+      [
+        "T009",
+        200,
+        "83.3",
+        "high"
+      ],
+      [
+        "T010",
+        5,
+        "33.3",
+        "low"
+      ],
+      [
+        "T011",
+        42,
+        null,
+        "no_data"
+      ],
+      [
+        "T012",
+        0,
+        "0.0",
+        "minimal"
+      ],
+      [
+        "T013",
+        33,
+        "82.5",
+        "high"
+      ],
+      [
+        "T014",
+        15,
+        "75.0",
+        "high"
+      ],
+      [
+        "T015",
+        85,
+        "85.0",
+        "high"
+      ],
+      [
+        "T016",
+        25,
+        "45.5",
+        "medium"
+      ],
+      [
+        "T017",
+        4,
+        "16.0",
+        "low"
+      ],
+      [
+        "T018",
+        0,
+        null,
+        "no_data"
+      ],
+      [
+        "T019",
+        110,
+        "73.3",
+        "medium"
+      ],
+      [
+        "T020",
+        48,
+        "80.0",
+        "high"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "COALESCE to replace NULL watch_duration with 0",
+        "NULLIF to turn zero total_duration into NULL before division",
+        "ROUND to format completion_rate percentage to 1 decimal",
+        "CASE ladder on computed completion_rate to assign engagement_tier label",
+        "ORDER BY video_id"
+      ]
+    },
+    "hints": [
+      "You need to convert NULL watch durations to a safe numeric value for display and calculations.",
+      "To avoid division by zero errors, consider turning zero denominators into NULL before performing the division. PostgreSQL's NULLIF(expr, value) returns NULL if expr equals value.",
+      "Use COALESCE(watch_duration_sec, 0) for the safe duration, ROUND((COALESCE(watch_duration_sec, 0)::NUMERIC / NULLIF(total_duration_sec, 0)) * 100, 1) for the completion rate, and a CASE expression with bands at 75, 40, 10, and a check for NULL to assign the engagement tier."
+    ],
+    "answer_key": "SELECT video_id, COALESCE(watch_duration_sec, 0) AS safe_watch_duration, ROUND((COALESCE(watch_duration_sec, 0)::NUMERIC / NULLIF(total_duration_sec, 0)) * 100, 1) AS completion_rate, CASE WHEN ROUND((COALESCE(watch_duration_sec, 0)::NUMERIC / NULLIF(total_duration_sec, 0)) * 100, 1) IS NULL THEN 'no_data' WHEN ROUND((COALESCE(watch_duration_sec, 0)::NUMERIC / NULLIF(total_duration_sec, 0)) * 100, 1) >= 75 THEN 'high' WHEN ROUND((COALESCE(watch_duration_sec, 0)::NUMERIC / NULLIF(total_duration_sec, 0)) * 100, 1) >= 40 THEN 'medium' WHEN ROUND((COALESCE(watch_duration_sec, 0)::NUMERIC / NULLIF(total_duration_sec, 0)) * 100, 1) >= 10 THEN 'low' ELSE 'minimal' END AS engagement_tier FROM video_analytics ORDER BY video_id;",
+    "_meta": {
+      "question_type": "parse_clean",
+      "original_qtype": "parse_clean",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-24T17:50:00.779594",
+      "problem_id": "8bd62a093ef7",
+      "validation_attempts": 1,
+      "scenario": "a short video platform tracking watch time and completion rates",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "conditional_null",
+      "typecast_twist": false
+    }
+  },
+  "user_solution": "/*\nWrite a query that produces a clean report with these columns: \n\n\n\n`completion_rate` (watch_duration / total_duration as a percentage rounded to 1 decimal, but return NULL when total_duration is zero to avoid division by zero), and `engagement_tier` (a text label: 'high' if completion_rate >= 75, 'medium' if >= 40, 'low' if >= 10, 'minimal' if < 10, and 'no_data' if completion_rate is NULL).\n\n\n\nUse COALESCE to handle NULL watch durations, NULLIF to guard against zero denominators, and a CASE expression to assign the engagement tier.\n\n */\n\nWITH base AS (\n    SELECT\n        video_id,\n        COALESCE(watch_duration_sec, 0) AS safe_watch_duration,\n        ROUND(COALESCE(watch_duration_sec, 0)::numeric / NULLIF(total_duration_sec, 0) * 100, 1) AS completion_rate\n    FROM video_analytics   \n)\nSELECT\n    *,\n    CASE WHEN completion_rate >= 75 THEN  'high'\n         WHEN completion_rate >= 40 THEN  'medium'\n         WHEN completion_rate >= 10 THEN  'low'\n         WHEN completion_rate < 10 THEN 'minimal'\n         WHEN completion_rate IS NULL THEN 'no_data'\n    END AS engagement_tier\nFROM base\nORDER BY video_id;\n",
+  "solved_at": "2026-06-24T17:56:07.071777"
+}

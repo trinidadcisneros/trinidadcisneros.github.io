@@ -1,0 +1,145 @@
+{
+  "problem": {
+    "title": "Prescription Fill Status by Cutoff Date",
+    "prompt": "A prescription refill adherence program tracks the dispensing status of recurring prescriptions over time. The `prescription_status_history` table records each status change with an `effective_date`. You need to report the dispensing status in effect for each prescription AS OF a specific cutoff date (2024-06-15). For each prescription, return the status value from the most recent history record on or before the cutoff. If a prescription has no history record on or before the cutoff (all its records are in the future), return NULL for its status. The output must include every prescription_id that appears anywhere in the history table, along with the patient_id and medication_name from the most recent record on or before the cutoff (or the earliest future record if no on-or-before record exists, for joining purposes). Return columns: prescription_id, patient_id, medication_name, status_as_of_cutoff. Order by prescription_id ascending.",
+    "schema_ddl": "CREATE TABLE prescription_status_history (history_id SERIAL PRIMARY KEY, prescription_id INTEGER NOT NULL, patient_id INTEGER NOT NULL, medication_name VARCHAR(100) NOT NULL, status VARCHAR(50) NOT NULL, effective_date TEXT NOT NULL);",
+    "example_input_data": "INSERT INTO prescription_status_history (prescription_id, patient_id, medication_name, status, effective_date) VALUES (101, 5001, 'Metformin 500mg', 'active', '2024-05-01'), (101, 5001, 'Metformin 500mg', 'dispensed_30day', '2024-05-15'), (101, 5001, 'Metformin 500mg', 'dispensed_60day', '2024-06-10'), (101, 5001, 'Metformin 500mg', 'dispensed_90day', '2024-06-20'), (102, 5002, 'Lisinopril 10mg', 'active', '2024-04-10'), (102, 5002, 'Lisinopril 10mg', 'missed_refill', '2024-06-01'), (103, 5003, 'Atorvastatin 20mg', 'active', '2024-07-01'), (104, 5004, 'Levothyroxine 75mcg', 'active', '2024-06-14'), (104, 5004, 'Levothyroxine 75mcg', 'dispensed_30day', '2024-06-15');",
+    "example_output_columns": [
+      "prescription_id",
+      "patient_id",
+      "medication_name",
+      "status_as_of_cutoff"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        5001,
+        "Metformin 500mg",
+        "dispensed_60day"
+      ],
+      [
+        102,
+        5002,
+        "Lisinopril 10mg",
+        "missed_refill"
+      ],
+      [
+        103,
+        5003,
+        "Atorvastatin 20mg",
+        null
+      ],
+      [
+        104,
+        5004,
+        "Levothyroxine 75mcg",
+        "dispensed_30day"
+      ]
+    ],
+    "test_data": "INSERT INTO prescription_status_history (prescription_id, patient_id, medication_name, status, effective_date) VALUES (201, 6001, 'Amlodipine 5mg', 'active', '2024-03-01'), (201, 6001, 'Amlodipine 5mg', 'dispensed_30day', '2024-04-01'), (201, 6001, 'Amlodipine 5mg', 'dispensed_60day', '2024-05-01'), (201, 6001, 'Amlodipine 5mg', 'dispensed_90day', '2024-06-01'), (201, 6001, 'Amlodipine 5mg', 'active', '2024-07-01'), (202, 6002, 'Simvastatin 20mg', 'active', '2024-06-10'), (202, 6002, 'Simvastatin 20mg', 'dispensed_30day', '2024-06-15'), (202, 6002, 'Simvastatin 20mg', 'missed_refill', '2024-06-20'), (203, 6003, 'Omeprazole 20mg', 'active', '2024-06-16'), (204, 6004, 'Metoprolol 50mg', 'active', '2024-02-01'), (204, 6004, 'Metoprolol 50mg', 'dispensed_30day', '2024-03-01'), (204, 6004, 'Metoprolol 50mg', 'dispensed_60day', '2024-04-01'), (204, 6004, 'Metoprolol 50mg', 'missed_refill', '2024-05-01'), (204, 6004, 'Metoprolol 50mg', 'active', '2024-06-15'), (205, 6005, 'Gabapentin 300mg', 'active', '2024-01-15'), (205, 6005, 'Gabapentin 300mg', 'dispensed_90day', '2024-02-15'), (205, 6005, 'Gabapentin 300mg', 'dispensed_90day', '2024-05-15'), (206, 6006, 'Sertraline 50mg', 'active', '2024-05-20'), (206, 6006, 'Sertraline 50mg', 'dispensed_30day', '2024-06-10'), (206, 6006, 'Sertraline 50mg', 'dispensed_60day', '2024-06-25'), (207, 6007, 'Losartan 50mg', 'active', '2024-08-01'), (208, 6008, 'Furosemide 40mg', 'active', '2024-06-15'), (208, 6008, 'Furosemide 40mg', 'dispensed_30day', '2024-06-16'), (209, 6009, 'Warfarin 5mg', 'active', '2024-06-01'), (209, 6009, 'Warfarin 5mg', 'dispensed_30day', '2024-06-14'), (209, 6009, 'Warfarin 5mg', 'dispensed_60day', '2024-06-15'), (210, 6010, 'Insulin Glargine', 'active', '2024-04-01'), (210, 6010, 'Insulin Glargine', 'dispensed_30day', '2024-05-01'), (210, 6010, 'Insulin Glargine', 'missed_refill', '2024-06-01'), (210, 6010, 'Insulin Glargine', 'active', '2024-06-10');",
+    "test_expected_columns": [
+      "prescription_id",
+      "patient_id",
+      "medication_name",
+      "status_as_of_cutoff"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        6001,
+        "Amlodipine 5mg",
+        "dispensed_90day"
+      ],
+      [
+        202,
+        6002,
+        "Simvastatin 20mg",
+        "dispensed_30day"
+      ],
+      [
+        203,
+        6003,
+        "Omeprazole 20mg",
+        null
+      ],
+      [
+        204,
+        6004,
+        "Metoprolol 50mg",
+        "active"
+      ],
+      [
+        205,
+        6005,
+        "Gabapentin 300mg",
+        "dispensed_90day"
+      ],
+      [
+        206,
+        6006,
+        "Sertraline 50mg",
+        "dispensed_30day"
+      ],
+      [
+        207,
+        6007,
+        "Losartan 50mg",
+        null
+      ],
+      [
+        208,
+        6008,
+        "Furosemide 40mg",
+        "active"
+      ],
+      [
+        209,
+        6009,
+        "Warfarin 5mg",
+        "dispensed_60day"
+      ],
+      [
+        210,
+        6010,
+        "Insulin Glargine",
+        "active"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "rank-partition",
+      "composite_moves": [
+        "typecast effective_date from TEXT to DATE",
+        "apply date guard: WHERE effective_date <= cutoff",
+        "ROW_NUMBER() OVER (PARTITION BY prescription_id ORDER BY effective_date DESC) = 1 for most recent on-or-before record",
+        "outer query or UNION to include prescriptions with no on-or-before record (status NULL)"
+      ]
+    },
+    "hints": [
+      "You need to find the most recent status change for each prescription that occurred on or before 2024-06-15.",
+      "Use a window function to rank history records by effective_date within each prescription, filtering to records on or before the cutoff date. Remember to convert the effective_date column to a proper date type before comparing.",
+      "Apply ROW_NUMBER() OVER (PARTITION BY prescription_id ORDER BY effective_date::DATE DESC) with WHERE effective_date::DATE <= '2024-06-15', then keep rn=1. To include prescriptions with no history on or before the cutoff, use a LEFT JOIN or UNION approach where the prescription list comes from a DISTINCT on prescription_id from the full history table."
+    ],
+    "answer_key": "WITH cutoff_records AS (\n  SELECT \n    prescription_id,\n    patient_id,\n    medication_name,\n    status,\n    ROW_NUMBER() OVER (PARTITION BY prescription_id ORDER BY effective_date::DATE DESC) AS rn\n  FROM prescription_status_history\n  WHERE effective_date::DATE <= '2024-06-15'\n),\nall_prescriptions AS (\n  SELECT DISTINCT \n    prescription_id,\n    FIRST_VALUE(patient_id) OVER (PARTITION BY prescription_id ORDER BY effective_date::DATE) AS patient_id,\n    FIRST_VALUE(medication_name) OVER (PARTITION BY prescription_id ORDER BY effective_date::DATE) AS medication_name\n  FROM prescription_status_history\n)\nSELECT \n  ap.prescription_id,\n  ap.patient_id,\n  ap.medication_name,\n  cr.status AS status_as_of_cutoff\nFROM all_prescriptions ap\nLEFT JOIN cutoff_records cr \n  ON ap.prescription_id = cr.prescription_id \n  AND cr.rn = 1\nORDER BY ap.prescription_id;",
+    "_meta": {
+      "question_type": "point_in_time",
+      "original_qtype": "point_in_time",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-23T13:16:11.516476",
+      "problem_id": "470245cb2549",
+      "validation_attempts": 1,
+      "scenario": "a prescription refill adherence program tracking 30/60/90 day refill rates",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "fill_forward",
+      "typecast_twist": true
+    }
+  },
+  "user_solution": "/* notes */\nWITH entities AS (\n    SELECT DISTINCT prescription_id, patient_id, medication_name FROM prescription_status_history\n),\nranked AS (\n    SELECT\n        *,\n        ROW_NUMBER() OVER (PARTITION BY prescription_id ORDER BY effective_date DESC) AS rn\n    FROM prescription_status_history\n    WHERE effective_date <= '2024-06-15'\n)\nSELECT\n    e.prescription_id,\n    e.patient_id,\n    e.medication_name,\n\tr.status AS status_as_of_cutoff\nFROM entities AS e\nLEFT JOIN ranked AS r\n    ON e.prescription_id = r.prescription_id AND r.rn=1\nORDER BY prescription_id;\n",
+  "solved_at": "2026-06-23T13:23:14.655646"
+}

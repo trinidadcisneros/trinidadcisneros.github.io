@@ -1,0 +1,144 @@
+{
+  "problem": {
+    "title": "Portfolio Asset Allocation As-Of Report",
+    "prompt": "A robo-advisor tracks each client's target asset allocation (equity/bond split) with effective dates. Write a query that returns every client's allocation percentages in effect as of 2024-06-15. If a client has no allocation record on or before that date, return equity_pct = 60 and bond_pct = 40 as the platform default. Output columns: client_id, equity_pct, bond_pct, ordered by client_id ascending. The allocation table records the date each new allocation became effective; a client may have multiple rows with different effective dates, and you need the most recent one that was active on or before the cutoff.",
+    "schema_ddl": "CREATE TABLE portfolio_allocations (client_id INTEGER NOT NULL, effective_date VARCHAR(20) NOT NULL, equity_pct INTEGER NOT NULL, bond_pct INTEGER NOT NULL);",
+    "example_input_data": "INSERT INTO portfolio_allocations (client_id, effective_date, equity_pct, bond_pct) VALUES (101, '2024-01-10', 70, 30), (101, '2024-05-20', 80, 20), (101, '2024-07-01', 65, 35), (102, '2024-03-15', 50, 50), (102, '2024-06-10', 55, 45), (103, '2024-08-01', 90, 10), (104, '2024-02-28', 75, 25), (104, '2024-06-20', 70, 30);",
+    "example_output_columns": [
+      "client_id",
+      "equity_pct",
+      "bond_pct"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        80,
+        20
+      ],
+      [
+        102,
+        55,
+        45
+      ],
+      [
+        103,
+        60,
+        40
+      ],
+      [
+        104,
+        75,
+        25
+      ]
+    ],
+    "test_data": "INSERT INTO portfolio_allocations (client_id, effective_date, equity_pct, bond_pct) VALUES (201, '2024-01-05', 65, 35), (201, '2024-03-12', 70, 30), (201, '2024-06-01', 75, 25), (201, '2024-06-14', 72, 28), (202, '2024-02-20', 80, 20), (202, '2024-06-15', 85, 15), (203, '2024-06-16', 90, 10), (204, '2024-04-10', 55, 45), (204, '2024-05-22', 60, 40), (204, '2024-06-10', 62, 38), (204, '2024-07-01', 58, 42), (205, '2023-12-15', 50, 50), (205, '2024-01-20', 52, 48), (205, '2024-06-15', 54, 46), (206, '2024-07-20', 95, 5), (207, '2024-05-01', 68, 32), (207, '2024-06-12', 70, 30), (207, '2024-06-18', 73, 27), (208, '2024-03-03', 78, 22), (208, '2024-06-08', 80, 20), (208, '2024-06-15', 82, 18), (209, '2024-01-01', 88, 12), (210, '2024-08-10', 92, 8), (211, '2024-06-14', 64, 36), (211, '2024-06-15', 66, 34), (212, '2024-04-25', 77, 23), (212, '2024-06-20', 79, 21), (213, '2024-02-14', 63, 37), (213, '2024-05-30', 65, 35);",
+    "test_expected_columns": [
+      "client_id",
+      "equity_pct",
+      "bond_pct"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        72,
+        28
+      ],
+      [
+        202,
+        85,
+        15
+      ],
+      [
+        203,
+        60,
+        40
+      ],
+      [
+        204,
+        62,
+        38
+      ],
+      [
+        205,
+        54,
+        46
+      ],
+      [
+        206,
+        60,
+        40
+      ],
+      [
+        207,
+        70,
+        30
+      ],
+      [
+        208,
+        82,
+        18
+      ],
+      [
+        209,
+        88,
+        12
+      ],
+      [
+        210,
+        60,
+        40
+      ],
+      [
+        211,
+        66,
+        34
+      ],
+      [
+        212,
+        77,
+        23
+      ],
+      [
+        213,
+        65,
+        35
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "rank-partition",
+      "composite_moves": [
+        "prep: identify all distinct entities (clients)",
+        "rank-partition: ROW_NUMBER over client_id ordered by effective_date DESC, restricted to rows on/before cutoff",
+        "enrich-join: LEFT JOIN ranked rows (rn=1) back to entity list",
+        "row-transform: COALESCE missing allocation to default 60/40"
+      ]
+    },
+    "hints": [
+      "You need the most recent allocation for each client that was active on or before the cutoff date.",
+      "Use ROW_NUMBER() OVER (PARTITION BY client_id ORDER BY effective_date DESC) on rows where effective_date is on or before 2024-06-15, then keep rn = 1.",
+      "Build a list of all distinct client_ids, LEFT JOIN the ranked allocations, and COALESCE equity_pct to 60 and bond_pct to 40 when no history exists for the cutoff."
+    ],
+    "answer_key": "WITH all_clients AS (\n  SELECT DISTINCT client_id\n  FROM portfolio_allocations\n),\nranked AS (\n  SELECT\n    client_id,\n    equity_pct,\n    bond_pct,\n    ROW_NUMBER() OVER (PARTITION BY client_id ORDER BY effective_date::date DESC) AS rn\n  FROM portfolio_allocations\n  WHERE effective_date::date <= DATE '2024-06-15'\n)\nSELECT\n  c.client_id,\n  COALESCE(r.equity_pct, 60) AS equity_pct,\n  COALESCE(r.bond_pct, 40) AS bond_pct\nFROM all_clients c\nLEFT JOIN ranked r ON c.client_id = r.client_id AND r.rn = 1\nORDER BY c.client_id;",
+    "_meta": {
+      "question_type": "point_in_time",
+      "original_qtype": "point_in_time",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-23T09:24:33.266686",
+      "problem_id": "d425432eefd7",
+      "validation_attempts": 1,
+      "scenario": "a robo advisor tracking portfolio rebalancing and AUM growth",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "default_no_history",
+      "typecast_twist": true
+    }
+  },
+  "user_solution": "/*\nWrite a query that returns every client's allocation percentages in effect as of 2024-06-15.\nIf a client has no allocation record on or before that date, return equity_pct = 60 and bond_pct = 40 as the platform default.\nOutput columns: client_id, equity_pct, bond_pct, ordered by client_id ascending.\nThe allocation table records the date each new allocation became effective; a client may have multiple rows with different effective dates, and you need the most recent one that was active on or before the cutoff.\n\nDISTINCT ON (client_id)\n\n*/\n\nSELECT\n    client_id,\n    COALESCE(h.equity_pct, 60) AS equity_pct,\n    COALESCE(h.bond_pct, 40) AS bond_pct\nFROM (SELECT DISTINCT client_id FROM portfolio_allocations) AS p\nLEFT JOIN LATERAL (\n    SELECT equity_pct, bond_pct\n    FROM portfolio_allocations\n    WHERE client_id = p.client_id AND effective_date <= '2024-06-15'\n    ORDER BY effective_date DESC LIMIT 1\n) AS h ON true\nORDER BY client_id;",
+  "solved_at": "2026-06-23T09:35:16.724709"
+}

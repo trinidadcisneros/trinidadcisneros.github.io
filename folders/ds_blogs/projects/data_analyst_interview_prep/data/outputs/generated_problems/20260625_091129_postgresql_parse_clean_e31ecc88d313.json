@@ -1,0 +1,200 @@
+{
+  "title": "Extract Story Tags and Counts",
+  "prompt": "The `stories` table stores user-generated stories with an array of tags in the `tags` column. Each story may have between 0 and several tags. You need to produce a clean report showing: the story ID, the first tag (or 'untagged' if the array is empty or NULL), the total number of tags, and a boolean flag indicating whether the tag 'trending' appears anywhere in the array. Output columns must be named `story_id`, `first_tag`, `tag_count`, `is_trending`. Order results by `story_id` ascending. Handle cases where the tags array is NULL or empty.",
+  "schema_ddl": "CREATE TABLE stories (story_id INT PRIMARY KEY, creator_username VARCHAR(50) NOT NULL, tags TEXT[], created_at TIMESTAMP NOT NULL);",
+  "example_input_data": "INSERT INTO stories (story_id, creator_username, tags, created_at) VALUES (101, 'alex_photos', ARRAY['sunset', 'beach', 'trending'], '2024-06-15 10:30:00'), (102, 'jordan_snaps', ARRAY['food'], '2024-06-15 11:00:00'), (103, 'sam_visual', ARRAY['art', 'abstract', 'creative'], '2024-06-15 12:15:00'), (104, 'taylor_cam', NULL, '2024-06-15 13:00:00'), (105, 'riley_pics', ARRAY[]::TEXT[], '2024-06-15 14:20:00'), (106, 'morgan_lens', ARRAY['trending', 'viral'], '2024-06-15 15:45:00');",
+  "example_output_columns": [
+    "story_id",
+    "first_tag",
+    "tag_count",
+    "is_trending"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "sunset",
+      3,
+      true
+    ],
+    [
+      102,
+      "food",
+      1,
+      false
+    ],
+    [
+      103,
+      "art",
+      3,
+      false
+    ],
+    [
+      104,
+      "untagged",
+      0,
+      false
+    ],
+    [
+      105,
+      "untagged",
+      0,
+      false
+    ],
+    [
+      106,
+      "trending",
+      2,
+      true
+    ]
+  ],
+  "test_data": "INSERT INTO stories (story_id, creator_username, tags, created_at) VALUES (201, 'user_a', ARRAY['travel', 'adventure', 'trending', 'explore'], '2024-06-16 08:00:00'), (202, 'user_b', ARRAY['music'], '2024-06-16 08:30:00'), (203, 'user_c', ARRAY['nature', 'wildlife'], '2024-06-16 09:00:00'), (204, 'user_d', NULL, '2024-06-16 09:30:00'), (205, 'user_e', ARRAY[]::TEXT[], '2024-06-16 10:00:00'), (206, 'user_f', ARRAY['trending'], '2024-06-16 10:30:00'), (207, 'user_g', ARRAY['fashion', 'style', 'ootd', 'trending', 'viral'], '2024-06-16 11:00:00'), (208, 'user_h', ARRAY['tech'], '2024-06-16 11:30:00'), (209, 'user_i', ARRAY['fitness', 'health'], '2024-06-16 12:00:00'), (210, 'user_j', NULL, '2024-06-16 12:30:00'), (211, 'user_k', ARRAY['comedy', 'funny', 'lol'], '2024-06-16 13:00:00'), (212, 'user_l', ARRAY[]::TEXT[], '2024-06-16 13:30:00'), (213, 'user_m', ARRAY['gaming', 'trending', 'esports'], '2024-06-16 14:00:00'), (214, 'user_n', ARRAY['beauty'], '2024-06-16 14:30:00'), (215, 'user_o', ARRAY['diy', 'crafts', 'handmade', 'creative'], '2024-06-16 15:00:00'), (216, 'user_p', NULL, '2024-06-16 15:30:00'), (217, 'user_q', ARRAY['education', 'learning'], '2024-06-16 16:00:00'), (218, 'user_r', ARRAY['pets', 'dogs', 'cats', 'animals', 'trending'], '2024-06-16 16:30:00');",
+  "test_expected_columns": [
+    "story_id",
+    "first_tag",
+    "tag_count",
+    "is_trending"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "travel",
+      4,
+      true
+    ],
+    [
+      202,
+      "music",
+      1,
+      false
+    ],
+    [
+      203,
+      "nature",
+      2,
+      false
+    ],
+    [
+      204,
+      "untagged",
+      0,
+      false
+    ],
+    [
+      205,
+      "untagged",
+      0,
+      false
+    ],
+    [
+      206,
+      "trending",
+      1,
+      true
+    ],
+    [
+      207,
+      "fashion",
+      5,
+      true
+    ],
+    [
+      208,
+      "tech",
+      1,
+      false
+    ],
+    [
+      209,
+      "fitness",
+      2,
+      false
+    ],
+    [
+      210,
+      "untagged",
+      0,
+      false
+    ],
+    [
+      211,
+      "comedy",
+      3,
+      false
+    ],
+    [
+      212,
+      "untagged",
+      0,
+      false
+    ],
+    [
+      213,
+      "gaming",
+      3,
+      true
+    ],
+    [
+      214,
+      "beauty",
+      1,
+      false
+    ],
+    [
+      215,
+      "diy",
+      4,
+      false
+    ],
+    [
+      216,
+      "untagged",
+      0,
+      false
+    ],
+    [
+      217,
+      "education",
+      2,
+      false
+    ],
+    [
+      218,
+      "pets",
+      5,
+      true
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "row-transform",
+    "composite_moves": [
+      "array indexing with arr[1] and COALESCE default",
+      "ARRAY_LENGTH for count with COALESCE for NULL",
+      "ANY(arr) membership check"
+    ]
+  },
+  "hints": [
+    "PostgreSQL arrays are 1-based, so the first element is tags[1]. You'll need to handle NULL and empty arrays.",
+    "Use ARRAY_LENGTH(tags, 1) to count elements in the first dimension. Remember it returns NULL for NULL arrays and for empty arrays, so wrap it with COALESCE.",
+    "The membership check can be written as 'trending' = ANY(tags), which returns NULL for NULL arrays. Use COALESCE to convert NULL to false. Access the first tag with tags[1] and COALESCE that to 'untagged'."
+  ],
+  "answer_key": "SELECT story_id, COALESCE(tags[1], 'untagged') AS first_tag, COALESCE(ARRAY_LENGTH(tags, 1), 0) AS tag_count, COALESCE('trending' = ANY(tags), false) AS is_trending FROM stories ORDER BY story_id;",
+  "_meta": {
+    "question_type": "parse_clean",
+    "original_qtype": "parse_clean",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-25T09:11:29.371322",
+    "problem_id": "e31ecc88d313",
+    "validation_attempts": 1,
+    "scenario": "a photo sharing app tracking story creation and view rates",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "array_access",
+    "typecast_twist": false
+  }
+}

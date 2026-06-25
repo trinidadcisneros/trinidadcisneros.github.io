@@ -1,0 +1,232 @@
+{
+  "problem": {
+    "title": "Calculate Payment Health Score with Cleanup",
+    "prompt": "You are analyzing installment payment records to compute a health score for each payment plan. The `payment_plans` table contains one row per plan with fields that need cleaning: `plan_status` has inconsistent casing and whitespace, `payment_schedule` stores a comma-separated list of amounts that should be parsed, `next_due_date` is stored as text, and `missed_count` may be NULL (meaning zero missed payments). Calculate a health score for each plan using the formula: `health_score = 100 - (missed_count * 15) - late_penalty`, where `late_penalty` is 10 if the plan status (after trimming and normalizing to lowercase) is 'overdue', 5 if 'warning', and 0 otherwise. If `missed_count` is NULL, treat it as 0. Output columns: `plan_id`, `customer_email`, `clean_status` (trimmed and title-cased), `next_payment_amount` (the first amount from the comma-separated schedule), `health_score`. Order by `health_score` descending, then by `plan_id`.",
+    "schema_ddl": "CREATE TABLE payment_plans (plan_id INT PRIMARY KEY, customer_email VARCHAR(100), plan_status VARCHAR(50), payment_schedule TEXT, next_due_date VARCHAR(20), missed_count INT, created_at TIMESTAMP);",
+    "example_input_data": "INSERT INTO payment_plans (plan_id, customer_email, plan_status, payment_schedule, next_due_date, missed_count, created_at) VALUES (1, 'alice@example.com', '  Active  ', '125.00,125.00,125.00', '2024-06-15', 0, '2024-01-10 09:00:00'), (2, 'bob@example.com', 'WARNING', '200.00,200.00', '2024-06-10', 1, '2024-02-14 10:30:00'), (3, 'carol@example.com', 'overdue ', '75.50,75.50,75.50,75.50', '2024-05-20', 2, '2024-01-05 08:15:00'), (4, 'dave@example.com', 'ACTIVE', '300.00,300.00,300.00', '2024-07-01', NULL, '2024-03-20 14:00:00'), (5, 'eve@example.com', ' warning', '150.00,150.00', '2024-06-05', 3, '2024-02-01 11:45:00'), (6, 'frank@example.com', 'Active', '100.00,100.00,100.00,100.00', '2024-06-25', 0, '2024-01-15 16:20:00');",
+    "example_output_columns": [
+      "plan_id",
+      "customer_email",
+      "clean_status",
+      "next_payment_amount",
+      "health_score"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "alice@example.com",
+        "Active",
+        "125.00",
+        100
+      ],
+      [
+        4,
+        "dave@example.com",
+        "Active",
+        "300.00",
+        100
+      ],
+      [
+        6,
+        "frank@example.com",
+        "Active",
+        "100.00",
+        100
+      ],
+      [
+        2,
+        "bob@example.com",
+        "Warning",
+        "200.00",
+        80
+      ],
+      [
+        3,
+        "carol@example.com",
+        "Overdue",
+        "75.50",
+        60
+      ],
+      [
+        5,
+        "eve@example.com",
+        "Warning",
+        "150.00",
+        50
+      ]
+    ],
+    "test_data": "INSERT INTO payment_plans (plan_id, customer_email, plan_status, payment_schedule, next_due_date, missed_count, created_at) VALUES (101, 'user1@example.com', 'active', '50.00,50.00,50.00', '2024-08-01', 0, '2024-04-01 09:00:00'), (102, 'user2@example.com', '  OVERDUE  ', '180.00,180.00', '2024-05-15', 3, '2024-01-20 10:00:00'), (103, 'user3@example.com', 'Warning ', '220.00,220.00,220.00', '2024-07-10', NULL, '2024-03-05 08:30:00'), (104, 'user4@example.com', ' active  ', '95.75,95.75,95.75,95.75', '2024-08-20', 1, '2024-02-10 12:00:00'), (105, 'user5@example.com', 'OVERDUE', '500.00,500.00', '2024-04-30', 5, '2024-01-01 07:45:00'), (106, 'user6@example.com', 'warning', '130.00,130.00', '2024-06-30', 2, '2024-02-25 15:20:00'), (107, 'user7@example.com', 'Active', '275.00,275.00,275.00', '2024-09-05', 0, '2024-04-15 11:10:00'), (108, 'user8@example.com', '  WARNING', '160.00,160.00,160.00,160.00', '2024-07-25', 1, '2024-03-10 13:30:00'), (109, 'user9@example.com', 'overdue', '85.25,85.25,85.25', '2024-05-05', 4, '2024-01-12 09:50:00'), (110, 'user10@example.com', 'ACTIVE ', '310.00,310.00', '2024-08-15', NULL, '2024-04-20 14:40:00'), (111, 'user11@example.com', ' active', '120.00,120.00,120.00,120.00', '2024-09-10', 0, '2024-04-25 16:00:00'), (112, 'user12@example.com', 'WARNING  ', '195.50,195.50', '2024-07-05', 2, '2024-03-15 10:20:00'), (113, 'user13@example.com', 'overdue ', '400.00,400.00,400.00', '2024-04-20', 6, '2024-01-08 08:00:00'), (114, 'user14@example.com', 'Active', '145.00,145.00', '2024-08-25', 1, '2024-04-05 12:30:00'), (115, 'user15@example.com', '  warning  ', '175.00,175.00,175.00', '2024-07-15', NULL, '2024-03-20 09:40:00'), (116, 'user16@example.com', 'ACTIVE', '260.00,260.00,260.00,260.00', '2024-09-01', 0, '2024-04-10 15:10:00'), (117, 'user17@example.com', 'overdue', '90.00,90.00', '2024-05-10', 3, '2024-01-25 11:00:00'), (118, 'user18@example.com', ' WARNING', '210.00,210.00,210.00', '2024-07-20', 2, '2024-03-25 13:50:00');",
+    "test_expected_columns": [
+      "plan_id",
+      "customer_email",
+      "clean_status",
+      "next_payment_amount",
+      "health_score"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        "user1@example.com",
+        "Active",
+        "50.00",
+        100
+      ],
+      [
+        107,
+        "user7@example.com",
+        "Active",
+        "275.00",
+        100
+      ],
+      [
+        110,
+        "user10@example.com",
+        "Active",
+        "310.00",
+        100
+      ],
+      [
+        111,
+        "user11@example.com",
+        "Active",
+        "120.00",
+        100
+      ],
+      [
+        116,
+        "user16@example.com",
+        "Active",
+        "260.00",
+        100
+      ],
+      [
+        103,
+        "user3@example.com",
+        "Warning",
+        "220.00",
+        95
+      ],
+      [
+        115,
+        "user15@example.com",
+        "Warning",
+        "175.00",
+        95
+      ],
+      [
+        104,
+        "user4@example.com",
+        "Active",
+        "95.75",
+        85
+      ],
+      [
+        114,
+        "user14@example.com",
+        "Active",
+        "145.00",
+        85
+      ],
+      [
+        108,
+        "user8@example.com",
+        "Warning",
+        "160.00",
+        80
+      ],
+      [
+        106,
+        "user6@example.com",
+        "Warning",
+        "130.00",
+        65
+      ],
+      [
+        112,
+        "user12@example.com",
+        "Warning",
+        "195.50",
+        65
+      ],
+      [
+        118,
+        "user18@example.com",
+        "Warning",
+        "210.00",
+        65
+      ],
+      [
+        102,
+        "user2@example.com",
+        "Overdue",
+        "180.00",
+        45
+      ],
+      [
+        117,
+        "user17@example.com",
+        "Overdue",
+        "90.00",
+        45
+      ],
+      [
+        109,
+        "user9@example.com",
+        "Overdue",
+        "85.25",
+        30
+      ],
+      [
+        105,
+        "user5@example.com",
+        "Overdue",
+        "500.00",
+        15
+      ],
+      [
+        113,
+        "user13@example.com",
+        "Overdue",
+        "400.00",
+        0
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "TRIM and INITCAP on plan_status",
+        "SPLIT_PART to extract first payment amount",
+        "COALESCE to handle NULL missed_count",
+        "CASE expression for late_penalty based on normalized status",
+        "Arithmetic computation of health_score"
+      ]
+    },
+    "hints": [
+      "You'll need to clean the status field by removing whitespace and normalizing case before using it in comparisons.",
+      "Use SPLIT_PART to extract the first amount from the comma-separated schedule, COALESCE to replace NULL missed_count with 0, and a CASE expression to assign the late penalty based on the cleaned status.",
+      "The solution is: SELECT plan_id, customer_email, INITCAP(TRIM(plan_status)) AS clean_status, SPLIT_PART(payment_schedule, ',', 1) AS next_payment_amount, 100 - (COALESCE(missed_count, 0) * 15) - (CASE WHEN LOWER(TRIM(plan_status)) = 'overdue' THEN 10 WHEN LOWER(TRIM(plan_status)) = 'warning' THEN 5 ELSE 0 END) AS health_score FROM payment_plans ORDER BY health_score DESC, plan_id;"
+    ],
+    "answer_key": "SELECT plan_id, customer_email, INITCAP(TRIM(plan_status)) AS clean_status, SPLIT_PART(payment_schedule, ',', 1) AS next_payment_amount, 100 - (COALESCE(missed_count, 0) * 15) - (CASE WHEN LOWER(TRIM(plan_status)) = 'overdue' THEN 10 WHEN LOWER(TRIM(plan_status)) = 'warning' THEN 5 ELSE 0 END) AS health_score FROM payment_plans ORDER BY health_score DESC, plan_id;",
+    "_meta": {
+      "question_type": "parse_clean",
+      "original_qtype": "parse_clean",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-24T17:20:01.538242",
+      "problem_id": "f1c4ca345896",
+      "validation_attempts": 1,
+      "scenario": "a buy-now-pay-later service tracking installment payment compliance",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "conditional_null",
+      "typecast_twist": true
+    }
+  },
+  "user_solution": "/*\nhealth_score = 100 - (missed_count * 15) - late_penalty\n\nmissed_count = \n*/\n\nSELECT\n    plan_id,\n    customer_email,\n    INITCAP(TRIM(plan_status)) AS clean_status,\n    SPLIT_PART(payment_schedule, ',', 1)::numeric AS next_payment_amount,\n    (100 - \n        (COALESCE(missed_count, 0)::int * 15)\n        - (CASE \n              WHEN lower(TRIM(plan_status)) = 'overdue' THEN 10 \n              WHEN lower(TRIM(plan_status)) = 'warning' THEN 5 \n            ELSE 0 END\n            )\n        )::INT AS health_score\nFROM payment_plans\nORDER BY health_score DESC, plan_id;\n\n\n\n",
+  "solved_at": "2026-06-24T17:38:16.370643"
+}

@@ -1,0 +1,158 @@
+{
+  "problem": {
+    "title": "Kit Insurance Coverage As-Of Lookup",
+    "prompt": "Your at-home diagnostic test kit platform stores each kit's insurance coverage tier in a history table that records every tier change with an effective date. Write a query that returns the insurance coverage tier in effect for each kit as of '2024-06-15'. Every kit that has been shipped must appear in the result, even if it has no coverage tier history on or before that date. For kits with no coverage history on or before the cutoff, return 'standard' as the default tier. Return columns: kit_id, coverage_tier. Order by kit_id ascending. A kit may have multiple tier changes recorded; you need the most recent one on or before the cutoff date. One kit has a tier change recorded after the cutoff date; that change should be ignored.",
+    "schema_ddl": "CREATE TABLE kit_shipments (kit_id INT PRIMARY KEY, patient_id INT NOT NULL, shipped_date DATE NOT NULL); CREATE TABLE coverage_tier_history (kit_id INT NOT NULL, coverage_tier VARCHAR(20) NOT NULL, effective_date DATE NOT NULL);",
+    "example_input_data": "INSERT INTO kit_shipments (kit_id, patient_id, shipped_date) VALUES (101, 501, '2024-05-10'), (102, 502, '2024-05-12'), (103, 503, '2024-06-01'), (104, 504, '2024-06-10'), (105, 505, '2024-06-14'); INSERT INTO coverage_tier_history (kit_id, coverage_tier, effective_date) VALUES (101, 'standard', '2024-05-10'), (101, 'premium', '2024-06-01'), (102, 'premium', '2024-05-12'), (102, 'gold', '2024-06-20'), (103, 'standard', '2024-06-01'), (104, 'premium', '2024-06-18');",
+    "example_output_columns": [
+      "kit_id",
+      "coverage_tier"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "premium"
+      ],
+      [
+        102,
+        "premium"
+      ],
+      [
+        103,
+        "standard"
+      ],
+      [
+        104,
+        "standard"
+      ],
+      [
+        105,
+        "standard"
+      ]
+    ],
+    "test_data": "INSERT INTO kit_shipments (kit_id, patient_id, shipped_date) VALUES (201, 601, '2024-03-05'), (202, 602, '2024-03-10'), (203, 603, '2024-04-15'), (204, 604, '2024-05-20'), (205, 605, '2024-06-01'), (206, 606, '2024-06-05'), (207, 607, '2024-06-10'), (208, 608, '2024-06-12'), (209, 609, '2024-06-14'), (210, 610, '2024-06-15'), (211, 611, '2024-06-16'), (212, 612, '2024-05-01'), (213, 613, '2024-05-15'), (214, 614, '2024-04-01'), (215, 615, '2024-03-20'), (216, 616, '2024-06-08'), (217, 617, '2024-06-11'), (218, 618, '2024-06-13'), (219, 619, '2024-05-25'), (220, 620, '2024-04-10'); INSERT INTO coverage_tier_history (kit_id, coverage_tier, effective_date) VALUES (201, 'standard', '2024-03-05'), (201, 'premium', '2024-04-01'), (201, 'gold', '2024-05-01'), (202, 'premium', '2024-03-10'), (202, 'standard', '2024-06-16'), (203, 'gold', '2024-04-15'), (203, 'premium', '2024-06-01'), (203, 'standard', '2024-06-20'), (204, 'standard', '2024-05-20'), (205, 'premium', '2024-06-01'), (205, 'gold', '2024-06-10'), (206, 'standard', '2024-06-05'), (207, 'premium', '2024-06-10'), (207, 'gold', '2024-06-16'), (208, 'gold', '2024-06-20'), (210, 'premium', '2024-06-15'), (212, 'standard', '2024-05-01'), (212, 'premium', '2024-06-14'), (213, 'gold', '2024-05-15'), (214, 'premium', '2024-04-01'), (214, 'standard', '2024-06-01'), (215, 'standard', '2024-03-20'), (215, 'premium', '2024-05-15'), (216, 'gold', '2024-06-08'), (217, 'standard', '2024-06-11'), (219, 'premium', '2024-05-25'), (219, 'gold', '2024-06-12'), (220, 'standard', '2024-04-10'), (220, 'premium', '2024-06-01');",
+    "test_expected_columns": [
+      "kit_id",
+      "coverage_tier"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "gold"
+      ],
+      [
+        202,
+        "premium"
+      ],
+      [
+        203,
+        "premium"
+      ],
+      [
+        204,
+        "standard"
+      ],
+      [
+        205,
+        "gold"
+      ],
+      [
+        206,
+        "standard"
+      ],
+      [
+        207,
+        "premium"
+      ],
+      [
+        208,
+        "standard"
+      ],
+      [
+        209,
+        "standard"
+      ],
+      [
+        210,
+        "premium"
+      ],
+      [
+        211,
+        "standard"
+      ],
+      [
+        212,
+        "premium"
+      ],
+      [
+        213,
+        "gold"
+      ],
+      [
+        214,
+        "standard"
+      ],
+      [
+        215,
+        "premium"
+      ],
+      [
+        216,
+        "gold"
+      ],
+      [
+        217,
+        "standard"
+      ],
+      [
+        218,
+        "standard"
+      ],
+      [
+        219,
+        "gold"
+      ],
+      [
+        220,
+        "premium"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "same_rows",
+      "recipe": "rank-partition",
+      "composite_moves": [
+        "prep: establish entity list from kit_shipments",
+        "prep: apply date guard to coverage_tier_history (effective_date <= cutoff)",
+        "rank-partition: ROW_NUMBER() OVER (PARTITION BY kit_id ORDER BY effective_date DESC) on filtered history",
+        "enrich-join: LEFT JOIN entities to ranked history WHERE rn = 1",
+        "row-transform: COALESCE(coverage_tier, 'standard') to fill no-history cases"
+      ]
+    },
+    "hints": [
+      "Consider which kits might not have any coverage tier recorded before the cutoff date.",
+      "Use ROW_NUMBER() to find the most recent tier change on or before '2024-06-15' for each kit, then join back to the full kit list.",
+      "Start with a list of all kit_id values from kit_shipments, filter coverage_tier_history to effective_date <= '2024-06-15', rank with ROW_NUMBER() OVER (PARTITION BY kit_id ORDER BY effective_date DESC), LEFT JOIN where rn = 1, and COALESCE the tier to 'standard'."
+    ],
+    "answer_key": "WITH all_kits AS (\n  SELECT DISTINCT kit_id FROM kit_shipments\n),\nranked_tiers AS (\n  SELECT\n    kit_id,\n    coverage_tier,\n    ROW_NUMBER() OVER (PARTITION BY kit_id ORDER BY effective_date DESC) AS rn\n  FROM coverage_tier_history\n  WHERE effective_date <= DATE '2024-06-15'\n)\nSELECT\n  ak.kit_id,\n  COALESCE(rt.coverage_tier, 'standard') AS coverage_tier\nFROM all_kits ak\nLEFT JOIN ranked_tiers rt ON ak.kit_id = rt.kit_id AND rt.rn = 1\nORDER BY ak.kit_id;",
+    "_meta": {
+      "question_type": "point_in_time",
+      "original_qtype": "point_in_time",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-23T12:33:40.710535",
+      "problem_id": "40f5951bbdcc",
+      "validation_attempts": 1,
+      "scenario": "an at-home diagnostic test kit platform tracking kit shipped and results released",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "default_no_history",
+      "typecast_twist": false
+    }
+  },
+  "user_solution": "/*\nWrite a query that returns the insurance coverage tier in effect for each kit as of '2024-06-15'.\nEvery kit that has been shipped must appear in the result, even if it has no coverage tier history on or before that date.\nFor kits with no coverage history on or before the cutoff, return 'standard' as the default tier.\nReturn columns: kit_id, coverage_tier.\nOrder by kit_id ascending.\nA kit may have multiple tier changes recorded; you need the most recent one on or before the cutoff date.\nOne kit has a tier change recorded after the cutoff date; that change should be ignored.\n\n */\nWITH entities AS (\n    SELECT DISTINCT kit_id FROM kit_shipments\n),\nranked AS (\n    SELECT\n        kit_id,\n        coverage_tier,\n        ROW_NUMBER() OVER (PARTITION BY kit_id ORDER BY effective_date DESC) AS rn\n    FROM coverage_tier_history\n    WHERE effective_date <= '2024-06-15'\n)\nSELECT\n    e.kit_id,\n    COALESCE(coverage_tier, 'standard') AS coverage_tier\nFROM entities e\nLEFT JOIN ranked r ON e.kit_id = r.kit_id AND r.rn = 1\nORDER BY e.kit_id;\n\n\n",
+  "solved_at": "2026-06-23T12:43:12.090185"
+}

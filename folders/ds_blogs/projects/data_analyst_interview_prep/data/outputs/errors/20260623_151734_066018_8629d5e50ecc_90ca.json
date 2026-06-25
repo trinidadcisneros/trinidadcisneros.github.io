@@ -1,0 +1,88 @@
+{
+  "logged_at": "2026-06-23T15:17:34.066018",
+  "failure_kind": "wrong_answer",
+  "problem_id": "8629d5e50ecc",
+  "question_type": "root_cause_analysis",
+  "original_qtype": "random_any",
+  "subtype": "metric_drop_dimension",
+  "scenario": "a project management tool tracking sprint completion and task throughput",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "row-compare",
+  "title": "Sprint Velocity Drop: Find Responsible Team",
+  "prompt": "The engineering department's sprint throughput dashboard shows a concerning symptom: completed story points dropped 65% between Sprint 23 (ending 2024-03-15) and Sprint 24 (ending 2024-03-29). The VP of Engineering needs to understand which team is responsible for the decline before the quarterly planning meeting. Write a diagnostic query that identifies which team(s) experienced the largest absolute drop in completed story points between these two sprints, returning the team name, points completed in each sprint, and the absolute difference. Your query should surface the root cause team(s), not just the overall metric.",
+  "schema_ddl": "CREATE TABLE teams (\n  team_id INT PRIMARY KEY,\n  team_name TEXT NOT NULL\n);\n\nCREATE TABLE sprints (\n  sprint_id INT PRIMARY KEY,\n  sprint_name TEXT NOT NULL,\n  end_date DATE NOT NULL\n);\n\nCREATE TABLE tasks (\n  task_id INT PRIMARY KEY,\n  team_id INT NOT NULL REFERENCES teams(team_id),\n  sprint_id INT NOT NULL REFERENCES sprints(sprint_id),\n  story_points INT NOT NULL,\n  status TEXT NOT NULL\n);",
+  "answer_key": "WITH team_sprint_totals AS (\n  SELECT\n    t.team_name,\n    s.sprint_id,\n    COALESCE(SUM(tk.story_points) FILTER (WHERE tk.status = 'completed'), 0) AS points_completed\n  FROM teams t\n  CROSS JOIN sprints s\n  LEFT JOIN tasks tk ON t.team_id = tk.team_id AND s.sprint_id = tk.sprint_id\n  WHERE s.sprint_id IN (23, 24)\n  GROUP BY t.team_name, s.sprint_id\n),\nteam_comparison AS (\n  SELECT\n    team_name,\n    SUM(points_completed) FILTER (WHERE sprint_id = 23) AS sprint_23_points,\n    SUM(points_completed) FILTER (WHERE sprint_id = 24) AS sprint_24_points\n  FROM team_sprint_totals\n  GROUP BY team_name\n)\nSELECT\n  team_name,\n  sprint_23_points::TEXT,\n  sprint_24_points::TEXT,\n  (sprint_23_points - sprint_24_points)::TEXT AS absolute_drop\nFROM team_comparison\nWHERE sprint_23_points - sprint_24_points > 0\nORDER BY (sprint_23_points - sprint_24_points) DESC;",
+  "test_expected_columns": [
+    "team_name",
+    "sprint_23_points",
+    "sprint_24_points",
+    "absolute_drop"
+  ],
+  "test_expected_rows": [
+    [
+      "Platform",
+      "34",
+      "8",
+      "26"
+    ],
+    [
+      "Data Infrastructure",
+      "37",
+      "13",
+      "24"
+    ],
+    [
+      "Mobile",
+      "21",
+      "19",
+      "2"
+    ],
+    [
+      "Analytics",
+      "16",
+      "15",
+      "1"
+    ]
+  ],
+  "user_solution": "/* notes */\nWITH base AS (\n    SELECT\n        t.task_id,\n        t.team_id,\n        ts.team_name,\n    \ts.sprint_id,\n        s.sprint_name,\n        s.end_date,\n    \tt.story_points,\n    \tt.status\n    FROM sprints AS s\n    JOIN tasks AS t\n        USING(sprint_id)\n    JOIN teams AS ts\n        USING(team_id)\n    WHERE t.status = 'completed'\n)\nSELECT \n    team_name,\n    SUM(CASE WHEN sprint_name = 'Sprint 23' THEN story_points ELSE 0 END) AS sprint_23_points,\n    SUM(CASE WHEN sprint_name = 'Sprint 24' THEN story_points ELSE 0 END) AS sprint_24_points,\n    ABS(SUM(CASE WHEN sprint_name = 'Sprint 23' THEN story_points ELSE 0 END) - SUM(CASE WHEN sprint_name = 'Sprint 24' THEN story_points ELSE 0 END)) AS absolute_drop\nFROM base\nGROUP BY 1\nORDER BY 4 DESC;",
+  "error_message": null,
+  "your_columns": [
+    "team_name",
+    "sprint_23_points",
+    "sprint_24_points",
+    "absolute_drop"
+  ],
+  "your_rows": [
+    [
+      "Platform",
+      34,
+      8,
+      26
+    ],
+    [
+      "Data Infrastructure",
+      37,
+      13,
+      24
+    ],
+    [
+      "Mobile",
+      21,
+      19,
+      2
+    ],
+    [
+      "Analytics",
+      16,
+      15,
+      1
+    ],
+    [
+      "Security",
+      13,
+      13,
+      0
+    ]
+  ]
+}

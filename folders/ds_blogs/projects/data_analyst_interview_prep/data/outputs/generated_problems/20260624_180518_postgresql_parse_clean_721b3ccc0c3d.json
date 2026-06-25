@@ -1,0 +1,229 @@
+{
+  "title": "Clean Alert Acknowledgement Timestamps",
+  "prompt": "Your observability platform stores alert acknowledgement data with messy timestamp formatting. The `ack_timestamp_raw` column contains ISO-8601 timestamps as TEXT with inconsistent whitespace and capitalization in the timezone suffix. You need to parse these timestamps and extract useful time components for dashboards. Write a query that cleans the timestamp data and extracts: (1) the cleaned timestamp as a proper TIMESTAMP type in column `ack_timestamp`, (2) the hour of day (0-23) as an INTEGER in column `ack_hour`, (3) the start of the acknowledgement month (truncated to midnight on the 1st) as a TIMESTAMP in column `ack_month_start`, and (4) a human-readable format 'YYYY-MM-DD HH24:MI' as TEXT in column `ack_formatted`. Some rows have leading/trailing whitespace in the raw timestamp that must be removed. Order results by `alert_id`.",
+  "schema_ddl": "CREATE TABLE alert_acknowledgements (\n  alert_id INTEGER PRIMARY KEY,\n  alert_name TEXT NOT NULL,\n  severity TEXT NOT NULL,\n  ack_timestamp_raw TEXT,\n  ack_user TEXT NOT NULL\n);",
+  "example_input_data": "INSERT INTO alert_acknowledgements (alert_id, alert_name, severity, ack_timestamp_raw, ack_user) VALUES\n(101, 'CPU Spike Detected', 'critical', '2024-01-15 09:23:45+00', 'alice@example.com'),\n(102, 'Disk Usage High', 'warning', '  2024-01-15 14:07:12+00  ', 'bob@example.com'),\n(103, 'Memory Leak Alert', 'critical', '2024-02-03 22:45:30+00', 'alice@example.com'),\n(104, 'API Latency Spike', 'warning', '2024-02-18 03:15:22+00', 'charlie@example.com'),\n(105, 'Database Connection Lost', 'critical', NULL, 'bob@example.com'),\n(106, 'SSL Cert Expiring', 'info', '2024-03-01 00:00:01+00', 'alice@example.com');",
+  "example_output_columns": [
+    "alert_id",
+    "ack_timestamp",
+    "ack_hour",
+    "ack_month_start",
+    "ack_formatted"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "2024-01-15 09:23:45",
+      9.0,
+      "2024-01-01 00:00:00",
+      "2024-01-15 09:23"
+    ],
+    [
+      102,
+      "2024-01-15 14:07:12",
+      14.0,
+      "2024-01-01 00:00:00",
+      "2024-01-15 14:07"
+    ],
+    [
+      103,
+      "2024-02-03 22:45:30",
+      22.0,
+      "2024-02-01 00:00:00",
+      "2024-02-03 22:45"
+    ],
+    [
+      104,
+      "2024-02-18 03:15:22",
+      3.0,
+      "2024-02-01 00:00:00",
+      "2024-02-18 03:15"
+    ],
+    [
+      105,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      106,
+      "2024-03-01 00:00:01",
+      0.0,
+      "2024-03-01 00:00:00",
+      "2024-03-01 00:00"
+    ]
+  ],
+  "test_data": "INSERT INTO alert_acknowledgements (alert_id, alert_name, severity, ack_timestamp_raw, ack_user) VALUES\n(201, 'Network Timeout', 'critical', '2024-01-05 07:45:33+00', 'dave@example.com'),\n(202, 'Failed Health Check', 'warning', '   2024-01-05 23:59:59+00   ', 'eve@example.com'),\n(203, 'Cache Miss Rate High', 'warning', '2024-01-12 00:00:00+00', 'frank@example.com'),\n(204, 'Pod Restart Loop', 'critical', '2024-01-20 12:30:45+00', 'dave@example.com'),\n(205, 'Rate Limit Exceeded', 'warning', '2024-02-01 08:15:20+00', 'eve@example.com'),\n(206, 'Queue Depth Critical', 'critical', NULL, 'frank@example.com'),\n(207, 'Stale Data Detected', 'info', '2024-02-14 16:45:10+00', 'dave@example.com'),\n(208, 'Auth Token Expired', 'warning', '2024-02-28 23:59:58+00', 'eve@example.com'),\n(209, 'Connection Pool Exhausted', 'critical', '2024-03-05 01:22:33+00', 'frank@example.com'),\n(210, 'Backup Failed', 'critical', '  2024-03-10 18:10:05+00', 'dave@example.com'),\n(211, 'Metric Scrape Timeout', 'warning', '2024-03-15 11:40:27+00', 'eve@example.com'),\n(212, 'Log Volume Spike', 'info', '2024-03-20 06:05:15+00', 'frank@example.com'),\n(213, 'Deployment Rollback', 'critical', '2024-03-25 20:30:42+00', 'dave@example.com'),\n(214, 'Service Mesh Disconnect', 'critical', NULL, 'eve@example.com'),\n(215, 'Container OOMKilled', 'critical', '2024-03-31 23:59:59+00', 'frank@example.com'),\n(216, 'DNS Resolution Slow', 'warning', '2024-04-01 00:00:00+00', 'dave@example.com'),\n(217, 'TLS Handshake Failed', 'warning', '   2024-04-05 14:23:18+00   ', 'eve@example.com'),\n(218, 'Circuit Breaker Open', 'critical', '2024-04-10 09:12:44+00', 'frank@example.com');",
+  "test_expected_columns": [
+    "alert_id",
+    "ack_timestamp",
+    "ack_hour",
+    "ack_month_start",
+    "ack_formatted"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "2024-01-05 07:45:33",
+      7.0,
+      "2024-01-01 00:00:00",
+      "2024-01-05 07:45"
+    ],
+    [
+      202,
+      "2024-01-05 23:59:59",
+      23.0,
+      "2024-01-01 00:00:00",
+      "2024-01-05 23:59"
+    ],
+    [
+      203,
+      "2024-01-12 00:00:00",
+      0.0,
+      "2024-01-01 00:00:00",
+      "2024-01-12 00:00"
+    ],
+    [
+      204,
+      "2024-01-20 12:30:45",
+      12.0,
+      "2024-01-01 00:00:00",
+      "2024-01-20 12:30"
+    ],
+    [
+      205,
+      "2024-02-01 08:15:20",
+      8.0,
+      "2024-02-01 00:00:00",
+      "2024-02-01 08:15"
+    ],
+    [
+      206,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      207,
+      "2024-02-14 16:45:10",
+      16.0,
+      "2024-02-01 00:00:00",
+      "2024-02-14 16:45"
+    ],
+    [
+      208,
+      "2024-02-28 23:59:58",
+      23.0,
+      "2024-02-01 00:00:00",
+      "2024-02-28 23:59"
+    ],
+    [
+      209,
+      "2024-03-05 01:22:33",
+      1.0,
+      "2024-03-01 00:00:00",
+      "2024-03-05 01:22"
+    ],
+    [
+      210,
+      "2024-03-10 18:10:05",
+      18.0,
+      "2024-03-01 00:00:00",
+      "2024-03-10 18:10"
+    ],
+    [
+      211,
+      "2024-03-15 11:40:27",
+      11.0,
+      "2024-03-01 00:00:00",
+      "2024-03-15 11:40"
+    ],
+    [
+      212,
+      "2024-03-20 06:05:15",
+      6.0,
+      "2024-03-01 00:00:00",
+      "2024-03-20 06:05"
+    ],
+    [
+      213,
+      "2024-03-25 20:30:42",
+      20.0,
+      "2024-03-01 00:00:00",
+      "2024-03-25 20:30"
+    ],
+    [
+      214,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      215,
+      "2024-03-31 23:59:59",
+      23.0,
+      "2024-03-01 00:00:00",
+      "2024-03-31 23:59"
+    ],
+    [
+      216,
+      "2024-04-01 00:00:00",
+      0.0,
+      "2024-04-01 00:00:00",
+      "2024-04-01 00:00"
+    ],
+    [
+      217,
+      "2024-04-05 14:23:18",
+      14.0,
+      "2024-04-01 00:00:00",
+      "2024-04-05 14:23"
+    ],
+    [
+      218,
+      "2024-04-10 09:12:44",
+      9.0,
+      "2024-04-01 00:00:00",
+      "2024-04-10 09:12"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "row-transform",
+    "composite_moves": [
+      "TRIM whitespace from text column",
+      "CAST trimmed text to TIMESTAMP",
+      "EXTRACT hour component as INTEGER",
+      "DATE_TRUNC to month start",
+      "TO_CHAR for formatted display",
+      "Handle NULL values throughout"
+    ]
+  },
+  "hints": [
+    "You'll need to clean the raw text before converting it to a timestamp type.",
+    "Use TRIM or BTRIM to remove whitespace, then cast the result to TIMESTAMP. For extracting components, use EXTRACT(hour FROM ...) to get an integer hour, DATE_TRUNC('month', ...) to get the start of the month, and TO_CHAR(..., 'YYYY-MM-DD HH24:MI') for formatting.",
+    "The complete solution: SELECT alert_id, (TRIM(ack_timestamp_raw))::TIMESTAMP as ack_timestamp, EXTRACT(hour FROM (TRIM(ack_timestamp_raw))::TIMESTAMP)::INTEGER as ack_hour, DATE_TRUNC('month', (TRIM(ack_timestamp_raw))::TIMESTAMP) as ack_month_start, TO_CHAR((TRIM(ack_timestamp_raw))::TIMESTAMP, 'YYYY-MM-DD HH24:MI') as ack_formatted. NULL inputs will propagate through all transformations."
+  ],
+  "answer_key": "SELECT\n  alert_id,\n  (BTRIM(ack_timestamp_raw))::TIMESTAMP AS ack_timestamp,\n  EXTRACT(hour FROM (BTRIM(ack_timestamp_raw))::TIMESTAMP)::INTEGER AS ack_hour,\n  DATE_TRUNC('month', (BTRIM(ack_timestamp_raw))::TIMESTAMP) AS ack_month_start,\n  TO_CHAR((BTRIM(ack_timestamp_raw))::TIMESTAMP, 'YYYY-MM-DD HH24:MI') AS ack_formatted\nFROM alert_acknowledgements\nORDER BY alert_id;",
+  "_meta": {
+    "question_type": "parse_clean",
+    "original_qtype": "parse_clean",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-24T18:05:18.570723",
+    "problem_id": "721b3ccc0c3d",
+    "validation_attempts": 1,
+    "scenario": "an observability platform tracking alert acknowledge time and MTTR",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "date_extract",
+    "typecast_twist": false
+  }
+}

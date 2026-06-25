@@ -1,0 +1,107 @@
+{
+  "problem": {
+    "title": "Sprint Velocity Drop: Find Responsible Team",
+    "prompt": "The engineering department's sprint throughput dashboard shows a concerning symptom: completed story points dropped 65% between Sprint 23 (ending 2024-03-15) and Sprint 24 (ending 2024-03-29). The VP of Engineering needs to understand which team is responsible for the decline before the quarterly planning meeting. Write a diagnostic query that identifies which team(s) experienced the largest absolute drop in completed story points between these two sprints, returning the team name, points completed in each sprint, and the absolute difference. Your query should surface the root cause team(s), not just the overall metric.",
+    "schema_ddl": "CREATE TABLE teams (\n  team_id INT PRIMARY KEY,\n  team_name TEXT NOT NULL\n);\n\nCREATE TABLE sprints (\n  sprint_id INT PRIMARY KEY,\n  sprint_name TEXT NOT NULL,\n  end_date DATE NOT NULL\n);\n\nCREATE TABLE tasks (\n  task_id INT PRIMARY KEY,\n  team_id INT NOT NULL REFERENCES teams(team_id),\n  sprint_id INT NOT NULL REFERENCES sprints(sprint_id),\n  story_points INT NOT NULL,\n  status TEXT NOT NULL\n);",
+    "example_input_data": "INSERT INTO teams (team_id, team_name) VALUES\n(1, 'Platform'),\n(2, 'Mobile'),\n(3, 'Analytics');\n\nINSERT INTO sprints (sprint_id, sprint_name, end_date) VALUES\n(23, 'Sprint 23', '2024-03-15'),\n(24, 'Sprint 24', '2024-03-29');\n\nINSERT INTO tasks (task_id, team_id, sprint_id, story_points, status) VALUES\n(101, 1, 23, 8, 'completed'),\n(102, 1, 23, 5, 'completed'),\n(103, 2, 23, 13, 'completed'),\n(104, 3, 23, 8, 'completed'),\n(105, 1, 24, 3, 'completed'),\n(106, 2, 24, 11, 'completed'),\n(107, 3, 24, 5, 'completed');",
+    "example_output_columns": [
+      "team_name",
+      "sprint_23_points",
+      "sprint_24_points",
+      "absolute_drop"
+    ],
+    "example_output_rows": [
+      [
+        "Platform",
+        "13",
+        "3",
+        "10"
+      ],
+      [
+        "Analytics",
+        "8",
+        "5",
+        "3"
+      ],
+      [
+        "Mobile",
+        "13",
+        "11",
+        "2"
+      ]
+    ],
+    "test_data": "INSERT INTO teams (team_id, team_name) VALUES\n(1, 'Platform'),\n(2, 'Mobile'),\n(3, 'Analytics'),\n(4, 'Data Infrastructure'),\n(5, 'Security');\n\nINSERT INTO sprints (sprint_id, sprint_name, end_date) VALUES\n(23, 'Sprint 23', '2024-03-15'),\n(24, 'Sprint 24', '2024-03-29');\n\nINSERT INTO tasks (task_id, team_id, sprint_id, story_points, status) VALUES\n(101, 1, 23, 8, 'completed'),\n(102, 1, 23, 5, 'completed'),\n(103, 1, 23, 13, 'completed'),\n(104, 1, 23, 8, 'completed'),\n(105, 2, 23, 13, 'completed'),\n(106, 2, 23, 8, 'completed'),\n(107, 3, 23, 8, 'completed'),\n(108, 3, 23, 5, 'completed'),\n(109, 3, 23, 3, 'completed'),\n(110, 4, 23, 21, 'completed'),\n(111, 4, 23, 13, 'completed'),\n(112, 5, 23, 5, 'completed'),\n(113, 5, 23, 8, 'completed'),\n(114, 1, 24, 3, 'completed'),\n(115, 1, 24, 5, 'completed'),\n(116, 2, 24, 11, 'completed'),\n(117, 2, 24, 8, 'completed'),\n(118, 3, 24, 5, 'completed'),\n(119, 3, 24, 8, 'completed'),\n(120, 3, 24, 2, 'completed'),\n(121, 4, 24, 8, 'completed'),\n(122, 5, 24, 5, 'completed'),\n(123, 5, 24, 3, 'completed'),\n(124, 5, 24, 5, 'completed'),\n(125, 1, 23, 5, 'in_progress'),\n(126, 2, 24, 8, 'blocked'),\n(127, 4, 23, 3, 'completed'),\n(128, 4, 24, 5, 'completed');",
+    "test_expected_columns": [
+      "team_name",
+      "sprint_23_points",
+      "sprint_24_points",
+      "absolute_drop"
+    ],
+    "test_expected_rows": [
+      [
+        "Platform",
+        "34",
+        "8",
+        "26"
+      ],
+      [
+        "Data Infrastructure",
+        "37",
+        "13",
+        "24"
+      ],
+      [
+        "Mobile",
+        "21",
+        "19",
+        "2"
+      ],
+      [
+        "Analytics",
+        "16",
+        "15",
+        "1"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "row-compare",
+      "composite_moves": [
+        "join tasks to teams and sprints",
+        "filter to completed tasks only",
+        "group by team and sprint to compute total points per team per sprint",
+        "pivot sprint totals into columns (sprint_23_points, sprint_24_points)",
+        "compute absolute drop (sprint_23_points - sprint_24_points)",
+        "filter to teams with drop > 0",
+        "order by absolute drop descending to surface largest contributors"
+      ]
+    },
+    "hints": [
+      "This is a metric-drop-by-dimension problem. You need to break down the overall decline by team to find which team(s) drove the drop.",
+      "Use a CTE to compute each team's completed story points per sprint, then pivot those sprint totals into side-by-side columns so you can subtract them. A window function or CASE expression can help pivot the data.",
+      "Build a CTE that groups by team_id and sprint_id with SUM(story_points) WHERE status = 'completed', then use FILTER (WHERE sprint_id = X) aggregates or a self-join to get sprint_23_points and sprint_24_points in the same row. Compute the drop as sprint_23_points - sprint_24_points, filter WHERE drop > 0, and ORDER BY drop DESC."
+    ],
+    "answer_key": "WITH team_sprint_totals AS (\n  SELECT\n    t.team_name,\n    s.sprint_id,\n    COALESCE(SUM(tk.story_points) FILTER (WHERE tk.status = 'completed'), 0) AS points_completed\n  FROM teams t\n  CROSS JOIN sprints s\n  LEFT JOIN tasks tk ON t.team_id = tk.team_id AND s.sprint_id = tk.sprint_id\n  WHERE s.sprint_id IN (23, 24)\n  GROUP BY t.team_name, s.sprint_id\n),\nteam_comparison AS (\n  SELECT\n    team_name,\n    SUM(points_completed) FILTER (WHERE sprint_id = 23) AS sprint_23_points,\n    SUM(points_completed) FILTER (WHERE sprint_id = 24) AS sprint_24_points\n  FROM team_sprint_totals\n  GROUP BY team_name\n)\nSELECT\n  team_name,\n  sprint_23_points::TEXT,\n  sprint_24_points::TEXT,\n  (sprint_23_points - sprint_24_points)::TEXT AS absolute_drop\nFROM team_comparison\nWHERE sprint_23_points - sprint_24_points > 0\nORDER BY (sprint_23_points - sprint_24_points) DESC;",
+    "rca_explanation": "The diagnostic works by pivoting team-level sprint totals into side-by-side columns using FILTER (WHERE sprint_id = X) aggregates, then computing the absolute drop per team. A naive query that only reports the overall metric (SUM across all teams for each sprint) would show the 65% decline but wouldn't reveal that the Platform team's 10-point drop (or in the larger test dataset, Platform's 26-point and Data Infrastructure's 24-point drops) are the root causes. The CTE chain isolates the dimension (team) responsible, surfacing exactly which team(s) the VP should investigate. The use of CROSS JOIN ensures teams with zero completed points in a sprint still appear (avoiding a missing-row bug), and the FILTER clause cleanly pivots without a self-join.",
+    "_meta": {
+      "question_type": "root_cause_analysis",
+      "original_qtype": "random_any",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-23T14:54:29.424392",
+      "problem_id": "8629d5e50ecc",
+      "validation_attempts": 1,
+      "scenario": "a project management tool tracking sprint completion and task throughput",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "metric_drop_dimension",
+      "typecast_twist": false
+    }
+  },
+  "user_solution": "/* notes */\nWITH base AS (\n    SELECT\n        t.task_id,\n        t.team_id,\n        ts.team_name,\n    \ts.sprint_id,\n        s.sprint_name,\n        s.end_date,\n    \tt.story_points,\n    \tt.status\n    FROM sprints AS s\n    JOIN tasks AS t\n        USING(sprint_id)\n    JOIN teams AS ts\n        USING(team_id)\n    WHERE t.status = 'completed'\n)\nSELECT \n    team_name,\n    SUM(CASE WHEN sprint_name = 'Sprint 23' THEN story_points ELSE 0 END) AS sprint_23_points,\n    SUM(CASE WHEN sprint_name = 'Sprint 24' THEN story_points ELSE 0 END) AS sprint_24_points,\n    ABS(SUM(CASE WHEN sprint_name = 'Sprint 23' THEN story_points ELSE 0 END) - SUM(CASE WHEN sprint_name = 'Sprint 24' THEN story_points ELSE 0 END)) AS absolute_drop\nFROM base\nGROUP BY 1\nHAVING ABS(SUM(CASE WHEN sprint_name = 'Sprint 23' THEN story_points ELSE 0 END) - SUM(CASE WHEN sprint_name = 'Sprint 24' THEN story_points ELSE 0 END)) > 0\nORDER BY 4 DESC;",
+  "solved_at": "2026-06-23T15:17:46.761044"
+}

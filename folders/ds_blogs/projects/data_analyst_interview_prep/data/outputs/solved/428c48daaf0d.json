@@ -1,0 +1,69 @@
+{
+  "problem": {
+    "title": "Find Consistent High-Spending Delivery Customers",
+    "prompt": "A food delivery service wants to identify loyal customers who maintained high spending across multiple months. Write a query that returns the customer_id and name of customers who placed orders totaling at least $150 in EACH of June 2024 AND July 2024. The total is calculated by summing (quantity * unit_price) for all order items in that month. Only customers meeting the threshold in BOTH months should be included. Order results by customer_id ascending.",
+    "schema_ddl": "CREATE TABLE customers (customer_id INT PRIMARY KEY, name VARCHAR(100)); CREATE TABLE orders (order_id INT PRIMARY KEY, customer_id INT, order_date DATE); CREATE TABLE order_items (item_id INT PRIMARY KEY, order_id INT, quantity INT, unit_price DECIMAL(10,2));",
+    "example_input_data": "INSERT INTO customers (customer_id, name) VALUES (1, 'Alice Chen'), (2, 'Bob Martinez'), (3, 'Carol Singh'); INSERT INTO orders (order_id, customer_id, order_date) VALUES (101, 1, '2024-06-05'), (102, 1, '2024-07-10'), (103, 2, '2024-06-15'), (104, 2, '2024-08-20'), (105, 3, '2024-06-25'), (106, 3, '2024-07-28'); INSERT INTO order_items (item_id, order_id, quantity, unit_price) VALUES (1, 101, 3, 55.00), (2, 102, 4, 40.00), (3, 103, 5, 35.00), (4, 104, 2, 80.00), (5, 105, 6, 30.00), (6, 106, 2, 20.00);",
+    "example_output_columns": [
+      "customer_id",
+      "name"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "Alice Chen"
+      ]
+    ],
+    "test_data": "INSERT INTO customers (customer_id, name) VALUES (1, 'Alice Chen'), (2, 'Bob Martinez'), (3, 'Carol Singh'), (4, 'David Park'), (5, 'Emma Wilson'), (6, 'Frank Lee'), (7, 'Grace Taylor'); INSERT INTO orders (order_id, customer_id, order_date) VALUES (101, 1, '2024-06-05'), (102, 1, '2024-06-12'), (103, 1, '2024-07-10'), (104, 1, '2024-07-22'), (105, 2, '2024-06-15'), (106, 2, '2024-06-20'), (107, 2, '2024-08-05'), (108, 3, '2024-06-25'), (109, 3, '2024-07-28'), (110, 3, '2024-08-10'), (111, 4, '2024-06-08'), (112, 4, '2024-07-15'), (113, 4, '2024-07-25'), (114, 5, '2024-06-10'), (115, 5, '2024-06-18'), (116, 5, '2024-07-12'), (117, 6, '2024-07-05'), (118, 6, '2024-07-20'), (119, 7, '2024-05-15'), (120, 7, '2024-09-10'); INSERT INTO order_items (item_id, order_id, quantity, unit_price) VALUES (1, 101, 3, 30.00), (2, 102, 2, 35.00), (3, 103, 4, 40.00), (4, 104, 1, 10.00), (5, 105, 5, 32.00), (6, 106, 1, 5.00), (7, 107, 3, 60.00), (8, 108, 6, 28.00), (9, 109, 2, 15.00), (10, 110, 4, 45.00), (11, 111, 2, 80.00), (12, 112, 3, 55.00), (13, 113, 1, 5.00), (14, 114, 4, 40.00), (15, 115, 1, 12.00), (16, 116, 5, 28.00), (17, 117, 2, 90.00), (18, 118, 1, 70.00), (19, 119, 3, 100.00), (20, 120, 2, 80.00);",
+    "test_expected_columns": [
+      "customer_id",
+      "name"
+    ],
+    "test_expected_rows": [
+      [
+        1,
+        "Alice Chen"
+      ],
+      [
+        4,
+        "David Park"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "reshape",
+      "composite_moves": [
+        "join customers + orders + order_items",
+        "compute quantity * unit_price per item",
+        "group by customer",
+        "CASE per month in HAVING to enforce threshold in EACH required month"
+      ]
+    },
+    "hints": [
+      "You need to filter customers based on their spending in specific months, not across all months combined.",
+      "Use CASE expressions inside SUM to calculate totals for each month separately, then apply thresholds in the HAVING clause.",
+      "Group by customer_id and use two separate SUM(CASE WHEN EXTRACT(YEAR FROM order_date) = 2024 AND EXTRACT(MONTH FROM order_date) = 6 THEN quantity * unit_price ELSE 0 END) conditions in HAVING."
+    ],
+    "answer_key": "SELECT c.customer_id, c.name FROM customers AS c JOIN orders AS o ON c.customer_id = o.customer_id JOIN order_items AS oi ON o.order_id = oi.order_id GROUP BY c.customer_id, c.name HAVING SUM(CASE WHEN EXTRACT(YEAR FROM o.order_date) = 2024 AND EXTRACT(MONTH FROM o.order_date) = 6 THEN oi.quantity * oi.unit_price ELSE 0 END) >= 150 AND SUM(CASE WHEN EXTRACT(YEAR FROM o.order_date) = 2024 AND EXTRACT(MONTH FROM o.order_date) = 7 THEN oi.quantity * oi.unit_price ELSE 0 END) >= 150 ORDER BY c.customer_id ASC;",
+    "_meta": {
+      "question_type": "pivot",
+      "original_qtype": "random_any",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-23T14:43:54.427175",
+      "problem_id": "428c48daaf0d",
+      "validation_attempts": 2,
+      "scenario": "a food delivery service tracking order completion and delivery time",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": "threshold_per_category",
+      "subtype": null,
+      "typecast_twist": false
+    }
+  },
+  "user_solution": "/*\nWrite a query that returns the customer_id and name of customers who placed orders totaling at least $150 in EACH of June 2024 AND July 2024.\nThe total is calculated by summing (quantity * unit_price) for all order items in that month.\nOnly customers meeting the threshold in BOTH months should be included.\nOrder results by customer_id ascending.\n*/\nSELECT\n    c.customer_id,\n    c.name\nFROM customers AS c\nJOIN orders AS o\n    USING(customer_id)\nJOIN order_items AS oi\n    USING(order_id)\nGROUP BY 1, 2\nHAVING SUM(CASE WHEN DATE_TRUNC('month', order_date) = '2024-06-01' THEN (oi.quantity * oi. unit_price) END) >= 150 AND\n        SUM(CASE WHEN DATE_TRUNC('month', order_date) = '2024-07-01' THEN (oi.quantity * oi. unit_price) END) >= 150\nORDER BY 1;\n",
+  "solved_at": "2026-06-23T14:53:34.012067"
+}

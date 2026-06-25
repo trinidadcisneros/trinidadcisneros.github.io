@@ -1,0 +1,130 @@
+{
+  "title": "Active Subscription Tier As-Of Cutoff Date",
+  "prompt": "A streaming video service tracks subscription tier changes in a history table. Each row records when a viewer's tier became effective. Write a query that returns every viewer's active subscription tier as of '2024-06-15'. If a viewer has multiple tier changes, use the most recent one on or before the cutoff. If a viewer has no tier record on or before the cutoff (all their tier changes occurred after that date), return 'free' as their tier. Return columns: viewer_id, active_tier. Order results by viewer_id ascending.",
+  "schema_ddl": "CREATE TABLE subscription_history (\n  viewer_id INTEGER NOT NULL,\n  tier VARCHAR(20) NOT NULL,\n  effective_date DATE NOT NULL\n);",
+  "example_input_data": "INSERT INTO subscription_history (viewer_id, tier, effective_date) VALUES\n(101, 'basic', '2024-03-01'),\n(101, 'premium', '2024-05-15'),\n(101, 'standard', '2024-07-01'),\n(102, 'premium', '2024-04-10'),\n(102, 'basic', '2024-06-10'),\n(103, 'standard', '2024-06-20'),\n(104, 'basic', '2024-02-01'),\n(104, 'premium', '2024-06-01');",
+  "example_output_columns": [
+    "viewer_id",
+    "active_tier"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "premium"
+    ],
+    [
+      102,
+      "basic"
+    ],
+    [
+      103,
+      "free"
+    ],
+    [
+      104,
+      "premium"
+    ]
+  ],
+  "test_data": "INSERT INTO subscription_history (viewer_id, tier, effective_date) VALUES\n(201, 'basic', '2023-12-01'),\n(201, 'standard', '2024-01-15'),\n(201, 'premium', '2024-03-10'),\n(201, 'standard', '2024-06-01'),\n(201, 'basic', '2024-08-01'),\n(202, 'premium', '2024-05-20'),\n(202, 'standard', '2024-06-15'),\n(202, 'basic', '2024-07-10'),\n(203, 'standard', '2024-06-16'),\n(203, 'premium', '2024-07-01'),\n(204, 'basic', '2024-02-28'),\n(204, 'premium', '2024-04-15'),\n(204, 'standard', '2024-06-14'),\n(204, 'basic', '2024-06-15'),\n(205, 'premium', '2024-06-20'),\n(206, 'standard', '2024-01-01'),\n(206, 'premium', '2024-06-10'),\n(207, 'basic', '2024-06-15'),\n(208, 'standard', '2024-07-01'),\n(208, 'premium', '2024-08-15'),\n(209, 'premium', '2024-03-01'),\n(209, 'basic', '2024-06-16'),\n(210, 'standard', '2024-05-01'),\n(211, 'basic', '2024-06-15'),\n(211, 'premium', '2024-06-15'),\n(212, 'premium', '2024-12-01'),\n(213, 'standard', '2024-06-14'),\n(213, 'premium', '2024-06-20'),\n(214, 'basic', '2024-06-01'),\n(215, 'premium', '2024-06-16');",
+  "test_expected_columns": [
+    "viewer_id",
+    "active_tier"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "standard"
+    ],
+    [
+      202,
+      "standard"
+    ],
+    [
+      203,
+      "free"
+    ],
+    [
+      204,
+      "basic"
+    ],
+    [
+      205,
+      "free"
+    ],
+    [
+      206,
+      "premium"
+    ],
+    [
+      207,
+      "basic"
+    ],
+    [
+      208,
+      "free"
+    ],
+    [
+      209,
+      "premium"
+    ],
+    [
+      210,
+      "standard"
+    ],
+    [
+      211,
+      "basic"
+    ],
+    [
+      212,
+      "free"
+    ],
+    [
+      213,
+      "standard"
+    ],
+    [
+      214,
+      "basic"
+    ],
+    [
+      215,
+      "free"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "rank-partition",
+    "composite_moves": [
+      "1. Extract distinct viewer_id list from history table",
+      "2. Rank subscription_history rows by effective_date DESC per viewer_id, filtering effective_date <= cutoff",
+      "3. LEFT JOIN viewer list to ranked rows where rn = 1",
+      "4. COALESCE missing tier to 'free' default",
+      "5. ORDER BY viewer_id"
+    ]
+  },
+  "hints": [
+    "Consider which tier change was most recent before or on the cutoff date for each viewer.",
+    "Use ROW_NUMBER() to rank tier changes by effective_date descending, but only include rows where effective_date is on or before '2024-06-15'.",
+    "Build a distinct list of all viewer_id values, then LEFT JOIN the ranked tier changes (keeping only rn=1) and use COALESCE to supply 'free' when no history exists on or before the cutoff."
+  ],
+  "answer_key": "WITH all_viewers AS (\n  SELECT DISTINCT viewer_id\n  FROM subscription_history\n),\nranked_tiers AS (\n  SELECT\n    viewer_id,\n    tier,\n    ROW_NUMBER() OVER (PARTITION BY viewer_id ORDER BY effective_date DESC) AS rn\n  FROM subscription_history\n  WHERE effective_date <= '2024-06-15'\n)\nSELECT\n  av.viewer_id,\n  COALESCE(rt.tier, 'free') AS active_tier\nFROM all_viewers av\nLEFT JOIN ranked_tiers rt ON av.viewer_id = rt.viewer_id AND rt.rn = 1\nORDER BY av.viewer_id;",
+  "_meta": {
+    "question_type": "point_in_time",
+    "original_qtype": "point_in_time",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-23T10:57:17.089197",
+    "problem_id": "20e32daacc89",
+    "validation_attempts": 1,
+    "scenario": "a streaming video service tracking watch time and binge depth",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "default_no_history",
+    "typecast_twist": false
+  }
+}

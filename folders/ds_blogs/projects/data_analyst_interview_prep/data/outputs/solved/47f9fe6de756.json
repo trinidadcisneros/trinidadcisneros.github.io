@@ -1,0 +1,139 @@
+{
+  "problem": {
+    "title": "Sprint Velocity Tracking: Fill-Forward Daily Snapshot",
+    "prompt": "You are building a daily velocity dashboard for a project management tool. The `sprint_velocity_history` table records the story points completed per day for each sprint, but entries are only added when the velocity changes. Your task is to produce a daily snapshot for sprint 'SPRINT-42' covering all 10 days from '2024-03-01' through '2024-03-10' inclusive, showing the velocity in effect each day. Days without an explicit history row should inherit the most recent velocity from a prior day. If a day occurs before the sprint's first history entry, the velocity should be NULL. The output must have columns `report_date` and `velocity_on_date`, ordered by `report_date` ascending.",
+    "schema_ddl": "CREATE TABLE sprint_velocity_history (sprint_id VARCHAR(50) NOT NULL, effective_date TEXT NOT NULL, story_points_completed TEXT NOT NULL, recorded_at TIMESTAMP NOT NULL);",
+    "example_input_data": "INSERT INTO sprint_velocity_history (sprint_id, effective_date, story_points_completed, recorded_at) VALUES ('SPRINT-42', '2024-03-01', '0', '2024-03-01 08:00:00'), ('SPRINT-42', '2024-03-03', '5', '2024-03-03 10:15:00'), ('SPRINT-42', '2024-03-05', '13', '2024-03-05 14:30:00'), ('SPRINT-42', '2024-03-09', '21', '2024-03-09 16:00:00'), ('SPRINT-99', '2024-03-02', '8', '2024-03-02 09:00:00'), ('SPRINT-99', '2024-03-06', '15', '2024-03-06 11:00:00');",
+    "example_output_columns": [
+      "report_date",
+      "velocity_on_date"
+    ],
+    "example_output_rows": [
+      [
+        "2024-03-01",
+        0
+      ],
+      [
+        "2024-03-02",
+        0
+      ],
+      [
+        "2024-03-03",
+        5
+      ],
+      [
+        "2024-03-04",
+        5
+      ],
+      [
+        "2024-03-05",
+        13
+      ],
+      [
+        "2024-03-06",
+        13
+      ],
+      [
+        "2024-03-07",
+        13
+      ],
+      [
+        "2024-03-08",
+        13
+      ],
+      [
+        "2024-03-09",
+        21
+      ],
+      [
+        "2024-03-10",
+        21
+      ]
+    ],
+    "test_data": "INSERT INTO sprint_velocity_history (sprint_id, effective_date, story_points_completed, recorded_at) VALUES ('SPRINT-42', '2024-03-01', '0', '2024-03-01 08:00:00'), ('SPRINT-42', '2024-03-02', '3', '2024-03-02 09:30:00'), ('SPRINT-42', '2024-03-02', '4', '2024-03-02 14:00:00'), ('SPRINT-42', '2024-03-04', '9', '2024-03-04 10:00:00'), ('SPRINT-42', '2024-03-07', '16', '2024-03-07 11:30:00'), ('SPRINT-42', '2024-03-07', '17', '2024-03-07 15:45:00'), ('SPRINT-42', '2024-03-10', '25', '2024-03-10 17:00:00'), ('SPRINT-99', '2024-03-01', '2', '2024-03-01 08:30:00'), ('SPRINT-99', '2024-03-03', '7', '2024-03-03 12:00:00'), ('SPRINT-99', '2024-03-05', '14', '2024-03-05 09:15:00'), ('SPRINT-99', '2024-03-08', '22', '2024-03-08 13:30:00'), ('SPRINT-101', '2024-03-15', '5', '2024-03-15 10:00:00'), ('SPRINT-200', '2024-02-20', '12', '2024-02-20 11:00:00'), ('SPRINT-200', '2024-02-25', '18', '2024-02-25 14:00:00');",
+    "test_expected_columns": [
+      "report_date",
+      "velocity_on_date"
+    ],
+    "test_expected_rows": [
+      [
+        "2024-03-01",
+        0
+      ],
+      [
+        "2024-03-02",
+        4
+      ],
+      [
+        "2024-03-03",
+        4
+      ],
+      [
+        "2024-03-04",
+        9
+      ],
+      [
+        "2024-03-05",
+        9
+      ],
+      [
+        "2024-03-06",
+        9
+      ],
+      [
+        "2024-03-07",
+        17
+      ],
+      [
+        "2024-03-08",
+        17
+      ],
+      [
+        "2024-03-09",
+        17
+      ],
+      [
+        "2024-03-10",
+        25
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "generate date spine for the range 2024-03-01 to 2024-03-10",
+        "cast effective_date from TEXT to DATE",
+        "cast story_points_completed from TEXT to INTEGER",
+        "for each spine date, lateral subquery: most recent history row on/before (ORDER BY effective_date DESC, recorded_at DESC LIMIT 1)",
+        "WHERE sprint_id = 'SPRINT-42' AND effective_date::date <= spine_date",
+        "SELECT spine_date, story_points_completed (or NULL if no row found)"
+      ]
+    },
+    "hints": [
+      "You need to produce exactly 10 rows, one for each day in the range, even if some days have no explicit history entry.",
+      "Use generate_series to create a date spine, then for each date find the most recent velocity record on or before that date using a subquery with ORDER BY and LIMIT 1.",
+      "The effective_date and story_points_completed columns are stored as text; you must cast them to their proper types before date comparisons and output. When multiple history rows share the same effective_date, break ties by recorded_at descending."
+    ],
+    "answer_key": "WITH date_spine AS (\n  SELECT generate_series(\n    DATE '2024-03-01',\n    DATE '2024-03-10',\n    INTERVAL '1 day'\n  )::date AS report_date\n)\nSELECT\n  ds.report_date,\n  (\n    SELECT story_points_completed::integer\n    FROM sprint_velocity_history h\n    WHERE h.sprint_id = 'SPRINT-42'\n      AND h.effective_date::date <= ds.report_date\n    ORDER BY h.effective_date::date DESC, h.recorded_at DESC\n    LIMIT 1\n  ) AS velocity_on_date\nFROM date_spine ds\nORDER BY ds.report_date;",
+    "_meta": {
+      "question_type": "point_in_time",
+      "original_qtype": "point_in_time",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-23T09:57:22.654269",
+      "problem_id": "47f9fe6de756",
+      "validation_attempts": 1,
+      "scenario": "a project management tool tracking sprint completion and task throughput",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "fill_forward",
+      "typecast_twist": true
+    }
+  },
+  "user_solution": "/* \nSELECT d.day, e.entity,\n  (SELECT val FROM hist h\n   WHERE h.entity = e.entity AND h.ts <= d.day\n   ORDER BY h.ts DESC LIMIT 1) AS val_as_of\nFROM calendar d CROSS JOIN entities e;\n*/\n\n\nSELECT d.report_date,\n       (SELECT h.story_points_completed::int\n        FROM sprint_velocity_history AS h\n        WHERE h.sprint_id = 'SPRINT-42'\n          AND h.effective_date::date <= d.report_date\n        ORDER BY h.effective_date::date DESC,   -- newest change first ...\n                 h.recorded_at DESC             -- ... and if two share a date, the latest entry wins\n        LIMIT 1) AS velocity_on_date\nFROM (\n    SELECT generate_series('2024-03-01'::date, '2024-03-10'::date, INTERVAL '1 day')::date AS report_date\n) AS d\nORDER BY d.report_date;\n",
+  "solved_at": "2026-06-23T10:41:11.996128"
+}

@@ -1,0 +1,98 @@
+{
+  "title": "Creator Battle Points from Head-to-Head Challenges",
+  "prompt": "A short video platform runs weekly creator battles where two creators compete head-to-head for total watch minutes. Each battle is recorded as one row in the `battles` table with both `creator_a_id` and `creator_b_id`, along with each creator's `minutes_a` and `minutes_b`. Points are awarded as follows: the creator with more watch minutes earns 3 points, a tie earns each creator 1 point, and the loser earns 0 points. Write a query that returns every registered creator's total points from all battles they participated in (as either creator A or creator B). Creators who have never participated in a battle should appear with 0 points. Output columns: `creator_name`, `total_points`. Order by `total_points` DESC, then `creator_name` ASC.",
+  "schema_ddl": "CREATE TABLE creators (creator_id INT PRIMARY KEY, creator_name VARCHAR(100)); CREATE TABLE battles (battle_id INT PRIMARY KEY, creator_a_id INT, creator_b_id INT, minutes_a INT, minutes_b INT, battle_date DATE);",
+  "example_input_data": "INSERT INTO creators (creator_id, creator_name) VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Charlie'), (4, 'Diana'); INSERT INTO battles (battle_id, creator_a_id, creator_b_id, minutes_a, minutes_b, battle_date) VALUES (101, 1, 2, 120, 90, '2024-01-10'), (102, 2, 3, 150, 150, '2024-01-12'), (103, 3, 1, 80, 100, '2024-01-15'), (104, 1, 2, 110, 95, '2024-01-18');",
+  "example_output_columns": [
+    "creator_name",
+    "total_points"
+  ],
+  "example_output_rows": [
+    [
+      "Alice",
+      "9"
+    ],
+    [
+      "Bob",
+      "1"
+    ],
+    [
+      "Charlie",
+      "1"
+    ],
+    [
+      "Diana",
+      "0"
+    ]
+  ],
+  "test_data": "INSERT INTO creators (creator_id, creator_name) VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Charlie'), (4, 'Diana'), (5, 'Eve'), (6, 'Frank'), (7, 'Grace'); INSERT INTO battles (battle_id, creator_a_id, creator_b_id, minutes_a, minutes_b, battle_date) VALUES (101, 1, 2, 120, 90, '2024-01-10'), (102, 2, 3, 150, 150, '2024-01-12'), (103, 3, 1, 80, 100, '2024-01-15'), (104, 1, 2, 110, 95, '2024-01-18'), (105, 5, 6, 200, 180, '2024-01-20'), (106, 6, 5, 160, 160, '2024-01-22'), (107, 1, 5, 140, 145, '2024-01-25'), (108, 3, 6, 130, 130, '2024-01-28'), (109, 2, 1, 100, 120, '2024-02-01'), (110, 5, 3, 175, 170, '2024-02-05'), (111, 6, 2, 110, 125, '2024-02-08'), (112, 1, 6, 155, 150, '2024-02-12'), (113, 3, 5, 95, 95, '2024-02-15'), (114, 2, 5, 140, 160, '2024-02-18'), (115, 6, 1, 105, 110, '2024-02-22'), (116, 5, 2, 190, 185, '2024-02-25'), (117, 3, 2, 125, 125, '2024-02-28'), (118, 1, 3, 165, 155, '2024-03-03');",
+  "test_expected_columns": [
+    "creator_name",
+    "total_points"
+  ],
+  "test_expected_rows": [
+    [
+      "Alice",
+      "21"
+    ],
+    [
+      "Eve",
+      "17"
+    ],
+    [
+      "Bob",
+      "5"
+    ],
+    [
+      "Charlie",
+      "4"
+    ],
+    [
+      "Frank",
+      "2"
+    ],
+    [
+      "Diana",
+      "0"
+    ],
+    [
+      "Grace",
+      "0"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "normalize-bidirectional",
+    "composite_moves": [
+      "UNION ALL to split each battle row into two rows (one per creator, carrying own minutes and opponent minutes)",
+      "CASE expression to score each row: 3 points if own > opponent, 1 if equal, 0 if less",
+      "GROUP BY creator to sum points",
+      "LEFT JOIN from creators dimension to aggregated results to include creators with zero battles",
+      "COALESCE to show 0 for creators with no battles"
+    ]
+  },
+  "hints": [
+    "Each battle row contains two creators; you need to consider both perspectives.",
+    "Use UNION ALL to create one row per creator per battle, then compute points by comparing each creator's minutes to their opponent's.",
+    "LEFT JOIN the creators table to the aggregated battle results so creators who never battled still appear with 0 points."
+  ],
+  "answer_key": "WITH battle_results AS (\n  SELECT creator_a_id AS creator_id, \n         CASE \n           WHEN minutes_a > minutes_b THEN 3 \n           WHEN minutes_a = minutes_b THEN 1 \n           ELSE 0 \n         END AS points\n  FROM battles\n  UNION ALL\n  SELECT creator_b_id, \n         CASE \n           WHEN minutes_b > minutes_a THEN 3 \n           WHEN minutes_b = minutes_a THEN 1 \n           ELSE 0 \n         END\n  FROM battles\n),\naggregated AS (\n  SELECT creator_id, SUM(points) AS total_points\n  FROM battle_results\n  GROUP BY creator_id\n)\nSELECT c.creator_name, COALESCE(a.total_points, 0)::TEXT AS total_points\nFROM creators c\nLEFT JOIN aggregated a ON c.creator_id = a.creator_id\nORDER BY COALESCE(a.total_points, 0) DESC, c.creator_name ASC;",
+  "_meta": {
+    "question_type": "matchup_unpivot",
+    "original_qtype": "random_any",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-23T14:23:42.830411",
+    "problem_id": "5d006c4d40d1",
+    "validation_attempts": 1,
+    "scenario": "a short video platform tracking watch time and completion rates",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": null,
+    "typecast_twist": false
+  }
+}

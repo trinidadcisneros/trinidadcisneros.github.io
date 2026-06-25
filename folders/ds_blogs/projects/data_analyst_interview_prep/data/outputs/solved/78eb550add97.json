@@ -1,0 +1,216 @@
+{
+  "problem": {
+    "title": "Classify Alert Response and Normalize Severity",
+    "prompt": "Your observability platform stores alert acknowledgment data in the `alerts` table. The `severity_code` column contains uppercase severity strings with inconsistent spacing, and the `ack_delay_minutes` column can be NULL when an alert auto-resolved before acknowledgment. Write a query that produces four columns: `alert_id`, `normalized_severity` (title-cased and trimmed), `response_category` (a label based on ack_delay_minutes: 'immediate' if \u22645, 'timely' if >5 and \u226415, 'delayed' if >15 and \u226460, 'critical_delay' if >60, or 'auto_resolved' if NULL), and `ack_delay_minutes` (with NULLs replaced by 0). Order results by alert_id ascending. The goal is to clean the severity field and classify acknowledgment speed, handling cases where no human acknowledgment occurred.",
+    "schema_ddl": "CREATE TABLE alerts (alert_id INT PRIMARY KEY, alert_name TEXT NOT NULL, severity_code TEXT NOT NULL, ack_delay_minutes INT, triggered_at TIMESTAMP NOT NULL);",
+    "example_input_data": "INSERT INTO alerts (alert_id, alert_name, severity_code, ack_delay_minutes, triggered_at) VALUES (1, 'CPU Spike Detected', '  CRITICAL  ', 3, '2024-01-15 08:00:00'), (2, 'Memory Usage High', 'WARNING', 12, '2024-01-15 08:15:00'), (3, 'Disk Space Low', 'INFO  ', 45, '2024-01-15 08:30:00'), (4, 'Database Connection Lost', 'CRITICAL', 90, '2024-01-15 09:00:00'), (5, 'Latency Increase', 'WARNING ', NULL, '2024-01-15 09:15:00'), (6, 'Service Unreachable', '  ERROR', 5, '2024-01-15 09:30:00');",
+    "example_output_columns": [
+      "alert_id",
+      "normalized_severity",
+      "response_category",
+      "ack_delay_minutes"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "Critical",
+        "immediate",
+        3
+      ],
+      [
+        2,
+        "Warning",
+        "timely",
+        12
+      ],
+      [
+        3,
+        "Info",
+        "delayed",
+        45
+      ],
+      [
+        4,
+        "Critical",
+        "critical_delay",
+        90
+      ],
+      [
+        5,
+        "Warning",
+        "auto_resolved",
+        0
+      ],
+      [
+        6,
+        "Error",
+        "immediate",
+        5
+      ]
+    ],
+    "test_data": "INSERT INTO alerts (alert_id, alert_name, severity_code, ack_delay_minutes, triggered_at) VALUES (101, 'API Response Timeout', 'CRITICAL', 2, '2024-02-01 10:00:00'), (102, 'SSL Certificate Expiring', '  warning  ', 8, '2024-02-01 10:05:00'), (103, 'Log Volume Spike', 'INFO', 16, '2024-02-01 10:10:00'), (104, 'Network Packet Loss', 'ERROR  ', 61, '2024-02-01 10:15:00'), (105, 'Pod Restart Loop', 'CRITICAL ', NULL, '2024-02-01 10:20:00'), (106, 'Cache Miss Rate High', '  INFO  ', 5, '2024-02-01 10:25:00'), (107, 'Queue Depth Exceeded', 'WARNING', 15, '2024-02-01 10:30:00'), (108, 'Database Replication Lag', '  CRITICAL', 120, '2024-02-01 10:35:00'), (109, 'Load Balancer Health Check Failed', 'ERROR', NULL, '2024-02-01 10:40:00'), (110, 'Container Memory Limit', 'WARNING  ', 4, '2024-02-01 10:45:00'), (111, 'Authentication Service Down', 'CRITICAL', 1, '2024-02-01 10:50:00'), (112, 'Prometheus Scrape Failure', 'INFO', 30, '2024-02-01 10:55:00'), (113, 'Ingress Controller Error', '  ERROR  ', 7, '2024-02-01 11:00:00'), (114, 'Storage IOPS Throttled', 'WARNING', NULL, '2024-02-01 11:05:00'), (115, 'DNS Resolution Slow', 'INFO  ', 60, '2024-02-01 11:10:00'), (116, 'Rate Limit Exceeded', 'ERROR', 58, '2024-02-01 11:15:00'), (117, 'Backup Job Failed', '  CRITICAL  ', NULL, '2024-02-01 11:20:00'), (118, 'Session Store Latency', 'WARNING', 14, '2024-02-01 11:25:00'), (119, 'Sidecar Proxy Crash', 'ERROR', 6, '2024-02-01 11:30:00'), (120, 'Canary Deployment Anomaly', 'INFO', NULL, '2024-02-01 11:35:00');",
+    "test_expected_columns": [
+      "alert_id",
+      "normalized_severity",
+      "response_category",
+      "ack_delay_minutes"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        "Critical",
+        "immediate",
+        2
+      ],
+      [
+        102,
+        "Warning",
+        "timely",
+        8
+      ],
+      [
+        103,
+        "Info",
+        "delayed",
+        16
+      ],
+      [
+        104,
+        "Error",
+        "critical_delay",
+        61
+      ],
+      [
+        105,
+        "Critical",
+        "auto_resolved",
+        0
+      ],
+      [
+        106,
+        "Info",
+        "immediate",
+        5
+      ],
+      [
+        107,
+        "Warning",
+        "timely",
+        15
+      ],
+      [
+        108,
+        "Critical",
+        "critical_delay",
+        120
+      ],
+      [
+        109,
+        "Error",
+        "auto_resolved",
+        0
+      ],
+      [
+        110,
+        "Warning",
+        "immediate",
+        4
+      ],
+      [
+        111,
+        "Critical",
+        "immediate",
+        1
+      ],
+      [
+        112,
+        "Info",
+        "delayed",
+        30
+      ],
+      [
+        113,
+        "Error",
+        "timely",
+        7
+      ],
+      [
+        114,
+        "Warning",
+        "auto_resolved",
+        0
+      ],
+      [
+        115,
+        "Info",
+        "delayed",
+        60
+      ],
+      [
+        116,
+        "Error",
+        "delayed",
+        58
+      ],
+      [
+        117,
+        "Critical",
+        "auto_resolved",
+        0
+      ],
+      [
+        118,
+        "Warning",
+        "timely",
+        14
+      ],
+      [
+        119,
+        "Error",
+        "timely",
+        6
+      ],
+      [
+        120,
+        "Info",
+        "auto_resolved",
+        0
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "TRIM and INITCAP for string normalization",
+        "CASE ladder for banded category labels",
+        "COALESCE to fill NULL with default zero"
+      ]
+    },
+    "hints": [
+      "You'll need to clean up the severity strings and handle missing acknowledgment times.",
+      "Use INITCAP after TRIM/BTRIM to normalize the severity_code. Use COALESCE to replace NULL ack_delay_minutes with 0.",
+      "Build a CASE expression with five branches: check for NULL first to return 'auto_resolved', then use <=5, <=15, <=60, and finally the >60 case for 'critical_delay'."
+    ],
+    "answer_key": "SELECT alert_id, INITCAP(BTRIM(severity_code)) AS normalized_severity, CASE WHEN ack_delay_minutes IS NULL THEN 'auto_resolved' WHEN ack_delay_minutes <= 5 THEN 'immediate' WHEN ack_delay_minutes <= 15 THEN 'timely' WHEN ack_delay_minutes <= 60 THEN 'delayed' ELSE 'critical_delay' END AS response_category, COALESCE(ack_delay_minutes, 0) AS ack_delay_minutes FROM alerts ORDER BY alert_id;",
+    "_meta": {
+      "question_type": "parse_clean",
+      "original_qtype": "parse_clean",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-24T17:40:20.714712",
+      "problem_id": "78eb550add97",
+      "validation_attempts": 1,
+      "scenario": "an observability platform tracking alert acknowledge time and MTTR",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "conditional_null",
+      "typecast_twist": false
+    }
+  },
+  "user_solution": "/*\n`severity_code` column contains uppercase severity strings with inconsistent spacing, and the \n`ack_delay_minutes` column can be NULL when an alert auto-resolved before acknowledgment.\n\nWrite a query that produces four columns: \n`alert_id`, \n`normalized_severity` (title-cased and trimmed), \n`response_category` (a label based on ack_delay_minutes: 'immediate' if \u22645, 'timely' if >5 and \u226415, 'delayed' if >15 and \u226460, 'critical_delay' if >60, or 'auto_resolved' if NULL), and `ack_delay_minutes` (with NULLs replaced by 0).\n\n\n*/\n\nSELECT\n    alert_id,\n    INITCAP(TRIM(severity_code)) AS normalized_severity,\n    CASE\n        WHEN ack_delay_minutes <= 5 THEN 'immediate'\n        WHEN ack_delay_minutes > 5 AND ack_delay_minutes <= 15 THEN 'timely'\n        WHEN ack_delay_minutes > 15 AND ack_delay_minutes <= 60 THEN 'delayed'\n        WHEN ack_delay_minutes > 60 THEN 'critical_delay'\n        WHEN ack_delay_minutes IS NULL THEN 'auto_resolved'\n    END AS response_category,\n    COALESCE(ack_delay_minutes, 0) AS ack_delay_minutes\nFROM alerts\nORDER BY alert_id;",
+  "solved_at": "2026-06-24T17:49:24.776296"
+}

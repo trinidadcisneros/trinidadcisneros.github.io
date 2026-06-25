@@ -1,0 +1,161 @@
+{
+  "title": "7-Day Rolling Watch Time Average",
+  "prompt": "You are analyzing daily engagement on a short video platform. The `daily_metrics` table records total `watch_minutes` for each `metric_date`. Calculate a 7-day rolling average of watch minutes for each date, where the rolling average includes the current day and the 6 preceding days. If fewer than 7 days of data exist before a date (e.g., the first 6 rows), compute the average over whatever days are available. Return columns `metric_date` and `rolling_avg_watch_minutes` (rounded to 2 decimal places), ordered by `metric_date` ascending. Handle cases where some days may have zero watch minutes.",
+  "schema_ddl": "CREATE TABLE daily_metrics (metric_date DATE NOT NULL, watch_minutes INTEGER NOT NULL);",
+  "example_input_data": "INSERT INTO daily_metrics (metric_date, watch_minutes) VALUES ('2024-01-01', 1200), ('2024-01-02', 1500), ('2024-01-03', 1100), ('2024-01-04', 1800), ('2024-01-05', 1600), ('2024-01-06', 1400), ('2024-01-07', 2000), ('2024-01-08', 1700);",
+  "example_output_columns": [
+    "metric_date",
+    "rolling_avg_watch_minutes"
+  ],
+  "example_output_rows": [
+    [
+      "2024-01-01",
+      "1200.00"
+    ],
+    [
+      "2024-01-02",
+      "1350.00"
+    ],
+    [
+      "2024-01-03",
+      "1266.67"
+    ],
+    [
+      "2024-01-04",
+      "1400.00"
+    ],
+    [
+      "2024-01-05",
+      "1440.00"
+    ],
+    [
+      "2024-01-06",
+      "1433.33"
+    ],
+    [
+      "2024-01-07",
+      "1514.29"
+    ],
+    [
+      "2024-01-08",
+      "1585.71"
+    ]
+  ],
+  "test_data": "INSERT INTO daily_metrics (metric_date, watch_minutes) VALUES ('2024-02-01', 2400), ('2024-02-02', 2100), ('2024-02-03', 0), ('2024-02-04', 2800), ('2024-02-05', 2600), ('2024-02-06', 2200), ('2024-02-07', 3000), ('2024-02-08', 2900), ('2024-02-09', 2500), ('2024-02-10', 2700), ('2024-02-11', 0), ('2024-02-12', 3200), ('2024-02-13', 2800), ('2024-02-14', 3100), ('2024-02-15', 2900), ('2024-02-16', 2600), ('2024-02-17', 0), ('2024-02-18', 3400), ('2024-02-19', 3000), ('2024-02-20', 2800);",
+  "test_expected_columns": [
+    "metric_date",
+    "rolling_avg_watch_minutes"
+  ],
+  "test_expected_rows": [
+    [
+      "2024-02-01",
+      "2400.00"
+    ],
+    [
+      "2024-02-02",
+      "2250.00"
+    ],
+    [
+      "2024-02-03",
+      "1500.00"
+    ],
+    [
+      "2024-02-04",
+      "1825.00"
+    ],
+    [
+      "2024-02-05",
+      "1980.00"
+    ],
+    [
+      "2024-02-06",
+      "2016.67"
+    ],
+    [
+      "2024-02-07",
+      "2157.14"
+    ],
+    [
+      "2024-02-08",
+      "2228.57"
+    ],
+    [
+      "2024-02-09",
+      "2285.71"
+    ],
+    [
+      "2024-02-10",
+      "2671.43"
+    ],
+    [
+      "2024-02-11",
+      "2271.43"
+    ],
+    [
+      "2024-02-12",
+      "2357.14"
+    ],
+    [
+      "2024-02-13",
+      "2442.86"
+    ],
+    [
+      "2024-02-14",
+      "2457.14"
+    ],
+    [
+      "2024-02-15",
+      "2457.14"
+    ],
+    [
+      "2024-02-16",
+      "2471.43"
+    ],
+    [
+      "2024-02-17",
+      "2085.71"
+    ],
+    [
+      "2024-02-18",
+      "2571.43"
+    ],
+    [
+      "2024-02-19",
+      "2542.86"
+    ],
+    [
+      "2024-02-20",
+      "2542.86"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "time-window: windowed aggregate with ROWS BETWEEN 6 PRECEDING AND CURRENT ROW frame"
+    ]
+  },
+  "hints": [
+    "You'll need a window function that computes an aggregate over a sliding set of rows.",
+    "Use the AVG window function with a frame clause that includes the current row and 6 rows before it.",
+    "The ROWS BETWEEN 6 PRECEDING AND CURRENT ROW frame clause will give you the 7-day window, and ROUND the result to 2 decimal places."
+  ],
+  "answer_key": "SELECT metric_date, ROUND(AVG(watch_minutes) OVER (ORDER BY metric_date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW), 2) AS rolling_avg_watch_minutes FROM daily_metrics ORDER BY metric_date;",
+  "_meta": {
+    "question_type": "window_sliding",
+    "original_qtype": "random_any",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-22T17:45:15.611321",
+    "problem_id": "5b3fb86e5c89",
+    "validation_attempts": 1,
+    "scenario": "a short video platform tracking watch time and completion rates",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": null
+  }
+}

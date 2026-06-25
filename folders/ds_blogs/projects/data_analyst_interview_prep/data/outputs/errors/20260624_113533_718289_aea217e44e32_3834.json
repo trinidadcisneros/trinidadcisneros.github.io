@@ -1,0 +1,226 @@
+{
+  "logged_at": "2026-06-24T11:35:33.718289",
+  "failure_kind": "wrong_answer",
+  "problem_id": "aea217e44e32",
+  "question_type": "parse_clean",
+  "original_qtype": "parse_clean",
+  "subtype": "string_clean",
+  "scenario": "a fashion ecommerce site tracking add-to-cart and conversion",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "row-transform",
+  "title": "Clean and Parse Customer Email Domains",
+  "prompt": "Your marketing team imported a customer signup list from an external vendor, but the email addresses are inconsistently formatted with leading/trailing whitespace and mixed case. Write a query against the `cart_signups` table that extracts and cleans each customer's email username and domain. Return four columns: `customer_id`, `clean_email` (trimmed and lowercased), `username` (the part before the @), and `domain` (the part after the @, capitalized with INITCAP). Include only customers whose `signup_completed` flag is true. Order the results by `customer_id` ascending.",
+  "schema_ddl": "CREATE TABLE cart_signups (\n  customer_id INT PRIMARY KEY,\n  raw_email VARCHAR(200),\n  signup_completed VARCHAR(10),\n  added_items INT,\n  signup_date VARCHAR(20)\n);",
+  "answer_key": "SELECT\n  customer_id,\n  LOWER(TRIM(raw_email)) AS clean_email,\n  SPLIT_PART(TRIM(raw_email), '@', 1) AS username,\n  INITCAP(SPLIT_PART(TRIM(raw_email), '@', 2)) AS domain\nFROM cart_signups\nWHERE signup_completed::boolean = true\nORDER BY customer_id;",
+  "test_expected_columns": [
+    "customer_id",
+    "clean_email",
+    "username",
+    "domain"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      "test.user@example.com",
+      "TEST.user",
+      "Example.Com"
+    ],
+    [
+      102,
+      "no_at_symbol_here.com",
+      "no_at_symbol_here.com",
+      ""
+    ],
+    [
+      103,
+      "jane@multi.part.domain.co.uk",
+      "jane",
+      "Multi.Part.Domain.Co.Uk"
+    ],
+    [
+      105,
+      "upper@lower.com",
+      "UPPER",
+      "Lower.Com"
+    ],
+    [
+      106,
+      "mixed.case@mixedcase.net",
+      "mixed.Case",
+      "Mixedcase.Net"
+    ],
+    [
+      107,
+      "leading@trailing.com",
+      "leading",
+      "Trailing.Com"
+    ],
+    [
+      108,
+      "user@domain",
+      "user",
+      "Domain"
+    ],
+    [
+      110,
+      "final_test@site.io",
+      "final_test",
+      "Site.Io"
+    ],
+    [
+      111,
+      "edge_case@caps.org",
+      "edge_case",
+      "Caps.Org"
+    ],
+    [
+      112,
+      "short@x.co",
+      "short",
+      "X.Co"
+    ],
+    [
+      113,
+      "with.dots@multiple.dots.com",
+      "with.dots",
+      "Multiple.Dots.Com"
+    ],
+    [
+      115,
+      "final@final.example.org",
+      "final",
+      "Final.Example.Org"
+    ],
+    [
+      116,
+      "last_one@last.site.com",
+      "last_one",
+      "Last.Site.Com"
+    ],
+    [
+      117,
+      "number123@number.net",
+      "number123",
+      "Number.Net"
+    ],
+    [
+      118,
+      "trim.me@trim.org",
+      "trim.ME",
+      "Trim.Org"
+    ],
+    [
+      120,
+      "done@done.example.net",
+      "DONE",
+      "Done.Example.Net"
+    ]
+  ],
+  "user_solution": "/* \n1. clean_email\n2. split into separate columns\n*/\nSELECT\n    customer_id,\n    lower(raw_email) AS clean_email,\n    SPLIT_PART(raw_email, '@', 1) AS username,\n    SPLIT_PART(raw_email, '@', 2) AS domain\nFROM cart_signups\nWHERE signup_completed = 'true'\nORDER BY 1;\n\n",
+  "error_message": null,
+  "your_columns": [
+    "customer_id",
+    "clean_email",
+    "username",
+    "domain"
+  ],
+  "your_rows": [
+    [
+      101,
+      "  test.user@example.com  ",
+      "  TEST.user",
+      "EXAMPLE.COM  "
+    ],
+    [
+      102,
+      "no_at_symbol_here.com",
+      "no_at_symbol_here.com",
+      ""
+    ],
+    [
+      103,
+      "jane@multi.part.domain.co.uk  ",
+      "jane",
+      "MULTI.PART.domain.CO.UK  "
+    ],
+    [
+      105,
+      "upper@lower.com",
+      "UPPER",
+      "lower.COM"
+    ],
+    [
+      106,
+      "mixed.case@mixedcase.net  ",
+      "mixed.Case",
+      "MixedCase.Net  "
+    ],
+    [
+      107,
+      "  leading@trailing.com  ",
+      "  leading",
+      "trailing.com  "
+    ],
+    [
+      108,
+      "user@domain",
+      "user",
+      "domain"
+    ],
+    [
+      110,
+      "final_test@site.io  ",
+      "final_test",
+      "SiTe.IO  "
+    ],
+    [
+      111,
+      "  edge_case@caps.org  ",
+      "  edge_case",
+      "CAPS.ORG  "
+    ],
+    [
+      112,
+      "short@x.co",
+      "short",
+      "x.co"
+    ],
+    [
+      113,
+      "  with.dots@multiple.dots.com  ",
+      "  with.dots",
+      "multiple.DOTS.com  "
+    ],
+    [
+      115,
+      "  final@final.example.org  ",
+      "  final",
+      "FINAL.example.ORG  "
+    ],
+    [
+      116,
+      "last_one@last.site.com  ",
+      "last_one",
+      "LAST.site.COM  "
+    ],
+    [
+      117,
+      "number123@number.net",
+      "number123",
+      "NUMBER.net"
+    ],
+    [
+      118,
+      "  trim.me@trim.org  ",
+      "  trim.ME",
+      "TRIM.org  "
+    ],
+    [
+      120,
+      "  done@done.example.net  ",
+      "  DONE",
+      "done.EXAMPLE.net  "
+    ]
+  ]
+}

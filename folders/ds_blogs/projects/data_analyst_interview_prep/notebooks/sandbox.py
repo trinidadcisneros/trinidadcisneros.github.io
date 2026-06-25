@@ -345,7 +345,17 @@ def run_query(dialect: str, sql: str) -> Tuple[Optional[pd.DataFrame], Optional[
 # Match ISO-style timestamps like "2026-05-14 03:42:19.205133" or with 'T'.
 # Used to detect CURRENT_TIMESTAMP columns that drift between expected-output
 # generation and user-query execution.
-_ISO_TS_RE = re.compile(r'^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?$')
+_ISO_TS_RE = re.compile(r'^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}:\d{2}(\.\d+)?)?$')
+
+# A "no value" cell, however pandas / psycopg2 happened to render it:
+# None, numpy NaN, pandas NaT / <NA>, SQL NULL, or an empty string. These are
+# display artifacts of the SAME thing (a NULL), so they compare as equal.
+_NULLISH = {'', 'none', 'nan', 'nat', '<na>', 'null'}
+
+# A clean numeric literal with NO leading-zero padding (so '007' is NOT treated
+# as the number 7). Lets '9' == '9.0' and '3.5' == '3.50' — the int-vs-float
+# difference pandas creates when a column has a NULL and gets promoted to float.
+_NUM_RE = re.compile(r'^-?(0|[1-9]\d*)(\.\d+)?$')
 
 # Allowed drift between two CURRENT_TIMESTAMP captures. Practice tests
 # typically run within minutes of generation; 1 hour is conservative.
@@ -357,7 +367,10 @@ def _parse_iso_ts(s: str) -> Optional[datetime]:
     if not isinstance(s, str) or not _ISO_TS_RE.match(s):
         return None
     try:
-        return datetime.fromisoformat(s.replace('T', ' '))
+        s = s.replace('T', ' ')
+        if ':' not in s:            # date-only -> treat as that date at midnight
+            s = s + ' 00:00:00'
+        return datetime.fromisoformat(s)
     except Exception:
         return None
 
@@ -372,6 +385,19 @@ def _values_equivalent(av: str, ev: str) -> bool:
     """
     if av == ev:
         return True
+    # "No value" in any disguise (None / NaN / NaT / <NA> / NULL / '') is one thing.
+    al, el = str(av).strip().lower(), str(ev).strip().lower()
+    a_null, e_null = al in _NULLISH, el in _NULLISH
+    if a_null or e_null:
+        return a_null and e_null     # both null = equal; one null = a real difference
+    # Same number, different rendering: 9 == 9.0, 3.5 == 3.50 (int-vs-float from a
+    # NULL-promoted column, or Decimal scale). Zero-padded strings are excluded.
+    if _NUM_RE.match(al) and _NUM_RE.match(el):
+        try:
+            return float(av) == float(ev)
+        except (TypeError, ValueError):
+            pass
+    # Same moment: a date vs that date at midnight, or CURRENT_TIMESTAMP drift.
     ta = _parse_iso_ts(av)
     te = _parse_iso_ts(ev)
     if ta is None or te is None:

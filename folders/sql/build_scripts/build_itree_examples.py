@@ -1,8 +1,10 @@
-import re, json, sys
-sys.path.insert(0,'/sessions/intelligent-quirky-volta/mnt/outputs')
+import re, json, sys, os
+_HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _HERE)
 from itree_specs import SPECS
 from itree_content import CODE, EX
-PATH='/sessions/intelligent-quirky-volta/mnt/sql/sql_problem_patterns.html'
+# playbook lives one level up from build_scripts/
+PATH = os.path.normpath(os.path.join(_HERE, '..', 'sql_problem_patterns.html'))
 
 def cap(x): return x[:1].upper()+x[1:] if x else x
 

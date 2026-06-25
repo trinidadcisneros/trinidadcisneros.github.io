@@ -201,7 +201,7 @@ QUESTION_TYPES = {
     },
     "percentile_metrics": {
         "label": "Percentile & Distribution Metrics",
-        "description": "Calculate percentiles, medians, quartile/decile bucketing, or top N% rankings. Randomly picks one flavor per generation: PERCENTILE_CONT/DISC for percentile aggregates (Postgres only), NTILE for quartile/decile buckets (both dialects), PERCENT_RANK for top N% selection (both dialects), `extreme_exclusion` (whole population DENSE_RANK ASC + DESC, exclude both ends; LeetCode #1149 Activities Without Extremes shape), or `extreme_exclusion_per_group` (per partition DENSE_RANK ASC + DESC + HAVING MIN(rn) > 1 across the entity's rows; LeetCode #1412 Quiet Students shape).",
+        "description": "Calculate percentiles, medians, quartile/decile bucketing, top N% rankings, or where a hypothetical value would rank. Randomly picks one flavor per generation: PERCENTILE_CONT/DISC for percentile aggregates (Postgres only), NTILE for quartile/decile buckets (both dialects), the WINDOW PERCENT_RANK() OVER for top N% of EXISTING rows (both dialects), `extreme_exclusion` (whole population DENSE_RANK ASC + DESC, exclude both ends; LeetCode #1149 Activities Without Extremes shape), `extreme_exclusion_per_group` (per partition DENSE_RANK ASC + DESC + HAVING MIN(rn) > 1 across the entity's rows; LeetCode #1412 Quiet Students shape), or the HYPOTHETICAL-SET aggregates `rank/dense_rank WITHIN GROUP` (integer rank a candidate value would get per group) and `percent_rank/cume_dist WITHIN GROUP` (its fractional standing) — Postgres only.",
         "dialects": ["postgresql", "mysql"],
     },
     "pivot": {
@@ -295,8 +295,19 @@ QUESTION_TYPES = {
         "description": "AVG/MIN/MAX OVER (PARTITION BY group) with NO ORDER BY puts the whole-group benchmark on every row; the outer query then compares each row to it (above / below the average). Because a window function cannot live in WHERE, the benchmark is computed in a CTE/subquery and filtered in the outer query. Distinct from the cumulative running average (which has ORDER BY) and the rolling window (fixed N PRECEDING).",
         "dialects": ["postgresql", "mysql"],
     },
+    "period_over_period": {
+        "label": "Period-over-period growth (MoM / WoW / QoQ / YoY)",
+        "description": "Bucket rows into calendar periods (DATE_TRUNC to month / week / quarter / year), aggregate a metric per period, then compare each period to a prior one. Four shapes: the immediately preceding period via LAG (month-over-month, week-over-week, quarter-over-quarter, year-over-year are the same technique at different grains, with absolute delta and % change); the SAME period one year earlier (seasonal year-over-year via a self-join on period - 1 year, so December compares to last December not to November); period-over-period over a COMPLETE date spine so a period with no rows reads as 0 instead of being silently skipped by LAG (the classic assessment trap); and the metric's share of the period total reported alongside its period delta. Single source table with a date column. PostgreSQL.",
+        "dialects": ["postgresql"],
+    },
+    "parse_clean": {
+        "label": "Parse & Clean (string / date / array / cast functions)",
+        "description": "Single-column PostgreSQL functions for parsing, cleaning, and converting ONE value at a time (not aggregating or joining). Rotates across families: STRING (SUBSTRING ... FROM/FOR, SPLIT_PART, INITCAP, TRIM/BTRIM, REPLACE, LPAD, POSITION, CONCAT_WS), ARRAY (1-based arr[n], ARRAY_LENGTH, x = ANY(arr), UNNEST), DATE (EXTRACT a number vs DATE_TRUNC a truncated timestamp vs TO_CHAR text), TYPE CASTING (::type / CAST, TO_NUMBER, TO_DATE, TO_CHAR, NULLIF for blanks), NUMERIC (ROUND, CEIL/FLOOR, TRUNC, MOD, and the integer-division trap where 7/2 = 3), and CONDITIONAL/NULL (CASE bands, COALESCE fill, NULLIF divide-by-zero guard). The task is to turn a messy column into a usable value. PostgreSQL.",
+        "dialects": ["postgresql"],
+    },
     "root_cause_analysis": {
         "label": "Root Cause Analysis (diagnostic SQL: find the bug, not just the metric)",
+        "hidden_in_picker": True,  # removed from nb01 picker + random_any 2026-06-23; generator kept for a future home
         "description": (
             "Diagnostic problems where the analyst is handed a symptom (metric drop / spike, "
             "duplicate inflation, missing rows, NULL propagation, date or timezone bug, stale "
@@ -1311,6 +1322,121 @@ LEFT JOIN per_side s ON s.team = t.team_id
 GROUP BY t.team_id, t.team_name
 ORDER BY points DESC, t.team_id ASC;
 """,
+    "period_over_period": """\
+-- Period-over-period growth. One source table with a date + a measure:
+--   sales(sale_id, category, sale_date, amount)
+-- Step 1 is always the same: DATE_TRUNC into period buckets and aggregate.
+-- Swap 'month' for 'week' / 'quarter' / 'year' to get WoW / QoQ / YoY.
+
+-- SUBTYPE prior_period -- MoM delta: LAG one period, absolute change and % change.
+WITH monthly AS (
+    SELECT date_trunc('month', sale_date)::date AS period,
+           SUM(amount) AS revenue
+    FROM sales
+    GROUP BY 1
+)
+SELECT period,
+       revenue,
+       LAG(revenue) OVER (ORDER BY period) AS prev_revenue,
+       revenue - LAG(revenue) OVER (ORDER BY period) AS mom_change,
+       ROUND(100.0 * (revenue - LAG(revenue) OVER (ORDER BY period))
+             / NULLIF(LAG(revenue) OVER (ORDER BY period), 0), 1) AS mom_pct  -- NULLIF guards /0
+FROM monthly
+ORDER BY period;
+
+-- SUBTYPE same_period_last_year -- seasonal: compare each month to the SAME month a
+-- year earlier. A self-join on period - 1 year is gap-safe; LAG(revenue, 12) only works
+-- if every month is present.
+WITH monthly AS (
+    SELECT date_trunc('month', sale_date)::date AS period, SUM(amount) AS revenue
+    FROM sales GROUP BY 1
+)
+SELECT c.period,
+       c.revenue,
+       p.revenue AS revenue_last_year,
+       ROUND(100.0 * (c.revenue - p.revenue) / NULLIF(p.revenue, 0), 1) AS yoy_pct
+FROM monthly c
+LEFT JOIN monthly p ON p.period = c.period - INTERVAL '1 year'
+ORDER BY c.period;
+
+-- SUBTYPE gap_safe -- a period with zero rows must read as 0, not be skipped. Build a
+-- full month spine first, LEFT JOIN actuals + COALESCE 0, THEN LAG. Without the spine,
+-- LAG jumps over the missing month and the change is wrong.
+WITH bounds AS (
+    SELECT date_trunc('month', MIN(sale_date)) AS lo,
+           date_trunc('month', MAX(sale_date)) AS hi
+    FROM sales
+),
+spine AS (
+    SELECT gs::date AS period
+    FROM bounds, generate_series(lo, hi, INTERVAL '1 month') AS gs
+),
+monthly AS (
+    SELECT s.period, COALESCE(SUM(x.amount), 0) AS revenue
+    FROM spine s
+    LEFT JOIN sales x ON date_trunc('month', x.sale_date) = s.period
+    GROUP BY s.period
+)
+SELECT period,
+       revenue,
+       LAG(revenue) OVER (ORDER BY period) AS prev_revenue,
+       revenue - LAG(revenue) OVER (ORDER BY period) AS mom_change
+FROM monthly
+ORDER BY period;
+
+-- SUBTYPE pct_of_total_pop -- each category's share of the month total alongside its own
+-- month-over-month delta. Share = SUM() OVER (PARTITION BY period) with NO order by;
+-- the delta = LAG partitioned by category, ordered by period.
+WITH monthly AS (
+    SELECT category, date_trunc('month', sale_date)::date AS period, SUM(amount) AS revenue
+    FROM sales GROUP BY 1, 2
+)
+SELECT category,
+       period,
+       revenue,
+       ROUND(100.0 * revenue / SUM(revenue) OVER (PARTITION BY period), 1) AS pct_of_month,
+       revenue - LAG(revenue) OVER (PARTITION BY category ORDER BY period) AS cat_mom_change
+FROM monthly
+ORDER BY period, category;
+""",
+    "parse_clean": """\
+-- Parse & clean: single-column PostgreSQL functions. Pick the family for the job.
+
+-- STRING: slice, split, change case, trim, replace, pad
+SELECT INITCAP(TRIM(raw_name))        AS clean_name,   -- title-case, strip padding
+       SPLIT_PART(email, '@', 2)      AS domain,       -- nth piece of a delimited string
+       SUBSTRING(code FROM 2 FOR 3)   AS mid3,         -- 1-based slice, length 3
+       LPAD(id::text, 5, '0')         AS padded_id     -- 42 -> 00042
+FROM t;
+
+-- ARRAY (1-based): element, length, membership, expand to rows
+SELECT tags[1] AS first_tag, ARRAY_LENGTH(tags,1) AS n, ('sql' = ANY(tags)) AS has_sql FROM t;
+SELECT id, UNNEST(tags) AS tag FROM t;
+
+-- DATE: a NUMBER vs a truncated TIMESTAMP vs formatted TEXT
+SELECT EXTRACT(MONTH FROM ts)   AS mon,          -- number
+       DATE_TRUNC('month', ts)  AS month_start,  -- truncated timestamp
+       TO_CHAR(ts, 'YYYY-MM')   AS label
+FROM t;
+
+-- CAST / convert: text -> real type, blank -> NULL
+SELECT amount_txt::numeric,                      -- or CAST(amount_txt AS numeric)
+       TO_DATE(d_txt, 'DD.MM.YYYY'),
+       TO_NUMBER(amt, '9G999'),                  -- reads the grouping comma
+       NULLIF(TRIM(note), '') AS note            -- empty string -> NULL
+FROM t;
+
+-- NUMERIC: round / floor / mod, and the integer-division trap
+SELECT ROUND(price, 2), CEIL(x), FLOOR(x), TRUNC(x, 1), MOD(qty, 2),
+       ROUND(num::numeric / den, 2)              -- cast first: 7/2 = 3 but 7::numeric/2 = 3.5
+FROM t;
+
+-- CONDITIONAL / NULL: branch and fill
+SELECT CASE WHEN score >= 90 THEN 'A' WHEN score >= 70 THEN 'C' ELSE 'F' END AS grade,
+       COALESCE(score, 0)   AS safe_score,       -- fill NULL with a default
+       10 / NULLIF(den, 0)  AS ratio             -- guard divide-by-zero
+FROM t;
+""",
     "gated_lookup": """\
 -- Gated lookup: a condition on table A gates a per-entity pick from table B.
 -- gate table:  products(product_id, rating)         -- rating 1..5 is the GATE
@@ -1729,9 +1855,11 @@ SUBTYPES = {
     "percentile_metrics": [
         ("percentile_aggregate", "Percentile (PERCENTILE_CONT / DISC)"),
         ("ntile_buckets", "NTILE buckets"),
-        ("top_n_percent", "PERCENT_RANK top X%"),
+        ("top_n_percent", "Top X% of existing rows (window PERCENT_RANK OVER)"),
         ("extreme_exclusion", "Exclude min and max (DENSE_RANK both ends)"),
         ("extreme_exclusion_per_group", "Exclude min and max per group"),
+        ("hypothetical_rank", "Hypothetical rank (rank / dense_rank WITHIN GROUP)"),
+        ("hypothetical_fraction", "Hypothetical fraction (percent_rank / cume_dist WITHIN GROUP)"),
     ],
     "pivot": [
         ("multi_column_pivot", "Long to wide (multi-column pivot)"),
@@ -1771,17 +1899,41 @@ SUBTYPES = {
         ("rows_between", "ROWS BETWEEN (row-count frame)"),
         ("range_between", "RANGE BETWEEN (value / interval frame)"),
     ],
+    "matchup_unpivot": [
+        ("soccer_points", "Soccer points (win 3, tie 1, loss 0)"),
+        ("win_loss", "Win / loss / tie record (separate counts)"),
+        ("goals_for_against", "Goals for / against / differential"),
+        ("sum_column", "Sum a column per side (no win/loss logic)"),
+    ],
+    "period_over_period": [
+        ("prior_period", "Prior-period delta (MoM / WoW / QoQ / YoY): LAG one period, abs + % change"),
+        ("same_period_last_year", "Same period last year (seasonal self-join on period - 1 year)"),
+        ("gap_safe", "Gap-safe over a date spine (a zero period reads as 0, not skipped)"),
+        ("pct_of_total_pop", "Share of period total alongside the period delta"),
+    ],
+    "parse_clean": [
+        ("string_clean", "String parse/clean (SUBSTRING FROM/FOR, SPLIT_PART, INITCAP, TRIM, REPLACE, LPAD)"),
+        ("array_access", "Array access, 1-based (arr[n], ARRAY_LENGTH, x = ANY(arr), UNNEST)"),
+        ("date_extract", "Date parts & format (EXTRACT vs DATE_TRUNC vs TO_CHAR)"),
+        ("type_cast", "Type cast / convert (::type, TO_NUMBER, TO_DATE, NULLIF blanks)"),
+        ("numeric_format", "Numeric format (ROUND, CEIL/FLOOR, TRUNC, MOD, integer-division trap)"),
+        ("conditional_null", "Conditional & NULL (CASE bands, COALESCE, NULLIF)"),
+    ],
     "window_top_n_per_group": [
         ("top1_by_value", "Top 1 per group by value (highest / max metric)"),
         ("top1_by_date", "Top 1 per group by date (most recent / earliest)"),
         ("topn", "Top N per group (N > 1)"),
         ("nth", "Nth specific position (exactly N, not top N)"),
         ("special", "Special rank patterns (median, threshold from rank, rank deltas)"),
+        ("distinct_on", "Top 1 per group with DISTINCT ON (Postgres shortcut)"),
     ],
     "point_in_time": [
         ("asof_single", "As of a single cutoff date (ROW_NUMBER rn=1 + date guard)"),
         ("default_no_history", "Default when no history (entity must still appear)"),
         ("fill_forward", "Fill forward over a date spine"),
+        ("validity_intervals", "Validity intervals (change list to valid_from / valid_to via LEAD)"),
+        ("asof_join", "As-of join (value in effect at each event's date, second table)"),
+        ("latest_snapshot", "Latest snapshot (single most recent value per entity, no cutoff)"),
     ],
     "root_cause_analysis": [
         ("metric_drop_dimension", "Metric drop by dimension"),
@@ -2526,6 +2678,36 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml
                 "id ASC). Set classification.output_shape to `fewer_rows`. classification.input_arrival "
                 "= `join`."
             )
+        elif flavor == "entity_date_periods":
+            base += (
+                "FLAVOR: entity_date_periods (per-entity consecutive-date ranges, SINGLE table, NO status "
+                "label, a missing calendar day breaks the run). The plain 'each user's consecutive login "
+                "date ranges' shape.\n"
+                "Hard requirements:\n"
+                "1) Schema MUST contain ONE source table with an entity key column and a DATE column, "
+                "at most one row per (entity, date) (NO duplicate same-day rows -- that is a different "
+                "flavor). Examples: logins(user_id, login_date), attendance(student_id, attend_date), "
+                "uptime_pings(server_id, ping_date).\n"
+                "2) The prompt asks for one row per run of CONSECUTIVE calendar days PER ENTITY, output "
+                "columns = the entity key, the period start date, and the period end date. There is NO "
+                "status/label column. 'Consecutive' means calendar-consecutive: a missing day ENDS the run.\n"
+                "3) The answer_key MUST use the date-minus-rownumber form PARTITIONED BY the entity:\n"
+                "   `event_date - (ROW_NUMBER() OVER (PARTITION BY entity_key ORDER BY event_date))::int "
+                "AS grp` (Postgres) or the MySQL equivalent "
+                "`DATE_SUB(event_date, INTERVAL ROW_NUMBER() OVER (PARTITION BY entity_key ORDER BY "
+                "event_date) DAY)`. Then GROUP BY entity_key, grp; MIN(event_date) AS period_start, "
+                "MAX(event_date) AS period_end.\n"
+                "4) PARTITION BY entity_key is MANDATORY on the window. Without it the row numbers run "
+                "across all entities and the grp math fuses unrelated entities. NO status partition "
+                "exists here (that is partitioned_status_periods).\n"
+                "5) Test data MUST include AT LEAST 2 entities, AT LEAST one entity with TWO separate "
+                "runs (a calendar gap between them), and at least one single-day run (period_start = "
+                "period_end). Stagger entity timelines so one entity's dates fall between another's runs "
+                "in the global date order -- the failure mode the per-entity partition prevents.\n"
+                "6) The prompt MUST state the output column names and ORDER BY (typically entity_key, "
+                "then period_start). Output_shape = `fewer_rows`; classification.input_arrival = "
+                "`single_table`."
+            )
         # Common requirements applied to all flavors
         base += (
             "\nUniversal requirements (apply to whichever flavor was chosen):\n"
@@ -2733,6 +2915,77 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml
                 "9) The prompt MUST explicitly state the output columns (typically entity "
                 "id + entity name) and the ORDER BY (usually entity_id ASC). Output_shape "
                 "= `fewer_rows`."
+            )
+        elif flavor == "hypothetical_rank":
+            base += (
+                "FLAVOR: hypothetical_rank (Postgres ONLY — hypothetical-set aggregate "
+                "`rank(value) WITHIN GROUP (ORDER BY metric)` and/or `dense_rank(value) "
+                "WITHIN GROUP (ORDER BY metric)`).\n"
+                "CONCEPT: a hypothetical-set aggregate answers 'if ONE new row with this "
+                "value arrived, what rank would it get among the EXISTING rows in each "
+                "group?' — WITHOUT actually inserting the row. The value is a literal "
+                "constant passed as the function argument; the existing rows are sorted by "
+                "the WITHIN GROUP (ORDER BY ...) clause. It returns ONE row per group (it is "
+                "an aggregate, paired with GROUP BY), NOT one value per existing row.\n"
+                "Hard requirements:\n"
+                "1) Schema MUST contain ONE main table holding a numeric metric "
+                "(score, price, latency, points) plus a grouping column (region, category, "
+                "exam_id, segment). Optionally a small lookup table for output naming.\n"
+                "2) The prompt MUST name a SINGLE literal candidate value (e.g. 'a new "
+                "application scoring 720', 'a $45.00 sale') and ask, FOR EACH group, what "
+                "rank that value would receive among the group's existing metric values if "
+                "it were inserted. State the sort direction explicitly (ASC = smaller values "
+                "rank first / get rank 1; DESC = larger values rank first) because it flips "
+                "the answer.\n"
+                "3) The answer_key MUST use the hypothetical-set form "
+                "`rank(<literal>) WITHIN GROUP (ORDER BY metric [ASC|DESC])` for ranks WITH "
+                "gaps after ties, OR `dense_rank(<literal>) WITHIN GROUP (ORDER BY metric)` "
+                "for ranks WITHOUT gaps. The prompt MUST specify which one (or ask for both "
+                "as two output columns). GROUP BY the grouping column.\n"
+                "4) Do NOT use a window function (`rank() OVER (...)`). That is a different "
+                "tool: it ranks rows that ALREADY EXIST, one value per row. The lesson here "
+                "is the WITHIN GROUP hypothetical-set form that needs no inserted row. Design "
+                "the prompt so the window form does not fit (no row for the candidate exists).\n"
+                "5) Test data MUST include a TIE among existing values straddling the "
+                "candidate so the gaps-vs-no-gaps difference between rank and dense_rank is "
+                "visible, and at least 2 groups so GROUP BY does real work.\n"
+                "6) The prompt MUST explicitly state the output column names and ORDER BY. "
+                "Output is one row per group; result must be NON-EMPTY.\n"
+            )
+        elif flavor == "hypothetical_fraction":
+            base += (
+                "FLAVOR: hypothetical_fraction (Postgres ONLY — hypothetical-set aggregate "
+                "`percent_rank(value) WITHIN GROUP (ORDER BY metric)` and/or `cume_dist(value) "
+                "WITHIN GROUP (ORDER BY metric)`).\n"
+                "CONCEPT: same hypothetical-set idea as hypothetical_rank, but the answer is a "
+                "FRACTION from 0 to 1 describing where the candidate value would stand among "
+                "each group's existing rows, without inserting it. percent_rank = "
+                "(hypothetical_rank - 1) / (number of existing rows in the group); it is 0 "
+                "when the value would tie for first. cume_dist = (number of existing rows that "
+                "sort at-or-before the value, PLUS the candidate itself) / (number of existing "
+                "rows + 1); it is the cumulative share at the candidate's position. Returns ONE "
+                "row per group (aggregate + GROUP BY), NOT one value per existing row.\n"
+                "Hard requirements:\n"
+                "1) Schema MUST contain ONE main table holding a numeric metric plus a "
+                "grouping column. Optionally a small lookup table for output naming.\n"
+                "2) The prompt MUST name a SINGLE literal candidate value and ask, FOR EACH "
+                "group, the relative standing (percent_rank) or cumulative distribution "
+                "(cume_dist) that value would have among the group's existing metric values. "
+                "State the sort direction explicitly. State how many decimals to round to.\n"
+                "3) The answer_key MUST use `percent_rank(<literal>) WITHIN GROUP (ORDER BY "
+                "metric [ASC|DESC])` and/or `cume_dist(<literal>) WITHIN GROUP (ORDER BY "
+                "metric)`, GROUP BY the grouping column, wrapping in ROUND(...::numeric, d) if "
+                "decimals are specified. The prompt MUST specify which function (or both as two "
+                "output columns).\n"
+                "4) Do NOT use a window function (`percent_rank() OVER (...)` / `cume_dist() "
+                "OVER (...)`). Those rank rows that already exist; the lesson here is the "
+                "WITHIN GROUP hypothetical-set form. Design the prompt so the window form does "
+                "not fit.\n"
+                "5) Clarify in the prompt that percent_rank uses a denominator of the existing "
+                "row count while cume_dist counts the candidate itself over count + 1, so the "
+                "two fractions differ — design test data where they clearly diverge.\n"
+                "6) The prompt MUST explicitly state the output column names and ORDER BY. "
+                "Output is one row per group; result must be NON-EMPTY.\n"
             )
         # Common requirements applied to all flavors
         base += (
@@ -3171,6 +3424,159 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml
             "participant. The row count after the split is 2x the matches, then collapses "
             "to one row per participant."
         )
+        # Subtype pin — mirrors the playbook's 4 scoring schemes (ml-leaf-* leaves).
+        # None -> random among the four. The UNION ALL split is shared; the scoring differs.
+        _mu_opts = ("soccer_points", "win_loss", "goals_for_against", "sum_column")
+        _mu = subtype if subtype in _mu_opts else random.choice(list(_mu_opts))
+        _MU = {
+            "soccer_points": (
+                "\nSUBTYPE PIN — SOCCER POINTS (win 3, tie 1, loss 0). After the UNION ALL split, a per-row "
+                "CASE turns own-vs-opponent into points: own > opp -> 3, own = opp -> 1, own < opp -> 0. "
+                "GROUP BY team, SUM(points) AS points. Output the team (name) and total points; ORDER BY "
+                "points DESC, then name/id ASC. Include at least one draw so the 1-point branch fires."
+            ),
+            "win_loss": (
+                "\nSUBTYPE PIN — WIN / LOSS / TIE RECORD. After the split, COUNT each outcome per team with "
+                "conditional sums: wins = SUM(CASE WHEN own > opp THEN 1 ELSE 0 END), losses = SUM(CASE WHEN "
+                "own < opp THEN 1 ELSE 0 END), ties = SUM(CASE WHEN own = opp THEN 1 ELSE 0 END). Output team, "
+                "wins, losses, ties (optionally games played) as SEPARATE count columns, NOT a single points "
+                "total. Include a draw so the ties column is non-zero."
+            ),
+            "goals_for_against": (
+                "\nSUBTYPE PIN — GOALS FOR / AGAINST / DIFFERENTIAL. No win/loss CASE. Each split branch "
+                "carries own_score (goals for) AND opp_score (goals against). GROUP BY team: SUM(own) AS "
+                "goals_for, SUM(opp) AS goals_against, SUM(own) - SUM(opp) AS goal_diff. Output team, "
+                "goals_for, goals_against, goal_diff; ORDER BY goal_diff DESC. The lesson is carrying BOTH "
+                "the own and the opponent value through the split."
+            ),
+            "sum_column": (
+                "\nSUBTYPE PIN — SUM A COLUMN PER SIDE (no win/loss logic). The two value columns are a plain "
+                "per-side stat (shots, minutes, fouls), NOT goals to compare. After the split, just GROUP BY "
+                "team and SUM(own_stat) AS total. No CASE, no opponent comparison. Output team and the total; "
+                "ORDER BY the total DESC. The lesson is the UNION ALL split itself, without scoring logic."
+            ),
+        }
+        base += _MU[_mu]
+    elif qtype == "period_over_period":
+        base += (
+            "Build a PERIOD-OVER-PERIOD GROWTH problem using PostgreSQL. The defining "
+            "shape is: ONE source table with a date column and a numeric measure; bucket "
+            "rows into calendar periods with DATE_TRUNC, aggregate the measure per period, "
+            "then compare each period to a prior one. This is NOT the plain `window_lag_lead` "
+            "qtype (which compares raw neighbour ROWS) -- here you must AGGREGATE into period "
+            "buckets FIRST, then LAG across buckets.\n\n"
+            "Hard requirements:\n"
+            "1) Schema MUST contain ONE main fact table with a date/timestamp column and a "
+            "numeric measure, e.g. sales(sale_id, category, sale_date, amount), "
+            "orders(order_id, order_date, revenue), signups(user_id, created_at). A category "
+            "column is only needed for the share subtype.\n"
+            "2) The answer_key MUST start with a CTE that DATE_TRUNCs the date into period "
+            "buckets and aggregates: "
+            "`SELECT date_trunc('month', sale_date)::date AS period, SUM(amount) AS revenue "
+            "FROM sales GROUP BY 1`. Use the period grain the prompt names (month / week / "
+            "quarter / year).\n"
+            "3) Percent-change columns MUST guard divide-by-zero with NULLIF on the "
+            "denominator: `ROUND(100.0*(revenue - prev)/NULLIF(prev,0), 1)`.\n"
+            "4) The prompt MUST state the period grain, the metric, the exact output column "
+            "names (e.g. period, revenue, prev_revenue, mom_change, mom_pct), and the ORDER "
+            "BY (period ASC, usually).\n"
+            "5) The FIRST period has no prior period, so its delta / pct columns are NULL -- "
+            "the expected output MUST show those NULLs, do not drop the first row.\n"
+            "6) Set classification.recipe to `time-window`, classification.input_arrival to "
+            "`single_table`."
+        )
+        _pp_opts = ("prior_period", "same_period_last_year", "gap_safe", "pct_of_total_pop")
+        _pp = subtype if subtype in _pp_opts else random.choice(list(_pp_opts))
+        _PP = {
+            "prior_period": (
+                "\nSUBTYPE PIN — PRIOR-PERIOD DELTA (MoM / WoW / QoQ / YoY). Pick ONE grain and "
+                "say it in the prompt (month-over-month, week-over-week, quarter-over-quarter, or "
+                "year-over-year vs the immediately preceding period). After the DATE_TRUNC + "
+                "aggregate CTE, use LAG(metric) OVER (ORDER BY period) for the prior value, then "
+                "emit the absolute change and the % change (NULLIF on the denominator). Test data "
+                "MUST be a CONTIGUOUS run of at least 4 periods at that grain so the deltas are "
+                "checkable."
+            ),
+            "same_period_last_year": (
+                "\nSUBTYPE PIN — SAME PERIOD LAST YEAR (seasonal year-over-year). Compare each "
+                "month to the SAME month one year earlier, NOT to the previous month. Use a "
+                "self-join of the monthly CTE to itself on `p.period = c.period - INTERVAL '1 "
+                "year'` (gap-safe), or LAG(metric, 12) only if every month is present. Test data "
+                "MUST span at least 2 full years with the same calendar months in both years, and "
+                "the values MUST differ year to year so the YoY % is non-trivial. The first year's "
+                "rows have no prior-year match -> NULL."
+            ),
+            "gap_safe": (
+                "\nSUBTYPE PIN — GAP-SAFE OVER A DATE SPINE (the classic trap). At least one "
+                "interior period MUST have NO rows in the seed data. The answer_key MUST build a "
+                "complete period spine with generate_series between the data's min and max period "
+                "(never CURRENT_DATE), LEFT JOIN the actuals, COALESCE the metric to 0, and ONLY "
+                "THEN LAG. The lesson: without the spine, LAG jumps over the missing period and the "
+                "delta is wrong; with it, the empty period shows 0 and the surrounding deltas are "
+                "correct. The expected output MUST include the zero-filled period row."
+            ),
+            "pct_of_total_pop": (
+                "\nSUBTYPE PIN — SHARE OF TOTAL + PERIOD DELTA. Schema MUST include a category "
+                "column. Per (category, period) aggregate, then on each row emit BOTH the share of "
+                "the period total `100.0*metric / SUM(metric) OVER (PARTITION BY period)` AND the "
+                "category's own period delta `metric - LAG(metric) OVER (PARTITION BY category "
+                "ORDER BY period)`. Test data MUST have at least 2 categories across at least 3 "
+                "periods. The per-period shares MUST sum to ~100%."
+            ),
+        }
+        base += _PP[_pp]
+    elif qtype == "parse_clean":
+        base += (
+            "Build a PARSE & CLEAN problem using PostgreSQL. The defining shape is: take a "
+            "messy or raw COLUMN and turn it into a usable value with single-row functions "
+            "(no aggregation, no join needed). The schema MUST contain at least one column "
+            "whose stored form needs work: stray case/spacing, a delimited or fixed-position "
+            "string, an array, a date to break apart, text that should be a number or date, "
+            "or NULLs/blanks to handle.\n\n"
+            "Hard requirements:\n"
+            "1) The answer_key uses row-level FUNCTIONS in the SELECT list (not GROUP BY / "
+            "window / join as the point). 2) State the exact output column names and an ORDER "
+            "BY. 3) Test data MUST exercise the function: e.g. a value with extra spaces for "
+            "TRIM, a multi-part string for SPLIT_PART, a NULL/blank for COALESCE/NULLIF, a "
+            "missing array element, a comma-grouped number for TO_NUMBER. 4) Set "
+            "classification.recipe to `row-transform`, classification.input_arrival to "
+            "`single_table`."
+        )
+        _pc_opts = ("string_clean", "array_access", "date_extract", "type_cast", "numeric_format", "conditional_null")
+        _pc = subtype if subtype in _pc_opts else random.choice(list(_pc_opts))
+        _PC = {
+            "string_clean": (
+                "\nSUBTYPE PIN - STRING. Use text functions: SUBSTRING(s FROM a FOR n) (1-based), "
+                "SPLIT_PART(s, delim, n), INITCAP/UPPER/LOWER, TRIM/BTRIM, REPLACE, LPAD/RPAD, "
+                "POSITION(sub IN s), CONCAT_WS. Good prompt: clean a name and split user/domain out of an email."
+            ),
+            "array_access": (
+                "\nSUBTYPE PIN - ARRAY (1-based). Schema MUST have an array column (e.g. tags TEXT[]). "
+                "Use arr[n], ARRAY_LENGTH(arr,1), x = ANY(arr), and optionally UNNEST. Prompt: first tag, "
+                "tag count, and a membership flag."
+            ),
+            "date_extract": (
+                "\nSUBTYPE PIN - DATE. Use EXTRACT(part FROM ts) (returns a NUMBER), DATE_TRUNC(unit, ts) "
+                "(returns a truncated TIMESTAMP), and TO_CHAR(ts, fmt). Make the prompt show the EXTRACT-vs-"
+                "DATE_TRUNC distinction. (Full date PROBLEM recipes live in the date_operations qtype.)"
+            ),
+            "type_cast": (
+                "\nSUBTYPE PIN - CAST/CONVERT. Store values as TEXT that should be other types: an amount like "
+                "'1,234', a date like '30.11.2020', a blank ''. The answer_key uses ::type / CAST, TO_NUMBER(s,'9G999'), "
+                "TO_DATE(s,'DD.MM.YYYY'), and NULLIF(col,'') to turn blanks into NULL."
+            ),
+            "numeric_format": (
+                "\nSUBTYPE PIN - NUMERIC. Use ROUND(n,d), CEIL/FLOOR, TRUNC(n,d), MOD(a,b). Include the "
+                "integer-division trap: a/b on integers truncates, so cast a::numeric/b for a real fraction. "
+                "Prompt: a rounded total and an even/odd flag via MOD."
+            ),
+            "conditional_null": (
+                "\nSUBTYPE PIN - CONDITIONAL/NULL. Use a CASE ladder for bands/labels, COALESCE to fill a NULL "
+                "with a default, and NULLIF to turn a value into NULL (e.g. guard divide-by-zero). Test data MUST "
+                "include at least one NULL so COALESCE/CASE-on-NULL is exercised."
+            ),
+        }
+        base += _PC[_pc]
     elif qtype == "gated_lookup":
         base += (
             "Build a GATED LOOKUP problem: a condition (threshold/flag) on an attribute "
@@ -3864,8 +4270,12 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml
         )
         # Subtype pin — mirrors the playbook's Rank Within Groups to Select Top-N leaves
         # (None -> random among the five). top1-by-value / top1-by-date / topN / nth / special.
-        _tn_opts = ("top1_by_value", "top1_by_date", "topn", "nth", "special")
-        _tn = subtype if subtype in _tn_opts else random.choice(list(_tn_opts))
+        _tn_opts = ("top1_by_value", "top1_by_date", "topn", "nth", "special", "distinct_on")
+        if subtype in _tn_opts:
+            _tn = subtype
+        else:
+            # distinct_on uses DISTINCT ON (Postgres only); keep it out of the mysql rotation
+            _tn = random.choice([o for o in _tn_opts if not (o == "distinct_on" and dialect != "postgresql")])
         _TN = {
             "top1_by_value": (
                 "\nSUBTYPE PIN — TOP 1 BY VALUE. Return exactly ONE row per group: the row with "
@@ -3907,6 +4317,17 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml
                 "both ends and keeping the middle. Every variant partitions the rank window BY the "
                 "group. classification.recipe stays `rank-partition`."
             ),
+            "distinct_on": (
+                "\nSUBTYPE PIN — DISTINCT ON (Postgres). OVERRIDE the ROW_NUMBER requirement above: for "
+                "this subtype the answer_key MUST use `SELECT DISTINCT ON (group_col) ... FROM t ORDER BY "
+                "group_col, <winner_col> DESC` to return exactly ONE representative row per group (the "
+                "newest by a date, or the highest by a value). The whole lesson is the DISTINCT ON tool, so "
+                "do NOT use ROW_NUMBER here. CRITICAL teaching point to design around: the ORDER BY MUST "
+                "begin with the same column(s) as DISTINCT ON, THEN the column that decides the winner — "
+                "Postgres errors if it does not. Single table is fine. Include a group with several rows so "
+                "'one survivor' is meaningful, and at least one tie on the winner column so the prompt has "
+                "to name a secondary ORDER BY tiebreaker. classification.recipe = `rank-partition`."
+            ),
         }
         base += _TN[_tn]
     elif qtype == "point_in_time":
@@ -3922,7 +4343,8 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml
             "one AFTER the cutoff so the date guard must drop it) and one entity whose only row "
             "is after the cutoff (the no-history case).\n"
         )
-        _pit_opts = ("asof_single", "default_no_history", "fill_forward")
+        _pit_opts = ("asof_single", "default_no_history", "fill_forward",
+                     "validity_intervals", "asof_join", "latest_snapshot")
         _pit = subtype if subtype in _pit_opts else random.choice(list(_pit_opts))
         _PIT = {
             "asof_single": (
@@ -3949,6 +4371,39 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml
                 "of their own inherit the last known value; a day before the first row is NULL. "
                 "Design in at least one gap day that must inherit the prior value. "
                 "classification.recipe = `time-window`."
+            ),
+            "validity_intervals": (
+                "\nSUBTYPE PIN — VALIDITY INTERVALS (turn a change list into date ranges). Ignore the "
+                "single-cutoff framing above; there is NO cutoff date here. For each change row, "
+                "output the date range it was in effect PER ENTITY: valid_from = effective_date, "
+                "valid_to = the day BEFORE that entity's NEXT change, found with "
+                "`LEAD(effective_date) OVER (PARTITION BY entity ORDER BY effective_date) - 1` "
+                "(Postgres) / `DATE_SUB(LEAD(...) OVER (...), INTERVAL 1 DAY)` (MySQL). The newest "
+                "row per entity has no next change, so its valid_to is NULL (still in effect). "
+                "Output columns: the entity key, the value, valid_from, valid_to. Schema = the one "
+                "history table. Test data: at least 2 entities, each with 2+ changes so a real range "
+                "and an open-ended (NULL) range both appear. classification.recipe = `rank-partition`."
+            ),
+            "asof_join": (
+                "\nSUBTYPE PIN — AS-OF JOIN (value in effect at each EVENT's own date, from a SECOND "
+                "table). Ignore the single-cutoff framing above. Schema = TWO tables: an EVENTS table "
+                "(event_id, entity key, event_date) and a HISTORY table (entity key, effective_date, "
+                "value). For each event return the value whose effective_date is the latest one on or "
+                "before that event's event_date for the SAME entity — a correlated as-of subquery "
+                "(`WHERE h.entity = e.entity AND h.effective_date <= e.event_date ORDER BY "
+                "h.effective_date DESC LIMIT 1`) or a LEFT JOIN LATERAL. Output ONE row PER EVENT: "
+                "event_id, event_date, the value at that time. Design at least one event dated BEFORE "
+                "its entity's first history row so that value comes back NULL. "
+                "classification.recipe = `rank-partition`. classification.input_arrival = `join`."
+            ),
+            "latest_snapshot": (
+                "\nSUBTYPE PIN — LATEST SNAPSHOT (the single most recent value per entity, NO cutoff). "
+                "Ignore the single-cutoff framing above. Return exactly ONE row per entity: the value "
+                "from the row with the greatest effective_date. Use `DISTINCT ON (entity) ... ORDER BY "
+                "entity, effective_date DESC` (Postgres) or `ROW_NUMBER() OVER (PARTITION BY entity "
+                "ORDER BY effective_date DESC)` kept at rn = 1 (both dialects). Output the entity key "
+                "and the value. Test data: at least 2 entities, each with several dated rows. "
+                "classification.recipe = `rank-partition`."
             ),
         }
         base += _PIT[_pit]
@@ -4325,6 +4780,109 @@ def _validate_problem(problem: Dict[str, Any]) -> tuple:
     return True, "Valid."
 
 
+_CLEANING_MANDATORY = (
+    "\n\nDATA-CLEANING REQUIREMENTS (raw-data realism — APPLY ALL THAT FIT; keep each SMALL and "
+    "woven into the core task; the answer_key MUST perform them; do NOT announce them or name the "
+    "techniques in the prompt — describe columns by their plain business meaning and let the learner "
+    "discover the mess by reading the data + the schema):\n"
+    "A) STRING CLEANING (ALWAYS): at least one TEXT column the answer USES arrives messy — stray "
+    "leading/trailing spaces, inconsistent case, or a value packed inside a larger string. The "
+    "answer_key must clean it with a string function (TRIM, LOWER / UPPER / INITCAP, SPLIT_PART, "
+    "REPLACE, SUBSTRING) BEFORE grouping / filtering / outputting it. Put in rows where skipping the "
+    "clean changes the result (e.g. ' Gold ' vs 'gold', or a domain packed in an email).\n"
+    "B) DATE FUNCTION (only if the problem naturally involves a date/timestamp): the answer_key must "
+    "apply a date function — EXTRACT, DATE_TRUNC, TO_CHAR, AGE, or date math. If the natural problem "
+    "has NO date, skip B; do NOT bolt on an unnatural date.\n"
+    "C) TYPE CONVERSION (ALWAYS): at least one column the answer USES is stored in the WRONG type (a "
+    "date/timestamp, number, or boolean declared as VARCHAR / TEXT in schema_ddl). Insert it as a "
+    "Postgres-castable quoted string (dates '2024-03-01', numbers '42.50', booleans 'true' / 'false'); "
+    "keep NULLs as real NULL. The answer_key must CAST it (col::date / ::numeric / ::boolean, or "
+    "CAST(...)) before any compare / math / aggregation. (B and C may be the SAME column — a date "
+    "stored as text that you cast AND apply a date function to.)\n"
+    "Keep the problem fully consistent: the answer_key reproduces BOTH the example output and the test "
+    "output, both NON-EMPTY. Trace it before returning."
+)
+
+# 25% of eligible problems ALSO require one of these, on top of the mandatory A/B/C above.
+_CLEANING_BONUS = {
+    "conditional_null": (
+        "\n\nBONUS REQUIREMENT — CONDITIONAL / NULL: also fold in a CASE expression or NULL-handling "
+        "(COALESCE / NULLIF) the answer needs — bucket a value into labels with CASE, fill a NULL with "
+        "COALESCE, or guard a divide-by-zero with NULLIF. Include a row that exercises it (a NULL, a 0 "
+        "divisor, or a boundary value)."
+    ),
+    "numeric": (
+        "\n\nBONUS REQUIREMENT — NUMERIC / MATH: also use a numeric function the answer needs — ROUND "
+        "to N decimals, CEIL / FLOOR, TRUNC, or MOD (even/odd or bucketing), or guard integer division "
+        "by casting to numeric. Make the rounding / precision matter to the output."
+    ),
+    "array": (
+        "\n\nBONUS REQUIREMENT — ARRAY: also include one ARRAY-typed column (e.g. tags TEXT[]) the "
+        "answer touches, and use an array function — arr[n] (1-based), ARRAY_LENGTH, x = ANY(arr) for "
+        "membership, or UNNEST to expand. Only if it fits the scenario naturally."
+    ),
+}
+
+
+_CLEANING_LOW = (
+    "\n\nDATA-CLEANING REQUIREMENT (LOW): weave in ONE small string-cleaning step — a TEXT column the "
+    "answer uses arrives with stray spaces, inconsistent case, or a value packed in a larger string, and "
+    "the answer_key cleans it (TRIM / LOWER / INITCAP / SPLIT_PART / REPLACE) before using it. Keep it "
+    "small and NECESSARY (a naive solution that skips it is wrong); do NOT announce it in the prompt; keep "
+    "the problem fully consistent (answer_key reproduces example AND test outputs)."
+)
+
+
+def _cleaning_all_six(per_cat: int) -> str:
+    n = "TWO DIFFERENT" if per_cat >= 2 else "at least ONE"
+    return (
+        "\n\nMAXIMUM DATA-CLEANING DRILL (this is as much the point as the core skill — APPLY ALL): the "
+        "answer_key must use %s function(s) from EACH of these six families. Add whatever columns and "
+        "values are needed (a text column, a date, an ARRAY column, a wrong-typed text column, a number, a "
+        "NULL / '') so each family applies naturally on top of the problem's core task:\n"
+        "1) STRING: TRIM / LOWER / UPPER / INITCAP / SPLIT_PART / REPLACE / SUBSTRING.\n"
+        "2) ARRAY: declare a column as an ARRAY (e.g. tags TEXT[]) and use arr[n] (1-based) / ARRAY_LENGTH "
+        "/ x = ANY(arr) / UNNEST.\n"
+        "3) DATE: a date/timestamp used with EXTRACT / DATE_TRUNC / TO_CHAR / AGE / date math.\n"
+        "4) TYPE CAST: a value that is a date/number/boolean but STORED as VARCHAR / TEXT, cast with "
+        "col::type (or CAST) before use.\n"
+        "5) NUMERIC: ROUND / CEIL / FLOOR / TRUNC / MOD, or numeric-cast division.\n"
+        "6) CONDITIONAL / NULL: CASE, COALESCE, or NULLIF (include a NULL or '' so it is exercised).\n"
+        "Each function must be NECESSARY (a solution skipping it is wrong/errored). Do NOT announce the "
+        "cleaning or name techniques in the prompt — describe columns by business meaning. Keep the CORE "
+        "skill intact and the problem fully consistent (answer_key reproduces BOTH the example and test "
+        "outputs, both NON-EMPTY). Trace it before returning."
+        % n
+    )
+
+
+_REALISM_BLOCKS = {
+    "low": (
+        "\n\nDATASET REALISM (LOW — toy / illustrative): use simple synthetic data — small round "
+        "numbers, generic placeholder names (Alice, Bob, 'Product A', 'North'), and only enough rows to "
+        "show the pattern. Optimize for clarity over realism."
+    ),
+    "moderate": (
+        "\n\nDATASET REALISM (MODERATE — business-plausible): make the data read like a real-ish table "
+        "for this scenario: realistic column names, names / labels / categories that fit the domain, and "
+        "sensible ranges and units. Plausible, but not tied to any specific public dataset."
+    ),
+    "high": (
+        "\n\nDATASET REALISM (HIGH — modeled on PUBLIC datasets): shape the schema AND the value "
+        "distributions after REAL publicly available datasets relevant to the scenario — e.g. data.gov, "
+        "census.gov / American Community Survey, CMS Medicare & Medicaid, CDC, BLS, USDA, FEC, NYC / SF "
+        "Open Data, World Bank, or Kaggle. Use the column names and CODE SYSTEMS such datasets actually "
+        "use where they fit: US state abbreviations or FIPS codes, ZIP / CBSA geographies, NAICS / SIC "
+        "industry codes, ICD-10 / NDC / CPT for health, ISO currency / country codes, realistic units, and "
+        "plausible magnitudes (realistic salaries, populations, prices, counts). You MAY add ONE short line "
+        "in the prompt noting which kind of public dataset the table is modeled on. Do NOT reproduce real "
+        "proprietary rows or fabricate precise 'official' statistics — keep it illustrative but "
+        "structurally faithful, SMALL enough to hand-trace, and fully consistent with the answer_key "
+        "(example AND test outputs non-empty). Any cleaning requirements still apply on top of this base."
+    ),
+}
+
+
 def generate_problem(
     qtype: str,
     dialect: str,
@@ -4333,6 +4891,8 @@ def generate_problem(
     scenario_mode: Optional[str] = None,
     difficulty: Optional[str] = None,
     subtype: Optional[str] = None,
+    cleaning_level: Optional[str] = None,
+    realism: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Generate a fresh problem and validate it before returning. Retries with
@@ -4416,12 +4976,14 @@ def generate_problem(
         _diff = (difficulty or "medium").lower()
         if _diff == "easy":
             islands_flavor = random.choice([
-                "date_calendar", "date_sequence", "integer_seq", "partitioned_status_periods"
+                "date_calendar", "date_sequence", "integer_seq",
+                "partitioned_status_periods", "entity_date_periods"
             ])
         else:
             islands_flavor = random.choice([
                 "date_calendar", "date_sequence", "integer_seq",
-                "partitioned_status_periods", "consecutive_day_streak_per_entity"
+                "partitioned_status_periods", "consecutive_day_streak_per_entity",
+                "entity_date_periods"
             ])
     # For percentile_metrics, pick a flavor based on dialect (PERCENTILE_CONT is
     # Postgres-only; NTILE and PERCENT_RANK work in both):
@@ -4436,7 +4998,7 @@ def generate_problem(
         percentile_flavor = subtype
     elif qtype == "percentile_metrics":
         if dialect == "postgresql":
-            percentile_flavor = random.choice(["percentile_aggregate", "ntile_buckets", "top_n_percent", "extreme_exclusion", "extreme_exclusion_per_group"])
+            percentile_flavor = random.choice(["percentile_aggregate", "ntile_buckets", "top_n_percent", "extreme_exclusion", "extreme_exclusion_per_group", "hypothetical_rank", "hypothetical_fraction"])
         else:
             percentile_flavor = random.choice(["ntile_buckets", "top_n_percent", "extreme_exclusion", "extreme_exclusion_per_group"])
     # For pivot, pick a flavor:
@@ -4466,6 +5028,38 @@ def generate_problem(
     _FLAVOR_QTYPES = {"union_islands", "percentile_metrics", "pivot"}
     if subtype is None and qtype in SUBTYPES and qtype not in _FLAVOR_QTYPES:
         subtype = random.choice([s for s, _ in SUBTYPES[qtype]])
+    # CLEANING TWIST: weave a SMALL parse/clean step into (almost) every analytical problem so
+    # the learner drills cleaning on top of the core skill. One flavor per problem (text_hygiene /
+    # blank_null / delimited / typecast), decided ONCE here so retries stay consistent. Postgres
+    # only; skipped for mutation / procedural / function qtypes and parse_clean (already an
+    # all-cleaning exercise). Dial CLEANING_TWIST_RATE down from 1.0 (every eligible problem) for
+    # fewer twists. typecast stays ~25% of twists since it is 1 of the 4 flavors.
+    CLEANING_TWIST_RATE = 1.0     # 1.0 = require the A/B/C clean step on every eligible problem
+    CLEANING_BONUS_RATE = 0.25    # + an extra conditional/numeric/array requirement, 25% of the time
+    _CLEANING_EXCLUDED = {
+        "do_block", "do_block_queue", "returns_table", "returns_scalar",
+        "recursive_cte", "dml", "dml_update", "dml_delete", "dml_insert",
+        "delete_duplicates", "parse_clean",
+    }
+    _clean_level = (cleaning_level or "moderate").lower()
+    _diff_clean = (difficulty or "moderate").lower()
+    _realism_level = (realism or "moderate").lower()
+    cleaning_required = (
+        dialect == "postgresql"
+        and qtype not in _CLEANING_EXCLUDED
+        and qtype_for_guidance not in _CLEANING_EXCLUDED
+        and random.random() < CLEANING_TWIST_RATE
+    )
+    # HARD difficulty OR HIGH cleaning -> one function from EACH of the 6 families; both -> two each.
+    cleaning_all_six = cleaning_required and (_clean_level == "high" or _diff_clean == "hard")
+    cleaning_per_cat = 2 if (cleaning_all_six and _clean_level == "high" and _diff_clean == "hard") else 1
+    cleaning_bonus = (
+        random.choice(list(_CLEANING_BONUS))
+        if (cleaning_required and not cleaning_all_six and _clean_level == "moderate"
+            and random.random() < CLEANING_BONUS_RATE)
+        else None
+    )
+    typecast_twist = cleaning_required  # back-compat: a cast is part of moderate/high cleaning
     for attempt in range(1, max_retries + 1):
         if on_attempt:
             try:
@@ -4474,6 +5068,16 @@ def generate_problem(
                 pass
 
         user_prompt = _topic_specific_guidance(qtype_for_guidance, dialect, scenario=scenario, dml_op=dml_op, islands_flavor=islands_flavor, percentile_flavor=percentile_flavor, difficulty=difficulty, pivot_flavor=pivot_flavor, subtype=subtype)
+        if cleaning_required:
+            if cleaning_all_six:
+                user_prompt += _cleaning_all_six(cleaning_per_cat)
+            elif _clean_level == "low":
+                user_prompt += _CLEANING_LOW
+            else:  # moderate
+                user_prompt += _CLEANING_MANDATORY
+                if cleaning_bonus:
+                    user_prompt += _CLEANING_BONUS[cleaning_bonus]
+        user_prompt += _REALISM_BLOCKS.get(_realism_level, _REALISM_BLOCKS["moderate"])
         if last_error:
             user_prompt += (
                 "\n\nPREVIOUS ATTEMPT FAILED VALIDATION. The answer_key did not "
@@ -4506,6 +5110,13 @@ def generate_problem(
             "percentile_flavor": percentile_flavor,  # None for non-percentile_metrics; percentile_aggregate/ntile_buckets/top_n_percent otherwise
             "pivot_flavor": pivot_flavor,  # None for non-pivot; multi_column_pivot/signed_aggregate/membership_filter/threshold_per_category otherwise
             "subtype": subtype,  # forced subtype (None = random within the qtype)
+            "cleaning_required": cleaning_required,
+            "cleaning_level": _clean_level if cleaning_required else None,            # low / moderate / high (requested)
+            "cleaning_all_six": cleaning_all_six,                                     # True = >=1 fn from each of 6 families
+            "cleaning_per_category": cleaning_per_cat if cleaning_all_six else None,  # 1, or 2 for high+hard
+            "cleaning_bonus": cleaning_bonus,                                         # moderate-only extra
+            "typecast_twist": typecast_twist,                                         # back-compat
+            "realism": _realism_level,                                                 # low / moderate / high dataset realism
         }
         ok, err = _validate_problem(parsed)
         if ok:
@@ -4869,6 +5480,8 @@ _PB_QTYPE = {
     "window_edge":              ("tab-single", "time-window",       "Single-Table › Window"),
     "union_islands":            ("tab-single", "row-compare",       "Single-Table › Compare › Gaps-and-Islands"),
     "date_operations":          ("tab-single", "date-operations",   "Single-Table › Date Operations"),
+    "period_over_period":       ("tab-single", "time-window",       "Single-Table › Window › Period over period"),
+    "parse_clean":              ("tab-single", "functions",         "Single-Table › Functions"),
     "gated_lookup":             ("tab-multi",  "gated-lookup",      "Multi-Table › Gated Lookup"),
     "window_top_n_per_group":   ("tab-multi",  "rank-partition",    "Multi-Table › Rank Within Groups to Select Top-N"),
     "point_in_time":            ("tab-single", "point-in-time",     "Single-Table › Point in Time"),
@@ -4925,7 +5538,8 @@ _PB_SUBTYPE = {
     ("union_islands", "date_calendar"):                  ("gi-leaf-date-nogap", "Consecutive calendar dates, no gaps"),
     ("union_islands", "date_sequence"):                  ("gi-leaf-date-gap",   "Consecutive dates with gaps"),
     ("union_islands", "partitioned_status_periods"):     ("gi-leaf-entity",     "Per-entity island timelines"),
-    ("union_islands", "consecutive_day_streak_per_entity"): ("gi-leaf-entity",  "Per-entity day streak"),
+    ("union_islands", "entity_date_periods"):            ("gi-leaf-entity",     "Per-entity consecutive-date ranges (no status)"),
+    ("union_islands", "consecutive_day_streak_per_entity"): ("gi-leaf-streak",  "Streak membership (entities with >= N days in a row)"),
     ("window_lag_lead", "neighbour_value"): ("rc-leaf-neighbor-value", "Compare to neighbour's value"),
     ("window_lag_lead", "gap_delta"):       ("rc-leaf-gap-delta",       "Gap / delta to the neighbour"),
     ("window_lag_lead", "fixed_run"):       ("rc-leaf-fixed-run",       "Fixed-length run of N rows"),
@@ -4949,11 +5563,31 @@ _PB_SUBTYPE = {
     ("point_in_time", "asof_single"):        ("pit-leaf-asof",    "As of a single cutoff date"),
     ("point_in_time", "default_no_history"): ("pit-leaf-default", "Default when no history"),
     ("point_in_time", "fill_forward"):       ("pit-leaf-fill",    "Fill forward over a date spine"),
+    ("point_in_time", "validity_intervals"):("pit-leaf-intervals","Validity intervals (valid_from / valid_to)"),
+    ("point_in_time", "asof_join"):          ("pit-leaf-asofjoin","As-of join (value at each event's date)"),
+    ("point_in_time", "latest_snapshot"):    ("pit-leaf-latest",  "Latest snapshot (most recent per entity)"),
     ("window_top_n_per_group", "top1_by_value"): ("rp-multi-top1-by-value", "Top 1 by value"),
     ("window_top_n_per_group", "top1_by_date"):  ("rp-multi-top1-by-date",  "Top 1 by date"),
     ("window_top_n_per_group", "topn"):          ("rp-multi-topn",          "Top N"),
     ("window_top_n_per_group", "nth"):           ("rp-multi-nth",           "Nth position"),
     ("window_top_n_per_group", "special"):       ("rp-multi-special",       "Special rank patterns"),
+    ("window_top_n_per_group", "distinct_on"):   ("rp-multi-distincton",    "Top 1 per group with DISTINCT ON"),
+    ("matchup_unpivot", "soccer_points"):     ("ml-leaf-points",  "Soccer points (3 / 1 / 0)"),
+    ("matchup_unpivot", "win_loss"):          ("ml-leaf-winloss", "Win / loss / tie record"),
+    ("matchup_unpivot", "goals_for_against"): ("ml-leaf-gfga",    "Goals for / against / differential"),
+    ("matchup_unpivot", "sum_column"):        ("ml-leaf-sumcol",  "Sum a column per side"),
+    ("period_over_period", "prior_period"):          ("pop-leaf-prior",   "Prior-period delta (MoM / WoW / QoQ / YoY)"),
+    ("period_over_period", "same_period_last_year"): ("pop-leaf-yoy",     "Same period last year (seasonal)"),
+    ("period_over_period", "gap_safe"):              ("pop-leaf-gapsafe", "Gap-safe over a date spine"),
+    ("period_over_period", "pct_of_total_pop"):      ("pop-leaf-share",   "Share of total + period delta"),
+    ("parse_clean", "string_clean"):     ("fn-string",      "String / text functions"),
+    ("parse_clean", "array_access"):     ("fn-array",       "Array functions"),
+    ("parse_clean", "date_extract"):     ("fn-date",        "Date / time functions"),
+    ("parse_clean", "type_cast"):        ("fn-cast",        "Type casting & conversion"),
+    ("parse_clean", "numeric_format"):   ("fn-numeric",     "Numeric / math functions"),
+    ("parse_clean", "conditional_null"): ("fn-conditional", "Conditional & NULL handling"),
+    ("percentile_metrics", "hypothetical_rank"):     ("rp-leaf-hyp-rank",     "Hypothetical rank (rank / dense_rank WITHIN GROUP)"),
+    ("percentile_metrics", "hypothetical_fraction"): ("rp-leaf-hyp-fraction", "Hypothetical fraction (percent_rank / cume_dist WITHIN GROUP)"),
 }
 
 

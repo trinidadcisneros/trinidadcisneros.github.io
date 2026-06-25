@@ -1,0 +1,216 @@
+{
+  "problem": {
+    "title": "Clean Driver Response Time Metrics",
+    "prompt": "The ride-share app stores driver response times in a `response_seconds` column that sometimes contains NULL (driver never responded), and response quality flags in a `quality_flag` column that may be blank or NULL. Write a query that produces a clean metrics report with three computed columns: `response_category` (a text label: 'instant' if response_seconds <= 5, 'fast' if <= 15, 'slow' if <= 60, 'very_slow' if > 60, or 'no_response' if NULL), `response_display` (the number of seconds as text with ' sec' suffix, or 'N/A' if NULL), and `quality_clean` (the quality_flag value, or 'unknown' if it is NULL or an empty string). Return columns `request_id`, `response_category`, `response_display`, `quality_clean`. Order results by `request_id` ascending.",
+    "schema_ddl": "CREATE TABLE ride_requests (request_id INTEGER PRIMARY KEY, passenger_name VARCHAR(100), response_seconds INTEGER, quality_flag VARCHAR(20));",
+    "example_input_data": "INSERT INTO ride_requests (request_id, passenger_name, response_seconds, quality_flag) VALUES (101, 'Alice Chen', 3, 'excellent'), (102, 'Bob Lee', 12, 'good'), (103, 'Carol Wu', 45, ''), (104, 'Dan Park', NULL, 'poor'), (105, 'Eve Kim', 8, NULL), (106, 'Frank Zhao', 75, 'acceptable');",
+    "example_output_columns": [
+      "request_id",
+      "response_category",
+      "response_display",
+      "quality_clean"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "instant",
+        "3 sec",
+        "excellent"
+      ],
+      [
+        102,
+        "fast",
+        "12 sec",
+        "good"
+      ],
+      [
+        103,
+        "slow",
+        "45 sec",
+        "unknown"
+      ],
+      [
+        104,
+        "no_response",
+        "N/A",
+        "poor"
+      ],
+      [
+        105,
+        "fast",
+        "8 sec",
+        "unknown"
+      ],
+      [
+        106,
+        "very_slow",
+        "75 sec",
+        "acceptable"
+      ]
+    ],
+    "test_data": "INSERT INTO ride_requests (request_id, passenger_name, response_seconds, quality_flag) VALUES (201, 'Grace Liu', 2, 'excellent'), (202, 'Henry Wang', 5, 'good'), (203, 'Iris Zhang', 15, 'good'), (204, 'Jack Tan', 16, ''), (205, 'Kelly Ng', 30, NULL), (206, 'Leo Chen', 60, 'acceptable'), (207, 'Mia Lin', 61, 'poor'), (208, 'Noah Kim', 120, 'very_poor'), (209, 'Olivia Park', NULL, ''), (210, 'Paul Wu', NULL, NULL), (211, 'Quinn Lee', 1, 'excellent'), (212, 'Rachel Zhao', 7, 'good'), (213, 'Sam Choi', 90, 'acceptable'), (214, 'Tina Yu', 14, ''), (215, 'Uma Singh', NULL, 'poor'), (216, 'Victor Han', 59, NULL), (217, 'Wendy Lim', 4, 'excellent'), (218, 'Xavier Tan', 18, 'good'), (219, 'Yara Chen', 80, ''), (220, 'Zach Kim', NULL, 'acceptable');",
+    "test_expected_columns": [
+      "request_id",
+      "response_category",
+      "response_display",
+      "quality_clean"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "instant",
+        "2 sec",
+        "excellent"
+      ],
+      [
+        202,
+        "instant",
+        "5 sec",
+        "good"
+      ],
+      [
+        203,
+        "fast",
+        "15 sec",
+        "good"
+      ],
+      [
+        204,
+        "slow",
+        "16 sec",
+        "unknown"
+      ],
+      [
+        205,
+        "slow",
+        "30 sec",
+        "unknown"
+      ],
+      [
+        206,
+        "slow",
+        "60 sec",
+        "acceptable"
+      ],
+      [
+        207,
+        "very_slow",
+        "61 sec",
+        "poor"
+      ],
+      [
+        208,
+        "very_slow",
+        "120 sec",
+        "very_poor"
+      ],
+      [
+        209,
+        "no_response",
+        "N/A",
+        "unknown"
+      ],
+      [
+        210,
+        "no_response",
+        "N/A",
+        "unknown"
+      ],
+      [
+        211,
+        "instant",
+        "1 sec",
+        "excellent"
+      ],
+      [
+        212,
+        "fast",
+        "7 sec",
+        "good"
+      ],
+      [
+        213,
+        "very_slow",
+        "90 sec",
+        "acceptable"
+      ],
+      [
+        214,
+        "fast",
+        "14 sec",
+        "unknown"
+      ],
+      [
+        215,
+        "no_response",
+        "N/A",
+        "poor"
+      ],
+      [
+        216,
+        "slow",
+        "59 sec",
+        "unknown"
+      ],
+      [
+        217,
+        "instant",
+        "4 sec",
+        "excellent"
+      ],
+      [
+        218,
+        "slow",
+        "18 sec",
+        "good"
+      ],
+      [
+        219,
+        "very_slow",
+        "80 sec",
+        "unknown"
+      ],
+      [
+        220,
+        "no_response",
+        "N/A",
+        "acceptable"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "CASE ladder for response_category bands",
+        "COALESCE to fill NULL response_seconds for display",
+        "NULLIF to turn empty string quality_flag into NULL, then COALESCE to 'unknown'"
+      ]
+    },
+    "hints": [
+      "You need to transform three columns using row-level functions without aggregation or grouping.",
+      "Use a CASE expression to assign the response_category label based on response_seconds thresholds, with a NULL check for 'no_response'. Use COALESCE to display 'N/A' when response_seconds is NULL, otherwise concatenate the number with ' sec'.",
+      "For quality_clean, chain NULLIF to turn empty strings into NULL, then wrap that in COALESCE to replace NULL with 'unknown'. The full expression is COALESCE(NULLIF(quality_flag, ''), 'unknown')."
+    ],
+    "answer_key": "SELECT\n  request_id,\n  CASE\n    WHEN response_seconds IS NULL THEN 'no_response'\n    WHEN response_seconds <= 5 THEN 'instant'\n    WHEN response_seconds <= 15 THEN 'fast'\n    WHEN response_seconds <= 60 THEN 'slow'\n    ELSE 'very_slow'\n  END AS response_category,\n  COALESCE(response_seconds::TEXT || ' sec', 'N/A') AS response_display,\n  COALESCE(NULLIF(quality_flag, ''), 'unknown') AS quality_clean\nFROM ride_requests\nORDER BY request_id;",
+    "_meta": {
+      "question_type": "parse_clean",
+      "original_qtype": "parse_clean",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-24T15:08:44.794554",
+      "problem_id": "40e91c8a4659",
+      "validation_attempts": 1,
+      "scenario": "a ride share app tracking match rate from request to driver acceptance",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "conditional_null",
+      "typecast_twist": false
+    }
+  },
+  "user_solution": "/* \nWrite a query that produces clean metrics report with three computed columns: \n`quality_clean` (the quality_flag value, or 'unknown' if it is NULL or an empty string).\nReturn columns `request_id`, `response_category`, `response_display`, `quality_clean`.\n*/\nSELECT\n    request_id,\n    CASE \n        WHEN response_seconds <= 5 THEN 'instant' \n        WHEN response_seconds <= 15 THEN 'fast' \n        WHEN response_seconds <= 60 THEN 'slow'\n        WHEN response_seconds > 60  THEN 'very_slow'\n        WHEN response_seconds IS NULL THEN 'no_response'\n    END AS response_category,\n    CASE WHEN response_seconds IS NULL THEN 'N/A' ELSE CONCAT(response_seconds::VARCHAR, ' sec') END AS response_display,\n    CASE WHEN quality_flag IS NULL OR quality_flag = '' THEN 'unknown' ELSE quality_flag END AS quality_clean\nFROM ride_requests\nORDER BY request_id;\n\n",
+  "solved_at": "2026-06-24T16:58:47.080538"
+}
