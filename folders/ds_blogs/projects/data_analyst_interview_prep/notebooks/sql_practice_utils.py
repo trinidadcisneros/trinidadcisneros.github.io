@@ -5712,25 +5712,46 @@ def parse_inserts(sql: str):
 
 
 def _parse_value_rows(s: str):
-    rows, depth, cur_row, cur_val, in_str = [], 0, [], '', False
+    """Split a multi-row VALUES body into [[v1, v2, ...], ...].
+
+    Respects single-quoted strings ('' = an escaped quote) AND nested brackets so
+    a comma inside a value does NOT split it: array literals ARRAY['a','b'] and the
+    [...] of ::text[] casts, plus nested function calls like LOWER('x'). The row
+    delimiter is the outer (...) tuple; only a ')' at nest depth 0 closes a row, and
+    only a ',' at nest depth 0 separates values.
+    """
+    rows, in_row, nest, cur_row, cur_val, in_str = [], False, 0, [], '', False
     for ch in s:
         if in_str:
             cur_val += ch
             if ch == "'":
                 in_str = False
-        elif ch == "'":
+            continue
+        if ch == "'":
             in_str = True
             cur_val += ch
-        elif ch == '(' and depth == 0:
-            depth, cur_row, cur_val = 1, [], ''
-        elif ch == ')' and depth == 1:
-            cur_row.append(cur_val.strip())
-            rows.append(cur_row)
-            depth, cur_val = 0, ''
-        elif ch == ',' and depth == 1:
+        elif not in_row:
+            if ch == '(':           # start of a row tuple
+                in_row, nest, cur_row, cur_val = True, 0, [], ''
+            # anything between tuples (commas, whitespace) is ignored
+        elif ch in '([{':
+            nest += 1
+            cur_val += ch
+        elif ch == ')':
+            if nest == 0:           # closes the row tuple
+                cur_row.append(cur_val.strip())
+                rows.append(cur_row)
+                in_row, cur_val = False, ''
+            else:
+                nest -= 1
+                cur_val += ch
+        elif ch in ']}':
+            nest = max(0, nest - 1)
+            cur_val += ch
+        elif ch == ',' and nest == 0:
             cur_row.append(cur_val.strip())
             cur_val = ''
-        elif depth == 1:
+        else:
             cur_val += ch
     return rows
 

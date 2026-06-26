@@ -1,0 +1,67 @@
+{
+  "problem": {
+    "title": "Calculate Median Job Acceptance Duration by Category",
+    "prompt": "You are analyzing a gig labor marketplace that tracks when workers are invited to jobs and when they accept. The schema is modeled on public gig-economy and workforce datasets. Write a PostgreSQL function `median_acceptance_hours` that accepts a single parameter `job_category VARCHAR` and returns the MEDIAN number of hours between `invited_at` and `accepted_at` for all accepted jobs in that category. The function should return a NUMERIC value rounded to 2 decimal places. If no jobs in the category have been accepted (i.e., `accepted_at` IS NULL for all invitations), return 0.00. Compute the duration in hours using `EXTRACT(EPOCH FROM (accepted_at - invited_at)) / 3600`. Test your function by calling: `SELECT median_acceptance_hours('delivery') AS result;`",
+    "schema_ddl": "CREATE TABLE job_categories (category_code VARCHAR(20) PRIMARY KEY, category_name VARCHAR(100)); CREATE TABLE job_invitations (invitation_id SERIAL PRIMARY KEY, worker_id INT NOT NULL, job_category VARCHAR(20) NOT NULL REFERENCES job_categories(category_code), invited_at TIMESTAMP NOT NULL, accepted_at TIMESTAMP, completed_at TIMESTAMP);",
+    "example_input_data": "INSERT INTO job_categories (category_code, category_name) VALUES ('delivery', 'Package Delivery'), ('rideshare', 'Rideshare Driver'), ('tasker', 'Home Tasks'); INSERT INTO job_invitations (invitation_id, worker_id, job_category, invited_at, accepted_at, completed_at) VALUES (1, 101, 'delivery', '2024-03-01 08:00:00', '2024-03-01 09:30:00', '2024-03-01 12:00:00'), (2, 102, 'delivery', '2024-03-01 10:00:00', '2024-03-01 12:00:00', '2024-03-01 15:00:00'), (3, 103, 'delivery', '2024-03-01 14:00:00', '2024-03-01 16:30:00', '2024-03-01 19:00:00'), (4, 104, 'delivery', '2024-03-02 08:00:00', '2024-03-02 11:00:00', '2024-03-02 14:00:00'), (5, 105, 'delivery', '2024-03-02 09:00:00', NULL, NULL), (6, 106, 'rideshare', '2024-03-01 07:00:00', '2024-03-01 07:45:00', '2024-03-01 09:00:00'), (7, 107, 'tasker', '2024-03-01 10:00:00', NULL, NULL);",
+    "example_output_columns": [
+      "result"
+    ],
+    "example_output_rows": [
+      [
+        "2.25"
+      ]
+    ],
+    "test_data": "INSERT INTO job_categories (category_code, category_name) VALUES ('delivery', 'Package Delivery'), ('rideshare', 'Rideshare Driver'), ('tasker', 'Home Tasks'), ('warehouse', 'Warehouse Work'); INSERT INTO job_invitations (invitation_id, worker_id, job_category, invited_at, accepted_at, completed_at) VALUES (1, 101, 'delivery', '2024-03-01 08:00:00', '2024-03-01 09:00:00', '2024-03-01 12:00:00'), (2, 102, 'delivery', '2024-03-01 10:00:00', '2024-03-01 11:30:00', '2024-03-01 15:00:00'), (3, 103, 'delivery', '2024-03-01 14:00:00', '2024-03-01 16:00:00', '2024-03-01 19:00:00'), (4, 104, 'delivery', '2024-03-02 08:00:00', '2024-03-02 10:00:00', '2024-03-02 14:00:00'), (5, 105, 'delivery', '2024-03-02 09:00:00', '2024-03-02 12:00:00', '2024-03-02 16:00:00'), (6, 106, 'delivery', '2024-03-03 07:00:00', '2024-03-03 09:30:00', '2024-03-03 13:00:00'), (7, 107, 'delivery', '2024-03-03 11:00:00', '2024-03-03 14:00:00', '2024-03-03 18:00:00'), (8, 108, 'delivery', '2024-03-04 08:00:00', '2024-03-04 11:30:00', '2024-03-04 15:00:00'), (9, 109, 'delivery', '2024-03-04 10:00:00', NULL, NULL), (10, 110, 'delivery', '2024-03-05 09:00:00', NULL, NULL), (11, 111, 'delivery', '2024-03-05 12:00:00', '2024-03-05 14:45:00', '2024-03-05 18:00:00'), (12, 112, 'delivery', '2024-03-06 08:00:00', '2024-03-06 10:15:00', '2024-03-06 14:00:00'), (13, 113, 'delivery', '2024-03-06 13:00:00', '2024-03-06 16:00:00', '2024-03-06 20:00:00'), (14, 114, 'rideshare', '2024-03-01 07:00:00', '2024-03-01 07:30:00', '2024-03-01 09:00:00'), (15, 115, 'rideshare', '2024-03-01 08:00:00', '2024-03-01 09:00:00', '2024-03-01 11:00:00'), (16, 116, 'rideshare', '2024-03-02 06:00:00', NULL, NULL), (17, 117, 'tasker', '2024-03-01 10:00:00', NULL, NULL), (18, 118, 'tasker', '2024-03-02 11:00:00', NULL, NULL), (19, 119, 'tasker', '2024-03-03 09:00:00', NULL, NULL), (20, 120, 'warehouse', '2024-03-01 05:00:00', NULL, NULL);",
+    "test_expected_columns": [
+      "result"
+    ],
+    "test_expected_rows": [
+      [
+        "2.50"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "scalar_return",
+      "recipe": "function-wrapped",
+      "composite_moves": [
+        "row-filter (job_category match, accepted_at NOT NULL)",
+        "scalar-extract (duration calculation)",
+        "group-aggregate (PERCENTILE_CONT for median)",
+        "scalar-return (COALESCE to handle empty case)"
+      ]
+    },
+    "hints": [
+      "Think about how to compute the median of a set of numeric values in PostgreSQL using an ordered set aggregate function.",
+      "Use PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ...) to compute the median. First filter rows where accepted_at IS NOT NULL and job_category matches the parameter.",
+      "Calculate the hours difference using EXTRACT(EPOCH FROM (accepted_at - invited_at)) / 3600. Use COALESCE to return 0.00 when no accepted jobs exist for the category."
+    ],
+    "answer_key": "CREATE OR REPLACE FUNCTION median_acceptance_hours(job_category VARCHAR)\nRETURNS NUMERIC AS $$\nDECLARE\n  result_val NUMERIC;\nBEGIN\n  SELECT COALESCE(\n    PERCENTILE_CONT(0.5) WITHIN GROUP (\n      ORDER BY EXTRACT(EPOCH FROM (accepted_at - invited_at)) / 3600\n    ),\n    0.00\n  )\n  INTO result_val\n  FROM job_invitations\n  WHERE job_invitations.job_category = median_acceptance_hours.job_category\n    AND accepted_at IS NOT NULL;\n  \n  RETURN ROUND(result_val, 2);\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT median_acceptance_hours('delivery') AS result;",
+    "_meta": {
+      "question_type": "returns_scalar",
+      "original_qtype": "random_any",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-25T15:51:28.360000",
+      "problem_id": "01ab4184d3ce",
+      "validation_attempts": 1,
+      "scenario": "a gig labor marketplace tracking job acceptance and completion rates",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": null,
+      "cleaning_required": false,
+      "cleaning_level": null,
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": false,
+      "realism": "high"
+    }
+  },
+  "user_solution": "/* \n\n)\n\nRETURN\nMEDIAN(accepted_at - invited_at)\n- DOUBLE\n\nCONDITIONS\n- accepted_at IS NOT NULL\n\n1. Develop code\n2. functionalize\n3. run code to check\n\nSELECT median_acceptance_hours('delivery') AS result;\n*/\n\nCREATE OR REPLACE FUNCTION median_acceptance_hours(p_job_category VARCHAR)\nRETURNS NUMERIC AS $$\nBEGIN\n    RETURN (\n        SELECT\n            ROUND(\n                PERCENTILE_CONT(0.5) WITHIN GROUP (\n                    ORDER BY\n                            EXTRACT(\n                                EPOCH FROM (accepted_at - invited_at)\n                                )/3600\n                            )::numeric\n                    , 2) AS result\n        FROM job_invitations \n        WHERE accepted_at IS NOT NULL AND job_category = p_job_category\n        );\nEND;\n$$ LANGUAGE PLPGSQL;\n\nSELECT median_acceptance_hours('delivery') AS result;\n\n\n",
+  "solved_at": "2026-06-25T17:28:42.959264"
+}

@@ -1,0 +1,186 @@
+{
+  "problem": {
+    "title": "Turnaround Time from Kit Ship to Result",
+    "prompt": "You are analyzing an at-home diagnostic test kit platform. The `kit_shipments` table tracks when each kit was shipped to a customer and when the lab released the result, modeled after CDC surveillance datasets for at-home testing programs. Each kit has a `customer_id` (stored as TEXT but always numeric), a `ship_date` (DATE), a `result_released_at` (TIMESTAMP), a `test_type` code (stored in a TEXT[] array where the first element is the primary test code), and a `customer_name` (TEXT that may have inconsistent casing and whitespace). Calculate the turnaround time in hours from ship to result release for each customer. For customers who received multiple kits, compute the average turnaround in hours, rounded to one decimal place. Only include customers whose average turnaround is 72 hours or more. Return `customer_id` (as an INTEGER), `customer_name` (trimmed and title-cased), `primary_test_code` (the first element of the test_type array), `ship_month` (the month of their first shipment, formatted as 'YYYY-MM'), and `avg_turnaround_hours` (NUMERIC rounded to one decimal). Order by `avg_turnaround_hours` descending, then by `customer_id` ascending.",
+    "schema_ddl": "CREATE TABLE kit_shipments (shipment_id INT PRIMARY KEY, customer_id TEXT, customer_name TEXT, ship_date DATE, result_released_at TIMESTAMP, test_type TEXT[]);",
+    "example_input_data": "INSERT INTO kit_shipments (shipment_id, customer_id, customer_name, ship_date, result_released_at, test_type) VALUES (1, '101', ' alice BROWN ', '2024-01-15', '2024-01-18 10:30:00', ARRAY['COVID-19', 'PCR']), (2, '102', 'bob Green', '2024-02-01', '2024-02-05 14:00:00', ARRAY['FLU-A', 'Rapid']), (3, '101', ' alice BROWN ', '2024-03-10', '2024-03-14 09:00:00', ARRAY['COVID-19', 'Antigen']), (4, '103', 'CAROL white  ', '2024-01-20', '2024-01-23 16:45:00', ARRAY['STREP', 'Culture']), (5, '102', 'bob Green', '2024-02-15', '2024-02-18 11:30:00', ARRAY['FLU-B', 'PCR']), (6, '104', 'Dan Black', '2024-03-01', '2024-03-02 08:00:00', ARRAY['RSV', 'PCR']);",
+    "example_output_columns": [
+      "customer_id",
+      "customer_name",
+      "primary_test_code",
+      "ship_month",
+      "avg_turnaround_hours"
+    ],
+    "example_output_rows": [
+      [
+        102,
+        "Bob Green",
+        "FLU-A",
+        "2024-02",
+        "110.0"
+      ],
+      [
+        101,
+        "Alice Brown",
+        "COVID-19",
+        "2024-01",
+        "93.8"
+      ],
+      [
+        103,
+        "Carol White",
+        "STREP",
+        "2024-01",
+        "88.8"
+      ],
+      [
+        102,
+        "Bob Green",
+        "FLU-B",
+        "2024-02",
+        "83.5"
+      ]
+    ],
+    "test_data": "INSERT INTO kit_shipments (shipment_id, customer_id, customer_name, ship_date, result_released_at, test_type) VALUES (101, '201', 'Emma DAVIS  ', '2024-01-05', '2024-01-09 12:00:00', ARRAY['COVID-19', 'PCR']), (102, '202', ' frank Miller', '2024-01-10', '2024-01-14 15:30:00', ARRAY['FLU-A', 'Rapid']), (103, '203', 'Grace Lee ', '2024-02-01', '2024-02-03 10:00:00', ARRAY['STREP', 'Culture']), (104, '201', 'Emma DAVIS  ', '2024-02-15', '2024-02-19 08:30:00', ARRAY['FLU-B', 'PCR']), (105, '204', 'HENRY Wilson', '2024-03-01', '2024-03-05 14:00:00', ARRAY['RSV', 'Antigen']), (106, '202', ' frank Miller', '2024-03-10', '2024-03-14 16:00:00', ARRAY['COVID-19', 'PCR']), (107, '205', 'Ivy Moore', '2024-01-20', '2024-01-24 09:15:00', ARRAY['FLU-A', 'PCR']), (108, '203', 'Grace Lee ', '2024-03-15', '2024-03-17 11:30:00', ARRAY['COVID-19', 'Rapid']), (109, '206', 'Jack Taylor', '2024-02-05', '2024-02-06 07:00:00', ARRAY['STREP', 'Rapid']), (110, '207', 'Karen WHITE', '2024-02-20', '2024-02-24 13:45:00', ARRAY['FLU-B', 'Culture']), (111, '204', 'HENRY Wilson', '2024-03-20', '2024-03-24 10:30:00', ARRAY['RSV', 'PCR']), (112, '208', 'Leo King', '2024-01-25', '2024-01-29 12:30:00', ARRAY['COVID-19', 'Antigen']), (113, '209', 'Mia Scott', '2024-02-10', '2024-02-11 08:00:00', ARRAY['FLU-A', 'Rapid']), (114, '210', 'Noah Adams', '2024-03-05', '2024-03-09 15:00:00', ARRAY['STREP', 'PCR']), (115, '201', 'Emma DAVIS  ', '2024-03-25', '2024-03-29 09:45:00', ARRAY['COVID-19', 'PCR']), (116, '211', 'Olivia Baker', '2024-01-15', '2024-01-19 11:00:00', ARRAY['RSV', 'Culture']), (117, '212', 'Paul Clark', '2024-02-25', '2024-02-27 14:30:00', ARRAY['FLU-B', 'Rapid']), (118, '205', 'Ivy Moore', '2024-03-12', '2024-03-16 10:00:00', ARRAY['COVID-19', 'PCR']), (119, '213', 'Quinn Hall', '2024-01-30', '2024-02-03 16:15:00', ARRAY['STREP', 'Culture']), (120, '214', 'Rita Young', '2024-03-18', '2024-03-20 12:00:00', ARRAY['FLU-A', 'Antigen']);",
+    "test_expected_columns": [
+      "customer_id",
+      "customer_name",
+      "primary_test_code",
+      "ship_month",
+      "avg_turnaround_hours"
+    ],
+    "test_expected_rows": [
+      [
+        213,
+        "Quinn Hall",
+        "STREP",
+        "2024-01",
+        "112.3"
+      ],
+      [
+        202,
+        "Frank Miller",
+        "COVID-19",
+        "2024-03",
+        "112.0"
+      ],
+      [
+        202,
+        "Frank Miller",
+        "FLU-A",
+        "2024-01",
+        "111.5"
+      ],
+      [
+        210,
+        "Noah Adams",
+        "STREP",
+        "2024-03",
+        "111.0"
+      ],
+      [
+        207,
+        "Karen White",
+        "FLU-B",
+        "2024-02",
+        "109.8"
+      ],
+      [
+        208,
+        "Leo King",
+        "COVID-19",
+        "2024-01",
+        "108.5"
+      ],
+      [
+        204,
+        "Henry Wilson",
+        "RSV",
+        "2024-03",
+        "108.3"
+      ],
+      [
+        211,
+        "Olivia Baker",
+        "RSV",
+        "2024-01",
+        "107.0"
+      ],
+      [
+        201,
+        "Emma Davis",
+        "COVID-19",
+        "2024-01",
+        "106.9"
+      ],
+      [
+        205,
+        "Ivy Moore",
+        "COVID-19",
+        "2024-03",
+        "106.0"
+      ],
+      [
+        205,
+        "Ivy Moore",
+        "FLU-A",
+        "2024-01",
+        "105.3"
+      ],
+      [
+        201,
+        "Emma Davis",
+        "FLU-B",
+        "2024-02",
+        "104.5"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "extract customer_id::INTEGER cast from TEXT",
+        "extract test_type[1] array element for primary code",
+        "compute EXTRACT(EPOCH FROM (result_released_at - ship_date)) / 3600 for turnaround hours per shipment",
+        "group by customer_id with AVG turnaround and MIN ship_date for first shipment month",
+        "apply HAVING avg_turnaround >= 72 filter",
+        "format ship_month with TO_CHAR(DATE_TRUNC('month', MIN(ship_date)), 'YYYY-MM')",
+        "TRIM and INITCAP customer_name for consistent casing",
+        "ROUND average to 1 decimal place",
+        "order by avg_turnaround_hours DESC, customer_id ASC"
+      ]
+    },
+    "hints": [
+      "You need to compute the time difference between two timestamp columns and convert it to hours. Group by customer to find the average.",
+      "Use EXTRACT(EPOCH FROM (timestamp2 - timestamp1)) / 3600 to get hours. The customer_id column is text, so cast it to INTEGER. The test_type column is an array; access the first element with [1].",
+      "GROUP BY customer_id::INTEGER. Calculate AVG(EXTRACT(EPOCH FROM (result_released_at - ship_date)) / 3600) and apply HAVING to filter >= 72 hours. Use DATE_TRUNC('month', MIN(ship_date)) for the first ship month, format with TO_CHAR(..., 'YYYY-MM'). Clean customer_name with INITCAP(TRIM(...)). Access test_type[1] for primary code. ROUND the average to 1 decimal."
+    ],
+    "answer_key": "SELECT customer_id::INTEGER, INITCAP(TRIM(customer_name)) AS customer_name, test_type[1] AS primary_test_code, TO_CHAR(DATE_TRUNC('month', MIN(ship_date)), 'YYYY-MM') AS ship_month, ROUND(AVG(EXTRACT(EPOCH FROM (result_released_at - ship_date)) / 3600), 1) AS avg_turnaround_hours FROM kit_shipments GROUP BY customer_id::INTEGER, INITCAP(TRIM(customer_name)), test_type[1] HAVING AVG(EXTRACT(EPOCH FROM (result_released_at - ship_date)) / 3600) >= 72 ORDER BY avg_turnaround_hours DESC, customer_id::INTEGER ASC;",
+    "_meta": {
+      "question_type": "date_operations",
+      "original_qtype": "random_any",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-25T11:11:17.754480",
+      "problem_id": "bdaea316bc5f",
+      "validation_attempts": 1,
+      "scenario": "an at-home diagnostic test kit platform tracking kit shipped and results released",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "duration_between",
+      "cleaning_required": true,
+      "cleaning_level": "high",
+      "cleaning_all_six": true,
+      "cleaning_per_category": 1,
+      "cleaning_bonus": null,
+      "typecast_twist": true,
+      "realism": "high"
+    }
+  },
+  "user_solution": "/*\nYou are analyzing an at-home diagnostic test kit platform.\n\n\nTable: kit_shipments    tracks when each kit was shipped to a customer and when the lab released the result\nshipment_id\t            INT PRIMARY KEY\ncustomer_id\t            TEXT\ncustomer_name\t        TEXT\nship_date\t            DATE\nresult_released_at\t    TIMESTAMP\ntest_type\t            TEXT[]        first element is the primary test code\n\n\nPURPOSE:\n- Calculate the turnaround time in hours from ship to result release for each customer.\n- For customers who received multiple kits, compute the average turnaround in hours, rounded to one decimal place.\n- Only include customers whose average turnaround is 72 hours or more.\n\nOUTPUT\ncustomer_id                INT\ncustomer_name              (trimmed and title-cased), \nprimary_test_code          (the first element of the test_type array), \nship_month                 (the month of their first shipment, formatted as 'YYYY-MM'), and \navg_turnaround_hours       (NUMERIC rounded to one decimal).\n\n\n\nSTEPS\n1. DATA CLEANING\n2. CAL TURN AROUND TIME\n3. GROUP BY AND VG\n4. HAVING FILTER\n*/\nWITH base AS (\n    SELECT\n        customer_id::int,\n        INITCAP(TRIM(customer_name)) AS customer_name,\n        test_type[1] AS primary_test_code,\n        TO_CHAR(ship_date, 'YYYY-MM') AS ship_month,\n        EXTRACT(EPOCH from (result_released_at::timestamp - ship_date::timestamp)) /3600 AS turnaround_hours\n    FROM kit_shipments\n)\nSELECT\n    customer_id,\n    customer_name,\n    primary_test_code,\n    MIN(ship_month) AS ship_month,\n    ROUND(AVG(turnaround_hours),1) AS avg_turnaround_hours\nFROM base\nGROUP BY 1, 2, 3\nHAVING ROUND(AVG(turnaround_hours::numeric),1) >= 72\nORDER BY avg_turnaround_hours DESC, customer_id ASC;\n\n",
+  "solved_at": "2026-06-25T11:32:55.937233"
+}

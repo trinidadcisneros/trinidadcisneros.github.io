@@ -1,0 +1,306 @@
+{
+  "title": "Match Course Instructors by Specialization Tag",
+  "prompt": "This problem is modeled on online learning platform datasets such as those available on Kaggle. You have two tables: `course_completions` tracks student certifications, and `instructors` stores instructor profiles. Each instructor has a specialization array (e.g., '{\"data_science\", \"machine_learning\"}'). The `completions` table records the student ID, course title, completion date (stored as TEXT in 'YYYY-MM-DD' format), instructor name (with inconsistent casing), and a primary subject tag. For each completed course, find the instructor's email and the number of specializations they have, but ONLY include rows where the course's primary subject appears in the instructor's specialization array. Your query must handle leading/trailing whitespace in instructor names and convert the completion_date text to a proper date to extract the year. Return columns: student_id, course_title, completion_year, instructor_email, specialization_count. Order by student_id, then course_title.",
+  "schema_ddl": "CREATE TABLE course_completions (completion_id SERIAL PRIMARY KEY, student_id INTEGER NOT NULL, course_title TEXT NOT NULL, completion_date TEXT NOT NULL, instructor_name TEXT NOT NULL, primary_subject TEXT NOT NULL); CREATE TABLE instructors (instructor_id SERIAL PRIMARY KEY, full_name TEXT NOT NULL, email TEXT NOT NULL, specializations TEXT[] NOT NULL);",
+  "example_input_data": "INSERT INTO instructors (instructor_id, full_name, email, specializations) VALUES (1, 'Alice Chen', 'alice.chen@example.edu', '{\"data_science\", \"statistics\", \"machine_learning\"}'), (2, 'Bob Martinez', 'bob.m@example.edu', '{\"web_development\", \"javascript\"}'), (3, 'Carol White', 'carol.w@example.edu', '{\"cloud_computing\", \"devops\"}'), (4, 'David Lee', 'david.lee@example.edu', '{\"databases\", \"sql\", \"data_engineering\"}'); INSERT INTO course_completions (completion_id, student_id, course_title, completion_date, instructor_name, primary_subject) VALUES (1, 101, 'Intro to Machine Learning', '2023-03-15', ' Alice Chen ', 'machine_learning'), (2, 101, 'Advanced SQL', '2023-06-22', 'David Lee', 'sql'), (3, 102, 'JavaScript Essentials', '2023-05-10', 'Bob Martinez  ', 'javascript'), (4, 103, 'Data Visualization', '2024-01-08', ' alice chen', 'data_science'), (5, 104, 'Cloud Architecture', '2023-09-30', 'Carol White', 'cloud_computing'), (6, 105, 'Python for Data', '2024-02-14', 'Alice Chen', 'statistics');",
+  "example_output_columns": [
+    "student_id",
+    "course_title",
+    "completion_year",
+    "instructor_email",
+    "specialization_count"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Advanced SQL",
+      "2023",
+      "david.lee@example.edu",
+      3
+    ],
+    [
+      101,
+      "Intro to Machine Learning",
+      "2023",
+      "alice.chen@example.edu",
+      3
+    ],
+    [
+      102,
+      "JavaScript Essentials",
+      "2023",
+      "bob.m@example.edu",
+      2
+    ],
+    [
+      103,
+      "Data Visualization",
+      "2024",
+      "alice.chen@example.edu",
+      3
+    ],
+    [
+      104,
+      "Cloud Architecture",
+      "2023",
+      "carol.w@example.edu",
+      2
+    ],
+    [
+      105,
+      "Python for Data",
+      "2024",
+      "alice.chen@example.edu",
+      3
+    ]
+  ],
+  "test_data": "INSERT INTO instructors (instructor_id, full_name, email, specializations) VALUES (1, 'Alice Chen', 'alice.chen@example.edu', '{\"data_science\", \"statistics\", \"machine_learning\", \"python\"}'), (2, 'Bob Martinez', 'bob.m@example.edu', '{\"web_development\", \"javascript\", \"react\"}'), (3, 'Carol White', 'carol.w@example.edu', '{\"cloud_computing\", \"devops\", \"kubernetes\"}'), (4, 'David Lee', 'david.lee@example.edu', '{\"databases\", \"sql\", \"data_engineering\", \"nosql\"}'), (5, 'Emma Garcia', 'emma.g@example.edu', '{\"cybersecurity\", \"networking\"}'), (6, 'Frank Zhang', 'frank.z@example.edu', '{\"ai\", \"nlp\", \"computer_vision\"}'); INSERT INTO course_completions (completion_id, student_id, course_title, completion_date, instructor_name, primary_subject) VALUES (1, 101, 'Intro to Machine Learning', '2023-03-15', ' Alice Chen ', 'machine_learning'), (2, 101, 'Advanced SQL', '2023-06-22', 'David Lee', 'sql'), (3, 102, 'JavaScript Essentials', '2023-05-10', 'Bob Martinez  ', 'javascript'), (4, 103, 'Data Visualization', '2024-01-08', ' alice chen', 'data_science'), (5, 104, 'Cloud Architecture', '2023-09-30', 'Carol White', 'cloud_computing'), (6, 105, 'Python for Data', '2024-02-14', 'Alice Chen', 'python'), (7, 106, 'React Masterclass', '2023-11-18', 'bob martinez', 'react'), (8, 107, 'NoSQL Deep Dive', '2024-03-05', 'David Lee  ', 'nosql'), (9, 108, 'Kubernetes Admin', '2023-08-22', 'Carol White', 'kubernetes'), (10, 109, 'Network Security', '2024-01-30', 'Emma Garcia', 'networking'), (11, 110, 'Computer Vision 101', '2023-12-12', 'Frank Zhang', 'computer_vision'), (12, 111, 'NLP Fundamentals', '2024-02-28', ' frank zhang ', 'nlp'), (13, 112, 'AI Ethics', '2023-07-14', 'Frank Zhang', 'ai'), (14, 113, 'Statistics Bootcamp', '2024-04-10', 'Alice Chen', 'statistics'), (15, 114, 'DevOps Pipeline', '2023-10-05', 'CAROL WHITE', 'devops'), (16, 115, 'Web Dev Basics', '2024-03-20', 'Bob Martinez', 'web_development'), (17, 116, 'Data Engineering 101', '2023-09-15', 'david lee', 'data_engineering'), (18, 117, 'Python Basics', '2024-01-12', 'Alice Chen', 'python'), (19, 118, 'Cybersecurity Intro', '2023-11-25', 'Emma Garcia', 'cybersecurity'), (20, 119, 'Database Design', '2024-02-18', 'David Lee', 'databases'), (21, 120, 'Machine Learning II', '2023-08-08', 'Alice Chen', 'machine_learning'), (22, 121, 'Cloud Foundations', '2024-03-30', 'Carol White', 'cloud_computing'), (23, 122, 'JavaScript Advanced', '2023-12-20', 'Bob Martinez', 'javascript'), (24, 101, 'Statistics 201', '2024-05-01', 'Alice Chen', 'statistics'), (25, 102, 'React Hooks', '2024-04-15', 'Bob Martinez', 'react'), (26, 103, 'Data Science Capstone', '2023-06-30', 'Alice Chen', 'data_science'), (27, 104, 'Kubernetes Security', '2024-01-22', 'Carol White', 'kubernetes'), (28, 105, 'Deep Learning', '2023-10-18', 'Frank Zhang', 'ai');",
+  "test_expected_columns": [
+    "student_id",
+    "course_title",
+    "completion_year",
+    "instructor_email",
+    "specialization_count"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      "Advanced SQL",
+      "2023",
+      "david.lee@example.edu",
+      4
+    ],
+    [
+      101,
+      "Intro to Machine Learning",
+      "2023",
+      "alice.chen@example.edu",
+      4
+    ],
+    [
+      101,
+      "Statistics 201",
+      "2024",
+      "alice.chen@example.edu",
+      4
+    ],
+    [
+      102,
+      "JavaScript Essentials",
+      "2023",
+      "bob.m@example.edu",
+      3
+    ],
+    [
+      102,
+      "React Hooks",
+      "2024",
+      "bob.m@example.edu",
+      3
+    ],
+    [
+      103,
+      "Data Science Capstone",
+      "2023",
+      "alice.chen@example.edu",
+      4
+    ],
+    [
+      103,
+      "Data Visualization",
+      "2024",
+      "alice.chen@example.edu",
+      4
+    ],
+    [
+      104,
+      "Cloud Architecture",
+      "2023",
+      "carol.w@example.edu",
+      3
+    ],
+    [
+      104,
+      "Kubernetes Security",
+      "2024",
+      "carol.w@example.edu",
+      3
+    ],
+    [
+      105,
+      "Deep Learning",
+      "2023",
+      "frank.z@example.edu",
+      3
+    ],
+    [
+      105,
+      "Python for Data",
+      "2024",
+      "alice.chen@example.edu",
+      4
+    ],
+    [
+      106,
+      "React Masterclass",
+      "2023",
+      "bob.m@example.edu",
+      3
+    ],
+    [
+      107,
+      "NoSQL Deep Dive",
+      "2024",
+      "david.lee@example.edu",
+      4
+    ],
+    [
+      108,
+      "Kubernetes Admin",
+      "2023",
+      "carol.w@example.edu",
+      3
+    ],
+    [
+      109,
+      "Network Security",
+      "2024",
+      "emma.g@example.edu",
+      2
+    ],
+    [
+      110,
+      "Computer Vision 101",
+      "2023",
+      "frank.z@example.edu",
+      3
+    ],
+    [
+      111,
+      "NLP Fundamentals",
+      "2024",
+      "frank.z@example.edu",
+      3
+    ],
+    [
+      112,
+      "AI Ethics",
+      "2023",
+      "frank.z@example.edu",
+      3
+    ],
+    [
+      113,
+      "Statistics Bootcamp",
+      "2024",
+      "alice.chen@example.edu",
+      4
+    ],
+    [
+      114,
+      "DevOps Pipeline",
+      "2023",
+      "carol.w@example.edu",
+      3
+    ],
+    [
+      115,
+      "Web Dev Basics",
+      "2024",
+      "bob.m@example.edu",
+      3
+    ],
+    [
+      116,
+      "Data Engineering 101",
+      "2023",
+      "david.lee@example.edu",
+      4
+    ],
+    [
+      117,
+      "Python Basics",
+      "2024",
+      "alice.chen@example.edu",
+      4
+    ],
+    [
+      118,
+      "Cybersecurity Intro",
+      "2023",
+      "emma.g@example.edu",
+      2
+    ],
+    [
+      119,
+      "Database Design",
+      "2024",
+      "david.lee@example.edu",
+      4
+    ],
+    [
+      120,
+      "Machine Learning II",
+      "2023",
+      "alice.chen@example.edu",
+      4
+    ],
+    [
+      121,
+      "Cloud Foundations",
+      "2024",
+      "carol.w@example.edu",
+      3
+    ],
+    [
+      122,
+      "JavaScript Advanced",
+      "2023",
+      "bob.m@example.edu",
+      3
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "cast completion_date from TEXT to DATE using :: operator",
+      "extract year from date using EXTRACT",
+      "normalize instructor_name with TRIM and LOWER",
+      "join completions to instructors on normalized names",
+      "filter where primary_subject = ANY(specializations array)",
+      "compute array length for specialization_count",
+      "select and order results"
+    ]
+  },
+  "hints": [
+    "You'll need to clean the instructor names in the completions table before joining them to the instructors table.",
+    "Use the ANY operator to check if a value exists in a PostgreSQL array column, and use ARRAY_LENGTH to count elements in the array.",
+    "The completion_date is stored as text, so you'll need to cast it to a date type before extracting the year. Also normalize names with TRIM and LOWER before joining."
+  ],
+  "answer_key": "SELECT c.student_id, c.course_title, EXTRACT(YEAR FROM c.completion_date::DATE) AS completion_year, i.email AS instructor_email, ARRAY_LENGTH(i.specializations, 1) AS specialization_count FROM course_completions c INNER JOIN instructors i ON LOWER(TRIM(c.instructor_name)) = LOWER(i.full_name) WHERE c.primary_subject = ANY(i.specializations) ORDER BY c.student_id, c.course_title;",
+  "_meta": {
+    "question_type": "enrich_join",
+    "original_qtype": "random_any",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-25T17:41:53.121909",
+    "problem_id": "ec61b8f0b4cd",
+    "validation_attempts": 1,
+    "scenario": "an online course platform tracking course completion and certification",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "self_join",
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "high"
+  }
+}

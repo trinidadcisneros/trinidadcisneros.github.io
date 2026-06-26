@@ -8,10 +8,16 @@ Living changelog and decision log for the multi-notebook interview-drill framewo
 
 **What this project is now.** A reusable **data-analyst interview-drill framework**: one shared engine pattern (catalog → generate → diagnose → grade) behind several focused notebooks. Renamed from `sql_practice_generator` → `data_analyst_interview_prep` on 2026-06-16.
 
-**Notebooks (in `notebooks/`):**
+**Notebooks (in `notebooks/`), renumbered 2026-06-25 to free nb02 for Python practice:**
 - `nb01_sql_practice.ipynb` — SQL drills (Postgres/MySQL sandbox). Engine: `sql_practice_utils.py` + `sandbox.py`.
-- `nb02_analyst_interview_drills.ipynb` — analyst drills in 4 categories: Data Transformation Modeling, Critical Reasoning SQL, Product Metrics & KPIs, Version Control. Engine: `nb02_drill_utils.py`.
-- `nb03_statistical_methods_drills.ipynb` — **NEW (2026-06-16)** statistical methods: A/B testing, power & sample size, hypothesis tests, regression, claims metrics (PDC/PMPM). Engine: `stats_drill_utils.py`.
+- `nb02_python_practice.ipynb`: **NEW (2026-06-25)** Python practice covering pandas, numpy, and Python basics (array and string operations). Built separately. Slots between the SQL notebook and the analyst drills.
+
+**NEXT BUILD (do in a fresh cowork):** create `folders/sql/python_problem_patterns.html` mirroring the layout of `folders/sql/sql_problem_patterns.html`, for the pandas/numpy/python patterns in nb02. The repo root `bitterscientist.com` is now connectable (request_cowork_directory), which is required to reach `folders/sql/`. The nb02 engine generates problems on its own; Trinidad may optionally supply 5 to 10 real sample problems to calibrate format and difficulty.
+
+- `nb03_data_cleaning_modeling_drills.ipynb`: was nb02. Data cleaning and modeling drills (clean messy raw data, build the target model with CREATE TABLE AS SELECT). Engine: `nb03_modeling_drill_utils.py`.
+- `nb04_analyst_interview_drills.ipynb`: was nb03. Analyst drills in 4 categories: Data Transformation Modeling, Critical Reasoning SQL, Product Metrics & KPIs, Version Control. Engine: `nb04_drill_utils.py`.
+- `nb05_statistical_methods_drills.ipynb`: was nb04. Statistical methods: A/B testing, power and sample size, hypothesis tests, regression, claims metrics (PDC/PMPM). Engine: `stats_drill_utils.py`.
+- `nb06_sql_error_review.ipynb`: was nb05. Reviews every failed Submit logged from nb01, ranked by error type. Engine: `sql_practice_utils.py`.
 
 **nb03 design (the current template for new notebooks):** 3-step UX matching nb01/nb02 — **(1) Pick a problem** (dropdowns: Topic, Scenario [same industry list as nb01/nb02], Difficulty Easy/Moderate/Hard, Source New/Solved-replay; renders a scenario-grounded problem card), **(2) Diagnose before coding** (Walkthrough mode = guided dropdowns that lead to the right test and assemble the strategy; Solve mode = free-text diagnosis graded), **(3) Implement** (scenario shown above a runnable Python editor; Test / Submit [auto-run numeric check + Claude rubric] / Reveal reference). Collapsible code cells throughout (reuses nb02's ▼/▲ toggle). Generated problems saved to `data/outputs/stats_problems/` and replayable. Auto-run numeric check works offline; **Claude rubric + diagnosis feedback turn on when `ANTHROPIC_API_KEY` is in the project `.env`** (model via `DRILL_MODEL`, default `claude-sonnet-4-6`).
 
@@ -19,7 +25,7 @@ Living changelog and decision log for the multi-notebook interview-drill framewo
 
 **Trinidad's situation (2026-06-16).** Active healthcare data-analyst job search (separate `job_posting_resume_optimizer` project). This week's interviews: **MDCalc** Senior Data Analyst (phone screen pending) and **Judi Health / Capital Rx** recruiter call Thu 6/18 9am PT. Drilling A/B testing + statistical methods (nb03) and SQL (nb01) for these. She is **moving this project into a folder dedicated to her coding projects** — keep paths relative to the project root where possible.
 
-**Roadmap / open work.** Split nb02's four categories into their own thin per-domain notebooks on the shared engine (target 5 notebooks: SQL, statistical methods, product metrics, dbt/data modeling, version control). nb03 is the pattern to copy.
+**Roadmap / open work.** Flesh out the new `nb02_python_practice.ipynb` (pandas, numpy, basic Python array and string operations) on the shared engine pattern. Continue splitting the analyst notebook's four categories into their own thin per-domain notebooks (target lineup: SQL, Python, statistical methods, product metrics, dbt and data modeling, version control). The statistical methods notebook (now nb05) is the pattern to copy.
 
 **SQL track — 2026-06-16 cowork (canonical detail in `folders/sql/HANDOFF.md`).** Two artifacts changed this day:
 - `notebooks/sql_practice_utils.py` (nb01 engine): 31 → 32 qtypes. NEW `window_benchmark_compare` (whole-group `AVG/MIN/MAX OVER (PARTITION BY)` with no ORDER BY, compare each row in an outer query). `left_join_on_filter` now rotates 6 shapes including a left-filter-in-WHERE + right-filter-in-ON combo. `window_running_total` rotates SUM/AVG/COUNT. After the edit, reload nb01 from disk before running.
