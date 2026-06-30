@@ -1,0 +1,232 @@
+{
+  "problem": {
+    "title": "Clean Lesson Milestone Tags for Insights",
+    "prompt": "You are working with a language learning app that tracks user progress through daily streaks and milestone achievements, modeled on public education platform datasets (data.gov). The `user_milestones` table stores raw milestone tags in a free-text field that combines the language code, achievement level, and completion status separated by underscores, e.g., 'ES_ADVANCED_COMPLETE'. Many rows have inconsistent casing and extra whitespace that must be cleaned before analysis. Write a query that parses each milestone tag, extracts the language code (first segment), formats the achievement level (second segment) with proper title case, counts the total number of segments in the tag using an array approach, and returns only rows where the status (third segment when uppercased) is 'COMPLETE'. Return columns `user_id`, `clean_language_code` (uppercased two-letter code), `formatted_level` (title case), and `segment_count` (total number of underscore-delimited parts). Order the result by `user_id` ascending.",
+    "display": {
+      "context": "You are working with a language learning app that tracks user progress through daily streaks and milestone achievements, modeled on public education platform datasets (data.gov).",
+      "task": "Write a query that cleans milestone tags, extracts language codes and achievement levels, counts segments, and filters for completed milestones.",
+      "table_notes": {
+        "user_milestones": "holds raw milestone achievement tags with free-text formatting inconsistencies"
+      },
+      "output_field_notes": {
+        "user_id": "the unique identifier for the learner",
+        "clean_language_code": "the two-letter language code from the first segment of the tag, uppercased",
+        "formatted_level": "the achievement level from the second segment, in proper title case",
+        "segment_count": "the total number of underscore-delimited parts in the milestone tag"
+      },
+      "field_logic": [
+        "clean_language_code: extract the first underscore-delimited segment from the trimmed milestone tag and convert it to uppercase",
+        "formatted_level: extract the second underscore-delimited segment from the trimmed milestone tag and convert it to title case with the first letter capitalized and the rest lowercase",
+        "segment_count: split the trimmed milestone tag by underscores into an array and count the number of elements"
+      ],
+      "edge_cases": [
+        "If the milestone tag has leading or trailing whitespace, trim it before parsing.",
+        "If the third segment (status) uppercased is not 'COMPLETE', exclude that row from the result."
+      ],
+      "filter_note": "Only rows where the third underscore-delimited segment of the trimmed milestone tag equals 'COMPLETE' when uppercased are included.",
+      "order_by_note": "Results are ordered by user_id in ascending order."
+    },
+    "schema_ddl": "CREATE TABLE user_milestones (user_id INT, milestone_tag VARCHAR(100), achieved_date DATE);",
+    "example_input_data": "INSERT INTO user_milestones (user_id, milestone_tag, achieved_date) VALUES (101, 'ES_ADVANCED_COMPLETE', '2024-01-15'), (102, ' fr_intermediate_complete ', '2024-01-20'), (103, 'DE_BEGINNER_IN_PROGRESS', '2024-02-01'), (104, 'IT_expert_COMPLETE', '2024-02-10'), (105, 'PT_BASIC_COMPLETE', '2024-02-15'), (106, 'en_starter_pending', '2024-03-01'), (107, ' JA_FLUENT_COMPLETE ', '2024-03-05'), (108, 'ZH_INTERMEDIATE_COMPLETE', '2024-03-10');",
+    "example_output_columns": [
+      "user_id",
+      "clean_language_code",
+      "formatted_level",
+      "segment_count"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "ES",
+        "Advanced",
+        3
+      ],
+      [
+        102,
+        "FR",
+        "Intermediate",
+        3
+      ],
+      [
+        104,
+        "IT",
+        "Expert",
+        3
+      ],
+      [
+        105,
+        "PT",
+        "Basic",
+        3
+      ],
+      [
+        107,
+        "JA",
+        "Fluent",
+        3
+      ],
+      [
+        108,
+        "ZH",
+        "Intermediate",
+        3
+      ]
+    ],
+    "test_data": "INSERT INTO user_milestones (user_id, milestone_tag, achieved_date) VALUES (201, 'AR_NOVICE_COMPLETE', '2024-01-05'), (202, '  ko_advanced_complete  ', '2024-01-12'), (203, 'RU_MASTER_IN_PROGRESS', '2024-01-18'), (204, 'HI_beginner_COMPLETE', '2024-01-25'), (205, 'SV_PROFICIENT_COMPLETE', '2024-02-02'), (206, 'nl_intermediate_pending', '2024-02-08'), (207, ' PL_EXPERT_COMPLETE ', '2024-02-14'), (208, 'TR_STARTER_COMPLETE', '2024-02-20'), (209, 'VI_FLUENT_IN_PROGRESS', '2024-02-25'), (210, 'th_basic_COMPLETE', '2024-03-01'), (211, '  DA_ADVANCED_COMPLETE  ', '2024-03-05'), (212, 'NO_INTERMEDIATE_TESTING', '2024-03-10'), (213, 'FI_master_COMPLETE', '2024-03-15'), (214, 'CS_BEGINNER_COMPLETE', '2024-03-20'), (215, 'el_proficient_pending', '2024-03-25'), (216, ' HU_EXPERT_COMPLETE ', '2024-03-28'), (217, 'RO_NOVICE_COMPLETE', '2024-04-01'), (218, 'UK_FLUENT_IN_PROGRESS', '2024-04-05'), (219, 'BG_starter_COMPLETE', '2024-04-10'), (220, '  HR_INTERMEDIATE_COMPLETE  ', '2024-04-15');",
+    "test_expected_columns": [
+      "user_id",
+      "clean_language_code",
+      "formatted_level",
+      "segment_count"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "AR",
+        "Novice",
+        3
+      ],
+      [
+        202,
+        "KO",
+        "Advanced",
+        3
+      ],
+      [
+        204,
+        "HI",
+        "Beginner",
+        3
+      ],
+      [
+        205,
+        "SV",
+        "Proficient",
+        3
+      ],
+      [
+        207,
+        "PL",
+        "Expert",
+        3
+      ],
+      [
+        208,
+        "TR",
+        "Starter",
+        3
+      ],
+      [
+        210,
+        "TH",
+        "Basic",
+        3
+      ],
+      [
+        211,
+        "DA",
+        "Advanced",
+        3
+      ],
+      [
+        213,
+        "FI",
+        "Master",
+        3
+      ],
+      [
+        214,
+        "CS",
+        "Beginner",
+        3
+      ],
+      [
+        216,
+        "HU",
+        "Expert",
+        3
+      ],
+      [
+        217,
+        "RO",
+        "Novice",
+        3
+      ],
+      [
+        219,
+        "BG",
+        "Starter",
+        3
+      ],
+      [
+        220,
+        "HR",
+        "Intermediate",
+        3
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "trim whitespace",
+        "split string into parts",
+        "extract first segment and uppercase",
+        "extract second segment and title-case",
+        "convert to array and count elements",
+        "extract third segment and filter on uppercased value",
+        "order by user_id"
+      ]
+    },
+    "hints": [
+      "Start by trimming the milestone_tag to remove any leading or trailing spaces before parsing.",
+      "Use SPLIT_PART to extract the first, second, and third segments from the trimmed tag, then apply UPPER to the language code and INITCAP to the level.",
+      "To count the total segments, convert the trimmed milestone_tag into an array using STRING_TO_ARRAY with underscore as the delimiter, then use ARRAY_LENGTH to count the elements. Filter rows where the uppercased third segment equals 'COMPLETE'."
+    ],
+    "answer_key": "SELECT user_id, UPPER(SPLIT_PART(TRIM(milestone_tag), '_', 1)) AS clean_language_code, INITCAP(SPLIT_PART(TRIM(milestone_tag), '_', 2)) AS formatted_level, ARRAY_LENGTH(STRING_TO_ARRAY(TRIM(milestone_tag), '_'), 1) AS segment_count FROM user_milestones WHERE UPPER(SPLIT_PART(TRIM(milestone_tag), '_', 3)) = 'COMPLETE' ORDER BY user_id;",
+    "_meta": {
+      "question_type": "parse_clean",
+      "original_qtype": "parse_clean",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-28T11:40:41.304740",
+      "problem_id": "3f16acfc8279",
+      "validation_attempts": 1,
+      "scenario": "a language learning app tracking daily streaks and lesson completion",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "string_clean",
+      "cleaning_required": false,
+      "cleaning_level": null,
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": false,
+      "realism": "high"
+    },
+    "example_output_schema": [
+      [
+        "user_id",
+        "INTEGER"
+      ],
+      [
+        "clean_language_code",
+        "TEXT"
+      ],
+      [
+        "formatted_level",
+        "TEXT"
+      ],
+      [
+        "segment_count",
+        "INTEGER"
+      ]
+    ]
+  },
+  "user_solution": "/* notes */\n\nSELECT\n    user_id,\n    SPLIT_PART(UPPER(TRIM(milestone_tag)), '_', 1) AS clean_language_code,\n    SPLIT_PART(INITCAP(TRIM(milestone_tag)), '_', 2) AS formatted_level,\n    COALESCE(ARRAY_LENGTH(STRING_TO_ARRAY(TRIM(milestone_tag), '_'), 1),0) AS segment_count\nFROM user_milestones\nWHERE SPLIT_PART(UPPER(TRIM(milestone_tag)), '_', 3) = 'COMPLETE'\nORDER BY 1;",
+  "solved_at": "2026-06-28T11:49:02.454051"
+}

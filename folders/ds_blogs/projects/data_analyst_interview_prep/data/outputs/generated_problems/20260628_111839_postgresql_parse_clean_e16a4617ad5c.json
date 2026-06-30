@@ -1,0 +1,229 @@
+{
+  "title": "Clean Listing Codes and Extract Platform IDs",
+  "prompt": "You are working with a peer-to-peer resale marketplace that aggregates listings from multiple platforms. Each listing has a raw listing code that follows the pattern `<PLATFORM>-<ID>-<CATEGORY>`, where the platform abbreviation may have inconsistent casing and extra whitespace, the ID is a numeric identifier that should be padded to 8 digits, and the category is a 2-letter code. Your task is to standardize these codes. Write a query that cleans the platform name to uppercase and removes whitespace, pads the listing ID to 8 digits with leading zeros, and keeps the category code as-is. Additionally, extract the platform abbreviation as a separate column. Return the listing_id, the cleaned standardized_code, and the extracted platform. Order results by listing_id.",
+  "display": {
+    "context": "You are working with a P2P resale marketplace modeled on e-commerce aggregator datasets (data.gov).",
+    "task": "Write a query that cleans and standardizes raw listing codes by normalizing platform names, padding IDs, and extracting platform identifiers.",
+    "table_notes": {
+      "marketplace_listings": "stores listings from multiple platforms with raw listing codes needing standardization"
+    },
+    "output_field_notes": {
+      "listing_id": "the unique identifier for the listing record",
+      "standardized_code": "the cleaned listing code with uppercase platform, zero-padded ID, and original category",
+      "platform": "the platform abbreviation extracted from the listing code"
+    },
+    "field_logic": [
+      "standardized_code: extract the platform name from the raw code and convert it to uppercase with spaces removed, extract the numeric ID and pad it to 8 digits with leading zeros, extract the category code unchanged, then join them with hyphens",
+      "platform: extract the platform abbreviation from the raw code, convert it to uppercase, and remove any whitespace"
+    ],
+    "edge_cases": [
+      "If the raw code has extra spaces in the platform name, remove all spaces.",
+      "If the ID is shorter than 8 digits, pad it with leading zeros to reach 8 digits.",
+      "If the platform name has mixed case, convert it entirely to uppercase."
+    ],
+    "filter_note": "All rows from the marketplace_listings table are included.",
+    "order_by_note": "Results are ordered by listing_id in ascending order."
+  },
+  "schema_ddl": "CREATE TABLE marketplace_listings (listing_id INTEGER PRIMARY KEY, raw_listing_code VARCHAR(100), item_title VARCHAR(200), asking_price NUMERIC(10,2), seller_id INTEGER, created_date DATE);",
+  "example_input_data": "INSERT INTO marketplace_listings (listing_id, raw_listing_code, item_title, asking_price, seller_id, created_date) VALUES (1, 'etsy -12345-EL', 'Vintage Lamp', 45.00, 101, '2024-01-15'), (2, 'EBAY-789-AP', 'Laptop Stand', 25.50, 102, '2024-01-16'), (3, 'posh mark-4567-CL', 'Designer Jacket', 120.00, 103, '2024-01-17'), (4, 'Mercari-99-HM', 'Coffee Mug Set', 15.00, 104, '2024-01-18'), (5, 'fb marketplace-123456-FU', 'Dining Table', 200.00, 105, '2024-01-19'), (6, 'etsy-1-EL', 'Handmade Candle', 8.00, 106, '2024-01-20');",
+  "example_output_columns": [
+    "listing_id",
+    "standardized_code",
+    "platform"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "ETSY-00012345-EL",
+      "ETSY"
+    ],
+    [
+      2,
+      "EBAY-00000789-AP",
+      "EBAY"
+    ],
+    [
+      3,
+      "POSHMARK-00004567-CL",
+      "POSHMARK"
+    ],
+    [
+      4,
+      "MERCARI-00000099-HM",
+      "MERCARI"
+    ],
+    [
+      5,
+      "FBMARKETPLACE-00123456-FU",
+      "FBMARKETPLACE"
+    ],
+    [
+      6,
+      "ETSY-00000001-EL",
+      "ETSY"
+    ]
+  ],
+  "test_data": "INSERT INTO marketplace_listings (listing_id, raw_listing_code, item_title, asking_price, seller_id, created_date) VALUES (101, 'etsy -12345-EL', 'Vintage Lamp', 45.00, 101, '2024-01-15'), (102, 'EBAY-789-AP', 'Laptop Stand', 25.50, 102, '2024-01-16'), (103, 'posh mark-4567-CL', 'Designer Jacket', 120.00, 103, '2024-01-17'), (104, 'Mercari-99-HM', 'Coffee Mug Set', 15.00, 104, '2024-01-18'), (105, 'fb marketplace-123456-FU', 'Dining Table', 200.00, 105, '2024-01-19'), (106, 'etsy-1-EL', 'Handmade Candle', 8.00, 106, '2024-01-20'), (107, 'AMAZON -5000000-BK', 'Textbook', 60.00, 107, '2024-01-21'), (108, 'depop-777-CL', 'Vintage Tee', 18.00, 108, '2024-01-22'), (109, 'Vinted-50-AC', 'Scarf', 12.00, 109, '2024-01-23'), (110, 'GRAILED-2-FW', 'Sneakers', 95.00, 110, '2024-01-24'), (111, 'offer up-88888-EL', 'Floor Lamp', 30.00, 111, '2024-01-25'), (112, 'let go-9-HM', 'Blender', 22.00, 112, '2024-01-26'), (113, 'POSHMARK-100-CL', 'Handbag', 75.00, 113, '2024-01-27'), (114, 'etsy -999999-JW', 'Earrings', 35.00, 114, '2024-01-28'), (115, 'EBAY-10-AP', 'Mouse Pad', 5.00, 115, '2024-01-29'), (116, 'mercari-234567-EL', 'Desk Lamp', 28.00, 116, '2024-01-30'), (117, 'FB marketplace-55-FU', 'Chair', 40.00, 117, '2024-01-31'), (118, 'etsy-12-EL', 'Candle Holder', 10.00, 118, '2024-02-01'), (119, 'DEPOP-8-CL', 'Jacket', 50.00, 119, '2024-02-02'), (120, 'vinted-3333-AC', 'Belt', 14.00, 120, '2024-02-03');",
+  "test_expected_columns": [
+    "listing_id",
+    "standardized_code",
+    "platform"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      "ETSY-00012345-EL",
+      "ETSY"
+    ],
+    [
+      102,
+      "EBAY-00000789-AP",
+      "EBAY"
+    ],
+    [
+      103,
+      "POSHMARK-00004567-CL",
+      "POSHMARK"
+    ],
+    [
+      104,
+      "MERCARI-00000099-HM",
+      "MERCARI"
+    ],
+    [
+      105,
+      "FBMARKETPLACE-00123456-FU",
+      "FBMARKETPLACE"
+    ],
+    [
+      106,
+      "ETSY-00000001-EL",
+      "ETSY"
+    ],
+    [
+      107,
+      "AMAZON-05000000-BK",
+      "AMAZON"
+    ],
+    [
+      108,
+      "DEPOP-00000777-CL",
+      "DEPOP"
+    ],
+    [
+      109,
+      "VINTED-00000050-AC",
+      "VINTED"
+    ],
+    [
+      110,
+      "GRAILED-00000002-FW",
+      "GRAILED"
+    ],
+    [
+      111,
+      "OFFERUP-00088888-EL",
+      "OFFERUP"
+    ],
+    [
+      112,
+      "LETGO-00000009-HM",
+      "LETGO"
+    ],
+    [
+      113,
+      "POSHMARK-00000100-CL",
+      "POSHMARK"
+    ],
+    [
+      114,
+      "ETSY-00999999-JW",
+      "ETSY"
+    ],
+    [
+      115,
+      "EBAY-00000010-AP",
+      "EBAY"
+    ],
+    [
+      116,
+      "MERCARI-00234567-EL",
+      "MERCARI"
+    ],
+    [
+      117,
+      "FBMARKETPLACE-00000055-FU",
+      "FBMARKETPLACE"
+    ],
+    [
+      118,
+      "ETSY-00000012-EL",
+      "ETSY"
+    ],
+    [
+      119,
+      "DEPOP-00000008-CL",
+      "DEPOP"
+    ],
+    [
+      120,
+      "VINTED-00003333-AC",
+      "VINTED"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "row-transform",
+    "composite_moves": [
+      "extract platform/ID/category from raw code using SPLIT_PART",
+      "clean platform with UPPER and REPLACE to remove spaces",
+      "pad ID to 8 digits with LPAD",
+      "reassemble standardized code with extracted platform, padded ID, and category"
+    ]
+  },
+  "hints": [
+    "You will need to split the raw listing code on hyphens to access each component separately.",
+    "Use REPLACE to remove spaces from the platform name, then UPPER to standardize the case.",
+    "LPAD can pad a numeric string to a fixed width with leading zeros; you'll need to pad the ID component to 8 digits.",
+    "After cleaning each piece, concatenate them back together with hyphens, and extract the cleaned platform name as a separate column."
+  ],
+  "answer_key": "SELECT listing_id, UPPER(REPLACE(SPLIT_PART(raw_listing_code, '-', 1), ' ', '')) || '-' || LPAD(SPLIT_PART(raw_listing_code, '-', 2), 8, '0') || '-' || SPLIT_PART(raw_listing_code, '-', 3) AS standardized_code, UPPER(REPLACE(SPLIT_PART(raw_listing_code, '-', 1), ' ', '')) AS platform FROM marketplace_listings ORDER BY listing_id;",
+  "_meta": {
+    "question_type": "parse_clean",
+    "original_qtype": "parse_clean",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-28T11:18:39.383880",
+    "problem_id": "e16a4617ad5c",
+    "validation_attempts": 1,
+    "scenario": "a P2P resale marketplace tracking listing-to-sale conversion",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "string_clean",
+    "cleaning_required": false,
+    "cleaning_level": null,
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": null,
+    "typecast_twist": false,
+    "realism": "high"
+  },
+  "example_output_schema": [
+    [
+      "listing_id",
+      "INTEGER"
+    ],
+    [
+      "standardized_code",
+      "TEXT"
+    ],
+    [
+      "platform",
+      "TEXT"
+    ]
+  ]
+}

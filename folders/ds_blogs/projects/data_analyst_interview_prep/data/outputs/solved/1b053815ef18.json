@@ -1,0 +1,271 @@
+{
+  "problem": {
+    "title": "Parse Player Session Tags and Features",
+    "prompt": "You are working with a free-to-play mobile game analytics platform modeled on public app-usage datasets (data.gov). The `player_sessions` table stores each session with a TEXT array column `feature_tags` that lists features the player interacted with during that session (e.g., {'daily_quest', 'reward_video', 'shop'}). Write a query that extracts the first feature tag each player used, counts how many tags each session has, and flags whether the player watched a rewarded video ad (the array contains 'reward_video'). Return columns `session_id`, `player_id`, `first_feature` (the first element of the `feature_tags` array, or 'none' if the array is NULL or empty), `tag_count` (the number of elements in the array, or 0 if NULL/empty), and `watched_ad` (TRUE if 'reward_video' appears anywhere in the array, FALSE otherwise). Order the output by `session_id` ascending. Handle edge cases: some sessions have NULL or empty arrays, and some arrays have only one element.",
+    "display": {
+      "context": "You are working with a free-to-play mobile game analytics platform modeled on public app-usage datasets (data.gov).",
+      "task": "Write a query that extracts the first feature tag each player used, counts how many tags each session has, and flags whether the player watched a rewarded video ad.",
+      "table_notes": {
+        "player_sessions": "Each row records one player session with an array of feature tags listing interactions during that session"
+      },
+      "output_field_notes": {
+        "session_id": "unique identifier for the session",
+        "player_id": "unique identifier for the player",
+        "first_feature": "the first feature tag from the array, or 'none' if the array is missing or empty",
+        "tag_count": "the number of feature tags in the array, or 0 if missing or empty",
+        "watched_ad": "whether the player interacted with a rewarded video ad during the session"
+      },
+      "field_logic": [
+        "first_feature: take the first element from the feature_tags array; if the array is NULL or empty, return the text 'none'",
+        "tag_count: count how many elements are in the feature_tags array; if the array is NULL or empty, return 0",
+        "watched_ad: check whether the text 'reward_video' appears anywhere in the feature_tags array; return TRUE if present, FALSE otherwise"
+      ],
+      "edge_cases": [
+        "If feature_tags is NULL, then first_feature is 'none', tag_count is 0, and watched_ad is FALSE.",
+        "If feature_tags is an empty array, then first_feature is 'none', tag_count is 0, and watched_ad is FALSE.",
+        "If feature_tags has only one element, then first_feature is that element and tag_count is 1."
+      ],
+      "filter_note": "All rows from player_sessions are included in the output.",
+      "order_by_note": "The output rows are ordered by session_id in ascending order."
+    },
+    "schema_ddl": "CREATE TABLE player_sessions (session_id INT PRIMARY KEY, player_id INT NOT NULL, session_date DATE NOT NULL, duration_minutes INT NOT NULL, feature_tags TEXT[]);",
+    "example_input_data": "INSERT INTO player_sessions (session_id, player_id, session_date, duration_minutes, feature_tags) VALUES (1, 101, '2024-03-15', 22, ARRAY['daily_quest', 'reward_video', 'shop']), (2, 102, '2024-03-15', 8, ARRAY['reward_video']), (3, 103, '2024-03-16', 45, ARRAY['pvp_battle', 'daily_quest', 'leaderboard']), (4, 101, '2024-03-16', 12, NULL), (5, 104, '2024-03-17', 5, ARRAY[]::TEXT[]), (6, 105, '2024-03-17', 30, ARRAY['shop', 'inventory', 'reward_video', 'clan_chat']);",
+    "example_output_columns": [
+      "session_id",
+      "player_id",
+      "first_feature",
+      "tag_count",
+      "watched_ad"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        101,
+        "daily_quest",
+        3,
+        true
+      ],
+      [
+        2,
+        102,
+        "reward_video",
+        1,
+        true
+      ],
+      [
+        3,
+        103,
+        "pvp_battle",
+        3,
+        false
+      ],
+      [
+        4,
+        101,
+        "none",
+        0,
+        false
+      ],
+      [
+        5,
+        104,
+        "none",
+        0,
+        false
+      ],
+      [
+        6,
+        105,
+        "shop",
+        4,
+        true
+      ]
+    ],
+    "test_data": "INSERT INTO player_sessions (session_id, player_id, session_date, duration_minutes, feature_tags) VALUES (101, 201, '2024-03-10', 15, ARRAY['tutorial', 'daily_quest']), (102, 202, '2024-03-10', 32, ARRAY['reward_video', 'shop', 'inventory', 'pvp_battle', 'clan_chat']), (103, 203, '2024-03-11', 9, NULL), (104, 204, '2024-03-11', 18, ARRAY['leaderboard']), (105, 205, '2024-03-12', 6, ARRAY[]::TEXT[]), (106, 206, '2024-03-12', 50, ARRAY['pvp_battle', 'reward_video']), (107, 201, '2024-03-13', 22, ARRAY['daily_quest', 'shop', 'reward_video', 'inventory']), (108, 207, '2024-03-13', 11, ARRAY['tutorial']), (109, 208, '2024-03-14', 40, NULL), (110, 209, '2024-03-14', 7, ARRAY['shop', 'inventory']), (111, 210, '2024-03-15', 25, ARRAY['clan_chat', 'pvp_battle', 'leaderboard', 'reward_video', 'daily_quest']), (112, 211, '2024-03-15', 3, ARRAY[]::TEXT[]), (113, 212, '2024-03-16', 14, ARRAY['reward_video']), (114, 213, '2024-03-16', 19, ARRAY['shop']), (115, 214, '2024-03-17', 35, NULL), (116, 215, '2024-03-17', 28, ARRAY['daily_quest', 'inventory', 'shop']);",
+    "test_expected_columns": [
+      "session_id",
+      "player_id",
+      "first_feature",
+      "tag_count",
+      "watched_ad"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        201,
+        "tutorial",
+        2,
+        false
+      ],
+      [
+        102,
+        202,
+        "reward_video",
+        5,
+        true
+      ],
+      [
+        103,
+        203,
+        "none",
+        0,
+        false
+      ],
+      [
+        104,
+        204,
+        "leaderboard",
+        1,
+        false
+      ],
+      [
+        105,
+        205,
+        "none",
+        0,
+        false
+      ],
+      [
+        106,
+        206,
+        "pvp_battle",
+        2,
+        true
+      ],
+      [
+        107,
+        201,
+        "daily_quest",
+        4,
+        true
+      ],
+      [
+        108,
+        207,
+        "tutorial",
+        1,
+        false
+      ],
+      [
+        109,
+        208,
+        "none",
+        0,
+        false
+      ],
+      [
+        110,
+        209,
+        "shop",
+        2,
+        false
+      ],
+      [
+        111,
+        210,
+        "clan_chat",
+        5,
+        true
+      ],
+      [
+        112,
+        211,
+        "none",
+        0,
+        false
+      ],
+      [
+        113,
+        212,
+        "reward_video",
+        1,
+        true
+      ],
+      [
+        114,
+        213,
+        "shop",
+        1,
+        false
+      ],
+      [
+        115,
+        214,
+        "none",
+        0,
+        false
+      ],
+      [
+        116,
+        215,
+        "daily_quest",
+        3,
+        false
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "array indexing with arr[1]",
+        "COALESCE for NULL/empty arrays",
+        "ARRAY_LENGTH for count with NULL handling",
+        "ANY for membership check"
+      ]
+    },
+    "hints": [
+      "PostgreSQL arrays are 1-based, so the first element is accessed with [1]. Consider what happens when the array is NULL or empty.",
+      "ARRAY_LENGTH(arr, 1) returns the number of elements in a single-dimension array, but it returns NULL if the array itself is NULL. Use COALESCE to handle that case.",
+      "To check if a specific value exists anywhere in an array, use the syntax 'value' = ANY(array_column). This returns TRUE if the value is found, FALSE if not found in a non-NULL array, and NULL if the array is NULL\u2014wrap it in COALESCE to guarantee a boolean result."
+    ],
+    "answer_key": "SELECT session_id, player_id, COALESCE(feature_tags[1], 'none') AS first_feature, COALESCE(ARRAY_LENGTH(feature_tags, 1), 0) AS tag_count, COALESCE('reward_video' = ANY(feature_tags), FALSE) AS watched_ad FROM player_sessions ORDER BY session_id;",
+    "_meta": {
+      "question_type": "parse_clean",
+      "original_qtype": "parse_clean",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-27T22:12:32.523818",
+      "problem_id": "1b053815ef18",
+      "validation_attempts": 1,
+      "scenario": "a free-to-play mobile game tracking session length and ad impressions",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "array_access",
+      "cleaning_required": false,
+      "cleaning_level": null,
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": false,
+      "realism": "high"
+    },
+    "example_output_schema": [
+      [
+        "session_id",
+        "INTEGER"
+      ],
+      [
+        "player_id",
+        "INTEGER"
+      ],
+      [
+        "first_feature",
+        "TEXT"
+      ],
+      [
+        "tag_count",
+        "INTEGER"
+      ],
+      [
+        "watched_ad",
+        "BOOLEAN"
+      ]
+    ]
+  },
+  "user_solution": "/* notes */\n\nSELECT\n    session_id,\n    player_id,\n    feature_tags[1] AS first_feature,\n    COALESCE(ARRAY_LENGTH(feature_tags, 1), 0) AS tag_count,\n    COALESCE(('reward_video' = ANY(feature_tags)), false) AS watched_ad\nFROM player_sessions\nORDER BY session_id;",
+  "solved_at": "2026-06-27T22:16:37.052431"
+}

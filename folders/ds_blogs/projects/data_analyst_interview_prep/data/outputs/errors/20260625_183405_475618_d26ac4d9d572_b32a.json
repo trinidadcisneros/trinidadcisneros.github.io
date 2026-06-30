@@ -1,0 +1,229 @@
+{
+  "logged_at": "2026-06-25T18:34:05.475618",
+  "failure_kind": "sql_error",
+  "problem_id": "d26ac4d9d572",
+  "question_type": "window_frames",
+  "original_qtype": "random_any",
+  "subtype": "range_between",
+  "scenario": "a mental health app tracking session completion and journal entries",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "time-window",
+  "title": "Patient Mood Trends with RANGE Interval Frame",
+  "prompt": "A mental health platform (modeled on CDC BRFSS mental health tracking) maintains a `mood_logs` table. Each row is a patient's daily mood rating with a `log_date` (stored as TEXT 'YYYY-MM-DD'), a self-reported `mood_score` (1-10 integer, stored as TEXT), a `patient_id` (state abbreviation format, two uppercase letters), a `session_type` (TEXT array of session tags), and a `notes` column (raw text with leading/trailing whitespace). You need to compute, for each log, a 7-day trailing average mood score: the average of all mood scores logged by the same patient on dates from 7 days before the current log_date UP TO AND INCLUDING the current log_date. Rows with the same log_date must share the same 7-day window (peer rows). Return: `patient_id`, `log_date`, `cleaned_notes` (trimmed, lowercase), `first_tag` (the first element of the session_type array), `log_month` (two-digit numeric month extracted from log_date), `mood_score` (as INTEGER), and `trailing_7day_avg` (rounded to 1 decimal). Filter to rows where the session_type array contains 'cbt'. Order by patient_id, log_date.",
+  "schema_ddl": "CREATE TABLE mood_logs (patient_id TEXT, log_date TEXT, mood_score TEXT, session_type TEXT[], notes TEXT);",
+  "answer_key": "WITH cleaned AS (\n  SELECT\n    patient_id,\n    log_date,\n    LOWER(TRIM(notes)) AS cleaned_notes,\n    session_type[1] AS first_tag,\n    TO_CHAR(log_date::DATE, 'MM') AS log_month,\n    CASE WHEN mood_score = '' THEN NULL ELSE mood_score::INTEGER END AS mood_score\n  FROM mood_logs\n  WHERE 'cbt' = ANY(session_type)\n)\nSELECT\n  patient_id,\n  log_date,\n  cleaned_notes,\n  first_tag,\n  log_month,\n  mood_score,\n  ROUND(\n    AVG(mood_score) OVER (\n      PARTITION BY patient_id\n      ORDER BY log_date::DATE\n      RANGE BETWEEN INTERVAL '6 days' PRECEDING AND CURRENT ROW\n    ),\n    1\n  ) AS trailing_7day_avg\nFROM cleaned\nWHERE mood_score IS NOT NULL\nORDER BY patient_id, log_date;",
+  "test_expected_columns": [
+    "patient_id",
+    "log_date",
+    "cleaned_notes",
+    "first_tag",
+    "log_month",
+    "mood_score",
+    "trailing_7day_avg"
+  ],
+  "test_expected_rows": [
+    [
+      "CA",
+      "2024-05-20",
+      "early",
+      "cbt",
+      "05",
+      6,
+      "6.0"
+    ],
+    [
+      "CA",
+      "2024-05-27",
+      "week later",
+      "cbt",
+      "05",
+      7,
+      "7.0"
+    ],
+    [
+      "CA",
+      "2024-05-28",
+      "next day",
+      "cbt",
+      "05",
+      7,
+      "7.0"
+    ],
+    [
+      "CA",
+      "2024-06-01",
+      "june start",
+      "cbt",
+      "06",
+      8,
+      "7.3"
+    ],
+    [
+      "CA",
+      "2024-06-02",
+      "improving",
+      "cbt",
+      "06",
+      9,
+      "8.0"
+    ],
+    [
+      "CA",
+      "2024-06-02",
+      "same day",
+      "cbt",
+      "06",
+      9,
+      "8.0"
+    ],
+    [
+      "CA",
+      "2024-06-08",
+      "dip",
+      "cbt",
+      "06",
+      5,
+      "7.7"
+    ],
+    [
+      "CA",
+      "2024-06-15",
+      "peak",
+      "cbt",
+      "06",
+      10,
+      "10.0"
+    ],
+    [
+      "MA",
+      "2024-06-08",
+      "first valid",
+      "cbt",
+      "06",
+      5,
+      "5.0"
+    ],
+    [
+      "MA",
+      "2024-06-22",
+      "later",
+      "cbt",
+      "06",
+      7,
+      "7.0"
+    ],
+    [
+      "NY",
+      "2024-05-25",
+      "start",
+      "cbt",
+      "05",
+      4,
+      "4.0"
+    ],
+    [
+      "NY",
+      "2024-06-01",
+      "june",
+      "cbt",
+      "06",
+      5,
+      "5.0"
+    ],
+    [
+      "NY",
+      "2024-06-08",
+      "mid",
+      "cbt",
+      "06",
+      7,
+      "7.0"
+    ],
+    [
+      "NY",
+      "2024-06-09",
+      "peer",
+      "cbt",
+      "06",
+      8,
+      "7.3"
+    ],
+    [
+      "NY",
+      "2024-06-09",
+      "same",
+      "cbt",
+      "06",
+      7,
+      "7.3"
+    ],
+    [
+      "NY",
+      "2024-06-15",
+      "good",
+      "cbt",
+      "06",
+      9,
+      "8.0"
+    ],
+    [
+      "NY",
+      "2024-06-16",
+      "stable",
+      "cbt",
+      "06",
+      9,
+      "9.0"
+    ],
+    [
+      "TX",
+      "2024-06-01",
+      "peer2",
+      "cbt",
+      "06",
+      4,
+      "3.5"
+    ],
+    [
+      "TX",
+      "2024-06-01",
+      "low",
+      "cbt",
+      "06",
+      3,
+      "3.5"
+    ],
+    [
+      "TX",
+      "2024-06-08",
+      "rising",
+      "cbt",
+      "06",
+      6,
+      "6.0"
+    ],
+    [
+      "TX",
+      "2024-06-15",
+      "up",
+      "cbt",
+      "06",
+      8,
+      "8.0"
+    ],
+    [
+      "TX",
+      "2024-06-22",
+      "week later",
+      "cbt",
+      "06",
+      9,
+      "9.0"
+    ]
+  ],
+  "user_solution": "/*\nProEach row is a patient's daily mood rating with a \n`log_date` (stored as TEXT 'YYYY-MM-DD'), \na self-reported `mood_score` (1-10 integer, stored as TEXT), a\n `patient_id` (state abbreviation format, two uppercase letters), a \n`session_type` (TEXT array of session tags), and a \n`notes` column (raw text with leading/trailing whitespace).\n\nYou need to compute, for each log, a 7-day trailing average mood score: the average of all mood scores logged by the same patient on dates from 7 days before the current log_date UP TO AND INCLUDING the current log_date.\n\nRows with the same log_date must share the same 7-day window (peer rows).\n\nReturn: \npatient_id`, \nlog_date`, \ncleaned_notes` (trimmed, lowercase), \nfirst_tag` (the first element of the session_type array), \nlog_month` (two-digit numeric month extracted from log_date), \nmood_score` (as INTEGER)\ntrailing_7day_avg` (rounded to 1 decimal).\n\nFILTER\n\n\n\n\n\nTable: mood_logs\npatient_id\t        TEXT\nlog_date\t        TEXT\nmood_score\t        TEXT\nsession_type\t    TEXT[]\nnotes\t            TEXT\n\n*/\n\nSELECT\n    patient_id,\n    log_date::date,\n    lower(TRIM(notes)) AS cleaned_notes,\n    session_type[1] AS first_tag,\n    LPAD(EXTRACT(month FROM log_date::date)::VARCHAR, 2, '0') AS log_month,\n    mood_score::int,\n    ROUND(AVG(mood_score::int) OVER (PARTITION BY patient_id ORDER BY log_date::date\n                RANGE BETWEEN INTERVAL '6 days' PRECEDING AND CURRENT ROW),1) AS trailing_7day_avg\nFROM mood_logs\nWHERE 'cbt' = ANY(session_type)\nORDER BY patient_id, log_date;\n\n\n\n",
+  "error_message": "invalid input syntax for type integer: \"\"\n",
+  "your_columns": null,
+  "your_rows": null
+}

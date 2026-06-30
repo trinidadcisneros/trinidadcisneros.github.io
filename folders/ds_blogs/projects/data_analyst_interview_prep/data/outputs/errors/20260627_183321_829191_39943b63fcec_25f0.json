@@ -1,0 +1,154 @@
+{
+  "logged_at": "2026-06-27T18:33:21.829191",
+  "failure_kind": "wrong_answer",
+  "problem_id": "39943b63fcec",
+  "question_type": "gated_lookup",
+  "original_qtype": "gated_lookup",
+  "subtype": "gate_on",
+  "scenario": "a ride share app tracking match rate from request to driver acceptance",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "enrich-join",
+  "title": "Match Rate by Qualified Driver Radius",
+  "prompt": "You are working with a ride-share app tracking match rate from rider request to driver acceptance. The schema is modeled on transportation network company (TNC) trip data found in public datasets from cities like San Francisco and New York. You have a `drivers` table with each driver's acceptance rate (as a percentage stored as text) and service radius (miles), and a `ride_requests` table with multiple requests per driver showing pickup times and wait minutes. A driver is **qualified** if their acceptance rate is at least 75%. For each driver, find the **shortest wait time** among their ride requests. If the driver is qualified, output that shortest wait; if not, output 0. Return columns `driver_id`, `driver_name`, `acceptance_rate_pct`, `shortest_wait_minutes`. Order results by `driver_id` ascending.",
+  "schema_ddl": "CREATE TABLE drivers (driver_id INT PRIMARY KEY, driver_name VARCHAR(100), acceptance_rate_pct VARCHAR(10), service_radius_miles INT, active_zones TEXT[]); CREATE TABLE ride_requests (request_id INT PRIMARY KEY, driver_id INT, pickup_time TIMESTAMP, wait_minutes INT, pickup_zone VARCHAR(50));",
+  "answer_key": "SELECT d.driver_id, INITCAP(TRIM(d.driver_name)) AS driver_name, d.acceptance_rate_pct::INT AS acceptance_rate_pct, CASE WHEN d.acceptance_rate_pct::INT >= 75 THEN COALESCE(MIN(r.wait_minutes), 0) ELSE 0 END AS shortest_wait_minutes FROM drivers d LEFT JOIN ride_requests r ON d.driver_id = r.driver_id AND d.acceptance_rate_pct::INT >= 75 AND 'downtown' = ANY(d.active_zones) AND EXTRACT(HOUR FROM r.pickup_time) >= 6 WHERE ARRAY_LENGTH(d.active_zones, 1) >= 1 GROUP BY d.driver_id, d.driver_name, d.acceptance_rate_pct ORDER BY d.driver_id;",
+  "test_expected_columns": [
+    "driver_id",
+    "driver_name",
+    "acceptance_rate_pct",
+    "shortest_wait_minutes"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Emma Brown",
+      88,
+      3
+    ],
+    [
+      202,
+      "Frank Garcia",
+      72,
+      0
+    ],
+    [
+      203,
+      "Grace Taylor",
+      95,
+      0
+    ],
+    [
+      204,
+      "Henry Wilson",
+      74,
+      0
+    ],
+    [
+      205,
+      "Iris Davis",
+      80,
+      0
+    ],
+    [
+      206,
+      "Jack Moore",
+      65,
+      0
+    ],
+    [
+      207,
+      "Karen White",
+      77,
+      0
+    ],
+    [
+      208,
+      "Leo Harris",
+      90,
+      1
+    ],
+    [
+      209,
+      "Mia Clark",
+      70,
+      0
+    ],
+    [
+      210,
+      "Nina Lewis",
+      85,
+      0
+    ]
+  ],
+  "user_solution": "/* \nSELECT\n    driver_id,\n    driver_name,\n    acceptance_rate_pct,\n    CASE WHEN acceptance_rate_pct > 75 THEN wait_minutes ELSE 0 END AS shortest_wait_minutes\nFROM base\nWHERE rn = 1\nORDER BY 1;\n*/\nWITH base AS (\n    SELECT\n        d.driver_id,\n        INITCAP(TRIM(d.driver_name)) AS driver_name,\n        d.acceptance_rate_pct::numeric,\n        r.wait_minutes,\n        ROW_NUMBER() OVER (PARTITION BY d.driver_id ORDER BY r.wait_minutes ASC) AS rn\n    FROM drivers AS d\n    LEFT JOIN ride_requests AS r\n    ON d.driver_id = r.driver_id\n)\nSELECT\n    driver_id,\n    driver_name,\n    acceptance_rate_pct,\n    CASE WHEN acceptance_rate_pct > 75 THEN wait_minutes ELSE 0 END AS shortest_wait_minutes\nFROM base\nWHERE rn = 1\nORDER BY 1;",
+  "error_message": null,
+  "your_columns": [
+    "driver_id",
+    "driver_name",
+    "acceptance_rate_pct",
+    "shortest_wait_minutes"
+  ],
+  "your_rows": [
+    [
+      201,
+      "Emma Brown",
+      "88",
+      3
+    ],
+    [
+      202,
+      "Frank Garcia",
+      "72",
+      0
+    ],
+    [
+      203,
+      "Grace Taylor",
+      "95",
+      1
+    ],
+    [
+      204,
+      "Henry Wilson",
+      "74",
+      0
+    ],
+    [
+      205,
+      "Iris Davis",
+      "80",
+      2
+    ],
+    [
+      206,
+      "Jack Moore",
+      "65",
+      0
+    ],
+    [
+      207,
+      "Karen White",
+      "77",
+      3
+    ],
+    [
+      208,
+      "Leo Harris",
+      "90",
+      1
+    ],
+    [
+      209,
+      "Mia Clark",
+      "70",
+      0
+    ],
+    [
+      210,
+      "Nina Lewis",
+      "85",
+      3
+    ]
+  ]
+}

@@ -1,0 +1,264 @@
+{
+  "problem": {
+    "title": "Gate Premium Artists' Track Price Picks",
+    "prompt": "You are working with a music streaming service modeled on public music catalog datasets (MusicBrainz). The `artists` table holds each artist's quality rating (1-5 scale) and the region code where they are verified. The `track_prices` table holds multiple price points per track (due to bundling, promotions, and geographic variations), stored as text that must be cast to numeric. Each track references one artist.\n\nWrite a query that returns one row per artist showing: the artist's display name (cleaned and title-cased), the artist's region abbreviation (upper-case, trimmed), the artist's star rating, the artist's first genre tag, the signup year (extracted from signup_date), and the lowest available price for any of their tracks\u2014but ONLY if the artist has a rating of 4 or higher. Artists who do not meet the 4-star threshold should still appear in the output with a lowest_price of 0.00 (rounded to 2 decimals). If an artist has no tracks in the track_prices table, their lowest_price should also be 0.00. Order the output by artist_id ascending.",
+    "display": {
+      "context": "You are working with a music streaming service modeled on public music catalog datasets (MusicBrainz).",
+      "task": "Write a query that returns one row per artist showing their display name, region code, star rating, first genre tag, signup year, and the lowest track price for premium artists (rating 4+), with a fallback of 0.00 for artists below the threshold.",
+      "table_notes": {
+        "artists": "holds each artist's quality rating, region code, genre tags array, and signup date",
+        "track_prices": "holds multiple price points per track, stored as text, each referencing one artist"
+      },
+      "output_field_notes": {
+        "artist_id": "the unique identifier for the artist",
+        "display_name": "the artist's name in a clean, title-cased format",
+        "region_code": "the two-letter region abbreviation in uppercase",
+        "star_rating": "the artist's quality rating on a 1-5 scale",
+        "first_genre": "the first genre tag from the artist's genre list",
+        "signup_year": "the four-digit year the artist joined the platform",
+        "lowest_price": "the minimum track price for the artist if they meet the quality threshold, otherwise zero"
+      },
+      "field_logic": [
+        "display_name: take the artist name, remove extra whitespace, and capitalize the first letter of each word",
+        "region_code: take the region string, remove whitespace, and convert to uppercase",
+        "first_genre: extract the first element from the genre tags array",
+        "signup_year: extract the four-digit year from the signup date",
+        "lowest_price: if the artist's star rating is 4 or higher, find the smallest price across their tracks (after converting from text to numeric); if the rating is below 4 or they have no tracks, set to zero, rounded to two decimal places"
+      ],
+      "edge_cases": [
+        "If an artist has a rating below 4, their lowest_price is 0.00 regardless of their track prices.",
+        "If an artist has no tracks in the track_prices table, their lowest_price is 0.00.",
+        "If an artist has multiple tracks, only the cheapest price is used."
+      ],
+      "filter_note": "All artists are included in the output.",
+      "order_by_note": "Results are ordered by artist_id in ascending order."
+    },
+    "schema_ddl": "CREATE TABLE artists (artist_id INT PRIMARY KEY, artist_name VARCHAR(100), region VARCHAR(10), star_rating INT, genre_tags TEXT[], signup_date VARCHAR(20)); CREATE TABLE track_prices (track_id INT PRIMARY KEY, artist_id INT, track_name VARCHAR(100), price_text VARCHAR(10));",
+    "example_input_data": "INSERT INTO artists (artist_id, artist_name, region, star_rating, genre_tags, signup_date) VALUES (1, '  luna WAVES  ', ' us ', 5, ARRAY['indie', 'electronic'], '2019-03-15'), (2, 'echo BEATS', 'gb  ', 3, ARRAY['pop', 'dance'], '2020-07-22'), (3, 'stellar CHOIR', ' ca', 4, ARRAY['classical', 'ambient'], '2018-11-08'), (4, 'neon PULSE', 'de ', 2, ARRAY['techno'], '2021-01-30'); INSERT INTO track_prices (track_id, artist_id, track_name, price_text) VALUES (101, 1, 'Moonlight', '1.29'), (102, 1, 'Starfall', '0.99'), (103, 1, 'Eclipse', '1.49'), (104, 3, 'Dawn Chorus', '1.99'), (105, 3, 'Twilight', '0.79'), (106, 2, 'Neon Nights', '0.89');",
+    "example_output_columns": [
+      "artist_id",
+      "display_name",
+      "region_code",
+      "star_rating",
+      "first_genre",
+      "signup_year",
+      "lowest_price"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "Luna Waves",
+        "US",
+        5,
+        "indie",
+        "2019",
+        "0.99"
+      ],
+      [
+        2,
+        "Echo Beats",
+        "GB",
+        3,
+        "pop",
+        "2020",
+        "0.00"
+      ],
+      [
+        3,
+        "Stellar Choir",
+        "CA",
+        4,
+        "classical",
+        "2018",
+        "0.79"
+      ],
+      [
+        4,
+        "Neon Pulse",
+        "DE",
+        2,
+        "techno",
+        "2021",
+        "0.00"
+      ]
+    ],
+    "test_data": "INSERT INTO artists (artist_id, artist_name, region, star_rating, genre_tags, signup_date) VALUES (10, ' azure  DREAMS ', 'fr  ', 5, ARRAY['jazz', 'soul'], '2017-05-12'), (11, 'crimson ECHO', ' it', 4, ARRAY['rock', 'alternative'], '2019-09-03'), (12, 'silver MOON  ', 'es ', 3, ARRAY['folk', 'acoustic'], '2020-02-18'), (13, '  violet SKY', 'nl  ', 5, ARRAY['ambient', 'experimental'], '2016-12-01'), (14, 'golden HOUR', ' be', 2, ARRAY['pop'], '2021-06-25'), (15, 'ruby FIRE  ', 'se ', 4, ARRAY['metal', 'hard rock'], '2018-08-14'), (16, 'emerald SEAS', ' no', 1, ARRAY['electronic'], '2022-03-07'), (17, '  jade FOREST', 'dk ', 4, ARRAY['world', 'fusion'], '2017-10-22'), (18, 'amber GLOW', 'fi  ', 5, ARRAY['indie', 'dream pop'], '2019-04-30'), (19, 'sapphire WAVE  ', ' at', 3, ARRAY['techno', 'house'], '2020-11-11'); INSERT INTO track_prices (track_id, artist_id, track_name, price_text) VALUES (201, 10, 'Blue Note', '2.49'), (202, 10, 'Velvet Sky', '1.79'), (203, 10, 'Midnight Jazz', '1.99'), (204, 11, 'Red Echo', '1.29'), (205, 11, 'Crimson Wave', '0.99'), (206, 12, 'Silver Light', '0.89'), (207, 12, 'Moon Dance', '1.09'), (208, 13, 'Violet Dreams', '2.99'), (209, 13, 'Sky Portal', '1.49'), (210, 13, 'Cosmic Drift', '1.89'), (211, 15, 'Fire Storm', '1.59'), (212, 15, 'Ruby Blaze', '1.39'), (213, 15, 'Golden Fire', '0.79'), (214, 17, 'Jade Temple', '2.29'), (215, 17, 'Forest Path', '1.99'), (216, 18, 'Amber Light', '1.19'), (217, 18, 'Golden Dream', '0.89'), (218, 18, 'Glow', '1.49'), (219, 19, 'Blue Wave', '0.99');",
+    "test_expected_columns": [
+      "artist_id",
+      "display_name",
+      "region_code",
+      "star_rating",
+      "first_genre",
+      "signup_year",
+      "lowest_price"
+    ],
+    "test_expected_rows": [
+      [
+        10,
+        "Azure  Dreams",
+        "FR",
+        5,
+        "jazz",
+        "2017",
+        "1.79"
+      ],
+      [
+        11,
+        "Crimson Echo",
+        "IT",
+        4,
+        "rock",
+        "2019",
+        "0.99"
+      ],
+      [
+        12,
+        "Silver Moon",
+        "ES",
+        3,
+        "folk",
+        "2020",
+        "0.00"
+      ],
+      [
+        13,
+        "Violet Sky",
+        "NL",
+        5,
+        "ambient",
+        "2016",
+        "1.49"
+      ],
+      [
+        14,
+        "Golden Hour",
+        "BE",
+        2,
+        "pop",
+        "2021",
+        "0.00"
+      ],
+      [
+        15,
+        "Ruby Fire",
+        "SE",
+        4,
+        "metal",
+        "2018",
+        "0.79"
+      ],
+      [
+        16,
+        "Emerald Seas",
+        "NO",
+        1,
+        "electronic",
+        "2022",
+        "0.00"
+      ],
+      [
+        17,
+        "Jade Forest",
+        "DK",
+        4,
+        "world",
+        "2017",
+        "1.99"
+      ],
+      [
+        18,
+        "Amber Glow",
+        "FI",
+        5,
+        "indie",
+        "2019",
+        "0.89"
+      ],
+      [
+        19,
+        "Sapphire Wave",
+        "AT",
+        3,
+        "techno",
+        "2020",
+        "0.00"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "same_rows",
+      "recipe": "enrich-join",
+      "composite_moves": [
+        "look up gate attribute (star_rating >= 4)",
+        "pick per-entity minimum (MIN price per artist)",
+        "apply gate with CASE (fallback 0.00 if rating < 4)",
+        "clean string (TRIM, UPPER, INITCAP)",
+        "extract array element (first genre tag)",
+        "extract date part (signup year)",
+        "cast text to numeric (price)",
+        "round numeric result to 2 decimals"
+      ]
+    },
+    "hints": [
+      "You will need to join the two tables and consider whether each artist qualifies based on their rating.",
+      "Use a LEFT JOIN so every artist appears, then apply a conditional expression to decide the price based on the rating threshold.",
+      "The price column is stored as text, so convert it before finding the minimum; also extract the year from the date and the first element from the array."
+    ],
+    "answer_key": "SELECT a.artist_id, INITCAP(TRIM(a.artist_name)) AS display_name, UPPER(TRIM(a.region)) AS region_code, a.star_rating, a.genre_tags[1] AS first_genre, EXTRACT(YEAR FROM a.signup_date::DATE) AS signup_year, CASE WHEN a.star_rating >= 4 THEN COALESCE(ROUND(MIN(tp.price_text::NUMERIC), 2), 0.00) ELSE 0.00 END AS lowest_price FROM artists a LEFT JOIN track_prices tp ON a.artist_id = tp.artist_id AND a.star_rating >= 4 GROUP BY a.artist_id, a.artist_name, a.region, a.star_rating, a.genre_tags, a.signup_date ORDER BY a.artist_id;",
+    "_meta": {
+      "question_type": "gated_lookup",
+      "original_qtype": "gated_lookup",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-27T16:11:05.646032",
+      "problem_id": "e1f01e4024e2",
+      "validation_attempts": 2,
+      "scenario": "a music streaming service tracking saved tracks and playlist creation",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "gate_on",
+      "cleaning_required": true,
+      "cleaning_level": "high",
+      "cleaning_all_six": true,
+      "cleaning_per_category": 1,
+      "cleaning_bonus": null,
+      "typecast_twist": true,
+      "realism": "high"
+    },
+    "example_output_schema": [
+      [
+        "artist_id",
+        "INTEGER"
+      ],
+      [
+        "display_name",
+        "TEXT"
+      ],
+      [
+        "region_code",
+        "TEXT"
+      ],
+      [
+        "star_rating",
+        "INTEGER"
+      ],
+      [
+        "first_genre",
+        "TEXT"
+      ],
+      [
+        "signup_year",
+        "NUMERIC"
+      ],
+      [
+        "lowest_price",
+        "NUMERIC"
+      ]
+    ]
+  },
+  "user_solution": "/*\nWrite a query that \n- returns one row per artist showing: \nthe artist's display name (cleaned and title-cased), \nthe artist's region abbreviation (upper-case, trimmed), \nthe artist's star rating, the artist's first genre tag, \nthe signup year (extracted from signup_date)\nthe lowest available price for any of their tracks\u2014but ONLY if the artist has a rating of 4 or higher.\n\nArtists who do not meet the 4-star threshold should still appear in the output with a lowest_price of 0.00 (rounded to 2 decimals).\nIf an artist has no tracks in the track_prices table, their lowest_price should also be 0.00.\n\nTable: artists\nholds each artist's quality rating, region code, genre tags array, and signup date\nartist_id\t                INT PRIMARY KEY\nartist_name\t                VARCHAR(100)\nregion\t                    VARCHAR(10)\nstar_rating\t                INT\ngenre_tags\t                TEXT[]\nsignup_date\t                VARCHAR(20)\n\nTable: track_prices\nholds multiple price points per track, stored as text, each referencing one artist\ntrack_id\t                INT PRIMARY KEY\nartist_id\t                INT\ntrack_name\t                VARCHAR(100)\nprice_text\t                VARCHAR(10)\n\n\nOutput schema\nartist_id\t            INTEGER\tthe unique identifier for the artist\ndisplay_name\t        TEXT\tthe artist's name in a clean, title-cased format\nregion_code\t            TEXT\tthe two-letter region abbreviation in uppercase\nstar_rating\t            INTEGER\tthe artist's quality rating on a 1-5 scale\nfirst_genre\t            TEXT\tthe first genre tag from the artist's genre list\nsignup_year\t            NUMERIC\tthe four-digit year the artist joined the platform\nlowest_price\t        NUMERIC\tthe minimum track price for the artist if they meet the quality threshold, otherwise zero\n\n\n\n\n*/\nWITH base AS (\n    SELECT\n        a.artist_id,\n        INITCAP(TRIM(a.artist_name)) AS display_name,\n        UPPER(TRIM(a.region)) AS region_code,\n        genre_tags[1] AS first_genre,\n        EXTRACT(year FROM signup_date::date) AS signup_year,\n        a.star_rating,\n        t.price_text::numeric,\n        ROW_NUMBER() OVER (PARTITION BY a.artist_id ORDER BY price_text::numeric) AS rn\n    FROM artists AS a\n    LEFT JOIN track_prices AS t\n        ON a.artist_id = t.artist_id\n    ORDER BY artist_id\n)\nSELECT\n    artist_id,\n    display_name,\n    region_code,\n    star_rating,\n    first_genre,\n    signup_year,\n    CASE WHEN star_rating < 4 THEN 0.00 ELSE price_text END AS lowest_price\nFROM base\nWHERE rn = 1\nORDER BY 1;\n\n",
+  "solved_at": "2026-06-27T16:36:03.843106"
+}

@@ -1,0 +1,207 @@
+{
+  "problem": {
+    "title": "Clean Payer Names and Extract Contact Domains",
+    "prompt": "You are working with a prior authorization cycle time tracking system modeled on CMS Medicare & Medicaid datasets. The `payer_contacts` table stores contact information for insurance payers, but the `payer_name` column is inconsistently formatted with extra whitespace, mixed case, and unwanted suffixes like ' INC' or ' LLC'. The `contact_email` column contains valid email addresses. Write a query that cleans each payer name by trimming whitespace, capitalizing each word properly, removing the ' INC' and ' LLC' suffixes (case-insensitive), and extracts the domain portion (everything after the '@') from the contact email. Return the `payer_id`, the cleaned `payer_name_clean`, and the extracted `email_domain`, ordered by `payer_id`.",
+    "display": {
+      "context": "You are working with a prior authorization cycle time tracking system modeled on CMS Medicare & Medicaid datasets.",
+      "task": "Write a query that cleans payer names by trimming whitespace, capitalizing words, removing company suffixes, and extracts email domains.",
+      "table_notes": {
+        "payer_contacts": "holds contact information for insurance payers with inconsistently formatted names and email addresses"
+      },
+      "output_field_notes": {
+        "payer_id": "the unique identifier for each payer",
+        "payer_name_clean": "the payer name after cleaning whitespace, capitalizing words, and removing INC or LLC suffixes",
+        "email_domain": "the domain portion of the contact email address after the at-sign"
+      },
+      "field_logic": [
+        "payer_name_clean: take the payer_name, trim surrounding whitespace, capitalize the first letter of each word, then remove any trailing INC or LLC suffix regardless of case",
+        "email_domain: take the contact_email and extract everything that comes after the at-sign"
+      ],
+      "edge_cases": [
+        "If a payer name has extra spaces around it, remove them before cleaning.",
+        "If a payer name ends with INC or LLC in any mix of upper and lower case, strip that suffix.",
+        "If the contact email has a subdomain, include the entire domain after the at-sign."
+      ],
+      "filter_note": "All rows from the payer_contacts table are included.",
+      "order_by_note": "Results are ordered by payer_id in ascending order."
+    },
+    "schema_ddl": "CREATE TABLE payer_contacts (payer_id INT PRIMARY KEY, payer_name VARCHAR(200), contact_email VARCHAR(200), state_code CHAR(2));",
+    "example_input_data": "INSERT INTO payer_contacts (payer_id, payer_name, contact_email, state_code) VALUES (1, '  anthem blue cross llc  ', 'claims@anthem.com', 'CA'), (2, 'united healthcare INC', 'pa.team@uhc.com', 'NY'), (3, 'aetna', 'auth@aetna.healthcare.com', 'CT'), (4, 'CIGNA HEALTH inc', 'review@cigna.com', 'PA'), (5, '  humana  LLC  ', 'prior.auth@humana.net', 'FL'), (6, 'Blue Shield california', 'contact@blueshieldca.org', 'CA');",
+    "example_output_columns": [
+      "payer_id",
+      "payer_name_clean",
+      "email_domain"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "Anthem Blue Cross",
+        "anthem.com"
+      ],
+      [
+        2,
+        "United Healthcare",
+        "uhc.com"
+      ],
+      [
+        3,
+        "Aetna",
+        "aetna.healthcare.com"
+      ],
+      [
+        4,
+        "Cigna Health",
+        "cigna.com"
+      ],
+      [
+        5,
+        "Humana ",
+        "humana.net"
+      ],
+      [
+        6,
+        "Blue Shield California",
+        "blueshieldca.org"
+      ]
+    ],
+    "test_data": "INSERT INTO payer_contacts (payer_id, payer_name, contact_email, state_code) VALUES (101, 'kaiser permanente', 'auth@kp.org', 'CA'), (102, '  molina healthcare LLC  ', 'pa@molina.com', 'TX'), (103, 'CENTENE CORP INC', 'review@centene.com', 'MO'), (104, '  wellcare health plans inc  ', 'claims@wellcare.net', 'FL'), (105, 'carefirst bluecross blueshield llc', 'prior.auth@carefirst.com', 'MD'), (106, 'OSCAR health INC', 'team@oscar.com', 'NY'), (107, '  independence blue cross  ', 'auth@ibx.com', 'PA'), (108, 'harvard pilgrim health care Inc', 'pa@hphc.org', 'MA'), (109, 'TUFTS HEALTH PLAN llc', 'review@tuftshealthplan.com', 'MA'), (110, '  emblemhealth INC  ', 'contact@emblemhealth.com', 'NY'), (111, 'highmark inc', 'claims@highmark.com', 'PA'), (112, '  premera blue cross LLC  ', 'auth@premera.com', 'WA'), (113, 'HEALTHFIRST inc', 'pa@healthfirst.org', 'NY'), (114, 'horizon blue cross blue shield', 'review@horizon.com', 'NJ'), (115, '  regence bluecross blueshield llc  ', 'prior.auth@regence.com', 'OR');",
+    "test_expected_columns": [
+      "payer_id",
+      "payer_name_clean",
+      "email_domain"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        "Kaiser Permanente",
+        "kp.org"
+      ],
+      [
+        102,
+        "Molina Healthcare",
+        "molina.com"
+      ],
+      [
+        103,
+        "Centene Corp",
+        "centene.com"
+      ],
+      [
+        104,
+        "Wellcare Health Plans",
+        "wellcare.net"
+      ],
+      [
+        105,
+        "Carefirst Bluecross Blueshield",
+        "carefirst.com"
+      ],
+      [
+        106,
+        "Oscar Health",
+        "oscar.com"
+      ],
+      [
+        107,
+        "Independence Blue Cross",
+        "ibx.com"
+      ],
+      [
+        108,
+        "Harvard Pilgrim Health Care",
+        "hphc.org"
+      ],
+      [
+        109,
+        "Tufts Health Plan",
+        "tuftshealthplan.com"
+      ],
+      [
+        110,
+        "Emblemhealth",
+        "emblemhealth.com"
+      ],
+      [
+        111,
+        "Highmark",
+        "highmark.com"
+      ],
+      [
+        112,
+        "Premera Blue Cross",
+        "premera.com"
+      ],
+      [
+        113,
+        "Healthfirst",
+        "healthfirst.org"
+      ],
+      [
+        114,
+        "Horizon Blue Cross Blue Shield",
+        "horizon.com"
+      ],
+      [
+        115,
+        "Regence Bluecross Blueshield",
+        "regence.com"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "trim whitespace",
+        "capitalize words with INITCAP",
+        "remove suffixes with REGEXP_REPLACE",
+        "extract domain with SPLIT_PART"
+      ]
+    },
+    "hints": [
+      "You'll need to chain multiple text functions to clean the payer name: start by removing extra whitespace, then fix capitalization, then strip unwanted endings.",
+      "Use INITCAP to capitalize each word after trimming. Then use REGEXP_REPLACE with a case-insensitive pattern to remove ' INC' or ' LLC' from the end of the string.",
+      "For the email domain, SPLIT_PART can break the email at the '@' character and take the second part. Combine TRIM, INITCAP, REGEXP_REPLACE for the name; use SPLIT_PART for the domain."
+    ],
+    "answer_key": "SELECT payer_id, REGEXP_REPLACE(INITCAP(TRIM(payer_name)), ' (inc|llc)$', '', 'i') AS payer_name_clean, SPLIT_PART(contact_email, '@', 2) AS email_domain FROM payer_contacts ORDER BY payer_id;",
+    "_meta": {
+      "question_type": "parse_clean",
+      "original_qtype": "parse_clean",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-28T11:52:52.650355",
+      "problem_id": "d7bea0b89679",
+      "validation_attempts": 1,
+      "scenario": "a prior authorization cycle time tracking system across payers",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "string_clean",
+      "cleaning_required": false,
+      "cleaning_level": null,
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": false,
+      "realism": "high"
+    },
+    "example_output_schema": [
+      [
+        "payer_id",
+        "INTEGER"
+      ],
+      [
+        "payer_name_clean",
+        "TEXT"
+      ],
+      [
+        "email_domain",
+        "TEXT"
+      ]
+    ]
+  },
+  "user_solution": "/* notes */\n\nSELECT\n    payer_id,\n    REGEXP_REPLACE(INITCAP(TRIM(payer_name)), ' (inc|llc)$', '', 'gi') AS payer_name_clean,\n    SPLIT_PART(TRIM(contact_email), '@', 2) AS email_domain\nFROM payer_contacts\nORDER BY payer_id;",
+  "solved_at": "2026-06-28T12:10:07.056001"
+}

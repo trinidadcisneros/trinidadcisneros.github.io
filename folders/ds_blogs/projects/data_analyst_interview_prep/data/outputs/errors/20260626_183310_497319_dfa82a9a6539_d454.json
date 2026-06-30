@@ -1,0 +1,130 @@
+{
+  "logged_at": "2026-06-26T18:33:10.497319",
+  "failure_kind": "wrong_answer",
+  "problem_id": "dfa82a9a6539",
+  "question_type": "gated_lookup",
+  "original_qtype": "random_any",
+  "subtype": "case_keep",
+  "scenario": "an expense management app tracking receipt capture and policy compliance",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "enrich-join",
+  "title": "Compliant Expense Merchant Lookup",
+  "prompt": "You are working with an expense management system modeled on public procurement datasets (data.gov). The `expense_policies` table stores per-merchant eligibility rules: each merchant has a `compliance_status` (stored as TEXT but actually containing 'A' for approved, 'S' for suspended, or 'R' for rejected) and `policy_tags` (an ARRAY of TEXT) describing allowed categories. The `receipt_captures` table records OCR-captured receipts: each receipt has a `merchant_id`, a `capture_date` (stored as TEXT 'YYYY-MM-DD'), a `total_amount` (numeric), and a `category_code` (TEXT). A merchant may have multiple captured receipts. For each merchant that appears in `expense_policies`, report the merchant_id, the merchant's normalized name (the `merchant_name` column in `expense_policies` needs its leading/trailing whitespace removed and title-cased), the earliest capture date (as a DATE), and the `lowest_eligible_amount`: if the merchant's compliance_status is 'A' (approved) AND the receipt with the minimum total_amount for that merchant has a category_code present in the merchant's policy_tags array, output that minimum amount rounded to two decimals; otherwise output 0.00. Return one row per merchant found in `expense_policies`, ordered by merchant_id ascending. Edge case: one merchant has no receipts (its earliest_capture should be NULL and lowest_eligible_amount 0.00); another merchant is suspended so its amount is 0.00 despite having receipts; another merchant is approved but the cheapest receipt's category is not in the allowed tags, so the amount is also 0.00.",
+  "schema_ddl": "CREATE TABLE expense_policies (merchant_id INT PRIMARY KEY, merchant_name TEXT, compliance_status TEXT, policy_tags TEXT[]); CREATE TABLE receipt_captures (receipt_id INT PRIMARY KEY, merchant_id INT, capture_date TEXT, total_amount NUMERIC, category_code TEXT);",
+  "answer_key": "WITH merchant_receipts AS (\n  SELECT \n    p.merchant_id,\n    INITCAP(TRIM(p.merchant_name)) AS merchant_name,\n    p.compliance_status,\n    p.policy_tags,\n    MIN(r.capture_date::DATE) AS earliest_capture,\n    (ARRAY_AGG(r.total_amount ORDER BY r.total_amount))[1] AS min_amount,\n    (ARRAY_AGG(r.category_code ORDER BY r.total_amount))[1] AS min_category\n  FROM expense_policies p\n  LEFT JOIN receipt_captures r ON p.merchant_id = r.merchant_id\n  GROUP BY p.merchant_id, p.merchant_name, p.compliance_status, p.policy_tags\n)\nSELECT \n  merchant_id,\n  merchant_name,\n  earliest_capture,\n  CASE \n    WHEN TRIM(compliance_status) = 'A' \n         AND min_category = ANY(policy_tags) \n    THEN ROUND(min_amount, 2)\n    ELSE 0.00\n  END AS lowest_eligible_amount\nFROM merchant_receipts\nORDER BY merchant_id;",
+  "test_expected_columns": [
+    "merchant_id",
+    "merchant_name",
+    "earliest_capture",
+    "lowest_eligible_amount"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Staples Inc",
+      "2024-01-10",
+      "75.00"
+    ],
+    [
+      202,
+      "Dunkin Donuts",
+      "2024-01-15",
+      "15.00"
+    ],
+    [
+      203,
+      "Budget Car Rental",
+      "2024-01-12",
+      "0.00"
+    ],
+    [
+      204,
+      "Ups Store",
+      "2024-01-18",
+      "0.00"
+    ],
+    [
+      205,
+      "Print Shop Pro",
+      "2024-01-22",
+      "0.00"
+    ],
+    [
+      206,
+      "Target Supplies",
+      "2024-01-28",
+      "0.00"
+    ],
+    [
+      207,
+      "Subway Sandwiches",
+      "2024-01-30",
+      "10.00"
+    ],
+    [
+      208,
+      "Kinko Prints",
+      "2024-02-01",
+      "55.00"
+    ]
+  ],
+  "user_solution": "/*\n\nexpense_policies\n- report the merchant_id,\n- the merchant's normalized name (the `merchant_name` column in `expense_policies` needs its leading/trailing whitespace removed and title-cased),\n- the earliest capture date (as a DATE), and the `lowest_eligible_amount`: \n- if the merchant's compliance_status is 'A' (approved) AND the receipt with the minimum total_amount for that merchant has a category_code present in the merchant's policy_tags array, output that minimum amount rounded to two decimals; otherwise output 0.00.\n\nEdge case: \n- one merchant has no receipts (its earliest_capture should be NULL and lowest_eligible_amount 0.00);\n- another merchant is suspended so its amount is 0.00 despite having receipts; \n- another merchant is approved but the cheapest receipt's category is not in the allowed tags, so the amount is also 0.00.\n\nINPUTS\nTable: expense_policies                         table stores per-merchant eligibility rules\nmerchant_id\t                INT PRIMARY KEY\nmerchant_name\t            TEXT\ncompliance_status\t        TEXT                (stored as TEXT but actually containing 'A' for approved, 'S' for suspended, or 'R' for rejected)\npolicy_tags\t                TEXT[]\n\nTable: receipt_captures\nreceipt_id\t                INT PRIMARY KEY\nmerchant_id\t                INT\ncapture_date\t            TEXT\ntotal_amount\t            NUMERIC\ncategory_code\t            TEXT\n\nOUTPUTS\nmerchant_id,                \nmerchant_name,\nearliest_capture,\nlowest_eligible_amount\n\nORDER BY merchant_id;\n\n\nmerchant_id,                \nmerchant_name,\nearliest_capture,\nlowest_eligible_amount\n*/\n\nSELECT\n    e.merchant_id,\n    INITCAP(TRIM(e.merchant_name)) AS merchant_name,\n    MIN(TRIM(r.capture_date)::date) as earliest_capture,\n    MIN(ROUND(CASE WHEN e.compliance_status = 'A' AND r.category_code = ANY(e.policy_tags) THEN total_amount ELSE 0.00 END, 2)) AS lowest_eligible_amount\nFROM expense_policies AS e\nLEFT JOIN receipt_captures AS r\n    ON r.merchant_id = e.merchant_id\nGROUP BY 1, 2\nORDER BY merchant_id;\n\n",
+  "error_message": null,
+  "your_columns": [
+    "merchant_id",
+    "merchant_name",
+    "earliest_capture",
+    "lowest_eligible_amount"
+  ],
+  "your_rows": [
+    [
+      201,
+      "Staples Inc",
+      "2024-01-10",
+      "0.00"
+    ],
+    [
+      202,
+      "Dunkin Donuts",
+      "2024-01-15",
+      "0.00"
+    ],
+    [
+      203,
+      "Budget Car Rental",
+      "2024-01-12",
+      "0.00"
+    ],
+    [
+      204,
+      "Ups Store",
+      "2024-01-18",
+      "0.00"
+    ],
+    [
+      205,
+      "Print Shop Pro",
+      "2024-01-22",
+      "0.00"
+    ],
+    [
+      206,
+      "Target Supplies",
+      "2024-01-28",
+      "0.00"
+    ],
+    [
+      207,
+      "Subway Sandwiches",
+      "2024-01-30",
+      "0.00"
+    ],
+    [
+      208,
+      "Kinko Prints",
+      "2024-02-01",
+      "55.00"
+    ]
+  ]
+}

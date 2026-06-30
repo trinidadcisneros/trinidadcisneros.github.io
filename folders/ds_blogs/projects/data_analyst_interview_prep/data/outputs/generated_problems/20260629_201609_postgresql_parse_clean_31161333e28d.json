@@ -1,0 +1,236 @@
+{
+  "title": "Classify installment payment risk tiers",
+  "prompt": "You are working with a buy-now-pay-later service tracking installment payment compliance, modeled on consumer credit reporting datasets (data.gov). The installment_schedules table has one row per account. Write a query that returns account_id, customer_name, risk_tier, and adjusted_late_fee, ordered by account_id ascending. risk_tier and adjusted_late_fee are computed columns -- build each one exactly as described in Field expectations below.",
+  "display": {
+    "context": "You are working with a buy-now-pay-later service tracking installment payment compliance, modeled on consumer credit reporting datasets (data.gov).",
+    "task": "Write a query that returns account_id, customer_name, risk_tier, and adjusted_late_fee from installment_schedules, ordered by account_id ascending; build risk_tier and adjusted_late_fee as described in Field expectations.",
+    "table_notes": {
+      "installment_schedules": "one row per customer-plan combination with payment behavior and grace policies"
+    },
+    "output_field_notes": {
+      "account_id": "the account_id value, copied from installment_schedules",
+      "customer_name": "the customer_name value, copied from installment_schedules",
+      "risk_tier": "a label of 'low', 'medium', 'high', or 'critical' (see Field expectations for the exact rule)",
+      "adjusted_late_fee": "the adjusted late fee rounded to 2 decimals, or NULL when grace_days_allowed is 0 (see Field expectations)"
+    },
+    "field_logic": [
+      "account_id: copied straight from account_id.",
+      "customer_name: copied straight from customer_name.",
+      "risk_tier: built from days_overdue and grace_days_allowed.\n- turn days_overdue into a number: 'never_late' (any case or spaces) becomes 0; NULL or blank becomes 0; otherwise use the number written in days_overdue\n- if grace_days_allowed is NULL, use 7\n- 'low' when days_overdue = 0\n- 'medium' when days_overdue is 1 to 14\n- 'high' when days_overdue >= 15 AND days_overdue <= grace_days_allowed\n- 'critical' when days_overdue > grace_days_allowed",
+      "adjusted_late_fee: built from late_fee and grace_days_allowed.\n- if grace_days_allowed = 0, adjusted_late_fee is NULL (avoids divide by zero)\n- otherwise adjusted_late_fee = late_fee / (1 + grace_days_allowed), rounded to 2 decimals"
+    ],
+    "edge_cases": [
+      "If grace_days_allowed is NULL, use 7.",
+      "If days_overdue is 'never_late' (any case, with or without spaces), treat days_overdue as 0.",
+      "If days_overdue is NULL or blank, treat days_overdue as 0.",
+      "If grace_days_allowed is 0, adjusted_late_fee is NULL (guards divide by zero)."
+    ],
+    "filter_note": "All rows from installment_schedules are included.",
+    "order_by_note": "Rows are ordered by account_id ascending."
+  },
+  "schema_ddl": "CREATE TABLE installment_schedules ( account_id INT PRIMARY KEY, customer_name VARCHAR(100), days_overdue VARCHAR(20), grace_days_allowed INT, late_fee NUMERIC(10,2) );",
+  "example_input_data": "INSERT INTO installment_schedules (account_id, customer_name, days_overdue, grace_days_allowed, late_fee) VALUES (101, 'Alice Chen', 'never_late', 10, 50.00), (102, 'Bob Martinez', '3', NULL, 75.00), (103, 'Carol Nguyen', '18', 15, 100.00), (104, 'David Lee', NULL, 7, 60.00), (105, 'Eva Rodriguez', '25', 20, 120.00), (106, 'Frank Kim', '12', 0, 80.00);",
+  "example_output_columns": [
+    "account_id",
+    "customer_name",
+    "risk_tier",
+    "adjusted_late_fee"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Alice Chen",
+      "low",
+      "4.55"
+    ],
+    [
+      102,
+      "Bob Martinez",
+      "medium",
+      "9.38"
+    ],
+    [
+      103,
+      "Carol Nguyen",
+      "critical",
+      "6.25"
+    ],
+    [
+      104,
+      "David Lee",
+      "low",
+      "7.50"
+    ],
+    [
+      105,
+      "Eva Rodriguez",
+      "critical",
+      "5.71"
+    ],
+    [
+      106,
+      "Frank Kim",
+      "medium",
+      null
+    ]
+  ],
+  "test_data": "INSERT INTO installment_schedules (account_id, customer_name, days_overdue, grace_days_allowed, late_fee) VALUES (201, 'Grace Thompson', 'NEVER_LATE', 14, 55.00), (202, 'Henry Park', ' Never_Late ', NULL, 70.00), (203, 'Iris Watson', '0', 10, 65.00), (204, 'Jack Foster', '1', 7, 50.00), (205, 'Karen Singh', '14', NULL, 80.00), (206, 'Luis Gomez', '15', 15, 90.00), (207, 'Maya Patel', '16', NULL, 100.00), (208, 'Nathan Moore', '20', 18, 110.00), (209, 'Olivia White', '30', 20, 130.00), (210, 'Paul Jackson', '8', 0, 75.00), (211, 'Quinn Harris', '', 5, 60.00), (212, 'Rachel Green', '7', NULL, 85.00), (213, 'Sam Davis', '22', 25, 95.00), (214, 'Tina Brown', '50', 30, 140.00), (215, 'Uma Wilson', '2', 10, 45.00);",
+  "test_expected_columns": [
+    "account_id",
+    "customer_name",
+    "risk_tier",
+    "adjusted_late_fee"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Grace Thompson",
+      "low",
+      "3.67"
+    ],
+    [
+      202,
+      "Henry Park",
+      "low",
+      "8.75"
+    ],
+    [
+      203,
+      "Iris Watson",
+      "low",
+      "5.91"
+    ],
+    [
+      204,
+      "Jack Foster",
+      "medium",
+      "6.25"
+    ],
+    [
+      205,
+      "Karen Singh",
+      "medium",
+      "10.00"
+    ],
+    [
+      206,
+      "Luis Gomez",
+      "high",
+      "5.63"
+    ],
+    [
+      207,
+      "Maya Patel",
+      "critical",
+      "12.50"
+    ],
+    [
+      208,
+      "Nathan Moore",
+      "critical",
+      "5.79"
+    ],
+    [
+      209,
+      "Olivia White",
+      "critical",
+      "6.19"
+    ],
+    [
+      210,
+      "Paul Jackson",
+      "medium",
+      null
+    ],
+    [
+      211,
+      "Quinn Harris",
+      "low",
+      "10.00"
+    ],
+    [
+      212,
+      "Rachel Green",
+      "medium",
+      "10.63"
+    ],
+    [
+      213,
+      "Sam Davis",
+      "high",
+      "3.65"
+    ],
+    [
+      214,
+      "Tina Brown",
+      "critical",
+      "4.52"
+    ],
+    [
+      215,
+      "Uma Wilson",
+      "medium",
+      "4.09"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "row-transform",
+    "composite_moves": [
+      "parse days_overdue text (CASE on 'never_late', NULLIF blank, TO_NUMBER)",
+      "fill NULL grace with COALESCE",
+      "CASE ladder for risk bands",
+      "NULLIF zero denominator before division",
+      "ROUND adjusted fee"
+    ]
+  },
+  "hints": [
+    "You'll need to handle multiple special cases in days_overdue: the text 'never_late' (in any case), NULL values, blank strings, and numeric strings.",
+    "Use NULLIF to turn a blank string into NULL, then COALESCE to provide a default. For the 'never_late' text, a CASE expression checking LOWER(TRIM(...)) is helpful. Once you have a numeric overdue value, build a CASE ladder with multiple WHEN branches for the tier bands.",
+    "Convert days_overdue with: CASE WHEN LOWER(TRIM(COALESCE(days_overdue, ''))) = 'never_late' THEN 0 ELSE COALESCE(NULLIF(TRIM(days_overdue), '')::INT, 0) END. Fill grace with COALESCE(grace_days_allowed, 7). For adjusted_late_fee, compute late_fee / NULLIF(1 + COALESCE(grace_days_allowed, 7), 1) and ROUND to 2 decimals. The tier logic compares effective_overdue against 0, 14, and effective_grace."
+  ],
+  "answer_key": "WITH parsed AS (\n  SELECT\n    account_id,\n    customer_name,\n    late_fee,\n    COALESCE(grace_days_allowed, 7) AS effective_grace,\n    CASE\n      WHEN LOWER(TRIM(COALESCE(days_overdue, ''))) = 'never_late' THEN 0\n      ELSE COALESCE(NULLIF(TRIM(days_overdue), '')::INT, 0)\n    END AS effective_overdue\n  FROM installment_schedules\n)\nSELECT\n  account_id,\n  customer_name,\n  CASE\n    WHEN effective_overdue = 0 THEN 'low'\n    WHEN effective_overdue BETWEEN 1 AND 14 THEN 'medium'\n    WHEN effective_overdue > effective_grace THEN 'critical'\n    ELSE 'high'\n  END AS risk_tier,\n  ROUND(late_fee / NULLIF(1 + effective_grace, 1), 2) AS adjusted_late_fee\nFROM parsed\nORDER BY account_id;",
+  "_meta": {
+    "question_type": "parse_clean",
+    "original_qtype": "parse_clean",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-29T20:16:09.745959",
+    "problem_id": "31161333e28d",
+    "validation_attempts": 1,
+    "scenario": "a buy-now-pay-later service tracking installment payment compliance",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "conditional_null",
+    "cleaning_required": false,
+    "cleaning_level": null,
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": null,
+    "typecast_twist": false,
+    "realism": "high",
+    "instructions_rewritten": "2026-06-29: rewrote field_logic/prompt/edge_cases to use exact column names only, no invented aliases, one rule per bullet"
+  },
+  "example_output_schema": [
+    [
+      "account_id",
+      "INTEGER"
+    ],
+    [
+      "customer_name",
+      "VARCHAR"
+    ],
+    [
+      "risk_tier",
+      "TEXT"
+    ],
+    [
+      "adjusted_late_fee",
+      "NUMERIC"
+    ]
+  ]
+}

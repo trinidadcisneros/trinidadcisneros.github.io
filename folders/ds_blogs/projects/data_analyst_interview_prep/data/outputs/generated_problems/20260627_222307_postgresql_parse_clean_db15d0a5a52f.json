@@ -1,0 +1,259 @@
+{
+  "title": "Extract Onboarding Tags from Array",
+  "prompt": "You are working with an HR platform modeled on public-sector workforce datasets (OPM FedScope, state HR portals). New employees are tagged during onboarding with status flags stored in a PostgreSQL array column. The onboarding_records table holds one row per employee with columns employee_id (integer), full_name (text), hire_date (date), department_code (text matching OPM agency codes), and status_tags (TEXT[] array). Each status_tags array contains zero or more tags like 'i9_verified', 'benefits_enrolled', 'training_pending', 'remote', 'clearance_required'. Write a query that extracts for each employee: the first tag from the array (or 'no_tags' if the array is NULL or empty), the total count of tags, and a boolean flag indicating whether the employee has the tag 'benefits_enrolled'. Output columns employee_id, employee_name, first_tag, tag_count, has_benefits. Order by employee_id ascending.",
+  "display": {
+    "context": "You are working with an HR platform modeled on public-sector workforce datasets (OPM FedScope).",
+    "task": "Write a query that extracts the first onboarding tag, the count of all tags, and a benefits-enrollment flag for each employee.",
+    "table_notes": {
+      "onboarding_records": "holds one row per new hire with their name, hire date, department code, and an array of onboarding status tags"
+    },
+    "output_field_notes": {
+      "employee_id": "the unique identifier for the employee",
+      "employee_name": "the full name of the employee",
+      "first_tag": "the first tag from the status_tags array, or the literal text 'no_tags' if the array is NULL or empty",
+      "tag_count": "the number of tags in the status_tags array, or zero if the array is NULL or empty",
+      "has_benefits": "true if the array contains the tag 'benefits_enrolled', false otherwise"
+    },
+    "field_logic": [
+      "first_tag: if the status_tags array has at least one element, return the element at position 1; otherwise return the literal text 'no_tags'",
+      "tag_count: the length of the status_tags array in dimension 1, or zero if the array is NULL",
+      "has_benefits: check whether the literal text 'benefits_enrolled' appears anywhere in the status_tags array"
+    ],
+    "edge_cases": [
+      "If status_tags is NULL, first_tag should be 'no_tags' and tag_count should be 0.",
+      "If status_tags is an empty array, first_tag should be 'no_tags' and tag_count should be 0.",
+      "If status_tags does not contain 'benefits_enrolled', has_benefits should be false."
+    ],
+    "filter_note": "All rows from onboarding_records are included in the output.",
+    "order_by_note": "Output rows are ordered by employee_id in ascending order."
+  },
+  "schema_ddl": "CREATE TABLE onboarding_records (employee_id INTEGER PRIMARY KEY, full_name TEXT NOT NULL, hire_date DATE NOT NULL, department_code TEXT NOT NULL, status_tags TEXT[]);",
+  "example_input_data": "INSERT INTO onboarding_records (employee_id, full_name, hire_date, department_code, status_tags) VALUES (101, 'Alice Chen', '2024-01-15', 'TREAS', ARRAY['i9_verified', 'benefits_enrolled', 'training_pending']), (102, 'Bob Martinez', '2024-01-20', 'DOD', ARRAY['clearance_required', 'remote']), (103, 'Carol White', '2024-02-01', 'HHS', NULL), (104, 'David Kim', '2024-02-05', 'DOT', ARRAY[]::TEXT[]), (105, 'Eva Rodriguez', '2024-02-10', 'USDA', ARRAY['benefits_enrolled']), (106, 'Frank Johnson', '2024-02-15', 'VA', ARRAY['i9_verified', 'benefits_enrolled', 'remote', 'training_pending']);",
+  "example_output_columns": [
+    "employee_id",
+    "employee_name",
+    "first_tag",
+    "tag_count",
+    "has_benefits"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Alice Chen",
+      "i9_verified",
+      3,
+      true
+    ],
+    [
+      102,
+      "Bob Martinez",
+      "clearance_required",
+      2,
+      false
+    ],
+    [
+      103,
+      "Carol White",
+      "no_tags",
+      0,
+      false
+    ],
+    [
+      104,
+      "David Kim",
+      "no_tags",
+      0,
+      false
+    ],
+    [
+      105,
+      "Eva Rodriguez",
+      "benefits_enrolled",
+      1,
+      true
+    ],
+    [
+      106,
+      "Frank Johnson",
+      "i9_verified",
+      4,
+      true
+    ]
+  ],
+  "test_data": "INSERT INTO onboarding_records (employee_id, full_name, hire_date, department_code, status_tags) VALUES (201, 'Grace Lee', '2024-03-01', 'EPA', ARRAY['i9_verified', 'benefits_enrolled', 'training_pending', 'security_briefed']), (202, 'Henry Adams', '2024-03-05', 'DOE', ARRAY['remote', 'clearance_required', 'background_check']), (203, 'Iris Patel', '2024-03-08', 'TREAS', ARRAY['benefits_enrolled']), (204, 'Jack Wilson', '2024-03-10', 'DOD', NULL), (205, 'Karen Brown', '2024-03-12', 'HHS', ARRAY[]::TEXT[]), (206, 'Luis Garcia', '2024-03-15', 'DHS', ARRAY['i9_verified', 'benefits_enrolled']), (207, 'Maya Singh', '2024-03-18', 'DOJ', ARRAY['clearance_required']), (208, 'Noah Taylor', '2024-03-20', 'STATE', NULL), (209, 'Olivia Martinez', '2024-03-22', 'USDA', ARRAY['remote', 'benefits_enrolled', 'training_pending']), (210, 'Paul Chen', '2024-03-25', 'VA', ARRAY['i9_verified', 'remote', 'benefits_enrolled', 'security_briefed', 'training_pending']), (211, 'Quinn Davis', '2024-03-28', 'DOT', ARRAY['background_check', 'training_pending']), (212, 'Rachel Kim', '2024-03-30', 'DOL', ARRAY['benefits_enrolled', 'i9_verified']), (213, 'Sam White', '2024-04-01', 'DOC', NULL), (214, 'Tina Rodriguez', '2024-04-03', 'ED', ARRAY[]::TEXT[]), (215, 'Uma Johnson', '2024-04-05', 'HUD', ARRAY['clearance_required', 'benefits_enrolled', 'remote']);",
+  "test_expected_columns": [
+    "employee_id",
+    "employee_name",
+    "first_tag",
+    "tag_count",
+    "has_benefits"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Grace Lee",
+      "i9_verified",
+      4,
+      true
+    ],
+    [
+      202,
+      "Henry Adams",
+      "remote",
+      3,
+      false
+    ],
+    [
+      203,
+      "Iris Patel",
+      "benefits_enrolled",
+      1,
+      true
+    ],
+    [
+      204,
+      "Jack Wilson",
+      "no_tags",
+      0,
+      false
+    ],
+    [
+      205,
+      "Karen Brown",
+      "no_tags",
+      0,
+      false
+    ],
+    [
+      206,
+      "Luis Garcia",
+      "i9_verified",
+      2,
+      true
+    ],
+    [
+      207,
+      "Maya Singh",
+      "clearance_required",
+      1,
+      false
+    ],
+    [
+      208,
+      "Noah Taylor",
+      "no_tags",
+      0,
+      false
+    ],
+    [
+      209,
+      "Olivia Martinez",
+      "remote",
+      3,
+      true
+    ],
+    [
+      210,
+      "Paul Chen",
+      "i9_verified",
+      5,
+      true
+    ],
+    [
+      211,
+      "Quinn Davis",
+      "background_check",
+      2,
+      false
+    ],
+    [
+      212,
+      "Rachel Kim",
+      "benefits_enrolled",
+      2,
+      true
+    ],
+    [
+      213,
+      "Sam White",
+      "no_tags",
+      0,
+      false
+    ],
+    [
+      214,
+      "Tina Rodriguez",
+      "no_tags",
+      0,
+      false
+    ],
+    [
+      215,
+      "Uma Johnson",
+      "clearance_required",
+      3,
+      true
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "row-transform",
+    "composite_moves": [
+      "array indexing with arr[1] and COALESCE for NULL/empty handling",
+      "ARRAY_LENGTH for tag count with COALESCE",
+      "ANY array membership check for benefits flag"
+    ]
+  },
+  "hints": [
+    "PostgreSQL arrays are 1-indexed, and you can access the first element with array_column[1].",
+    "Use COALESCE to handle NULL arrays, and remember that accessing an element from an empty array returns NULL.",
+    "The ANY operator checks if a value exists in an array: 'some_value' = ANY(array_column)."
+  ],
+  "answer_key": "SELECT employee_id, full_name AS employee_name, COALESCE(status_tags[1], 'no_tags') AS first_tag, COALESCE(ARRAY_LENGTH(status_tags, 1), 0) AS tag_count, ('benefits_enrolled' = ANY(COALESCE(status_tags, ARRAY[]::TEXT[]))) AS has_benefits FROM onboarding_records ORDER BY employee_id;",
+  "_meta": {
+    "question_type": "parse_clean",
+    "original_qtype": "parse_clean",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-27T22:23:07.280310",
+    "problem_id": "db15d0a5a52f",
+    "validation_attempts": 1,
+    "scenario": "an HR platform tracking onboarding completion and benefits enrollment",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "array_access",
+    "cleaning_required": false,
+    "cleaning_level": null,
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": null,
+    "typecast_twist": false,
+    "realism": "high"
+  },
+  "example_output_schema": [
+    [
+      "employee_id",
+      "INTEGER"
+    ],
+    [
+      "employee_name",
+      "TEXT"
+    ],
+    [
+      "first_tag",
+      "TEXT"
+    ],
+    [
+      "tag_count",
+      "INTEGER"
+    ],
+    [
+      "has_benefits",
+      "BOOLEAN"
+    ]
+  ]
+}

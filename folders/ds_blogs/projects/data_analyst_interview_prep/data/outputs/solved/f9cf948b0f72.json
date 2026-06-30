@@ -1,0 +1,304 @@
+{
+  "problem": {
+    "title": "Clean cart snapshot tags and extract keywords",
+    "prompt": "You are analyzing cart abandonment data from a fashion ecommerce platform modeled on public retail inventory datasets (data.gov). The `cart_snapshots` table captures the moment a visitor adds items to their cart, along with free-form `behavior_tags` that marketing staff enter to describe why the session might convert or abandon (e.g., `first_visit; browsing only`, `REPEAT_BUYER,price-sensitive`, `mobile user | NEW | discount code applied`). These tags are inconsistently delimited (commas, semicolons, pipes) and inconsistently cased. Your goal is to clean these tags: (1) normalize all delimiters to a single space, (2) convert each tag to title case, (3) extract the resulting cleaned tag array, and (4) pull out the first keyword (the first cleaned tag) to report alongside the snapshot ID and visitor session code. Write a query that transforms the `behavior_tags` column by replacing all commas, semicolons, and pipes with a single space using a regular expression, splits the result into an array on space boundaries, converts each element to title case during display, and returns the snapshot ID, session code, the full cleaned tag array, and the first tag. Include all snapshots. Order the output by `snapshot_id` ascending.",
+    "display": {
+      "context": "You are analyzing cart abandonment data from a fashion ecommerce platform modeled on public retail inventory datasets (data.gov).",
+      "task": "Write a query that cleans the behavior_tags column by normalizing delimiters to spaces, splitting into an array, converting to title case, and extracting the first keyword.",
+      "table_notes": {
+        "cart_snapshots": "holds a record each time a visitor adds an item to their cart, with free-form behavior tags describing session characteristics"
+      },
+      "output_field_notes": {
+        "snapshot_id": "unique identifier for the cart snapshot event",
+        "session_code": "the visitor session identifier",
+        "cleaned_tags_array": "the behavior tags as an array after normalizing delimiters and converting to title case",
+        "first_keyword": "the first tag from the cleaned array"
+      },
+      "field_logic": [
+        "cleaned_tags_array: replace every run of commas, semicolons, pipes and surrounding spaces with a single space, trim, split into an array with NO empty elements, and convert each element to title case (INITCAP)",
+        "first_keyword: take the first element from the cleaned tags array"
+      ],
+      "edge_cases": [
+        "If behavior_tags contains multiple consecutive delimiters, the intermediate spaces will collapse into single spaces before splitting.",
+        "If behavior_tags is NULL or empty, the array will be empty and first_keyword will be NULL.",
+        "If a tag contains mixed case, it will be converted to title case with the first letter of each word capitalized."
+      ],
+      "filter_note": "All rows from cart_snapshots are included in the output.",
+      "order_by_note": "The output is ordered by snapshot_id in ascending order."
+    },
+    "schema_ddl": "CREATE TABLE cart_snapshots (snapshot_id INT PRIMARY KEY, session_code VARCHAR(20), visitor_email VARCHAR(100), behavior_tags TEXT, item_count INT, cart_value_usd NUMERIC(10,2), added_at TIMESTAMP);",
+    "example_input_data": "INSERT INTO cart_snapshots (snapshot_id, session_code, visitor_email, behavior_tags, item_count, cart_value_usd, added_at) VALUES (1, 'S001', 'alice@example.com', 'first_visit; browsing only', 2, 89.99, '2024-01-15 10:30:00'), (2, 'S002', 'bob@example.com', 'REPEAT_BUYER,price-sensitive', 1, 45.00, '2024-01-15 11:45:00'), (3, 'S003', 'carol@example.com', 'mobile user | NEW | discount code applied', 3, 120.50, '2024-01-15 12:00:00'), (4, 'S004', 'dave@example.com', 'checkout_abandoned;cart_reminder_sent', 1, 75.00, '2024-01-15 13:20:00'), (5, 'S005', 'eve@example.com', 'vip_member,high_value', 5, 340.00, '2024-01-15 14:10:00'), (6, 'S006', 'frank@example.com', NULL, 1, 25.00, '2024-01-15 15:00:00');",
+    "example_output_columns": [
+      "snapshot_id",
+      "session_code",
+      "cleaned_tags_array",
+      "first_keyword"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "S001",
+        [
+          "First_Visit",
+          "Browsing",
+          "Only"
+        ],
+        "First_Visit"
+      ],
+      [
+        2,
+        "S002",
+        [
+          "Repeat_Buyer",
+          "Price-Sensitive"
+        ],
+        "Repeat_Buyer"
+      ],
+      [
+        3,
+        "S003",
+        [
+          "Mobile",
+          "User",
+          "New",
+          "Discount",
+          "Code",
+          "Applied"
+        ],
+        "Mobile"
+      ],
+      [
+        4,
+        "S004",
+        [
+          "Checkout_Abandoned",
+          "Cart_Reminder_Sent"
+        ],
+        "Checkout_Abandoned"
+      ],
+      [
+        5,
+        "S005",
+        [
+          "Vip_Member",
+          "High_Value"
+        ],
+        "Vip_Member"
+      ],
+      [
+        6,
+        "S006",
+        null,
+        null
+      ]
+    ],
+    "test_data": "INSERT INTO cart_snapshots (snapshot_id, session_code, visitor_email, behavior_tags, item_count, cart_value_usd, added_at) VALUES (101, 'S101', 'user1@example.com', 'NEW_USER;first_purchase,referral_link', 2, 99.99, '2024-02-01 09:00:00'), (102, 'S102', 'user2@example.com', 'email_campaign | promo_code | LIMITED_TIME', 1, 55.00, '2024-02-01 09:30:00'), (103, 'S103', 'user3@example.com', 'repeat;loyal_customer,birthday_discount', 4, 200.00, '2024-02-01 10:00:00'), (104, 'S104', 'user4@example.com', 'mobile|app_user;push_notification', 1, 30.00, '2024-02-01 10:30:00'), (105, 'S105', 'user5@example.com', 'social_media,influencer_code|flash_sale', 3, 150.00, '2024-02-01 11:00:00'), (106, 'S106', 'user6@example.com', '', 1, 20.00, '2024-02-01 11:30:00'), (107, 'S107', 'user7@example.com', 'ABANDONED_CART;reminder_email,second_visit', 2, 110.00, '2024-02-01 12:00:00'), (108, 'S108', 'user8@example.com', 'seasonal_sale | WINTER_COLLECTION | clearance', 5, 300.00, '2024-02-01 12:30:00'), (109, 'S109', 'user9@example.com', 'guest_checkout,no_account', 1, 40.00, '2024-02-01 13:00:00'), (110, 'S110', 'user10@example.com', 'high_intent;added_multiple_items,size_chart_viewed', 3, 180.00, '2024-02-01 13:30:00'), (111, 'S111', 'user11@example.com', 'desktop_user|wishlist_added', 2, 95.00, '2024-02-01 14:00:00'), (112, 'S112', 'user12@example.com', NULL, 1, 15.00, '2024-02-01 14:30:00'), (113, 'S113', 'user13@example.com', 'free_shipping;minimum_order_met', 4, 250.00, '2024-02-01 15:00:00'), (114, 'S114', 'user14@example.com', 'PAYMENT_FAILED,retry_attempted', 1, 60.00, '2024-02-01 15:30:00'), (115, 'S115', 'user15@example.com', 'coupon_applied|first_order,welcome_discount', 2, 120.00, '2024-02-01 16:00:00');",
+    "test_expected_columns": [
+      "snapshot_id",
+      "session_code",
+      "cleaned_tags_array",
+      "first_keyword"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        "S101",
+        [
+          "New_User",
+          "First_Purchase",
+          "Referral_Link"
+        ],
+        "New_User"
+      ],
+      [
+        102,
+        "S102",
+        [
+          "Email_Campaign",
+          "Promo_Code",
+          "Limited_Time"
+        ],
+        "Email_Campaign"
+      ],
+      [
+        103,
+        "S103",
+        [
+          "Repeat",
+          "Loyal_Customer",
+          "Birthday_Discount"
+        ],
+        "Repeat"
+      ],
+      [
+        104,
+        "S104",
+        [
+          "Mobile",
+          "App_User",
+          "Push_Notification"
+        ],
+        "Mobile"
+      ],
+      [
+        105,
+        "S105",
+        [
+          "Social_Media",
+          "Influencer_Code",
+          "Flash_Sale"
+        ],
+        "Social_Media"
+      ],
+      [
+        106,
+        "S106",
+        null,
+        null
+      ],
+      [
+        107,
+        "S107",
+        [
+          "Abandoned_Cart",
+          "Reminder_Email",
+          "Second_Visit"
+        ],
+        "Abandoned_Cart"
+      ],
+      [
+        108,
+        "S108",
+        [
+          "Seasonal_Sale",
+          "Winter_Collection",
+          "Clearance"
+        ],
+        "Seasonal_Sale"
+      ],
+      [
+        109,
+        "S109",
+        [
+          "Guest_Checkout",
+          "No_Account"
+        ],
+        "Guest_Checkout"
+      ],
+      [
+        110,
+        "S110",
+        [
+          "High_Intent",
+          "Added_Multiple_Items",
+          "Size_Chart_Viewed"
+        ],
+        "High_Intent"
+      ],
+      [
+        111,
+        "S111",
+        [
+          "Desktop_User",
+          "Wishlist_Added"
+        ],
+        "Desktop_User"
+      ],
+      [
+        112,
+        "S112",
+        null,
+        null
+      ],
+      [
+        113,
+        "S113",
+        [
+          "Free_Shipping",
+          "Minimum_Order_Met"
+        ],
+        "Free_Shipping"
+      ],
+      [
+        114,
+        "S114",
+        [
+          "Payment_Failed",
+          "Retry_Attempted"
+        ],
+        "Payment_Failed"
+      ],
+      [
+        115,
+        "S115",
+        [
+          "Coupon_Applied",
+          "First_Order",
+          "Welcome_Discount"
+        ],
+        "Coupon_Applied"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "parse-clean: REGEXP_REPLACE to normalize delimiters",
+        "parse-clean: STRING_TO_ARRAY to split on spaces",
+        "parse-clean: INITCAP per array element during output",
+        "parse-clean: extract first array element"
+      ]
+    },
+    "hints": [
+      "You need to replace multiple delimiter characters with a single consistent delimiter before splitting the string.",
+      "Use REGEXP_REPLACE with a character class pattern to match commas, semicolons, and pipes, and replace them all with a space in one pass.",
+      "After normalizing delimiters, use STRING_TO_ARRAY to split the cleaned string on spaces, then apply INITCAP to each element when constructing the output array, and access the first element with array subscript [1]."
+    ],
+    "answer_key": "WITH normalized AS (\n  SELECT\n    snapshot_id,\n    session_code,\n    NULLIF(TRIM(REGEXP_REPLACE(behavior_tags, '[,;|[:space:]]+', ' ', 'g')), '') AS norm\n  FROM cart_snapshots\n)\nSELECT\n  snapshot_id,\n  session_code,\n  CASE WHEN norm IS NULL THEN NULL\n       ELSE (SELECT ARRAY_AGG(INITCAP(tag))\n             FROM UNNEST(STRING_TO_ARRAY(norm, ' ')) AS tag)\n  END AS cleaned_tags_array,\n  CASE WHEN norm IS NULL THEN NULL\n       ELSE INITCAP((STRING_TO_ARRAY(norm, ' '))[1])\n  END AS first_keyword\nFROM normalized\nORDER BY snapshot_id;",
+    "_meta": {
+      "question_type": "parse_clean",
+      "original_qtype": "parse_clean",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-28T10:04:13.426568",
+      "problem_id": "f9cf948b0f72",
+      "validation_attempts": 1,
+      "scenario": "a fashion ecommerce site tracking add-to-cart and conversion",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "string_clean",
+      "cleaning_required": false,
+      "cleaning_level": null,
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": false,
+      "realism": "high",
+      "answer_key_fixed": "2026-06-28: collapse delimiters+whitespace into one separator and drop empty array elements (was REGEXP_REPLACE('[,;|]+',' ') then split on single space, which left '' elements from delimiter+space)"
+    },
+    "example_output_schema": [
+      [
+        "snapshot_id",
+        "INTEGER"
+      ],
+      [
+        "session_code",
+        "VARCHAR"
+      ],
+      [
+        "cleaned_tags_array",
+        "TEXT[]"
+      ],
+      [
+        "first_keyword",
+        "TEXT"
+      ]
+    ]
+  },
+  "user_solution": "/*\nSTRING_TO_ARRAY(INITCAP(REGEXP_REPLACE(behavior_tags, '[;|[:space:]]+', 'g')), ',')\n*/\n\nSELECT\n    snapshot_id,\n    session_code,\n    NULLIF(\n      STRING_TO_ARRAY(INITCAP(TRIM(REGEXP_REPLACE(behavior_tags, '[,;|[:space:]]+', ' ', 'g'))), ' '),\n      '{}'\n    ) AS cleaned_tags_array,\n    (STRING_TO_ARRAY(INITCAP(TRIM(REGEXP_REPLACE(behavior_tags, '[,;|[:space:]]+', ' ', 'g'))), ' '))[1] AS first_keyword\nFROM cart_snapshots\nORDER BY snapshot_id;",
+  "solved_at": "2026-06-28T10:46:23.352871"
+}

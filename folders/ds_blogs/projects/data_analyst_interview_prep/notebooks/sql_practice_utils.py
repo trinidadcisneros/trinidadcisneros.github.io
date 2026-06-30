@@ -1739,6 +1739,19 @@ The JSON schema is:
 {
   "title": "short title, 4-8 words",
   "prompt": "problem statement, 3-6 sentences, includes any constraints",
+  "display": {
+    "context": "ONE plain sentence giving the business setting, e.g. 'You are working with an expense management system modeled on public procurement datasets (data.gov).'",
+    "task": "ONE sentence starting with 'Write a query that ...' that states the goal in plain language",
+    "table_notes": {"<each input table name>": "one short sentence describing what that table holds"},
+    "output_field_notes": {"<each output column name>": "plain-language description of what the column represents (NO SQL, NO function names)"},
+    "field_logic": ["one entry per COMPUTED output column. Write a lead line '<exact_column_name>: built from <exact source column name(s)>.' then ONE rule per line, each starting with newline + '- '. Use EXACT column names everywhere (never a synonym or new name). Plain English, NO SQL / function names. See the FIELD-INSTRUCTION CLARITY rule below."],
+    "edge_cases": ["each special case as its own short 'If ... then ...' sentence"],
+    "filter_note": "ONE plain sentence: which rows are included in the output",
+    "order_by_note": "ONE plain sentence: how the output rows are ordered",
+    "answer_shape": "(PROCEDURAL problems ONLY: DO blocks, DML UPDATE/DELETE/INSERT, dedup, recursive CTE, functions; else omit) one or two plain sentences saying exactly what the answer must look like and what trailing statement ends it, e.g. 'Write a DO block that loops over the queue and updates the accounts table, then end with SELECT * FROM accounts ORDER BY account_id; that returns the final state.'",
+    "function_signature": "(FUNCTION problems ONLY: returns_scalar, returns_table; else omit) the exact function name with every parameter name and type and the return type, e.g. 'avg_onboarding_days(p_department_code VARCHAR, p_min_tier INT) RETURNS NUMERIC'",
+    "test_call": "(PROCEDURAL problems ONLY, else omit) the exact trailing statement to run that produces the example expected output: for a function 'SELECT avg_onboarding_days('IT', 2);'; for a table-returning function or a DO-block/DML/dedup answer 'SELECT * FROM <target> ORDER BY <pk>;' with the SAME ORDER BY / columns the answer uses"
+  },
   "schema_ddl": "CREATE TABLE statements separated by semicolons",
   "example_input_data": "INSERT statements that match the prompt's example input table",
   "example_output_columns": ["col1", "col2"],
@@ -1757,6 +1770,14 @@ The JSON schema is:
 }
 
 Hard rules:
+- ALWAYS include the `display` object. It restates the SAME problem as the prompt, broken into clean, scannable pieces for the learner. `context` = the business setting in one sentence. `task` = a single 'Write a query that ...' sentence. `table_notes` = one short line per INPUT table. `output_field_notes` = what each OUTPUT column represents, in plain words. `field_logic` = how each COMPUTED output column is derived, in plain words, one entry per computed column. `edge_cases` = each special case as its own short 'If ... then ...' sentence (NEVER one long semicolon-separated sentence; split it). `filter_note` = which rows are kept. `order_by_note` = the ordering. The keys of `table_notes` MUST be the actual table names; the keys of `output_field_notes` and the columns referenced by `field_logic` MUST be the actual output column names.
+- PROCEDURAL PROBLEMS (do_block, do_block_queue, returns_scalar, returns_table, recursive_cte, dml_update, dml_delete, dml_insert, delete_duplicates): `display.answer_shape` AND `display.test_call` are REQUIRED, so the learner is never left guessing how the answer must be structured or how it is run. `answer_shape` states in plain words exactly what to write and the trailing statement that ends it. `test_call` is the exact trailing statement that produces the example expected output (for a function the `SELECT fn(args)` call with the LITERAL argument values whose result equals the expected output; for a DO-block / DML / dedup / table-function answer, the `SELECT * FROM <target> ORDER BY <pk>` that shows the final state, with the SAME ORDER BY and columns the answer uses). ADDITIONALLY for FUNCTION problems (returns_scalar, returns_table), `display.function_signature` is REQUIRED and MUST give the exact function name, every parameter name and type, and the return type. For NON-procedural problems (plain SELECT queries) OMIT answer_shape, function_signature, and test_call.
+- CRITICAL: `display.output_field_notes` and `display.field_logic` MUST NOT contain any SQL, function names, casts, or code (no INITCAP, TRIM, MIN, ::date, ROUND, = ANY, etc.). Describe the intent in plain English so the learner still has to work out the SQL themselves. Example of a GOOD field_logic entry: "merchant_name: take the name from the policies table, drop the spaces around it, and capitalize each word." BAD: "merchant_name = INITCAP(TRIM(merchant_name))".
+- FIELD-INSTRUCTION CLARITY (the learner must be able to start coding WITHOUT inferring anything — this is the #1 quality bar):
+  (a) Refer to EVERY column by its EXACT schema name, every single time, in the prompt, task, output_field_notes, field_logic, and edge_cases. NEVER invent or paraphrase a name: do NOT write "overdue days", "the number", "grace", "the name" — write the literal column name like `days_overdue`, `grace_days_allowed`, `customer_name`. This includes a column's CLEANED or parsed value: keep calling it by the SAME column name, never give the cleaned value a new alias.
+  (b) Write each computed column's field_logic as a lead line "<column>: built from <source column(s)>." then ONE rule per line, each as a sub-step starting with newline + "- ". NEVER cram multiple rules into one sentence. Put a column's cleaning inside THAT column's entry, not buried in another column's entry.
+  (c) Every rule must be concrete, self-contained, and use the exact column names and literal values. GOOD: "risk_tier: built from days_overdue and grace_days_allowed.\n- turn days_overdue into a number: 'never_late' (any case or spaces) becomes 0; NULL or blank becomes 0; otherwise use the number in days_overdue\n- if grace_days_allowed is NULL, use 7\n- 'high' when days_overdue >= 15 AND days_overdue <= grace_days_allowed". BAD: "determine the numeric overdue days ... assign high if 15 or more but within grace".
+  (d) Apply the same exact-name rule to the prose `prompt` and `edge_cases`; the prompt may stay brief and point the learner to Field expectations for the per-column rules.
 - Schema DDL must be valid for the requested dialect (PostgreSQL or MySQL).
 - For DO block / RETURNS TABLE / RETURNS scalar / recursive CTE / DML problems, the prompt MUST specify exactly what shape the answer takes (e.g., "write a DO block that ... then a trailing SELECT ...").
 - For procedural problems, the test_expected_rows is what a SELECT * FROM target ORDER BY ... should return after the mutation runs.
@@ -1772,6 +1793,7 @@ Hard rules:
 - EXPLICIT FORMULA / COLUMN REFERENCES (CRITICAL for any rule that computes a value): Whenever a rule sets a column to a derived value (percentage of another column, multiplier, sum, weighted score, etc.), the prompt text MUST name the source column(s), the target column, AND the exact formula. Forbidden phrasings: "apply a 15% cancellation fee" (15% of WHAT?), "increase the price by 10%" (10% of base_price? of current price?), "calculate the bonus" (using which columns?). Required phrasing: "Set `cancellation_fee` to `base_fee * 0.15`," "Update `current_price` to `current_price * 1.10`," "Set `bonus = total_sales * commission_rate`." Always show the formula in `code` formatting using the actual schema column names. If the rule involves a percentage, the prompt must explicitly say "X% of `<column_name>`" where the column name appears in code formatting. Without this, learners hit ambiguous prompts where multiple readings (flat $15 vs 15% of base_fee vs 15% of current cancellation_fee) are all reasonable, and they fail the test by picking the wrong one.
 - COLUMN-LABEL CONFUSION (CRITICAL for status/category fields): When a rule sets a status column to one value (e.g., 'high_risk') and a later rule references "patients/rows that are high_risk," the prompt MUST clarify whether "high_risk" means the literal status value or the underlying CRITERION (e.g., "patients with 3 or more no-shows"). If the schema uses a single status column with mutually exclusive values, status changes by an earlier rule make the label inaccessible to later rules with conflicting status filters. Prefer one of: (a) restate the criterion explicitly in later rules ("for any 'cancelled' appointment where `previous_no_shows >= 3`"), or (b) introduce a separate boolean/flag column so the label persists across status changes. Never reuse a status label in two rules whose status filters can't both be true at once.
 - NO CLOCK-RELATIVE DATES (CRITICAL): The prompt, schema_ddl, data, and answer_key MUST NOT use CURRENT_DATE, NOW(), CURRENT_TIMESTAMP, LOCALTIMESTAMP, or any "last N days/months/years relative to today" filter. The example_input_data is fixed, so a clock-relative filter (e.g., WHERE d >= CURRENT_DATE - INTERVAL '6 months') returns a different result every day and almost always yields an EMPTY result against the static data, which makes the problem ungradable and non-reproducible (the expected output is captured once at generation time and would not match when the learner runs it later). Instead: (a) anchor every date window to LITERAL dates that exist in the data (e.g., WHERE month >= DATE '2024-01-01'), or (b) derive the reference date FROM the data itself (e.g., (SELECT MAX(signup_date) FROM users), or (SELECT DATE_TRUNC('month', MAX(signup_date)) FROM users) - INTERVAL '5 months'). If the prompt needs a "recent" or "last 6 months" window, define those bounds with explicit literals or a data-derived MAX so the same rows always come back. The expected output rows MUST be non-empty.
+- MONTH / WEEKDAY NAMES MUST USE FM (CRITICAL): Whenever the answer_key outputs a MONTH NAME or WEEKDAY NAME via TO_CHAR, it MUST use the FM modifier: `TO_CHAR(d, 'FMMonth')` -> `March`, `TO_CHAR(d, 'FMDay')` -> `Monday`. NEVER use the plain `'Month'` or `'Day'` patterns, which right-pad the name with trailing spaces to a fixed width of 9 characters (`'March    '`, `'Monday   '`). The padded form produces a misleading expected output with invisible trailing whitespace that a learner cannot reasonably reproduce and that reads as a grader bug. This applies to EVERY qtype that emits a month or weekday name (window_first_last, date_operations, series_generation, parse_clean, group-aggregate, etc.), not just weekday-pivot problems. If a fixed-width column is genuinely required, wrap it as `TRIM(TO_CHAR(d, 'Month'))` so the output is still unpadded; default to FMMonth / FMDay.
 """
 
 
@@ -1802,6 +1824,7 @@ SUBTYPES = {
         ("categorical_label_spine", "Categorical label spine"),
         ("lateral_range_expansion", "Per-row range expansion (LATERAL)"),
         ("period_overlap", "Period overlap (active in period)"),
+        ("range_bucket_join", "Range-join events into period buckets (half-open: day / week / month)"),
     ],
     "dml_delete": [
         ("conditional", "Conditional delete"),
@@ -1868,7 +1891,9 @@ SUBTYPES = {
         ("threshold_per_category", "Threshold per category (HAVING)"),
     ],
     "gated_lookup": [
-        ("case_keep", "CASE around the aggregate (keep all, 0 / NULL)"),
+        ("case_threshold", "CASE around the aggregate — numeric threshold gate"),
+        ("case_flag", "CASE around the aggregate — yes/no flag or status gate"),
+        ("case_inside", "CASE inside the aggregate (SUM / COUNT of a CASE)"),
         ("gate_on", "Gate in the JOIN ON (drop before aggregating)"),
         ("where_exclude", "WHERE filter (drop non-qualifiers)"),
         ("distinct_on", "DISTINCT ON (latest / earliest per entity)"),
@@ -3577,6 +3602,18 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml
             ),
         }
         base += _PC[_pc]
+        # ROTATION: require a random sample of this family's FULL reference toolbox so the
+        # subtype covers every function over a handful of problems, not just the common ones.
+        _pc_fam = _PC_SUBTYPE_FAMILY.get(_pc)
+        if _pc_fam:
+            _pool = _FN_DRILL[_pc_fam]
+            _need = random.sample(_pool, min(3, len(_pool)))
+            base += (
+                "\nROTATION (cover the whole toolbox): this family's full set is "
+                + ", ".join(_pool) + ". For THIS problem the answer_key MUST use: " + ", ".join(_need)
+                + ". Vary the picks across problems and apply them to the OUTPUT / derived columns so each "
+                "is genuinely used (not a hidden filter)."
+            )
     elif qtype == "gated_lookup":
         base += (
             "Build a GATED LOOKUP problem: a condition (threshold/flag) on an attribute "
@@ -3621,7 +3658,9 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml
         )
         # forced method subtype (maps to the playbook's Gated Lookup method leaves)
         _gl_dir = {
-            "case_keep": "METHOD (use THIS): fallback is 0 or NULL so EVERY entity appears; gate with a CASE wrapped around the per-entity pick. State the fallback explicitly.",
+            "case_threshold": "METHOD (use THIS): keep EVERY entity (0 / NULL fallback). The gate is a NUMBER compared to a cutoff on table A (score >= 70, rating >= 4). Wrap the per-entity aggregate in a CASE OUTSIDE the aggregate: CASE WHEN a.col >= n THEN MIN/MAX(...) ELSE 0/NULL END. State the fallback explicitly.",
+            "case_flag": "METHOD (use THIS): keep EVERY entity (0 / NULL fallback). The gate is a yes/no FLAG or STATUS word on table A (is_active, status = 'active'). Same CASE wrapped AROUND the aggregate, but the WHEN tests the flag/status. State the fallback explicitly.",
+            "case_inside": "METHOD (use THIS): keep EVERY entity; the condition is on the FACT rows (table B), so push the CASE INSIDE the aggregate — SUM(CASE WHEN b.cond THEN 1 ELSE 0 END) or COUNT(CASE WHEN b.cond THEN 1 END) counts only qualifying rows, 0 when none. LEFT JOIN keeps non-matching entities at 0. Often several conditional columns in one query.",
             "gate_on": "METHOD (use THIS): put the gate (and any row filter on the joined table) in the JOIN ON so non-qualifiers drop BEFORE the aggregate; the LEFT JOIN still keeps every entity (0 / NULL where it failed).",
             "where_exclude": "METHOD (use THIS): only qualifying entities appear; the gate sits in WHERE, which turns the LEFT JOIN effectively INNER. State that non-qualifiers are excluded.",
             "distinct_on": "METHOD (use THIS, Postgres): the pick is the latest / earliest row per entity via DISTINCT ON (entity) ... ORDER BY entity, ts; the gate references table A's attribute.",
@@ -3956,6 +3995,25 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml
                 "overlap predicate IN THE ON CLAUSE: created < period_start + 1 interval AND "
                 "(ended IS NULL OR ended >= period_start). COUNT(fact.id) not COUNT(*); the predicate "
                 "lives in ON, never WHERE.",
+            "range_bucket_join":
+                "Build EXACTLY SHAPE G (range-bucket join): a POINT event (a single timestamp, NOT a "
+                "span) must land in EXACTLY ONE period bucket via a HALF OPEN range join. "
+                "(1) Build the bucket spine with generate_series over a LITERAL range, stepping by the "
+                "chosen grain; ROTATE the grain across generations so it is NOT always weekly: use "
+                "INTERVAL '1 day' (daily), INTERVAL '1 week' (weekly, bucket label = the Monday), "
+                "INTERVAL '1 month' (monthly), or an arbitrary INTERVAL 'N days' (e.g. 10-day or "
+                "14-day windows). (2) CROSS JOIN every entity in a dim/DISTINCT list so empty cells "
+                "exist. (3) LEFT JOIN the fact table IN THE ON CLAUSE on the entity key AND a half "
+                "open date-range predicate that places each event in one bucket: "
+                "`fact.event_ts >= bucket_start AND fact.event_ts < bucket_start + INTERVAL 'N unit'` "
+                "(the SAME interval used to step the spine). (4) The event-timestamp column is TEXT "
+                "from a legacy import and MUST be cast to timestamp before comparing. (5) COUNT(fact.id) "
+                "/ SUM(...) with COALESCE 0 so every (entity, bucket) appears, zero-activity ones as 0. "
+                "TRAPS to design around: the predicate MUST live in ON, never WHERE (WHERE would drop "
+                "the zero buckets); the upper bound is strictly `<` the next bucket start, never BETWEEN "
+                "(BETWEEN double counts events on the boundary); design data with at least one empty "
+                "(entity, bucket) cell and at least one event sitting on a bucket boundary so the half "
+                "open `<` is exercised.",
         }
         if subtype in _sg_sub:
             shape_hint = (
@@ -4731,7 +4789,7 @@ def _validate_problem(problem: Dict[str, Any]) -> tuple:
         sbx.execute_script(dialect, problem.get("example_input_data", "") or "")
     except Exception as e:
         return False, f"Loading schema/example_input_data failed: {e}"
-    df_ex, err = sbx.run_query(dialect, answer)
+    df_ex, out_types, err = sbx.run_query_typed(dialect, answer)
     if err:
         return False, f"Answer key errored on example data: {err}"
     if df_ex is None or df_ex.empty and not list(df_ex.columns):
@@ -4741,6 +4799,65 @@ def _validate_problem(problem: Dict[str, Any]) -> tuple:
     problem["example_output_rows"] = df_ex.astype(object).where(
         df_ex.notna(), None
     ).values.tolist()
+    # Capture the authoritative output schema (column -> SQL type from the DB) so
+    # the problem card can show what shape/type each output column should be.
+    if out_types and len(out_types) == len(df_ex.columns):
+        problem["example_output_schema"] = [
+            [str(c), t] for c, t in zip(df_ex.columns, out_types)
+        ]
+    else:
+        problem.pop("example_output_schema", None)
+
+    # Enforce the high / all-six cleaning setting: the answer_key MUST use a
+    # function from each of the 6 cleaning families. If any is missing, reject so
+    # the generator retries and weaves in the missing family (e.g. an ARRAY fn).
+    if problem.get("_meta", {}).get("cleaning_all_six"):
+        missing = _cleaning_families_missing(answer)
+        if missing:
+            _all6 = ["STRING", "ARRAY", "DATE", "CAST", "NUMERIC", "CONDITIONAL"]
+            present = [f for f in _all6 if f not in missing]
+            return False, (
+                "HIGH cleaning needs a function from ALL SIX families in the SAME answer_key: STRING, "
+                "ARRAY, DATE, CAST, NUMERIC, CONDITIONAL. This attempt is MISSING: " + ", ".join(missing)
+                + ". It already HAS: " + (", ".join(present) or "none")
+                + ". KEEP every family it already has AND add the missing one(s) — do NOT drop a family "
+                "while fixing another (that whack-a-mole is why this keeps failing). Reliable recipe: add "
+                "one derived OUTPUT column per family so all six coexist regardless of the core task — "
+                "INITCAP(TRIM(name)) [STRING]; tags[1] or ARRAY_LENGTH(tags) on a TEXT[] column [ARRAY]; "
+                "EXTRACT(MONTH FROM d) or TO_CHAR(d,'YYYY-MM') [DATE]; amount_text::numeric [CAST]; "
+                "ROUND(x, 2) or MOD(n, 2) [NUMERIC]; COALESCE(x, 0) or CASE WHEN ... END [CONDITIONAL]. "
+                "Add whatever TEXT[] / wrong-typed-text / NULL columns are needed so each function is "
+                "genuinely used, and keep BOTH the example and test outputs reproducing."
+            )
+    # Backstop for the cleaning-twist "hidden gate" failure mode: reject when the answer_key
+    # filters/gates rows on a condition the prompt never describes, then retry.
+    _hidden = _undocumented_gates(answer, problem.get("prompt", ""))
+    if _hidden:
+        return False, (
+            "PROMPT-FAITHFULNESS: the answer_key filters/gates rows on a condition the prompt does not "
+            "describe: " + "; ".join(_hidden) + ". Either REMOVE that predicate from the answer_key, or "
+            "ADD the condition to the prompt's task and edge-cases. Cleaning / array / date functions must "
+            "format or clean OUTPUT columns (or implement a STATED gate), never act as a hidden filter. "
+            "Keep the problem consistent (answer_key still reproduces both the example and test outputs)."
+        )
+
+    # Subtype-method conformance: case_inside MUST push the condition INSIDE the aggregate
+    # (SUM/COUNT(CASE ...)). The model often produces a CASE-AROUND-the-aggregate answer with the
+    # gate on a grouping column instead, which is the case_threshold / case_flag method (a different
+    # playbook leaf). Reject so it regenerates the right pattern.
+    if (problem.get("_meta", {}) or {}).get("subtype") == "case_inside":
+        import re as _re
+        if not _re.search(r'\b(SUM|COUNT|AVG|MIN|MAX|BOOL_OR|BOOL_AND)\s*\(\s*CASE\b', answer, _re.I):
+            return False, (
+                "Subtype is case_inside: the gating condition is on the FACT rows and must sit INSIDE the "
+                "aggregate, e.g. SUM(CASE WHEN <fact-row condition> THEN 1 ELSE 0 END) or "
+                "COUNT(CASE WHEN <fact-row condition> THEN 1 END), so only qualifying rows count (0 when "
+                "none). The current answer_key wraps the aggregate in a CASE on a grouping column instead "
+                "(that is the case_threshold / case_flag method, a DIFFERENT leaf). Rewrite so the CASE is "
+                "INSIDE the aggregate and keyed off a per-row condition on the joined table; keep every "
+                "entity via LEFT JOIN, and keep both the example and test outputs reproducing."
+            )
+
     if len(problem["example_output_rows"]) == 0:
         return False, (
             "Answer key produced ZERO rows on the example data. The expected output must be "
@@ -4833,27 +4950,140 @@ _CLEANING_LOW = (
 )
 
 
+def _cleaning_families_missing(answer_sql: str) -> list:
+    """Return the list of the 6 cleaning families that the answer_key does NOT
+    exercise. Used to enforce the high / all-six cleaning setting: a function
+    from each family must appear in the answer_key, else the problem is rejected
+    and regenerated. Heuristic regex over the answer SQL (Postgres)."""
+    import re as _re
+    a = (answer_sql or "").upper()
+    fam = {
+        "STRING": bool(_re.search(r'\b(TRIM|BTRIM|LTRIM|RTRIM|LOWER|UPPER|INITCAP|SPLIT_PART|REPLACE|SUBSTRING|LPAD|RPAD|CONCAT)\s*\(', a)),
+        "ARRAY": bool(_re.search(r'\b(ARRAY_LENGTH|CARDINALITY|UNNEST)\s*\(', a)
+                      or _re.search(r'\bANY\s*\(', a)
+                      or _re.search(r'\bARRAY\s*\[', a)
+                      or _re.search(r'\w\s*\[\s*\d+\s*\]', a)),
+        "DATE": bool(_re.search(r'\b(EXTRACT|DATE_TRUNC|TO_CHAR|AGE|DATE_PART|TO_DATE|TO_TIMESTAMP)\s*\(', a)
+                     or "::DATE" in a or "::TIMESTAMP" in a or "INTERVAL '" in a),
+        "CAST": bool(_re.search(r'::\s*[A-Z]', a) or _re.search(r'\bCAST\s*\(', a)
+                     or _re.search(r'\b(TO_NUMBER|TO_DATE|TO_TIMESTAMP)\s*\(', a)),
+        "NUMERIC": bool(_re.search(r'\b(ROUND|CEIL|CEILING|FLOOR|TRUNC|MOD|ABS|POWER|SQRT|DIV)\s*\(', a)
+                        or _re.search(r'::\s*(NUMERIC|DECIMAL|FLOAT|INT|BIGINT|REAL|DOUBLE)', a)),
+        "CONDITIONAL": bool(_re.search(r'\b(CASE|COALESCE|NULLIF|GREATEST|LEAST)\b', a)),
+    }
+    return [k for k, present in fam.items() if not present]
+
+
+def _undocumented_gates(answer_sql: str, prompt_text: str) -> list:
+    """Heuristic backstop for the cleaning-twist 'hidden gate' failure mode: the
+    answer_key filters/gates rows on a condition that the prompt never describes
+    (e.g. 'downtown' = ANY(active_zones), or EXTRACT(HOUR FROM ts) >= 6), which
+    silently changes which rows qualify. Conservative — only flags column-based
+    array membership and EXTRACT date-part comparisons whose value AND column
+    concept are both absent from the prompt, so documented gates are not flagged."""
+    import re as _re
+    a = answer_sql or ""
+    p = (prompt_text or "").lower()
+    found = []
+    # 1) "<value> = ANY(<column>)" array-membership gate
+    for m in _re.finditer(r"(\S+?)\s*=\s*any\s*\(\s*([a-z_][a-z0-9_.]*)\s*\)", a, _re.I):
+        left, expr = m.group(1), m.group(2)
+        col = expr.split(".")[-1]
+        if col.lower() in ("array",):            # ANY(ARRAY[...]) literal, not a column gate
+            continue
+        lit = left.strip().strip("'\"").lower()
+        col_words = [w for w in col.lower().split("_") if len(w) > 2]
+        documented = (lit and lit in p) or any(w in p for w in col_words) or col.lower() in p
+        if not documented:
+            found.append("array-membership gate `%s = ANY(%s)` not described in the prompt" % (left.strip(), expr))
+    # 2) "EXTRACT(part FROM ...) <op> number" date-part gate
+    for m in _re.finditer(r"extract\s*\(\s*([a-z]+)\s+from[^)]*\)\s*(>=|<=|<>|!=|=|>|<)\s*\d", a, _re.I):
+        part = m.group(1).lower()
+        syn = {"hour": ["hour", "time of day", "a.m", "p.m", "am", "pm", "morning", "evening"],
+               "dow": ["weekday", "day of week", "weekend"],
+               "isodow": ["weekday", "day of week", "weekend"],
+               "day": ["day of month", "day-of-month"],
+               "month": ["month"], "year": ["year"], "minute": ["minute"],
+               "doy": ["day of year"], "quarter": ["quarter"], "week": ["week"]}.get(part, [part])
+        if not any(s in p for s in syn):
+            found.append("date-part gate `EXTRACT(%s ...)` compared to a number, not described in the prompt" % part)
+    return found
+
+
+# The full per-family function toolbox, mirroring the reference tables in
+# sql_problem_patterns.html (Functions: Parse, Clean & Convert). Used to ROTATE which
+# specific functions a problem must use, so the parse_clean subtypes and the HIGH-cleaning
+# drill exercise the WHOLE reference over a handful of problems instead of the same defaults.
+_FN_DRILL = {
+    "string": ["INITCAP", "UPPER / LOWER", "SUBSTRING(s FROM a FOR n)", "LEFT / RIGHT(s, n)",
+               "SPLIT_PART(s, delim, n)", "POSITION(sub IN s)", "TRIM / BTRIM", "REPLACE(s, from, to)",
+               "CONCAT_WS(sep, ...)", "LENGTH(s)", "LPAD / RPAD(s, len, pad)",
+               "REGEXP_REPLACE(s, pat, r, 'g')", "STRING_TO_ARRAY(s, sep)"],
+    "array": ["arr[n] (1-based)", "ARRAY_LENGTH(arr, 1)", "x = ANY(arr)", "arr @> arr2 (contains all)",
+              "arr && arr2 (overlaps)", "ARRAY_TO_STRING(arr, sep)", "STRING_TO_ARRAY(s, sep)",
+              "UNNEST(arr)"],
+    "date": ["EXTRACT(part FROM ts)", "DATE_TRUNC(unit, ts)", "AGE(a, b)", "date - date (whole days)",
+             "date + INTERVAL", "TO_CHAR(ts, fmt)", "EXTRACT(DOW FROM d)"],
+    "cast": ["x::type / CAST(x AS type)", "TO_DATE(s, fmt)", "TO_NUMBER(s, fmt)", "TO_CHAR(n, fmt)",
+             "NULLIF(a, b)  (blank -> NULL)", "COALESCE(a, b, ...)"],
+    "numeric": ["ROUND(n, d)", "CEIL / FLOOR(n)", "TRUNC(n, d)", "ABS(n)", "MOD(a, b)", "POWER(a, b)",
+                "a::numeric / b  (avoid integer division)", "GREATEST / LEAST(...)"],
+    "conditional": ["CASE WHEN ... THEN ... ELSE ... END", "COALESCE(a, b, ...)", "NULLIF(a, b)",
+                    "GREATEST / LEAST(...)"],
+}
+
+# parse_clean subtype -> family key in _FN_DRILL
+_PC_SUBTYPE_FAMILY = {
+    "string_clean": "string", "array_access": "array", "date_extract": "date",
+    "type_cast": "cast", "numeric_format": "numeric", "conditional_null": "conditional",
+}
+
+
 def _cleaning_all_six(per_cat: int) -> str:
-    n = "TWO DIFFERENT" if per_cat >= 2 else "at least ONE"
+    # Rotate the SPECIFIC functions required from each family every generation so HIGH cleaning
+    # exercises the whole reference toolbox over several problems, not just the common defaults.
+    fams = [("STRING", "string"), ("ARRAY", "array"), ("DATE", "date"),
+            ("TYPE CAST", "cast"), ("NUMERIC", "numeric"), ("CONDITIONAL / NULL", "conditional")]
+    lines = []
+    for i, (label, key) in enumerate(fams, 1):
+        pool = _FN_DRILL[key]
+        k = min(max(per_cat, 1), len(pool))
+        picks = random.sample(pool, k)
+        lines.append("%d) %s: use %s   (full toolbox: %s)."
+                      % (i, label, " AND ".join(picks), ", ".join(pool)))
+    body = "\n".join(lines)
     return (
-        "\n\nMAXIMUM DATA-CLEANING DRILL (this is as much the point as the core skill — APPLY ALL): the "
-        "answer_key must use %s function(s) from EACH of these six families. Add whatever columns and "
-        "values are needed (a text column, a date, an ARRAY column, a wrong-typed text column, a number, a "
-        "NULL / '') so each family applies naturally on top of the problem's core task:\n"
-        "1) STRING: TRIM / LOWER / UPPER / INITCAP / SPLIT_PART / REPLACE / SUBSTRING.\n"
-        "2) ARRAY: declare a column as an ARRAY (e.g. tags TEXT[]) and use arr[n] (1-based) / ARRAY_LENGTH "
-        "/ x = ANY(arr) / UNNEST.\n"
-        "3) DATE: a date/timestamp used with EXTRACT / DATE_TRUNC / TO_CHAR / AGE / date math.\n"
-        "4) TYPE CAST: a value that is a date/number/boolean but STORED as VARCHAR / TEXT, cast with "
-        "col::type (or CAST) before use.\n"
-        "5) NUMERIC: ROUND / CEIL / FLOOR / TRUNC / MOD, or numeric-cast division.\n"
-        "6) CONDITIONAL / NULL: CASE, COALESCE, or NULLIF (include a NULL or '' so it is exercised).\n"
-        "Each function must be NECESSARY (a solution skipping it is wrong/errored). Do NOT announce the "
-        "cleaning or name techniques in the prompt — describe columns by business meaning. Keep the CORE "
-        "skill intact and the problem fully consistent (answer_key reproduces BOTH the example and test "
-        "outputs, both NON-EMPTY). Trace it before returning."
-        % n
+        "\n\nMAXIMUM DATA-CLEANING DRILL (this is as much the point as the core skill — APPLY ALL). The "
+        "answer_key MUST use the SPECIFIC function(s) named for EACH family below. They are picked at "
+        "random every generation so you practice the WHOLE reference toolbox over several problems — do "
+        "NOT swap in the easy default, use the named ones. Add whatever TEXT / TEXT[] / wrong-typed-text "
+        "/ date / NULL columns are needed so each one applies, and apply them to the OUTPUT or derived "
+        "columns (never as a hidden filter):\n" + body +
+        "\nDo NOT announce the cleaning or name techniques in the prompt — describe columns by business "
+        "meaning. Keep the CORE skill intact and the problem fully consistent (answer_key reproduces BOTH "
+        "the example and test outputs, both NON-EMPTY). Trace it before returning."
     )
+
+
+# Appended whenever a cleaning requirement is active. Stops the cleaning drill from sneaking an
+# undocumented filter/gate into the answer_key (the failure mode where x = ANY(arr) or
+# EXTRACT(HOUR ...) silently change which rows qualify but never appear in the prompt).
+_CLEANING_FAITHFUL_GUARD = (
+    "\n\nPROMPT-FAITHFULNESS GUARD (HARD RULE — read before finalizing): every cleaning / array / date / "
+    "numeric function you weave in must CLEAN, FORMAT, or COMPUTE a column the answer OUTPUTS, or "
+    "implement a condition the prompt EXPLICITLY states. It must NEVER act as a hidden filter or gate that "
+    "changes which rows qualify, which rows are counted, or which row is picked, unless that exact "
+    "condition is written in the prompt's task or edge-cases. FORBIDDEN as undocumented gates: array "
+    "membership (x = ANY(arr), arr @> ...), an EXTRACT / date-part / hour-or-day comparison, a "
+    "substring / LIKE test, an ARRAY_LENGTH threshold, or any extra predicate in WHERE / HAVING / "
+    "JOIN ... ON that the prompt does not describe. The ONLY conditions that filter rows or alter the "
+    "result are the gate(s) and edge-cases the prompt spells out. If a woven function would only be "
+    "'necessary' via such a hidden filter, make it necessary instead by applying it to an OUTPUT column "
+    "(clean the displayed name, cast a displayed number, format a displayed date, round a displayed "
+    "amount, take arr[1] for a displayed category). FINAL CHECK before returning: list every "
+    "WHERE / HAVING / JOIN-ON / CASE condition in the answer_key and confirm each one is described in the "
+    "prompt; if any is not, delete it or add it to the prompt."
+)
 
 
 _REALISM_BLOCKS = {
@@ -4923,7 +5153,7 @@ def generate_problem(
     }
     if qtype == "window_random":
         qtype = random.choice(_WINDOW_VARIANTS)
-        print(f"window_random resolved to: {qtype}")
+        print(f"window_random resolved to: {qtype}  [{QUESTION_TYPES[qtype]['label']}]")
     elif qtype == "random_any":
         pool = [k for k, v in QUESTION_TYPES.items()
                 if k not in _RANDOM_ANY_EXCLUDED
@@ -4933,7 +5163,7 @@ def generate_problem(
             print(f"random_any has no eligible qtype for dialect {dialect}")
             return None
         qtype = random.choice(pool)
-        print(f"random_any resolved to: {qtype}")
+        print(f"random_any resolved to: {qtype}  [{QUESTION_TYPES[qtype]['label']}]")
 
     if dialect not in QUESTION_TYPES[qtype]["dialects"]:
         print(f"Question type '{qtype}' is not supported in dialect '{dialect}'.")
@@ -5060,10 +5290,13 @@ def generate_problem(
         else None
     )
     typecast_twist = cleaning_required  # back-compat: a cast is part of moderate/high cleaning
-    for attempt in range(1, max_retries + 1):
+    # The all-six cleaning drill weaves 6-12 functions in one answer_key and the model often
+    # whack-a-moles families across attempts, so give it more tries to converge.
+    _eff_retries = max(max_retries, 8) if cleaning_all_six else max_retries
+    for attempt in range(1, _eff_retries + 1):
         if on_attempt:
             try:
-                on_attempt(attempt, max_retries, last_error)
+                on_attempt(attempt, _eff_retries, last_error)
             except Exception:
                 pass
 
@@ -5077,6 +5310,7 @@ def generate_problem(
                 user_prompt += _CLEANING_MANDATORY
                 if cleaning_bonus:
                     user_prompt += _CLEANING_BONUS[cleaning_bonus]
+            user_prompt += _CLEANING_FAITHFUL_GUARD
         user_prompt += _REALISM_BLOCKS.get(_realism_level, _REALISM_BLOCKS["moderate"])
         if last_error:
             user_prompt += (
@@ -5124,7 +5358,7 @@ def generate_problem(
         last_error = err
 
     print(
-        f"Generation failed validation after {max_retries} attempts. "
+        f"Generation failed validation after {_eff_retries} attempts. "
         f"Last error: {last_error}"
     )
     return None
@@ -5520,8 +5754,12 @@ _PB_SUBTYPE = {
     ("scalar_extract", "top1"): ("sc-leaf-top1", "Top-1 row"),
     ("scalar_extract", "nth"):  ("sc-leaf-nth",  "Nth value"),
     ("scalar_extract", "ratio"):("sc-leaf-ratio","Ratio / percentage"),
-    ("gated_lookup", "case_keep"):     ("gl-leaf-case",      "CASE around the aggregate"),
+    ("gated_lookup", "case_threshold"):("gl-case-around-threshold", "CASE around the aggregate — numeric threshold"),
+    ("gated_lookup", "case_flag"):     ("gl-case-around-flag",      "CASE around the aggregate — flag / status"),
+    ("gated_lookup", "case_inside"):   ("gl-case-inside",           "CASE inside the aggregate"),
     ("gated_lookup", "gate_on"):       ("gl-leaf-onclause",  "Gate in the JOIN ON"),
+    ("gated_lookup", "where_exclude"): ("gl-leaf-where",     "WHERE filter + GROUP BY"),
+    ("gated_lookup", "distinct_on"):   ("gl-leaf-distincton","DISTINCT ON (Postgres)"),
     ("gated_lookup", "rownumber_pick"):("gl-leaf-rownumber", "ROW_NUMBER + rn = 1"),
     ("left_join_on_filter", "date_window"):      ("ea-leaf-leftjoin-on",   "Right-side date window"),
     ("left_join_on_filter", "status_category"):  ("fj-leaf-status",        "Right-side status / category"),
@@ -5697,13 +5935,43 @@ def parse_create_tables(ddl: str):
 
 
 def parse_inserts(sql: str):
-    """Return {table_name: (col_names, [row_values, ...])}."""
+    """Return {table_name: (col_names, [row_values, ...])}.
+
+    Scans for the statement-ending ';' at paren-depth 0 OUTSIDE quotes, rather
+    than regex-matching up to the first ';'. This is required because the data
+    itself can contain ';' inside quoted values (e.g. behavior_tags like
+    'first_visit; browsing only'); the old `VALUES\\s*(.+?);` truncated the row
+    list at that inner semicolon and rendered an empty table."""
     out = {}
-    pattern = r"INSERT\s+INTO\s+([\w_]+)\s*\(([^)]+)\)\s*VALUES\s*(.+?);"
-    for m in _re.finditer(pattern, sql or '', _re.IGNORECASE | _re.DOTALL):
+    sql = sql or ''
+    header = _re.compile(r"INSERT\s+INTO\s+([\w_]+)\s*\(([^)]+)\)\s*VALUES\s*",
+                         _re.IGNORECASE | _re.DOTALL)
+    n = len(sql)
+    for m in header.finditer(sql):
         name = m.group(1)
         cols = [c.strip() for c in m.group(2).split(',')]
-        rows = _parse_value_rows(m.group(3))
+        i = start = m.end()
+        depth = 0
+        in_str = False
+        while i < n:
+            ch = sql[i]
+            if in_str:
+                if ch == "'":
+                    if i + 1 < n and sql[i + 1] == "'":   # escaped '' inside a string
+                        i += 2
+                        continue
+                    in_str = False
+            else:
+                if ch == "'":
+                    in_str = True
+                elif ch in '([{':
+                    depth += 1
+                elif ch in ')]}':
+                    depth -= 1
+                elif ch == ';' and depth == 0:
+                    break
+            i += 1
+        rows = _parse_value_rows(sql[start:i])
         if name in out:
             out[name][1].extend(rows)
         else:
@@ -5771,6 +6039,178 @@ def schema_to_html(ddl: str) -> str:
             + '</div>'
         )
     return ''.join(parts)
+
+
+def output_schema_to_html(problem: Dict[str, Any]) -> str:
+    """Render the expected-output columns and their SQL types as a Column / Type
+    table (mirrors schema_to_html). Returns '' when the problem has no captured
+    output schema (e.g. older saved problems)."""
+    sch = problem.get("example_output_schema")
+    if not sch:
+        return ""
+    try:
+        df = pd.DataFrame([[c, t] for c, t in sch], columns=["Column", "Type"])
+    except Exception:
+        return ""
+    return (
+        '<div style="margin-bottom:12px;">'
+        '<div style="font-weight:600; margin:6px 0; font-size:13px;">'
+        'Expected output columns</div>'
+        + df.to_html(index=False, classes="nb-schema-table")
+        + "</div>"
+    )
+
+
+def render_problem_card(problem: Dict[str, Any]) -> str:
+    """Render a problem in the structured layout: Prompt (bullets) -> Input schema
+    (per table, with a one-line note) -> Example input data -> Output schema
+    (Column / Type / What it is) -> Field expectations -> Edge cases -> Filter ->
+    Order by -> Expected output. Falls back gracefully for older problems that
+    lack the `display` block (just bulletizes the prose prompt and shows the
+    schema / data / output tables)."""
+    import html as _h
+    d = problem.get("display") or {}
+    meta = problem.get("_meta", {})
+    P = []
+    P.append('<div style="border:1px solid #d0d7de; border-radius:6px; padding:16px; '
+             'background:#fafbfc; margin-bottom:10px;">')
+    P.append('<div style="font-size:11px; color:#57606a; margin-bottom:8px;">'
+             f'{_h.escape(str(meta.get("dialect","")))} &middot; '
+             f'{_h.escape(str(meta.get("question_type","")))} &middot; '
+             f'id {_h.escape(str(meta.get("problem_id","")))}</div>')
+    P.append(f'<h3 style="margin:0 0 12px;">{_h.escape(str(problem.get("title","Untitled")))}</h3>')
+
+    def bullets(items):
+        items = [x for x in items if x]
+        return ('<ul style="margin:0 0 10px 20px; line-height:1.6;">'
+                + "".join(f"<li>{_h.escape(str(x))}</li>" for x in items) + "</ul>")
+
+    # ---- Prompt ----
+    # Show the full original case description first (the prose `prompt`, which is
+    # the pre-2026-06-26 format), then the abridged summary (context + task).
+    P.append('<h4 style="margin:6px 0;">Prompt</h4>')
+    full = problem.get("prompt", "")
+    ctx, task = d.get("context"), d.get("task")
+    sublabel = ('color:#57606a; font-size:12px; font-weight:600; '
+                'text-transform:uppercase; letter-spacing:0.03em;')
+    if full:
+        P.append('<div style="%s margin:2px 0 4px;">Full description</div>' % sublabel)
+        P.append(prompt_to_bullets(full))
+    if ctx or task:
+        P.append('<div style="%s margin:12px 0 4px;">Quick summary</div>' % sublabel)
+        P.append(bullets([ctx, task]))
+    if not full and not (ctx or task):
+        P.append('<p style="color:#57606a;"><em>No prompt provided.</em></p>')
+
+    # ---- What to write (procedural problems only) ----
+    sig = d.get("function_signature")
+    shape = d.get("answer_shape")
+    if sig or shape:
+        P.append('<h4 style="margin-top:16px;">What to write</h4>')
+        if shape:
+            P.append('<div style="line-height:1.6; margin:0 0 6px;">'
+                     f'{_h.escape(str(shape))}</div>')
+        if sig:
+            P.append('<div style="color:#475569; font-size:12px; margin:6px 0 2px;">'
+                     'Function signature</div>')
+            P.append('<pre style="margin:0; background:#f6f8fa; border:1px solid #e1e4e8; '
+                     'border-radius:4px; padding:8px 10px; font: 13px/1.5 ui-monospace, '
+                     'Consolas, Menlo, monospace; color:#24292f; white-space:pre-wrap;">'
+                     f'{_h.escape(str(sig), quote=False)}</pre>')
+
+    # ---- Input schema (per table, with note) ----
+    P.append('<h4 style="margin-top:16px;">Input schema</h4>')
+    tables = parse_create_tables(problem.get("schema_ddl", "") or "")
+    tnotes = d.get("table_notes") or {}
+    if tables:
+        for name, cols in tables:
+            P.append('<div style="font-weight:600; margin:8px 0 2px; font-size:13px;">'
+                     f'Table: <code>{_h.escape(str(name))}</code></div>')
+            note = tnotes.get(name)
+            if note:
+                P.append('<div style="color:#475569; margin:0 0 6px; font-size:12.5px;">'
+                         f'{_h.escape(str(note))}</div>')
+            P.append(pd.DataFrame(cols, columns=["Column", "Type"]).to_html(
+                index=False, classes="nb-schema-table"))
+    else:
+        P.append(schema_to_html(problem.get("schema_ddl", "")))
+
+    # ---- Example input data ----
+    P.append('<h4 style="margin-top:16px;">Example input data</h4>')
+    P.append(insert_data_to_html(problem.get("example_input_data", "")))
+
+    # ---- Output schema (Column / Type / What it is) ----
+    P.append('<h4 style="margin-top:16px;">Output schema</h4>')
+    sch = problem.get("example_output_schema")
+    ofn = d.get("output_field_notes") or {}
+    if sch:
+        rows = [[c, t, ofn.get(c, "")] for c, t in sch]
+        P.append(pd.DataFrame(rows, columns=["Column", "Type", "What it is"]).to_html(
+            index=False, classes="nb-schema-table"))
+    elif problem.get("example_output_columns"):
+        rows = [[c, ofn.get(c, "")] for c in problem["example_output_columns"]]
+        P.append(pd.DataFrame(rows, columns=["Column", "What it is"]).to_html(
+            index=False, classes="nb-schema-table"))
+
+    # ---- Field expectations ----
+    fl = d.get("field_logic") or []
+    if fl:
+        def _field_item(x):
+            # An entry may be a single line, or a lead line + newline-separated sub-steps
+            # ("col: built from ...\n- rule\n- rule"). Render the lead with the column name
+            # bold (text before the first ':') and the sub-steps as a nested bullet list.
+            segs = [s for s in str(x).split("\n")]
+            head = segs[0].strip()
+            subs = [s.strip().lstrip("-• ").strip() for s in segs[1:] if s.strip()]
+            if ":" in head:
+                nm, rest = head.split(":", 1)
+                head_html = "<strong>" + _h.escape(nm.strip()) + "</strong>:" + _h.escape(rest)
+            else:
+                head_html = _h.escape(head)
+            out = "<li>" + head_html
+            if subs:
+                out += ('<ul style="margin:4px 0 6px 18px; line-height:1.7;">'
+                        + "".join("<li>" + _h.escape(s) + "</li>" for s in subs) + "</ul>")
+            return out + "</li>"
+        P.append('<h4 style="margin-top:16px;">Field expectations</h4>')
+        P.append('<ul style="margin:0 0 0 20px; line-height:1.7;">'
+                 + "".join(_field_item(x) for x in fl) + "</ul>")
+
+    # ---- Edge cases ----
+    ec = d.get("edge_cases") or []
+    if ec:
+        P.append('<h4 style="margin-top:16px;">Edge cases</h4>')
+        P.append('<ul style="margin:0 0 0 20px; line-height:1.7;">'
+                 + "".join(f"<li>{_h.escape(str(x))}</li>" for x in ec) + "</ul>")
+
+    # ---- Filter / Order by ----
+    if d.get("filter_note"):
+        P.append('<p style="margin:14px 0 4px;"><strong>Filter:</strong> '
+                 f'{_h.escape(str(d["filter_note"]))}</p>')
+    if d.get("order_by_note"):
+        P.append('<p style="margin:4px 0;"><strong>Order by:</strong> '
+                 f'{_h.escape(str(d["order_by_note"]))}</p>')
+
+    # ---- Test it with (procedural problems only) ----
+    tc = d.get("test_call")
+    if tc:
+        P.append('<h4 style="margin-top:16px;">Test it with</h4>')
+        P.append('<pre style="margin:0; background:#1e1e1e; color:#d4d4d4; '
+                 'border-radius:4px; padding:8px 10px; font: 13px/1.5 ui-monospace, '
+                 'Consolas, Menlo, monospace; white-space:pre-wrap;">'
+                 f'{_h.escape(str(tc), quote=False)}</pre>')
+        P.append('<div style="color:#57606a; font-size:12px; margin-top:4px;">'
+                 'Run this call (after your function is defined); it should return the '
+                 'expected output below.</div>')
+
+    # ---- Expected output ----
+    P.append('<h4 style="margin-top:16px;">Expected output (example data)</h4>')
+    ex_df = pd.DataFrame(problem.get("example_output_rows", []),
+                         columns=problem.get("example_output_columns", []))
+    P.append(ex_df.to_html(index=False, classes="ex-out"))
+
+    P.append("</div>")
+    return "".join(P)
 
 
 def _clean_sql_value(v: str) -> str:

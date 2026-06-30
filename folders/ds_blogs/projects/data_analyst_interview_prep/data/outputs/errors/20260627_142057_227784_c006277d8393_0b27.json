@@ -1,0 +1,141 @@
+{
+  "logged_at": "2026-06-27T14:20:57.227784",
+  "failure_kind": "wrong_answer",
+  "problem_id": "c006277d8393",
+  "question_type": "gated_lookup",
+  "original_qtype": "gated_lookup",
+  "subtype": "where_exclude",
+  "scenario": "an expense management app tracking receipt capture and policy compliance",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "enrich-join",
+  "title": "Compliant Merchant Lowest Receipt Amount",
+  "prompt": "You are working with an expense management system modeled on public procurement datasets (data.gov). The system tracks merchants and their policy compliance status, and separately stores individual receipt amounts captured from each merchant. Write a query that returns the lowest receipt amount for each merchant that is currently policy-compliant. A merchant is compliant if its compliance_score is 75 or higher. For non-compliant merchants, exclude them from the output entirely. The merchant name should have leading and trailing spaces removed and each word capitalized. The receipt capture date should be formatted as the full month name (e.g., 'March') and four-digit year separated by a space. The compliance score should be rounded to the nearest integer. Some merchants have a tax_category stored as a comma-separated string; extract the first category before the first comma. If a receipt amount is stored as an empty string, treat it as NULL and exclude that receipt from consideration. Output columns: merchant_name, tax_category, receipt_amount, receipt_month_year, compliance_score. Order by merchant_name ascending.",
+  "schema_ddl": "CREATE TABLE merchants (merchant_id INTEGER PRIMARY KEY, merchant_name VARCHAR(100), compliance_score DECIMAL(5,2), tax_category VARCHAR(100)); CREATE TABLE receipts (receipt_id INTEGER PRIMARY KEY, merchant_id INTEGER, receipt_amount_text VARCHAR(20), capture_date DATE);",
+  "answer_key": "WITH valid_receipts AS (SELECT r.merchant_id, NULLIF(r.receipt_amount_text, '')::NUMERIC AS receipt_amount, r.capture_date FROM receipts r WHERE NULLIF(r.receipt_amount_text, '') IS NOT NULL), min_receipts AS (SELECT merchant_id, MIN(receipt_amount) AS min_amount FROM valid_receipts GROUP BY merchant_id) SELECT INITCAP(TRIM(m.merchant_name)) AS merchant_name, SPLIT_PART(m.tax_category, ',', 1) AS tax_category, mr.min_amount AS receipt_amount, TO_CHAR(vr.capture_date, 'FMMonth YYYY') AS receipt_month_year, ROUND(m.compliance_score) AS compliance_score FROM merchants m JOIN min_receipts mr ON m.merchant_id = mr.merchant_id JOIN valid_receipts vr ON vr.merchant_id = mr.merchant_id AND vr.receipt_amount = ANY(ARRAY[mr.min_amount]) WHERE m.compliance_score >= 75 ORDER BY merchant_name;",
+  "test_expected_columns": [
+    "merchant_name",
+    "tax_category",
+    "receipt_amount",
+    "receipt_month_year",
+    "compliance_score"
+  ],
+  "test_expected_rows": [
+    [
+      "Catering Express",
+      "food",
+      "195.50",
+      "February 2024",
+      "92"
+    ],
+    [
+      "Consulting Group",
+      "services",
+      "1850.00",
+      "February 2024",
+      "92"
+    ],
+    [
+      "Hardware Store",
+      "goods",
+      "54.50",
+      "February 2024",
+      "77"
+    ],
+    [
+      "Office Supplies Co",
+      "goods",
+      "32.00",
+      "February 2024",
+      "83"
+    ],
+    [
+      "Print Shop",
+      "goods",
+      "88.00",
+      "January 2024",
+      "78"
+    ],
+    [
+      "Software Inc",
+      "technology",
+      "295.50",
+      "February 2024",
+      "79"
+    ],
+    [
+      "Travel Agency",
+      "services",
+      "875.25",
+      "March 2024",
+      "85"
+    ]
+  ],
+  "user_solution": "/*\n\nTable: merchants\nstores each merchant's compliance score and tax category information\nmerchant_id\t                    INTEGER PRIMARY KEY\nmerchant_name\t                VARCHAR(100)\ncompliance_score\t            DECIMAL(5,2)\ntax_category\t                VARCHAR(100)\n\nTable: receipts\nstores individual receipt amounts and capture dates for each merchant\nreceipt_id\t                    INTEGER PRIMARY KEY\nmerchant_id\t                    INTEGER\nreceipt_amount_text\t            VARCHAR(20)\ncapture_date\t                DATE\n\nEXPECTED OUTPUT\nmerchant_name                    merchants\ntax_category\t                 merchants\nreceipt_amount                   receipts > receipt_amount_text\nreceipt_month_year               receipts > capture_date\ncompliance_score                 merchants > compliance_score\n*/\nWITH base AS (\n    SELECT\n        INITCAP(TRIM(m.merchant_name)) AS merchant_name,\n        SPLIT_PART(TRIM(m.tax_category), ',', 1) AS tax_category,\n        NULLIF(r.receipt_amount_text, '') AS receipt_amount,\n        TO_CHAR(r.capture_date::date, 'FMMonth YYYY') AS receipt_month_year,\n        ROUND(m.compliance_score::int, 1)::int AS compliance_score,\n        ROW_NUMBER() OVER (PARTITION BY INITCAP(TRIM(m.merchant_name)), \n                                        SPLIT_PART(TRIM(m.tax_category), ',', 1) \n                            ORDER BY NULLIF(r.receipt_amount_text, ''), TO_CHAR(r.capture_date::date, 'FMMonth YYYY') ) AS rn\n    FROM merchants AS m\n    LEFT JOIN receipts AS r\n        ON r.merchant_id = m.merchant_id\n    WHERE m.compliance_score::int >= 75 AND (NULLIF(r.receipt_amount_text, '') IS NOT NULL)\n)\nSELECT \n    merchant_name,\n    tax_category,\n    receipt_amount,\n    receipt_month_year,\n    compliance_score\nFROM base\nWHERE rn = 1\nORDER BY 1;\n\n",
+  "error_message": null,
+  "your_columns": [
+    "merchant_name",
+    "tax_category",
+    "receipt_amount",
+    "receipt_month_year",
+    "compliance_score"
+  ],
+  "your_rows": [
+    [
+      "Catering Express",
+      "food",
+      "195.50",
+      "February 2024",
+      92
+    ],
+    [
+      "Consulting Group",
+      "services",
+      "1850.00",
+      "February 2024",
+      92
+    ],
+    [
+      "Furniture World",
+      "goods",
+      "420.00",
+      "February 2024",
+      75
+    ],
+    [
+      "Hardware Store",
+      "goods",
+      "54.50",
+      "February 2024",
+      77
+    ],
+    [
+      "Office Supplies Co",
+      "goods",
+      "32.00",
+      "February 2024",
+      83
+    ],
+    [
+      "Print Shop",
+      "goods",
+      "88.00",
+      "January 2024",
+      78
+    ],
+    [
+      "Software Inc",
+      "technology",
+      "295.50",
+      "February 2024",
+      79
+    ],
+    [
+      "Travel Agency",
+      "services",
+      "1200.00",
+      "January 2024",
+      85
+    ]
+  ]
+}

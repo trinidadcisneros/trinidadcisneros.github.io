@@ -1,0 +1,99 @@
+{
+  "problem": {
+    "title": "Course Completion with Tag Filtering",
+    "prompt": "You are analyzing completion data from an online learning platform, modeled on open education datasets like those from data.gov and EdX public reports. Each completion record includes a `completion_date_text` stored as VARCHAR (format 'YYYY-MM-DD'), a `course_id_code` that may have leading/trailing spaces, a `completion_tags` array indicating delivery modes (e.g., '{\"self_paced\", \"instructor_led\"}'), and a `score_text` stored as VARCHAR. Your task: For all courses with at least one completion tagged 'self_paced' in the second half of 2024 (July 1 onward), calculate the average score (from the numeric interpretation of `score_text`) and the count of distinct learners who completed each course. Filter to courses where the average score exceeds 75.0. Return columns: `course_title`, `avg_score` (rounded to 1 decimal), and `learner_count`. Order by `avg_score` descending, then by `course_title` ascending. Courses with NULL scores should be excluded from average calculations. Any course title should appear in Title Case format.",
+    "schema_ddl": "CREATE TABLE courses (course_id VARCHAR(20) PRIMARY KEY, course_title VARCHAR(200), category VARCHAR(50)); CREATE TABLE completions (completion_id SERIAL PRIMARY KEY, course_id_code VARCHAR(20), learner_id INT, completion_date_text VARCHAR(20), score_text VARCHAR(10), completion_tags TEXT[]);",
+    "example_input_data": "INSERT INTO courses (course_id, course_title, category) VALUES ('CS101', 'introduction to python', 'Programming'), ('DS201', 'DATA ANALYSIS BASICS', 'Data Science'), ('WEB301', 'advanced web development', 'Web'), ('ML401', 'machine learning fundamentals', 'AI'); INSERT INTO completions (course_id_code, learner_id, completion_date_text, score_text, completion_tags) VALUES ('  CS101', 1001, '2024-07-15', '82', '{\"self_paced\", \"online\"}'), ('CS101  ', 1002, '2024-08-10', '78', '{\"self_paced\"}'), (' DS201 ', 1003, '2024-09-05', '88', '{\"self_paced\", \"instructor_led\"}'), ('DS201', 1004, '2024-07-20', '91', '{\"self_paced\"}'), ('WEB301', 1005, '2024-06-15', '85', '{\"self_paced\"}'), ('WEB301', 1006, '2024-08-25', '70', '{\"instructor_led\"}'), ('ML401', 1007, '2024-10-01', NULL, '{\"self_paced\"}'), ('ML401', 1008, '2024-11-12', '65', '{\"self_paced\"}');",
+    "example_output_columns": [
+      "course_title",
+      "avg_score",
+      "learner_count"
+    ],
+    "example_output_rows": [
+      [
+        "Data Analysis Basics",
+        "89.5",
+        2
+      ],
+      [
+        "Introduction To Python",
+        "80.0",
+        2
+      ]
+    ],
+    "test_data": "INSERT INTO courses (course_id, course_title, category) VALUES ('CS101', 'introduction to python', 'Programming'), ('DS201', 'DATA ANALYSIS BASICS', 'Data Science'), ('WEB301', 'advanced web development', 'Web'), ('ML401', 'machine learning fundamentals', 'AI'), ('SEC501', 'CYBERSECURITY essentials', 'Security'), ('DB601', 'database design', 'Database'), ('UI701', 'user INTERFACE patterns', 'Design'); INSERT INTO completions (completion_id, course_id_code, learner_id, completion_date_text, score_text, completion_tags) VALUES (1, '  CS101', 1001, '2024-07-15', '82', '{\"self_paced\", \"online\"}'), (2, 'CS101  ', 1002, '2024-08-10', '78', '{\"self_paced\"}'), (3, 'CS101', 1003, '2024-09-22', '85', '{\"self_paced\"}'), (4, 'CS101', 1004, '2024-10-05', '79', '{\"self_paced\"}'), (5, ' DS201 ', 1005, '2024-09-05', '88', '{\"self_paced\", \"instructor_led\"}'), (6, 'DS201', 1006, '2024-07-20', '91', '{\"self_paced\"}'), (7, 'DS201', 1007, '2024-08-18', '76', '{\"self_paced\"}'), (8, 'DS201', 1008, '2024-11-30', '82', '{\"self_paced\"}'), (9, 'WEB301', 1009, '2024-06-15', '85', '{\"self_paced\"}'), (10, 'WEB301', 1010, '2024-08-25', '70', '{\"instructor_led\"}'), (11, 'WEB301', 1011, '2024-07-02', '68', '{\"self_paced\"}'), (12, 'WEB301', 1012, '2024-07-18', '72', '{\"self_paced\"}'), (13, 'ML401', 1013, '2024-10-01', NULL, '{\"self_paced\"}'), (14, 'ML401', 1014, '2024-11-12', '65', '{\"self_paced\"}'), (15, 'ML401', 1015, '2024-07-25', '68', '{\"self_paced\"}'), (16, 'ML401', 1016, '2024-08-30', '70', '{\"self_paced\"}'), (17, 'SEC501', 1017, '2024-07-10', '90', '{\"self_paced\"}'), (18, 'SEC501', 1018, '2024-09-14', '88', '{\"self_paced\"}'), (19, 'SEC501', 1019, '2024-10-20', '92', '{\"self_paced\"}'), (20, 'DB601', 1020, '2024-06-28', '80', '{\"self_paced\"}'), (21, 'DB601', 1021, '2024-07-05', '74', '{\"self_paced\"}'), (22, 'DB601', 1022, '2024-08-12', '77', '{\"self_paced\"}'), (23, 'UI701', 1023, '2024-07-22', '', '{\"self_paced\"}'), (24, 'UI701', 1024, '2024-08-08', '71', '{\"self_paced\"}'), (25, 'UI701', 1025, '2024-09-17', '69', '{\"self_paced\"}');",
+    "test_expected_columns": [
+      "course_title",
+      "avg_score",
+      "learner_count"
+    ],
+    "test_expected_rows": [
+      [
+        "Cybersecurity Essentials",
+        "90.0",
+        3
+      ],
+      [
+        "Data Analysis Basics",
+        "84.3",
+        4
+      ],
+      [
+        "Introduction To Python",
+        "81.0",
+        4
+      ],
+      [
+        "Database Design",
+        "75.5",
+        2
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "enrich-join",
+      "composite_moves": [
+        "join",
+        "row-filter (date range + array membership + NOT NULL)",
+        "group-aggregate",
+        "HAVING filter",
+        "string normalization (TRIM, INITCAP)",
+        "type cast (VARCHAR to DATE, VARCHAR to NUMERIC)",
+        "array access",
+        "date extraction"
+      ]
+    },
+    "hints": [
+      "You'll need to join the completions to courses, filter by date and tag presence, then aggregate.",
+      "The course_id_code has whitespace that must be cleaned before joining. The completion_date_text must be cast to DATE for comparison. Check if 'self_paced' is in the array.",
+      "Use TRIM(course_id_code), cast completion_date_text::DATE >= '2024-07-01', check 'self_paced' = ANY(completion_tags), cast score_text::NUMERIC for averaging (handle NULLs/empty strings with a filter or NULLIF), apply INITCAP to course_title, GROUP BY course, HAVING AVG(score) > 75, and order by avg_score DESC, course_title ASC."
+    ],
+    "answer_key": "SELECT INITCAP(c.course_title) AS course_title, ROUND(AVG(NULLIF(TRIM(comp.score_text), '')::NUMERIC), 1) AS avg_score, COUNT(DISTINCT comp.learner_id) AS learner_count FROM courses c JOIN completions comp ON c.course_id = TRIM(comp.course_id_code) WHERE comp.completion_date_text::DATE >= DATE '2024-07-01' AND 'self_paced' = ANY(comp.completion_tags) AND NULLIF(TRIM(comp.score_text), '') IS NOT NULL GROUP BY c.course_id, c.course_title HAVING AVG(NULLIF(TRIM(comp.score_text), '')::NUMERIC) > 75.0 ORDER BY avg_score DESC, course_title ASC;",
+    "_meta": {
+      "question_type": "select_analytical",
+      "original_qtype": "select_analytical",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-26T16:12:17.168655",
+      "problem_id": "95045cdb6c1f",
+      "validation_attempts": 1,
+      "scenario": "an online course platform tracking course completion and certification",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": null,
+      "cleaning_required": true,
+      "cleaning_level": "high",
+      "cleaning_all_six": true,
+      "cleaning_per_category": 1,
+      "cleaning_bonus": null,
+      "typecast_twist": true,
+      "realism": "high"
+    }
+  },
+  "user_solution": "/*\nPURPOSE\n- AnalyzE completion data from an online learning platform\n- Each completion record includes a \n\ncompletion_date_text   stored as VARCHAR (format 'YYYY-MM-DD')\ncourse_id_code         that may have leading/trailing spaces\ncompletion_tags        array \nscore_text             stored as VARCHAR.\n\nOUTPUT\ncourse_title\t        courses\navg_score               completions\nlearner_count           completions\n\nCONDITIONS\n- At least one 'self_paced' = ANY(completion_tags) in the >= '2024-07-01' \n- AVG(score_text::int) AS avg_score\n- Courses with NULL scores should be excluded from average calculations.\n- COUNT(DISTINCT(learner_id::int)) AS learner_count\n- HAVING(AVG(score_text::int)) >= 75\n- Any course title should appear in Title Case format.\n\nORDER BY avg_score DESC, course_title;\n\n1. JOIN\n2. AGGREGATE\n3. FILTER\n*/\nSELECT\n    INITCAP(TRIM(cs.course_title)) AS course_title,\n    ROUND(AVG(cl.score_text::int), 1) AS avg_score,\n    COUNT(DISTINCT cl.learner_id) AS learner_count\nFROM completions AS cl\nJOIN courses AS cs\n    ON TRIM(cs.course_id) = TRIM(cl.course_id_code)\nWHERE TRIM(cl.completion_date_text)::date >= '2024-07-01' \n        AND TRIM(cl.completion_date_text)::date < '2025-01-01'\n        AND NULLIF(cl.score_text, '') IS NOT NULL\n        AND 'self_paced' = ANY(completion_tags)\nGROUP BY 1\nHAVING(AVG(score_text::int)) >= 75 \nORDER BY avg_score DESC, course_title;\n\n\n",
+  "solved_at": "2026-06-26T16:34:41.108313"
+}

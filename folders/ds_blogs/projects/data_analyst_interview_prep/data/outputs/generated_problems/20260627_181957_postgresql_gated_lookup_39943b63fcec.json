@@ -1,0 +1,196 @@
+{
+  "title": "Match Rate by Qualified Driver Radius",
+  "prompt": "You are working with a ride-share app tracking match rate from rider request to driver acceptance. The schema is modeled on transportation network company (TNC) trip data found in public datasets from cities like San Francisco and New York. You have a `drivers` table with each driver's acceptance rate (as a percentage stored as text) and service radius (miles), and a `ride_requests` table with multiple requests per driver showing pickup times and wait minutes. A driver is **qualified** if their acceptance rate is at least 75%. For each driver, find the **shortest wait time** among their ride requests. If the driver is qualified, output that shortest wait; if not, output 0. Return columns `driver_id`, `driver_name`, `acceptance_rate_pct`, `shortest_wait_minutes`. Order results by `driver_id` ascending.",
+  "display": {
+    "context": "You are working with a ride-share app tracking match rate from rider request to driver acceptance, modeled on TNC trip datasets from public open data portals.",
+    "task": "Write a query that returns each driver's shortest wait time, but only if the driver is qualified; if not qualified, output zero.",
+    "table_notes": {
+      "drivers": "One row per driver with acceptance rate percentage (stored as text), name, and service radius.",
+      "ride_requests": "Multiple ride requests per driver, each with a pickup timestamp and wait time in minutes."
+    },
+    "output_field_notes": {
+      "driver_id": "The driver's unique identifier.",
+      "driver_name": "The driver's name with proper capitalization and no extra whitespace.",
+      "acceptance_rate_pct": "The driver's acceptance rate as a numeric percentage.",
+      "shortest_wait_minutes": "The minimum wait time among the driver's requests if the driver is qualified; otherwise zero."
+    },
+    "field_logic": [
+      "acceptance_rate_pct: take the acceptance rate stored as text, convert it to a number.",
+      "driver_name: clean the name by removing leading and trailing whitespace and capitalizing the first letter of each word.",
+      "shortest_wait_minutes: pick the smallest wait_minutes value across all ride requests for the driver; if the driver's acceptance rate is at least 75 percent, show that shortest wait; otherwise show zero."
+    ],
+    "edge_cases": [
+      "If a driver has no ride requests, their shortest wait should be zero.",
+      "If a driver's acceptance rate is below 75 percent, output zero for their shortest wait regardless of their request data."
+    ],
+    "filter_note": "All drivers are included in the output.",
+    "order_by_note": "Results are ordered by driver identifier in ascending order."
+  },
+  "schema_ddl": "CREATE TABLE drivers (driver_id INT PRIMARY KEY, driver_name VARCHAR(100), acceptance_rate_pct VARCHAR(10), service_radius_miles INT, active_zones TEXT[]); CREATE TABLE ride_requests (request_id INT PRIMARY KEY, driver_id INT, pickup_time TIMESTAMP, wait_minutes INT, pickup_zone VARCHAR(50));",
+  "example_input_data": "INSERT INTO drivers (driver_id, driver_name, acceptance_rate_pct, service_radius_miles, active_zones) VALUES (101, '  alice chen  ', '82', 5, ARRAY['downtown', 'midtown']), (102, 'bob MARTINEZ', '68', 8, ARRAY['airport']), (103, ' charlie Lee', '91', 3, ARRAY['downtown', 'financial', 'airport']), (104, 'dana kim', '75', 6, ARRAY['midtown']); INSERT INTO ride_requests (request_id, driver_id, pickup_time, wait_minutes, pickup_zone) VALUES (1, 101, '2024-03-15 08:00:00', 5, 'downtown'), (2, 101, '2024-03-15 08:30:00', 3, 'midtown'), (3, 101, '2024-03-15 09:00:00', 7, 'downtown'), (4, 102, '2024-03-15 08:15:00', 12, 'airport'), (5, 102, '2024-03-15 09:45:00', 9, 'airport'), (6, 103, '2024-03-15 07:30:00', 2, 'financial'), (7, 104, '2024-03-15 10:00:00', 4, 'midtown');",
+  "example_output_columns": [
+    "driver_id",
+    "driver_name",
+    "acceptance_rate_pct",
+    "shortest_wait_minutes"
+  ],
+  "example_output_rows": [
+    [
+      "101",
+      "Alice Chen",
+      "82",
+      "3"
+    ],
+    [
+      "102",
+      "Bob Martinez",
+      "68",
+      "0"
+    ],
+    [
+      "103",
+      "Charlie Lee",
+      "91",
+      "2"
+    ],
+    [
+      "104",
+      "Dana Kim",
+      "75",
+      "4"
+    ]
+  ],
+  "test_data": "INSERT INTO drivers (driver_id, driver_name, acceptance_rate_pct, service_radius_miles, active_zones) VALUES (201, ' EMMA brown ', '88', 4, ARRAY['downtown', 'midtown', 'east']), (202, 'frank GARCIA  ', '72', 7, ARRAY['west', 'south']), (203, '  Grace TAYLOR', '95', 2, ARRAY['north']), (204, 'henry wilson', '74', 10, ARRAY['airport', 'downtown']), (205, 'iris DAVIS ', '80', 5, ARRAY['midtown', 'west']), (206, 'JACK moore  ', '65', 9, ARRAY['south']), (207, 'karen white', '77', 3, ARRAY['east', 'north']), (208, ' LEO harris', '90', 6, ARRAY['financial', 'downtown']), (209, 'mia clark', '70', 8, ARRAY['airport']), (210, '  nina LEWIS ', '85', 4, ARRAY['midtown']); INSERT INTO ride_requests (request_id, driver_id, pickup_time, wait_minutes, pickup_zone) VALUES (101, 201, '2024-03-16 07:00:00', 6, 'downtown'), (102, 201, '2024-03-16 07:30:00', 4, 'midtown'), (103, 201, '2024-03-16 08:00:00', 8, 'east'), (104, 201, '2024-03-16 08:30:00', 3, 'downtown'), (105, 202, '2024-03-16 09:00:00', 15, 'west'), (106, 202, '2024-03-16 09:30:00', 11, 'south'), (107, 202, '2024-03-16 10:00:00', 13, 'west'), (108, 203, '2024-03-16 06:45:00', 1, 'north'), (109, 203, '2024-03-16 07:15:00', 2, 'north'), (110, 204, '2024-03-16 08:00:00', 10, 'airport'), (111, 204, '2024-03-16 08:30:00', 7, 'downtown'), (112, 204, '2024-03-16 09:00:00', 9, 'airport'), (113, 205, '2024-03-16 07:30:00', 5, 'midtown'), (114, 205, '2024-03-16 08:00:00', 2, 'west'), (115, 205, '2024-03-16 08:30:00', 6, 'midtown'), (116, 206, '2024-03-16 09:00:00', 14, 'south'), (117, 206, '2024-03-16 09:30:00', 12, 'south'), (118, 207, '2024-03-16 07:00:00', 3, 'east'), (119, 207, '2024-03-16 07:30:00', 4, 'north'), (120, 207, '2024-03-16 08:00:00', 5, 'east'), (121, 208, '2024-03-16 06:30:00', 2, 'financial'), (122, 208, '2024-03-16 07:00:00', 1, 'downtown'), (123, 208, '2024-03-16 07:30:00', 3, 'financial'), (124, 209, '2024-03-16 10:00:00', 16, 'airport'), (125, 209, '2024-03-16 10:30:00', 18, 'airport'), (126, 210, '2024-03-16 08:00:00', 4, 'midtown'), (127, 210, '2024-03-16 08:30:00', 3, 'midtown'), (128, 210, '2024-03-16 09:00:00', 5, 'midtown');",
+  "test_expected_columns": [
+    "driver_id",
+    "driver_name",
+    "acceptance_rate_pct",
+    "shortest_wait_minutes"
+  ],
+  "test_expected_rows": [
+    [
+      "201",
+      "Emma Brown",
+      "88",
+      "3"
+    ],
+    [
+      "202",
+      "Frank Garcia",
+      "72",
+      "0"
+    ],
+    [
+      "203",
+      "Grace Taylor",
+      "95",
+      "1"
+    ],
+    [
+      "204",
+      "Henry Wilson",
+      "74",
+      "0"
+    ],
+    [
+      "205",
+      "Iris Davis",
+      "80",
+      "2"
+    ],
+    [
+      "206",
+      "Jack Moore",
+      "65",
+      "0"
+    ],
+    [
+      "207",
+      "Karen White",
+      "77",
+      "3"
+    ],
+    [
+      "208",
+      "Leo Harris",
+      "90",
+      "1"
+    ],
+    [
+      "209",
+      "Mia Clark",
+      "70",
+      "0"
+    ],
+    [
+      "210",
+      "Nina Lewis",
+      "85",
+      "3"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "same_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "look up the gate attribute (acceptance_rate_pct) from drivers table",
+      "cast acceptance_rate_pct from text to numeric",
+      "pick the per-driver minimum wait_minutes from ride_requests",
+      "apply gate: if acceptance_rate >= 75 then use shortest wait, else 0",
+      "clean driver_name with TRIM and INITCAP",
+      "handle drivers with no requests (LEFT JOIN yields NULL, COALESCE to 0)",
+      "reference active_zones array (check if a zone is in the list)",
+      "extract hour from pickup_time for time-window logic",
+      "use CASE for the conditional fallback"
+    ]
+  },
+  "hints": [
+    "Start by joining the two tables and decide which drivers meet the acceptance rate threshold.",
+    "For each driver, find the minimum wait time among all their requests; use an aggregate function grouped by driver.",
+    "Apply a conditional expression that outputs the minimum wait if the driver is qualified, otherwise zero; remember to handle drivers with no requests."
+  ],
+  "answer_key": "SELECT\n    d.driver_id,\n    INITCAP(TRIM(d.driver_name))      AS driver_name,\n    d.acceptance_rate_pct::INT        AS acceptance_rate_pct,\n    CASE WHEN d.acceptance_rate_pct::INT >= 75\n         THEN COALESCE(MIN(r.wait_minutes), 0)\n         ELSE 0 END                   AS shortest_wait_minutes\nFROM drivers d\nLEFT JOIN ride_requests r ON d.driver_id = r.driver_id\nGROUP BY d.driver_id, d.driver_name, d.acceptance_rate_pct\nORDER BY d.driver_id;",
+  "_meta": {
+    "question_type": "gated_lookup",
+    "original_qtype": "gated_lookup",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-27T18:19:57.455448",
+    "problem_id": "39943b63fcec",
+    "validation_attempts": 1,
+    "scenario": "a ride share app tracking match rate from request to driver acceptance",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "gate_on",
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "high",
+    "answer_key_fixed": "2026-06-27: removed undocumented gates (downtown = ANY(active_zones), EXTRACT(HOUR)>=6, ARRAY_LENGTH guard) that were not in the prompt; gate is acceptance_rate >= 75 only"
+  },
+  "example_output_schema": [
+    [
+      "driver_id",
+      "INTEGER"
+    ],
+    [
+      "driver_name",
+      "TEXT"
+    ],
+    [
+      "acceptance_rate_pct",
+      "INTEGER"
+    ],
+    [
+      "shortest_wait_minutes",
+      "INTEGER"
+    ]
+  ]
+}

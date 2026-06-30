@@ -1,0 +1,157 @@
+{
+  "problem": {
+    "title": "First and Last Session Ratings Per Tutor",
+    "prompt": "You work with a tutoring marketplace dataset modeled on online education platforms like those found in public Kaggle datasets. The `session_ratings` table stores one row per completed session, including a tutor identifier, session timestamp, student rating, and metadata. Each tutor may have multiple sessions over time. Your task: for each tutor who has completed at least one session, return the tutor's ID, the rating from their very first session (chronologically), and the rating from their most recent session. Include the tutor's subject specialization and active status. Some tutors have NULL ratings for certain sessions (student did not rate); include these sessions in chronological ordering but display NULL where applicable. The `subject_tags` column is stored as a PostgreSQL array; extract the first tag. The `status_code` column is stored as text but represents a boolean active flag ('1' = active, '0' = inactive); cast it appropriately. Session dates are stored as text in 'YYYY-MM-DD' format and must be cast to DATE for correct ordering. Round the average of first and last ratings to 1 decimal place. Order your final output by tutor_id ascending.",
+    "schema_ddl": "CREATE TABLE session_ratings (session_id VARCHAR(20) PRIMARY KEY, tutor_id VARCHAR(20) NOT NULL, session_date_text VARCHAR(20) NOT NULL, rating DECIMAL(3,2), subject_tags TEXT[], status_code VARCHAR(5), tutor_name VARCHAR(100));",
+    "example_input_data": "INSERT INTO session_ratings (session_id, tutor_id, session_date_text, rating, subject_tags, status_code, tutor_name) VALUES ('S001', 'T10', '2024-01-15', 4.50, ARRAY['Math', 'Algebra'], '1', '  alice WONG  '), ('S002', 'T10', '2024-02-20', 5.00, ARRAY['Math', 'Geometry'], '1', '  alice wong  '), ('S003', 'T10', '2024-03-10', NULL, ARRAY['Math', 'Calculus'], '1', '  Alice Wong  '), ('S004', 'T20', '2024-01-18', 3.00, ARRAY['Science', 'Physics'], '0', 'bob chen'), ('S005', 'T20', '2024-02-25', 4.00, ARRAY['Science', 'Chemistry'], '0', 'Bob Chen'), ('S006', 'T30', '2024-01-22', NULL, ARRAY['English', 'Writing'], '1', 'CARLA DIAZ'), ('S007', 'T30', '2024-03-05', 4.75, ARRAY['English', 'Reading'], '1', 'Carla Diaz');",
+    "example_output_columns": [
+      "tutor_id",
+      "tutor_name_clean",
+      "first_subject",
+      "is_active",
+      "first_rating",
+      "last_rating",
+      "avg_first_last"
+    ],
+    "example_output_rows": [
+      [
+        "T10",
+        "Alice Wong",
+        "Math",
+        true,
+        "4.50",
+        null,
+        null
+      ],
+      [
+        "T20",
+        "Bob Chen",
+        "Science",
+        false,
+        "3.00",
+        "4.00",
+        "3.5"
+      ],
+      [
+        "T30",
+        "Carla Diaz",
+        "English",
+        true,
+        null,
+        "4.75",
+        null
+      ]
+    ],
+    "test_data": "INSERT INTO session_ratings (session_id, tutor_id, session_date_text, rating, subject_tags, status_code, tutor_name) VALUES ('S101', 'T10', '2024-01-15', 4.50, ARRAY['Math', 'Algebra'], '1', '  alice WONG  '), ('S102', 'T10', '2024-02-20', 5.00, ARRAY['Math', 'Geometry'], '1', '  alice wong  '), ('S103', 'T10', '2024-03-10', NULL, ARRAY['Math', 'Calculus'], '1', '  Alice Wong  '), ('S104', 'T10', '2024-04-12', 4.80, ARRAY['Math', 'Stats'], '1', 'Alice Wong'), ('S105', 'T20', '2024-01-18', 3.00, ARRAY['Science', 'Physics'], '0', 'bob chen'), ('S106', 'T20', '2024-02-25', 4.00, ARRAY['Science', 'Chemistry'], '0', 'Bob Chen'), ('S107', 'T20', '2024-03-30', 3.50, ARRAY['Science', 'Biology'], '0', 'BOB CHEN'), ('S108', 'T30', '2024-01-22', NULL, ARRAY['English', 'Writing'], '1', 'CARLA DIAZ'), ('S109', 'T30', '2024-03-05', 4.75, ARRAY['English', 'Reading'], '1', 'Carla Diaz'), ('S110', 'T30', '2024-04-15', 5.00, ARRAY['English', 'Grammar'], '1', '  carla diaz  '), ('S111', 'T40', '2024-01-10', 2.50, ARRAY['History', 'World'], '1', 'David LEE'), ('S112', 'T40', '2024-01-11', 3.00, ARRAY['History', 'US'], '1', 'david lee'), ('S113', 'T40', '2024-02-14', NULL, ARRAY['History', 'Ancient'], '1', 'DAVID LEE'), ('S114', 'T40', '2024-03-20', 4.00, ARRAY['History', 'Modern'], '1', 'David Lee'), ('S115', 'T50', '2024-02-01', NULL, ARRAY['Art', 'Drawing'], '0', 'Emma Taylor'), ('S116', 'T50', '2024-02-02', NULL, ARRAY['Art', 'Painting'], '0', 'EMMA TAYLOR'), ('S117', 'T60', '2024-01-05', 5.00, ARRAY['Music', 'Piano'], '1', 'frank garcia'), ('S118', 'T60', '2024-01-06', 4.90, ARRAY['Music', 'Guitar'], '1', 'Frank Garcia'), ('S119', 'T60', '2024-01-07', 4.95, ARRAY['Music', 'Violin'], '1', 'FRANK GARCIA'), ('S120', 'T60', '2024-02-28', 4.85, ARRAY['Music', 'Drums'], '1', 'frank GARCIA');",
+    "test_expected_columns": [
+      "tutor_id",
+      "tutor_name_clean",
+      "first_subject",
+      "is_active",
+      "first_rating",
+      "last_rating",
+      "avg_first_last"
+    ],
+    "test_expected_rows": [
+      [
+        "T10",
+        "Alice Wong",
+        "Math",
+        true,
+        "4.50",
+        "4.80",
+        "4.7"
+      ],
+      [
+        "T20",
+        "Bob Chen",
+        "Science",
+        false,
+        "3.00",
+        "3.50",
+        "3.3"
+      ],
+      [
+        "T30",
+        "Carla Diaz",
+        "English",
+        true,
+        null,
+        "5.00",
+        null
+      ],
+      [
+        "T40",
+        "David Lee",
+        "History",
+        true,
+        "2.50",
+        "4.00",
+        "3.3"
+      ],
+      [
+        "T50",
+        "Emma Taylor",
+        "Art",
+        false,
+        null,
+        null,
+        null
+      ],
+      [
+        "T60",
+        "Frank Garcia",
+        "Music",
+        true,
+        "5.00",
+        "4.85",
+        "4.9"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "rank-partition",
+      "composite_moves": [
+        "cast session_date_text to DATE",
+        "window FIRST_VALUE and LAST_VALUE over partition by tutor_id order by session_date with explicit frame ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING",
+        "extract first element from subject_tags array",
+        "cast status_code text to boolean",
+        "clean tutor_name with TRIM and INITCAP",
+        "compute average of first and last rating with ROUND",
+        "handle NULL ratings with COALESCE or CASE"
+      ]
+    },
+    "hints": [
+      "You'll need to use window functions to find the first and last rating for each tutor based on session date order.",
+      "The default window frame for LAST_VALUE only goes up to the current row; you'll need to specify ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING to get the true last value in each partition.",
+      "Cast session_date_text to DATE before ordering. Use FIRST_VALUE(rating) OVER (PARTITION BY tutor_id ORDER BY session_date_text::DATE ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) and LAST_VALUE(rating) OVER (... same frame). Extract the first array element with subject_tags[1]. Clean the name with INITCAP(TRIM(tutor_name)). Cast status_code with status_code::INT::BOOLEAN. Round the average only when both ratings are non-null."
+    ],
+    "answer_key": "WITH windowed AS (SELECT tutor_id, INITCAP(TRIM(tutor_name)) AS tutor_name_clean, subject_tags[1] AS first_subject, (status_code::INT)::BOOLEAN AS is_active, FIRST_VALUE(rating) OVER (PARTITION BY tutor_id ORDER BY session_date_text::DATE ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS first_rating, LAST_VALUE(rating) OVER (PARTITION BY tutor_id ORDER BY session_date_text::DATE ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_rating FROM session_ratings) SELECT DISTINCT tutor_id, tutor_name_clean, first_subject, is_active, first_rating, last_rating, CASE WHEN first_rating IS NOT NULL AND last_rating IS NOT NULL THEN ROUND((first_rating + last_rating) / 2.0, 1) ELSE NULL END AS avg_first_last FROM windowed ORDER BY tutor_id;",
+    "_meta": {
+      "question_type": "window_first_last",
+      "original_qtype": "window_first_last",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-25T21:57:49.514265",
+      "problem_id": "54ec647a0fe4",
+      "validation_attempts": 2,
+      "scenario": "a tutoring marketplace tracking session booking and tutor ratings",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": null,
+      "cleaning_required": true,
+      "cleaning_level": "high",
+      "cleaning_all_six": true,
+      "cleaning_per_category": 1,
+      "cleaning_bonus": null,
+      "typecast_twist": true,
+      "realism": "high"
+    }
+  },
+  "user_solution": "/* notes */\nWITH ranked AS (\n    SELECT\n        tutor_id,\n        INITCAP(TRIM(tutor_name))      AS tutor_name_clean,\n        subject_tags[1]                AS first_subject,\n        (status_code::int = 1)         AS is_active,\n        FIRST_VALUE(rating) OVER (PARTITION BY tutor_id ORDER BY session_date_text::date\n                            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS first_rating,\n        LAST_VALUE(rating) OVER (PARTITION BY tutor_id ORDER BY session_date_text::date\n                            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_rating,\n        ROW_NUMBER() OVER (PARTITION BY tutor_id ORDER BY session_date_text::date) AS rn\n    FROM session_ratings\n    ORDER BY tutor_id\n)\nSELECT\n    tutor_id,\n    tutor_name_clean,\n    first_subject,\n    is_active,\n    first_rating,\n    last_rating,\n    ROUND((last_rating + first_rating)/2,1) AS avg_first_last\nFROM ranked\nWHERE rn = 1\nORDER BY 1;",
+  "solved_at": "2026-06-26T07:43:30.183152"
+}

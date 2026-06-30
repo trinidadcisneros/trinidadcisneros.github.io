@@ -1,0 +1,216 @@
+{
+  "title": "Zero-Fill Weekly Delivery Performance by Zone",
+  "prompt": "A same-day medication delivery service tracks completed deliveries in a `deliveries` table (modeled on CMS Medicare Part D delivery datasets). Each row captures `delivery_id`, `zone_code` (2-letter US state abbreviation stored as TEXT), `completed_at` (timestamp stored as TEXT due to legacy import), `on_time_flag` (stored as TEXT, either 'Y' or 'N'), and `priority_tags` (TEXT[] array of service flags). The pharmacy operates in exactly three zones: 'CA', 'TX', 'NY'. Management wants a weekly performance report showing total deliveries and on-time count for every zone in every week of January 2024, even if a zone had zero deliveries that week (those rows must show 0, not be omitted). Your output must have columns `zone_code`, `week_start_date` (the Monday of each week, formatted 'YYYY-MM-DD'), `total_deliveries`, `on_time_deliveries`, ordered by `zone_code`, `week_start_date`. The report covers the four full weeks starting January 1, 8, 15, 22, 2024. A delivery counts as on-time if `on_time_flag` is 'Y' (case-insensitive after trimming). Only count deliveries where 'express' appears in the `priority_tags` array. The `completed_at` column must be cast to TIMESTAMP before extracting the week. Write a query that produces exactly 12 rows (3 zones \u00d7 4 weeks).",
+  "schema_ddl": "CREATE TABLE deliveries (delivery_id INTEGER PRIMARY KEY, zone_code TEXT, completed_at TEXT, on_time_flag TEXT, priority_tags TEXT[]);",
+  "example_input_data": "INSERT INTO deliveries (delivery_id, zone_code, completed_at, on_time_flag, priority_tags) VALUES (1, ' ca ', '2024-01-02 10:15:00', ' y ', ARRAY['express', 'senior']), (2, 'TX', '2024-01-09 14:30:00', 'N', ARRAY['express']), (3, 'NY', '2024-01-03 09:00:00', 'Y', ARRAY['express', 'cold_chain']), (4, 'CA', '2024-01-16 11:45:00', 'Y', ARRAY['express']), (5, 'TX', '2024-01-23 16:20:00', 'y', ARRAY['standard']), (6, 'NY', '2024-01-10 08:00:00', 'N', ARRAY['express']);",
+  "example_output_columns": [
+    "zone_code",
+    "week_start_date",
+    "total_deliveries",
+    "on_time_deliveries"
+  ],
+  "example_output_rows": [
+    [
+      "CA",
+      "2024-01-01",
+      1,
+      1
+    ],
+    [
+      "CA",
+      "2024-01-08",
+      0,
+      0
+    ],
+    [
+      "CA",
+      "2024-01-15",
+      1,
+      1
+    ],
+    [
+      "CA",
+      "2024-01-22",
+      0,
+      0
+    ],
+    [
+      "NY",
+      "2024-01-01",
+      1,
+      1
+    ],
+    [
+      "NY",
+      "2024-01-08",
+      1,
+      0
+    ],
+    [
+      "NY",
+      "2024-01-15",
+      0,
+      0
+    ],
+    [
+      "NY",
+      "2024-01-22",
+      0,
+      0
+    ],
+    [
+      "TX",
+      "2024-01-01",
+      0,
+      0
+    ],
+    [
+      "TX",
+      "2024-01-08",
+      1,
+      0
+    ],
+    [
+      "TX",
+      "2024-01-15",
+      0,
+      0
+    ],
+    [
+      "TX",
+      "2024-01-22",
+      0,
+      0
+    ]
+  ],
+  "test_data": "INSERT INTO deliveries (delivery_id, zone_code, completed_at, on_time_flag, priority_tags) VALUES (101, 'CA', '2024-01-01 07:00:00', 'Y', ARRAY['express']), (102, ' ca ', '2024-01-01 12:30:00', 'y ', ARRAY['express', 'cold_chain']), (103, 'CA', '2024-01-02 15:45:00', 'N', ARRAY['express']), (104, 'CA', '2024-01-08 09:15:00', 'Y', ARRAY['express']), (105, 'CA', '2024-01-15 10:00:00', 'N', ARRAY['express']), (106, 'CA', '2024-01-15 14:20:00', 'Y', ARRAY['express']), (107, 'CA', '2024-01-22 11:30:00', ' Y', ARRAY['express']), (108, 'TX', '2024-01-03 08:45:00', 'Y', ARRAY['express']), (109, 'TX', '2024-01-04 13:10:00', 'N', ARRAY['express']), (110, 'TX', '2024-01-09 16:00:00', 'Y', ARRAY['express']), (111, 'TX', '2024-01-16 09:30:00', 'Y', ARRAY['standard']), (112, 'TX', '2024-01-23 12:00:00', 'N', ARRAY['express']), (113, 'TX', '2024-01-24 15:45:00', 'Y', ARRAY['express']), (114, 'NY', '2024-01-01 10:20:00', 'Y', ARRAY['express']), (115, 'NY', '2024-01-02 11:00:00', 'Y', ARRAY['express', 'senior']), (116, 'NY', '2024-01-08 14:30:00', 'N', ARRAY['express']), (117, 'NY', '2024-01-09 08:15:00', 'Y', ARRAY['express']), (118, 'NY', '2024-01-15 09:45:00', 'N', ARRAY['express']), (119, 'NY', '2024-01-22 13:20:00', 'Y', ARRAY['express']), (120, 'NY', '2024-01-23 16:00:00', 'Y', ARRAY['express']);",
+  "test_expected_columns": [
+    "zone_code",
+    "week_start_date",
+    "total_deliveries",
+    "on_time_deliveries"
+  ],
+  "test_expected_rows": [
+    [
+      "CA",
+      "2024-01-01",
+      3,
+      2
+    ],
+    [
+      "CA",
+      "2024-01-08",
+      1,
+      1
+    ],
+    [
+      "CA",
+      "2024-01-15",
+      2,
+      1
+    ],
+    [
+      "CA",
+      "2024-01-22",
+      1,
+      1
+    ],
+    [
+      "NY",
+      "2024-01-01",
+      2,
+      2
+    ],
+    [
+      "NY",
+      "2024-01-08",
+      2,
+      1
+    ],
+    [
+      "NY",
+      "2024-01-15",
+      1,
+      0
+    ],
+    [
+      "NY",
+      "2024-01-22",
+      2,
+      2
+    ],
+    [
+      "TX",
+      "2024-01-01",
+      2,
+      1
+    ],
+    [
+      "TX",
+      "2024-01-08",
+      1,
+      1
+    ],
+    [
+      "TX",
+      "2024-01-15",
+      0,
+      0
+    ],
+    [
+      "TX",
+      "2024-01-22",
+      2,
+      1
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "same_rows",
+    "recipe": "reshape",
+    "composite_moves": [
+      "generate date skeleton with generate_series",
+      "build zone list with VALUES",
+      "CROSS JOIN skeleton (zones \u00d7 weeks)",
+      "CAST completed_at TEXT to TIMESTAMP",
+      "TRIM and UPPER zone_code",
+      "DATE_TRUNC week from timestamp",
+      "check 'express' in priority_tags array with ANY",
+      "TRIM and UPPER on_time_flag",
+      "LEFT JOIN actuals to skeleton on zone and week",
+      "GROUP BY zone and week",
+      "COALESCE counts to 0",
+      "TO_CHAR week_start for output format",
+      "ORDER BY zone, week"
+    ]
+  },
+  "hints": [
+    "You need every combination of zone and week to appear in the output, even when no deliveries occurred. Consider how to build a complete skeleton of all possible (zone, week) pairs first.",
+    "Use generate_series to create the four Monday dates in January 2024, cross join with a list of the three zones ('CA', 'TX', 'NY'), then left join the actual deliveries. Remember to cast the text timestamp column before truncating to week, and check the array for 'express'.",
+    "Build a CTE with generate_series(DATE '2024-01-01', DATE '2024-01-22', INTERVAL '7 days')::date CROSS JOINed to VALUES ('CA'), ('TX'), ('NY'). Left join deliveries on UPPER(TRIM(zone_code)) and DATE_TRUNC('week', completed_at::TIMESTAMP). Filter for 'express' = ANY(priority_tags). Use COALESCE(COUNT(...), 0) and COALESCE(SUM(CASE WHEN UPPER(TRIM(on_time_flag)) = 'Y' THEN 1 ELSE 0 END), 0). Format the week with TO_CHAR."
+  ],
+  "answer_key": "WITH week_skeleton AS (SELECT generate_series(DATE '2024-01-01', DATE '2024-01-22', INTERVAL '7 days')::date AS week_start), zone_skeleton AS (SELECT * FROM (VALUES ('CA'), ('TX'), ('NY')) AS z(zone_code)), skeleton AS (SELECT z.zone_code, w.week_start FROM zone_skeleton z CROSS JOIN week_skeleton w) SELECT s.zone_code, TO_CHAR(s.week_start, 'YYYY-MM-DD') AS week_start_date, COALESCE(COUNT(d.delivery_id), 0) AS total_deliveries, COALESCE(SUM(CASE WHEN UPPER(TRIM(d.on_time_flag)) = 'Y' THEN 1 ELSE 0 END), 0) AS on_time_deliveries FROM skeleton s LEFT JOIN deliveries d ON UPPER(TRIM(d.zone_code)) = s.zone_code AND DATE_TRUNC('week', d.completed_at::TIMESTAMP)::date = s.week_start AND 'express' = ANY(d.priority_tags) GROUP BY s.zone_code, s.week_start ORDER BY s.zone_code, s.week_start;",
+  "_meta": {
+    "question_type": "cross_join",
+    "original_qtype": "random_any",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-25T19:29:41.628833",
+    "problem_id": "4f53cbf4fd62",
+    "validation_attempts": 1,
+    "scenario": "a same day medication delivery service tracking on-time delivery performance",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": null,
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "high"
+  }
+}

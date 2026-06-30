@@ -1,0 +1,214 @@
+{
+  "problem": {
+    "title": "Parse Subscription Box Preference Tags",
+    "prompt": "You are working with a D2C subscription box service modeled on public consumer preference datasets. The `subscriptions` table stores each customer's preferences as a PostgreSQL array of tags. The first tag in the array indicates the primary preference category. Your task is to extract the primary preference, count the total number of preference tags, and flag whether the subscription includes dietary restrictions. Write a query that returns each subscription with four columns: the subscription ID, the primary preference (the first tag in the array), the total count of preference tags, and a boolean flag indicating whether 'gluten-free' appears anywhere in the tags array. Include only active subscriptions. Order the results by subscription_id ascending.",
+    "display": {
+      "context": "You are working with a D2C subscription box service modeled on public consumer preference datasets.",
+      "task": "Write a query that extracts the primary preference tag, counts all tags, and flags subscriptions containing a specific dietary restriction.",
+      "table_notes": {
+        "subscriptions": "holds each customer's subscription record with preference tags stored as a PostgreSQL array"
+      },
+      "output_field_notes": {
+        "subscription_id": "the unique identifier for the subscription",
+        "primary_preference": "the first preference tag in the customer's tags array",
+        "tag_count": "the total number of preference tags the customer has selected",
+        "has_gluten_free": "whether the gluten-free dietary restriction appears in the tags array"
+      },
+      "field_logic": [
+        "primary_preference: extract the first element from the preference_tags array",
+        "tag_count: count how many elements are in the preference_tags array",
+        "has_gluten_free: check whether the literal value 'gluten-free' exists anywhere in the preference_tags array"
+      ],
+      "edge_cases": [
+        "If preference_tags is NULL, treat primary_preference as NULL and tag_count as 0.",
+        "If preference_tags is an empty array, treat primary_preference as NULL and tag_count as 0.",
+        "If 'gluten-free' does not appear in the array, has_gluten_free is false."
+      ],
+      "filter_note": "Only subscriptions where status equals 'active' are included.",
+      "order_by_note": "Results are ordered by subscription_id in ascending order."
+    },
+    "schema_ddl": "CREATE TABLE subscriptions (subscription_id INT PRIMARY KEY, customer_email VARCHAR(100), preference_tags TEXT[], status VARCHAR(20), monthly_price DECIMAL(6,2));",
+    "example_input_data": "INSERT INTO subscriptions (subscription_id, customer_email, preference_tags, status, monthly_price) VALUES (101, 'alice@example.com', ARRAY['vegan', 'organic', 'gluten-free'], 'active', 39.99), (102, 'bob@example.com', ARRAY['keto', 'high-protein'], 'active', 44.99), (103, 'carol@example.com', ARRAY['gluten-free', 'dairy-free'], 'active', 34.99), (104, 'dave@example.com', NULL, 'active', 29.99), (105, 'eve@example.com', ARRAY['paleo'], 'cancelled', 39.99), (106, 'frank@example.com', ARRAY[]::TEXT[], 'active', 29.99), (107, 'grace@example.com', ARRAY['vegetarian', 'nut-free', 'soy-free', 'gluten-free'], 'active', 49.99);",
+    "example_output_columns": [
+      "subscription_id",
+      "primary_preference",
+      "tag_count",
+      "has_gluten_free"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "vegan",
+        3,
+        true
+      ],
+      [
+        102,
+        "keto",
+        2,
+        false
+      ],
+      [
+        103,
+        "gluten-free",
+        2,
+        true
+      ],
+      [
+        104,
+        null,
+        0,
+        null
+      ],
+      [
+        106,
+        null,
+        0,
+        false
+      ],
+      [
+        107,
+        "vegetarian",
+        4,
+        true
+      ]
+    ],
+    "test_data": "INSERT INTO subscriptions (subscription_id, customer_email, preference_tags, status, monthly_price) VALUES (201, 'test1@example.com', ARRAY['organic', 'local'], 'active', 39.99), (202, 'test2@example.com', ARRAY['gluten-free'], 'active', 29.99), (203, 'test3@example.com', ARRAY['keto', 'low-carb', 'gluten-free', 'dairy-free', 'sugar-free'], 'active', 54.99), (204, 'test4@example.com', NULL, 'active', 24.99), (205, 'test5@example.com', ARRAY['vegan', 'soy-free'], 'cancelled', 34.99), (206, 'test6@example.com', ARRAY[]::TEXT[], 'active', 19.99), (207, 'test7@example.com', ARRAY['paleo', 'whole30'], 'active', 44.99), (208, 'test8@example.com', ARRAY['vegetarian'], 'active', 29.99), (209, 'test9@example.com', ARRAY['pescatarian', 'gluten-free', 'organic'], 'active', 49.99), (210, 'test10@example.com', ARRAY['raw', 'vegan', 'nut-free'], 'active', 59.99), (211, 'test11@example.com', ARRAY['mediterranean'], 'cancelled', 39.99), (212, 'test12@example.com', NULL, 'cancelled', 29.99), (213, 'test13@example.com', ARRAY['flexitarian', 'gluten-free'], 'active', 34.99), (214, 'test14@example.com', ARRAY['carnivore'], 'active', 64.99), (215, 'test15@example.com', ARRAY[]::TEXT[], 'cancelled', 24.99);",
+    "test_expected_columns": [
+      "subscription_id",
+      "primary_preference",
+      "tag_count",
+      "has_gluten_free"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "organic",
+        2,
+        false
+      ],
+      [
+        202,
+        "gluten-free",
+        1,
+        true
+      ],
+      [
+        203,
+        "keto",
+        5,
+        true
+      ],
+      [
+        204,
+        null,
+        0,
+        null
+      ],
+      [
+        206,
+        null,
+        0,
+        false
+      ],
+      [
+        207,
+        "paleo",
+        2,
+        false
+      ],
+      [
+        208,
+        "vegetarian",
+        1,
+        false
+      ],
+      [
+        209,
+        "pescatarian",
+        3,
+        true
+      ],
+      [
+        210,
+        "raw",
+        3,
+        false
+      ],
+      [
+        213,
+        "flexitarian",
+        2,
+        true
+      ],
+      [
+        214,
+        "carnivore",
+        1,
+        false
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "filter active rows",
+        "extract first array element",
+        "count array length",
+        "check array membership",
+        "select columns",
+        "order by primary key"
+      ]
+    },
+    "hints": [
+      "Consider how to access individual elements of an array in PostgreSQL and how to check if a value exists anywhere in an array.",
+      "Use array indexing with square brackets to get the first element, ARRAY_LENGTH to count elements, and the ANY operator to check membership.",
+      "The solution is: preference_tags[1] for the first tag, ARRAY_LENGTH(preference_tags, 1) for the count (which returns NULL for NULL arrays, so use COALESCE), and 'gluten-free' = ANY(preference_tags) for the membership check (which safely returns false for NULL or empty arrays)."
+    ],
+    "answer_key": "SELECT subscription_id, preference_tags[1] AS primary_preference, COALESCE(ARRAY_LENGTH(preference_tags, 1), 0) AS tag_count, ('gluten-free' = ANY(preference_tags)) AS has_gluten_free FROM subscriptions WHERE status = 'active' ORDER BY subscription_id;",
+    "_meta": {
+      "question_type": "parse_clean",
+      "original_qtype": "parse_clean",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-27T22:01:28.842985",
+      "problem_id": "77206c4eff9c",
+      "validation_attempts": 1,
+      "scenario": "a D2C subscription box service tracking renewal and churn",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "array_access",
+      "cleaning_required": false,
+      "cleaning_level": null,
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": false,
+      "realism": "high"
+    },
+    "example_output_schema": [
+      [
+        "subscription_id",
+        "INTEGER"
+      ],
+      [
+        "primary_preference",
+        "TEXT"
+      ],
+      [
+        "tag_count",
+        "INTEGER"
+      ],
+      [
+        "has_gluten_free",
+        "BOOLEAN"
+      ]
+    ]
+  },
+  "user_solution": "/* notes */\n\nSELECT\n    subscription_id,\n    preference_tags[1] AS primary_preference,\n    COALESCE(ARRAY_LENGTH(preference_tags, 1), 0)::int AS tag_count,\n    ('gluten-free' = ANY(preference_tags)) AS has_gluten_free\nFROM subscriptions\nWHERE status = 'active'\nORDER BY 1;\n",
+  "solved_at": "2026-06-27T22:07:14.406664"
+}

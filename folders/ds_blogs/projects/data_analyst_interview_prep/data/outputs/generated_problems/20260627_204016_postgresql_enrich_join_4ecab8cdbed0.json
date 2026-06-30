@@ -1,0 +1,156 @@
+{
+  "title": "High-Utilizer Pharmacies with Expensive Claims",
+  "prompt": "You are working with a digital pharmacy tracking prescription submissions through PBM adjudication, modeled on CMS Medicare Part D datasets (data.gov). The `claims` table tracks each submitted claim with its adjudication status stored as text, dispensed quantity stored as text, and a list of NDC codes (National Drug Codes) in an array. The `pharmacies` table holds pharmacy information with tax IDs stored as text including spaces and capitalization inconsistencies. Write a query that identifies pharmacies meeting ALL of these conditions: (1) at least 3 PAID claims (adjudication_status = 'PAID'), (2) zero REJECTED claims (adjudication_status = 'REJECTED'), (3) total dispensed quantity across all PAID claims is at least 1000 units, and (4) at least one PAID claim dispensed a drug in the opioid category (the first NDC code in the ndc_list array starts with '60505'). For each qualifying pharmacy, return: the pharmacy NPI (national provider identifier), the pharmacy name cleaned (trimmed and title-cased), the tax ID cleaned (spaces removed and uppercased), the total dispensed quantity across PAID claims rounded to the nearest integer, the month name (no padding) of the most recent PAID claim, and the count of PAID claims. Order the output by total dispensed quantity descending, then by pharmacy NPI ascending.",
+  "display": {
+    "context": "You are working with a digital pharmacy tracking prescription submissions through PBM adjudication, modeled on CMS Medicare Part D datasets (data.gov).",
+    "task": "Write a query that identifies pharmacies meeting all four conditions (at least 3 paid claims, zero rejected claims, total dispensed quantity at least 1000 units, at least one opioid paid claim) and returns their summary metrics.",
+    "table_notes": {
+      "claims": "Each row is a prescription claim submission with adjudication status, dispensed quantity, submission date, and NDC codes",
+      "pharmacies": "Each row is a pharmacy with NPI, name, and tax ID"
+    },
+    "output_field_notes": {
+      "pharmacy_npi": "The national provider identifier for the pharmacy",
+      "pharmacy_name": "The pharmacy name cleaned and properly capitalized",
+      "tax_id": "The pharmacy tax ID cleaned with no spaces and all uppercase",
+      "total_quantity": "The sum of dispensed quantities across all paid claims, rounded to the nearest whole number",
+      "most_recent_month": "The month name of the most recent paid claim",
+      "paid_claim_count": "The number of paid claims for this pharmacy"
+    },
+    "field_logic": [
+      "pharmacy_name: take the name from the pharmacies table, remove leading and trailing spaces, and capitalize the first letter of each word",
+      "tax_id: take the tax ID from the pharmacies table, remove all spaces, and convert to uppercase",
+      "total_quantity: sum the dispensed quantity values across paid claims (converting from text to numeric first) and round to the nearest integer",
+      "most_recent_month: extract the month name from the most recent paid claim date with no padding"
+    ],
+    "edge_cases": [
+      "If a pharmacy has any rejected claims, exclude it entirely",
+      "If a pharmacy has fewer than 3 paid claims, exclude it",
+      "If a pharmacy has no paid claims dispensing a drug whose first NDC code starts with '60505', exclude it",
+      "If the total dispensed quantity across paid claims is less than 1000 units, exclude it"
+    ],
+    "filter_note": "Only pharmacies with at least 3 paid claims, zero rejected claims, total paid quantity at least 1000 units, and at least one paid claim with an opioid NDC code are included",
+    "order_by_note": "Results are ordered by total dispensed quantity descending, then by pharmacy NPI ascending"
+  },
+  "schema_ddl": "CREATE TABLE pharmacies (pharmacy_npi VARCHAR(10) PRIMARY KEY, pharmacy_name VARCHAR(100), tax_id VARCHAR(20)); CREATE TABLE claims (claim_id VARCHAR(20) PRIMARY KEY, pharmacy_npi VARCHAR(10), adjudication_status VARCHAR(20), dispensed_quantity VARCHAR(10), submission_date VARCHAR(10), ndc_list TEXT[]);",
+  "example_input_data": "INSERT INTO pharmacies (pharmacy_npi, pharmacy_name, tax_id) VALUES ('1234567890', '  wellness PHARMACY ', '12-345 6789'), ('2345678901', 'QUICK care rx  ', '98 765-4321'), ('3456789012', 'health PLUS drugs', '11-222 3333'), ('4567890123', 'metro scripts', '44-555 6666'); INSERT INTO claims (claim_id, pharmacy_npi, adjudication_status, dispensed_quantity, submission_date, ndc_list) VALUES ('C001', '1234567890', 'PAID', '120', '2024-03-15', ARRAY['60505-1234-01', '12345-6789-01']), ('C002', '1234567890', 'PAID', '240', '2024-04-10', ARRAY['11111-2222-03']), ('C003', '1234567890', 'PAID', '650', '2024-05-20', ARRAY['22222-3333-04']), ('C004', '2345678901', 'PAID', '300', '2024-03-22', ARRAY['60505-9999-02']), ('C005', '2345678901', 'PAID', '400', '2024-04-15', ARRAY['33333-4444-05']), ('C006', '2345678901', 'REJECTED', '100', '2024-05-01', ARRAY['44444-5555-06']), ('C007', '3456789012', 'PAID', '500', '2024-03-10', ARRAY['60505-7777-03']), ('C008', '3456789012', 'PAID', '600', '2024-04-25', ARRAY['55555-6666-07']);",
+  "example_output_columns": [
+    "pharmacy_npi",
+    "pharmacy_name",
+    "tax_id",
+    "total_quantity",
+    "most_recent_month",
+    "paid_claim_count"
+  ],
+  "example_output_rows": [
+    [
+      "1234567890",
+      "Wellness Pharmacy",
+      "12-3456789",
+      "1010",
+      "May",
+      3
+    ]
+  ],
+  "test_data": "INSERT INTO pharmacies (pharmacy_npi, pharmacy_name, tax_id) VALUES ('1111111111', ' prime  Health rx ', '10-101 0101'), ('2222222222', 'CENTRAL pharmacy  ', '20 202-0202'), ('3333333333', 'SOUTH side DRUGS', '30-303 0303'), ('4444444444', 'North Medical rx', '40-404 0404'), ('5555555555', 'East Valley Pharmacy', '50-505 0505'), ('6666666666', 'West Care Scripts', '60-606 0606'); INSERT INTO claims (claim_id, pharmacy_npi, adjudication_status, dispensed_quantity, submission_date, ndc_list) VALUES ('T001', '1111111111', 'PAID', '150', '2024-01-10', ARRAY['60505-1111-01']), ('T002', '1111111111', 'PAID', '200', '2024-02-15', ARRAY['60505-2222-02']), ('T003', '1111111111', 'PAID', '350', '2024-03-20', ARRAY['11111-3333-03']), ('T004', '1111111111', 'PAID', '450', '2024-04-25', ARRAY['22222-4444-04']), ('T005', '2222222222', 'PAID', '180', '2024-01-12', ARRAY['60505-5555-05']), ('T006', '2222222222', 'PAID', '220', '2024-02-18', ARRAY['33333-6666-06']), ('T007', '2222222222', 'PAID', '260', '2024-03-22', ARRAY['44444-7777-07']), ('T008', '2222222222', 'PAID', '300', '2024-04-28', ARRAY['55555-8888-08']), ('T009', '3333333333', 'PAID', '120', '2024-01-05', ARRAY['60505-9999-09']), ('T010', '3333333333', 'PAID', '140', '2024-02-10', ARRAY['66666-0000-10']), ('T011', '3333333333', 'REJECTED', '80', '2024-03-15', ARRAY['77777-1111-11']), ('T012', '4444444444', 'PAID', '500', '2024-01-08', ARRAY['60505-2222-12']), ('T013', '4444444444', 'PAID', '600', '2024-02-12', ARRAY['88888-3333-13']), ('T014', '4444444444', 'PAID', '700', '2024-03-18', ARRAY['99999-4444-14']), ('T015', '5555555555', 'PAID', '250', '2024-01-15', ARRAY['11111-5555-15']), ('T016', '5555555555', 'PAID', '280', '2024-02-20', ARRAY['22222-6666-16']), ('T017', '6666666666', 'PAID', '400', '2024-01-20', ARRAY['60505-7777-17']), ('T018', '6666666666', 'PAID', '450', '2024-02-25', ARRAY['33333-8888-18']), ('T019', '6666666666', 'PAID', '500', '2024-03-30', ARRAY['44444-9999-19']);",
+  "test_expected_columns": [
+    "pharmacy_npi",
+    "pharmacy_name",
+    "tax_id",
+    "total_quantity",
+    "most_recent_month",
+    "paid_claim_count"
+  ],
+  "test_expected_rows": [
+    [
+      "4444444444",
+      "North Medical Rx",
+      "40-4040404",
+      "1800",
+      "March",
+      3
+    ],
+    [
+      "6666666666",
+      "West Care Scripts",
+      "60-6060606",
+      "1350",
+      "March",
+      3
+    ],
+    [
+      "1111111111",
+      "Prime  Health Rx",
+      "10-1010101",
+      "1150",
+      "April",
+      4
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "enrich-join (pharmacies onto claims)",
+      "row-filter (adjudication_status = 'PAID')",
+      "group-aggregate (per pharmacy_npi, aggregate paid_count, rejected_count, total_quantity, max_date, opioid_count)",
+      "row-filter (HAVING paid_count >= 3 AND rejected_count = 0 AND total_quantity >= 1000 AND opioid_count >= 1)",
+      "row-transform (clean pharmacy_name with TRIM + INITCAP, clean tax_id with REPLACE + UPPER, round total_quantity, format month with TO_CHAR)"
+    ]
+  },
+  "hints": [
+    "Start by joining the two tables so you have pharmacy details alongside each claim, then think about what you need to count or sum per pharmacy.",
+    "You'll need to aggregate per pharmacy to check the four conditions (paid count, rejected count, total quantity, and opioid count), then filter to only those meeting all four.",
+    "Use a CTE to roll up per pharmacy: count PAID claims (CASE WHEN adjudication_status='PAID' THEN 1 END), count REJECTED claims, sum dispensed_quantity (cast to numeric first), and count opioid claims (CASE WHEN adjudication_status='PAID' AND ndc_list[1] starts with '60505' THEN 1 END); in the outer query, join back to pharmacies, apply HAVING to enforce all four thresholds, and clean the name with INITCAP(TRIM(...)), the tax_id with UPPER(REPLACE(..., ' ', '')), round the total, and format the max date with TO_CHAR(..., 'FMMonth')."
+  ],
+  "answer_key": "WITH pharmacy_stats AS (SELECT c.pharmacy_npi, COUNT(CASE WHEN c.adjudication_status = 'PAID' THEN 1 END) AS paid_count, COUNT(CASE WHEN c.adjudication_status = 'REJECTED' THEN 1 END) AS rejected_count, SUM(CASE WHEN c.adjudication_status = 'PAID' THEN c.dispensed_quantity::NUMERIC ELSE 0 END) AS total_quantity, MAX(CASE WHEN c.adjudication_status = 'PAID' THEN c.submission_date::DATE END) AS most_recent_date, COUNT(CASE WHEN c.adjudication_status = 'PAID' AND SUBSTRING(c.ndc_list[1], 1, 5) = '60505' THEN 1 END) AS opioid_count FROM claims c GROUP BY c.pharmacy_npi) SELECT ps.pharmacy_npi, INITCAP(TRIM(p.pharmacy_name)) AS pharmacy_name, UPPER(REPLACE(p.tax_id, ' ', '')) AS tax_id, ROUND(ps.total_quantity) AS total_quantity, TO_CHAR(ps.most_recent_date, 'FMMonth') AS most_recent_month, ps.paid_count AS paid_claim_count FROM pharmacy_stats ps JOIN pharmacies p ON ps.pharmacy_npi = p.pharmacy_npi WHERE ps.paid_count >= 3 AND ps.rejected_count = 0 AND ps.total_quantity >= 1000 AND ps.opioid_count >= 1 ORDER BY ps.total_quantity DESC, ps.pharmacy_npi ASC;",
+  "_meta": {
+    "question_type": "enrich_join",
+    "original_qtype": "enrich_join",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-27T20:40:16.576131",
+    "problem_id": "4ecab8cdbed0",
+    "validation_attempts": 4,
+    "scenario": "a digital pharmacy tracking prescription submissions through PBM adjudication",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "compound",
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "high"
+  },
+  "example_output_schema": [
+    [
+      "pharmacy_npi",
+      "VARCHAR"
+    ],
+    [
+      "pharmacy_name",
+      "TEXT"
+    ],
+    [
+      "tax_id",
+      "TEXT"
+    ],
+    [
+      "total_quantity",
+      "NUMERIC"
+    ],
+    [
+      "most_recent_month",
+      "TEXT"
+    ],
+    [
+      "paid_claim_count",
+      "BIGINT"
+    ]
+  ]
+}

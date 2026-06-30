@@ -1,0 +1,133 @@
+{
+  "title": "Subscription Net Revenue by Article",
+  "prompt": "You are working with a news app tracking article completion and subscription conversion. The app runs two types of campaigns tied to each article: reader_subscribed events (which increase net revenue) and refund_processed events (which decrease net revenue). Each event is logged with the amount in dollars. Your task is to compute the net subscription revenue per article, where subscriptions contribute POSITIVELY and refunds contribute NEGATIVELY. Negative values are valid (a refund-heavy article shows a negative net). Write a query that groups by article and returns one row per article with the article title and a single column `net_revenue` showing the difference (sum of subscriptions minus sum of refunds). Articles appear in the events table with inconsistent capitalization and trailing spaces in the title field; you must normalize the title before grouping. Event amounts are stored as text; you must convert them before summing. Return all articles that appear in the events table, ordered by article title alphabetically.",
+  "display": {
+    "context": "You are working with a news app tracking article completion and subscription conversion.",
+    "task": "Write a query that computes net subscription revenue per article, where subscriptions add to revenue and refunds subtract from it, returning the article title and net_revenue.",
+    "table_notes": {
+      "subscription_events": "Logs each reader subscription and refund event tied to an article, with event type and amount."
+    },
+    "output_field_notes": {
+      "article_title": "The normalized article title.",
+      "net_revenue": "The net revenue for the article (subscriptions minus refunds), which may be negative if refunds exceed subscriptions."
+    },
+    "field_logic": [
+      "article_title: take the title from the events table, remove leading and trailing spaces, and capitalize the first letter of each word.",
+      "net_revenue: sum all subscription amounts and subtract all refund amounts; if refunds exceed subscriptions the result is negative."
+    ],
+    "edge_cases": [
+      "If an article has multiple subscription events, sum all of them.",
+      "If an article has multiple refund events, sum all of them.",
+      "If an article has only subscriptions and no refunds, the net is the subscription total.",
+      "If an article has only refunds and no subscriptions, the net is negative.",
+      "If the title has leading or trailing spaces or inconsistent case, normalize it before grouping."
+    ],
+    "filter_note": "Include all articles that appear in the subscription_events table.",
+    "order_by_note": "Order the output by article_title alphabetically."
+  },
+  "schema_ddl": "CREATE TABLE subscription_events (event_id INT PRIMARY KEY, article_title TEXT, event_type VARCHAR(20), amount_text VARCHAR(10), event_date DATE);",
+  "example_input_data": "INSERT INTO subscription_events (event_id, article_title, event_type, amount_text, event_date) VALUES (1, ' AI Revolution ', 'reader_subscribed', '9.99', '2024-01-15'), (2, 'AI Revolution', 'reader_subscribed', '9.99', '2024-01-16'), (3, 'ai revolution  ', 'refund_processed', '9.99', '2024-01-20'), (4, 'Climate Action', 'reader_subscribed', '14.99', '2024-02-01'), (5, '  climate action', 'reader_subscribed', '14.99', '2024-02-03'), (6, 'Tech Trends', 'refund_processed', '12.50', '2024-03-10'), (7, 'Tech Trends ', 'refund_processed', '7.99', '2024-03-12');",
+  "example_output_columns": [
+    "article_title",
+    "net_revenue"
+  ],
+  "example_output_rows": [
+    [
+      "Ai Revolution",
+      "9.99"
+    ],
+    [
+      "Climate Action",
+      "29.98"
+    ],
+    [
+      "Tech Trends",
+      "-20.49"
+    ]
+  ],
+  "test_data": "INSERT INTO subscription_events (event_id, article_title, event_type, amount_text, event_date) VALUES (101, ' Breaking News ', 'reader_subscribed', '19.99', '2024-01-05'), (102, 'breaking news', 'reader_subscribed', '19.99', '2024-01-06'), (103, 'BREAKING NEWS  ', 'reader_subscribed', '19.99', '2024-01-07'), (104, 'Breaking News', 'refund_processed', '19.99', '2024-01-10'), (105, '  Sports Daily', 'reader_subscribed', '7.50', '2024-02-01'), (106, 'sports daily ', 'reader_subscribed', '7.50', '2024-02-02'), (107, 'Sports Daily', 'refund_processed', '7.50', '2024-02-05'), (108, 'SPORTS DAILY', 'refund_processed', '7.50', '2024-02-06'), (109, 'Health Tips', 'reader_subscribed', '12.00', '2024-03-01'), (110, ' health tips  ', 'reader_subscribed', '12.00', '2024-03-02'), (111, 'Travel Guide', 'refund_processed', '25.00', '2024-04-01'), (112, 'Travel Guide ', 'refund_processed', '10.00', '2024-04-02'), (113, '  Finance Watch', 'reader_subscribed', '15.99', '2024-05-01'), (114, 'finance watch', 'reader_subscribed', '15.99', '2024-05-02'), (115, 'FINANCE WATCH  ', 'reader_subscribed', '15.99', '2024-05-03'), (116, 'Finance Watch', 'reader_subscribed', '15.99', '2024-05-04'), (117, '  Movie Reviews ', 'refund_processed', '8.00', '2024-06-01'), (118, 'Politics Today', 'reader_subscribed', '20.00', '2024-07-01'), (119, ' politics today', 'refund_processed', '5.00', '2024-07-02'), (120, 'POLITICS TODAY ', 'refund_processed', '5.00', '2024-07-03');",
+  "test_expected_columns": [
+    "article_title",
+    "net_revenue"
+  ],
+  "test_expected_rows": [
+    [
+      "Breaking News",
+      "39.98"
+    ],
+    [
+      "Finance Watch",
+      "63.96"
+    ],
+    [
+      "Health Tips",
+      "24.00"
+    ],
+    [
+      "Movie Reviews",
+      "-8.00"
+    ],
+    [
+      "Politics Today",
+      "10.00"
+    ],
+    [
+      "Sports Daily",
+      "0.00"
+    ],
+    [
+      "Travel Guide",
+      "-35.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "reshape",
+    "composite_moves": [
+      "string-clean: TRIM + INITCAP on article_title",
+      "type-cast: amount_text::NUMERIC",
+      "signed-aggregate: SUM(CASE ... subscribed ... - CASE ... refund ...)",
+      "group-by: article_title"
+    ]
+  },
+  "hints": [
+    "Consider how to handle text values that need to be summed numerically.",
+    "Think about normalizing the article title so all variants of the same article are grouped together.",
+    "Use conditional aggregation inside SUM to treat subscriptions and refunds with opposite signs."
+  ],
+  "answer_key": "SELECT INITCAP(TRIM(article_title)) AS article_title, SUM(CASE WHEN event_type = 'reader_subscribed' THEN amount_text::NUMERIC ELSE 0 END) - SUM(CASE WHEN event_type = 'refund_processed' THEN amount_text::NUMERIC ELSE 0 END) AS net_revenue FROM subscription_events GROUP BY INITCAP(TRIM(article_title)) ORDER BY article_title;",
+  "_meta": {
+    "question_type": "pivot",
+    "original_qtype": "pivot",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-27T19:11:40.276058",
+    "problem_id": "8f139ca5e3a5",
+    "validation_attempts": 1,
+    "scenario": "a news app tracking article completion and subscription conversion",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": "signed_aggregate",
+    "subtype": null,
+    "cleaning_required": true,
+    "cleaning_level": "moderate",
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "moderate"
+  },
+  "example_output_schema": [
+    [
+      "article_title",
+      "TEXT"
+    ],
+    [
+      "net_revenue",
+      "NUMERIC"
+    ]
+  ]
+}

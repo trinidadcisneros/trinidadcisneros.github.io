@@ -1,0 +1,355 @@
+{
+  "problem": {
+    "title": "Unpivot Quarterly Onboarding Completion Rates",
+    "prompt": "You are analyzing onboarding completion rates for new hires across departments. The `dept_onboarding_quarterly` table stores completion percentages for each fiscal quarter in wide format, with each quarter as a separate column. The `dept_code` column uses standard NAICS-inspired department abbreviations stored as text (may have leading/trailing spaces). The `fiscal_year` is stored as TEXT and must be cast to INTEGER for filtering. The `region_tags` column is an ARRAY of US state abbreviations where the department operates. The `last_updated` column is a TIMESTAMP. You need to reshape this data into long format with one row per department-quarter combination. Output columns must be: `dept_code` (trimmed and uppercased), `fiscal_year` (as INTEGER), `primary_region` (the first element from region_tags array), `quarter_label`, `completion_pct` (rounded to 1 decimal place), and `update_month` (extracted as the month number from last_updated). For the quarter labels, use: 'Q1' for q1_completion_pct, 'Q2' for q2_completion_pct, 'Q3' for q3_completion_pct, and 'Q4' for q4_completion_pct. Exclude any rows where the completion percentage is NULL. Order the final result by dept_code ASC, then fiscal_year ASC, then quarter_label ASC. This table structure is modeled on public sector workforce analytics datasets.",
+    "schema_ddl": "CREATE TABLE dept_onboarding_quarterly (dept_code TEXT, fiscal_year TEXT, q1_completion_pct NUMERIC(5,2), q2_completion_pct NUMERIC(5,2), q3_completion_pct NUMERIC(5,2), q4_completion_pct NUMERIC(5,2), region_tags TEXT[], last_updated TIMESTAMP);",
+    "example_input_data": "INSERT INTO dept_onboarding_quarterly (dept_code, fiscal_year, q1_completion_pct, q2_completion_pct, q3_completion_pct, q4_completion_pct, region_tags, last_updated) VALUES ('  hr  ', '2023', 87.50, 92.30, NULL, 88.75, ARRAY['CA', 'NY', 'TX'], '2023-05-15 10:30:00'), ('IT', '2023', 78.00, 81.50, 85.20, 90.10, ARRAY['WA', 'OR'], '2023-06-20 14:15:00'), (' finance ', '2024', 95.25, 97.80, 96.50, 98.00, ARRAY['IL', 'NJ'], '2024-03-10 09:00:00');",
+    "example_output_columns": [
+      "dept_code",
+      "fiscal_year",
+      "primary_region",
+      "quarter_label",
+      "completion_pct",
+      "update_month"
+    ],
+    "example_output_rows": [
+      [
+        "FINANCE",
+        2024,
+        "IL",
+        "Q1",
+        "95.3",
+        3
+      ],
+      [
+        "FINANCE",
+        2024,
+        "IL",
+        "Q2",
+        "97.8",
+        3
+      ],
+      [
+        "FINANCE",
+        2024,
+        "IL",
+        "Q3",
+        "96.5",
+        3
+      ],
+      [
+        "FINANCE",
+        2024,
+        "IL",
+        "Q4",
+        "98.0",
+        3
+      ],
+      [
+        "HR",
+        2023,
+        "CA",
+        "Q1",
+        "87.5",
+        5
+      ],
+      [
+        "HR",
+        2023,
+        "CA",
+        "Q2",
+        "92.3",
+        5
+      ],
+      [
+        "HR",
+        2023,
+        "CA",
+        "Q4",
+        "88.8",
+        5
+      ],
+      [
+        "IT",
+        2023,
+        "WA",
+        "Q1",
+        "78.0",
+        6
+      ],
+      [
+        "IT",
+        2023,
+        "WA",
+        "Q2",
+        "81.5",
+        6
+      ],
+      [
+        "IT",
+        2023,
+        "WA",
+        "Q3",
+        "85.2",
+        6
+      ],
+      [
+        "IT",
+        2023,
+        "WA",
+        "Q4",
+        "90.1",
+        6
+      ]
+    ],
+    "test_data": "INSERT INTO dept_onboarding_quarterly (dept_code, fiscal_year, q1_completion_pct, q2_completion_pct, q3_completion_pct, q4_completion_pct, region_tags, last_updated) VALUES ('ops', '2022', 72.50, 75.30, 78.00, NULL, ARRAY['FL', 'GA'], '2022-08-05 11:00:00'), ('  sales  ', '2022', NULL, 68.90, 71.20, 74.50, ARRAY['AZ', 'NV'], '2022-09-12 16:45:00'), ('marketing', '2023', 82.10, 85.75, 88.30, 91.00, ARRAY['MA', 'CT'], '2023-07-22 13:20:00'), (' legal ', '2023', 90.00, 92.50, NULL, 94.75, ARRAY['DC', 'MD'], '2023-11-30 08:30:00'), ('eng', '2024', 79.25, 83.00, 86.50, 89.90, ARRAY['CO', 'UT'], '2024-01-18 10:10:00'), ('hr', '2024', 88.00, NULL, 90.50, 92.25, ARRAY['CA', 'OR'], '2024-04-25 15:00:00'), ('IT', '2024', 80.50, 84.20, 87.00, 90.80, ARRAY['WA', 'ID'], '2024-02-14 12:00:00');",
+    "test_expected_columns": [
+      "dept_code",
+      "fiscal_year",
+      "primary_region",
+      "quarter_label",
+      "completion_pct",
+      "update_month"
+    ],
+    "test_expected_rows": [
+      [
+        "ENG",
+        2024,
+        "CO",
+        "Q1",
+        "79.3",
+        1
+      ],
+      [
+        "ENG",
+        2024,
+        "CO",
+        "Q2",
+        "83.0",
+        1
+      ],
+      [
+        "ENG",
+        2024,
+        "CO",
+        "Q3",
+        "86.5",
+        1
+      ],
+      [
+        "ENG",
+        2024,
+        "CO",
+        "Q4",
+        "89.9",
+        1
+      ],
+      [
+        "HR",
+        2024,
+        "CA",
+        "Q1",
+        "88.0",
+        4
+      ],
+      [
+        "HR",
+        2024,
+        "CA",
+        "Q3",
+        "90.5",
+        4
+      ],
+      [
+        "HR",
+        2024,
+        "CA",
+        "Q4",
+        "92.3",
+        4
+      ],
+      [
+        "IT",
+        2024,
+        "WA",
+        "Q1",
+        "80.5",
+        2
+      ],
+      [
+        "IT",
+        2024,
+        "WA",
+        "Q2",
+        "84.2",
+        2
+      ],
+      [
+        "IT",
+        2024,
+        "WA",
+        "Q3",
+        "87.0",
+        2
+      ],
+      [
+        "IT",
+        2024,
+        "WA",
+        "Q4",
+        "90.8",
+        2
+      ],
+      [
+        "LEGAL",
+        2023,
+        "DC",
+        "Q1",
+        "90.0",
+        11
+      ],
+      [
+        "LEGAL",
+        2023,
+        "DC",
+        "Q2",
+        "92.5",
+        11
+      ],
+      [
+        "LEGAL",
+        2023,
+        "DC",
+        "Q4",
+        "94.8",
+        11
+      ],
+      [
+        "MARKETING",
+        2023,
+        "MA",
+        "Q1",
+        "82.1",
+        7
+      ],
+      [
+        "MARKETING",
+        2023,
+        "MA",
+        "Q2",
+        "85.8",
+        7
+      ],
+      [
+        "MARKETING",
+        2023,
+        "MA",
+        "Q3",
+        "88.3",
+        7
+      ],
+      [
+        "MARKETING",
+        2023,
+        "MA",
+        "Q4",
+        "91.0",
+        7
+      ],
+      [
+        "OPS",
+        2022,
+        "FL",
+        "Q1",
+        "72.5",
+        8
+      ],
+      [
+        "OPS",
+        2022,
+        "FL",
+        "Q2",
+        "75.3",
+        8
+      ],
+      [
+        "OPS",
+        2022,
+        "FL",
+        "Q3",
+        "78.0",
+        8
+      ],
+      [
+        "SALES",
+        2022,
+        "AZ",
+        "Q2",
+        "68.9",
+        9
+      ],
+      [
+        "SALES",
+        2022,
+        "AZ",
+        "Q3",
+        "71.2",
+        9
+      ],
+      [
+        "SALES",
+        2022,
+        "AZ",
+        "Q4",
+        "74.5",
+        9
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "reshape",
+      "composite_moves": [
+        "reshape: unpivot 4 wide columns (q1_completion_pct, q2_completion_pct, q3_completion_pct, q4_completion_pct) into long format using UNION ALL with literal quarter labels",
+        "prep: STRING cleaning \u2014 TRIM and UPPER the dept_code",
+        "prep: TYPE CAST \u2014 cast fiscal_year from TEXT to INTEGER",
+        "prep: ARRAY \u2014 extract region_tags[1] as primary_region",
+        "prep: NUMERIC \u2014 ROUND completion_pct to 1 decimal place",
+        "prep: DATE \u2014 EXTRACT month from last_updated timestamp",
+        "prep: NULL handling \u2014 exclude rows WHERE source column IS NULL (each UNION branch filters its own column)",
+        "finalize: ORDER BY dept_code ASC, fiscal_year ASC, quarter_label ASC"
+      ]
+    },
+    "hints": [
+      "You need to transform columns into rows; think about how to create a new row for each quarter column.",
+      "Use UNION ALL to stack multiple SELECT statements, one per quarter column, each with a literal label like 'Q1', 'Q2', etc. Don't forget to filter out NULL values in each branch.",
+      "Each SELECT in the UNION ALL should extract: UPPER(TRIM(dept_code)), fiscal_year::INTEGER, region_tags[1], the quarter label as a literal string, ROUND(the quarter column, 1), and EXTRACT(MONTH FROM last_updated). Add WHERE <quarter_column> IS NOT NULL to each branch, then order the final result by dept_code, fiscal_year, quarter_label."
+    ],
+    "answer_key": "SELECT UPPER(TRIM(dept_code)) AS dept_code, fiscal_year::INTEGER AS fiscal_year, region_tags[1] AS primary_region, 'Q1' AS quarter_label, ROUND(q1_completion_pct, 1) AS completion_pct, EXTRACT(MONTH FROM last_updated)::INTEGER AS update_month FROM dept_onboarding_quarterly WHERE q1_completion_pct IS NOT NULL UNION ALL SELECT UPPER(TRIM(dept_code)), fiscal_year::INTEGER, region_tags[1], 'Q2', ROUND(q2_completion_pct, 1), EXTRACT(MONTH FROM last_updated)::INTEGER FROM dept_onboarding_quarterly WHERE q2_completion_pct IS NOT NULL UNION ALL SELECT UPPER(TRIM(dept_code)), fiscal_year::INTEGER, region_tags[1], 'Q3', ROUND(q3_completion_pct, 1), EXTRACT(MONTH FROM last_updated)::INTEGER FROM dept_onboarding_quarterly WHERE q3_completion_pct IS NOT NULL UNION ALL SELECT UPPER(TRIM(dept_code)), fiscal_year::INTEGER, region_tags[1], 'Q4', ROUND(q4_completion_pct, 1), EXTRACT(MONTH FROM last_updated)::INTEGER FROM dept_onboarding_quarterly WHERE q4_completion_pct IS NOT NULL ORDER BY dept_code ASC, fiscal_year ASC, quarter_label ASC;",
+    "_meta": {
+      "question_type": "unpivot",
+      "original_qtype": "random_any",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-26T17:31:15.248197",
+      "problem_id": "ba21552ff9a6",
+      "validation_attempts": 1,
+      "scenario": "an HR platform tracking onboarding completion and benefits enrollment",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "drop",
+      "cleaning_required": true,
+      "cleaning_level": "high",
+      "cleaning_all_six": true,
+      "cleaning_per_category": 1,
+      "cleaning_bonus": null,
+      "typecast_twist": true,
+      "realism": "high"
+    }
+  },
+  "user_solution": "/*\nGOAL\n- Reshape into long format with one row per department-quarter combination.\n\nTable: dept_onboarding_quarterly\ndept_code\t                TEXT\nfiscal_year\t                TEXT\nq1_completion_pct\t        NUMERIC(5,2)\nq2_completion_pct\t        NUMERIC(5,2)\nq3_completion_pct\t        NUMERIC(5,2)\nq4_completion_pct\t        NUMERIC(5,2)\nregion_tags\t                TEXT[]\nlast_updated\t            TIMESTAMP\n\n\nOutput\ndept_code              (trimmed and uppercased)\nfiscal_year            (as INTEGER)\nprimary_region         (the first element from region_tags array)\nquarter_label\ncompletion_pct         (rounded to 1 decimal place)\nupdate_month           (extracted as the month number from last_updated).\n\nEXCLUSION\n- completion percentage is NULL\n\nORDER BY dept_code, fiscal_year, quarter_label;\n\n1. UNPIVOT\n2. PREPARE DATA\n*/\n\nSELECT\n    UPPER(TRIM(dept_code)) AS dept_code,\n    fiscal_year,\n    region_tags[1] AS primary_region,\n    'Q1' AS quarter_label,\n    ROUND(q1_completion_pct,1) AS completion_pct,\n    EXTRACT(month FROM last_updated) AS update_month\nFROM dept_onboarding_quarterly\nWHERE q1_completion_pct IS NOT NULL\n\nUNION ALL\n\nSELECT\n    UPPER(TRIM(dept_code)) AS dept_code,\n    fiscal_year,\n    region_tags[1] AS primary_region,\n    'Q2' AS quarter_label,\n    ROUND(q2_completion_pct,1) AS completion_pct,\n    EXTRACT(month FROM last_updated) AS update_month\nFROM dept_onboarding_quarterly\nWHERE q2_completion_pct IS NOT NULL\n\nUNION ALL\n\nSELECT\n    UPPER(TRIM(dept_code)) AS dept_code,\n    fiscal_year,\n    region_tags[1] AS primary_region,\n    'Q3' AS quarter_label,\n    ROUND(q3_completion_pct,1) AS completion_pct,\n    EXTRACT(month FROM last_updated) AS update_month\nFROM dept_onboarding_quarterly\nWHERE q3_completion_pct IS NOT NULL\n\nUNION ALL\n\nSELECT\n    UPPER(TRIM(dept_code)) AS dept_code,\n    fiscal_year,\n    region_tags[1] AS primary_region,\n    'Q4' AS quarter_label,\n    ROUND(q4_completion_pct,1) AS completion_pct,\n    EXTRACT(month FROM last_updated) AS update_month\nFROM dept_onboarding_quarterly\nWHERE q4_completion_pct IS NOT NULL\n\nORDER BY dept_code, fiscal_year, quarter_label;\n",
+  "solved_at": "2026-06-26T18:00:35.514191"
+}

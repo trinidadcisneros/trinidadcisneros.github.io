@@ -1,0 +1,187 @@
+{
+  "title": "Certified Instructor Minimum Course Fee",
+  "prompt": "You are working with an online course platform tracking instructor certification and course pricing, modeled on public educational datasets (data.gov). The system maintains two tables: `instructors` holds each instructor's certification status and approval date, and `course_offerings` lists the various course sections each instructor teaches along with their per-student fees. Write a query that returns one row per instructor showing their ID, name (trimmed and title-cased), their certification level (cast from text to integer), and the minimum fee among all their course offerings\u2014but ONLY if the instructor holds certification level 3 or higher. For instructors with certification level below 3, output 0 as the minimum fee instead of the actual minimum. Also output the instructor's primary teaching category, extracted as the first element of their specializations array. Include only instructors whose approval date falls on or after January 1, 2023, and whose status is exactly 'active' (case-insensitive match). Order the results by instructor ID ascending.",
+  "display": {
+    "context": "You are working with an online course platform tracking instructor certification and course pricing, modeled on public educational datasets (data.gov).",
+    "task": "Write a query that returns one row per instructor showing their ID, name, certification level, the minimum fee (or 0 if certification level is below 3), and primary teaching category, filtered by approval date and active status, ordered by instructor ID.",
+    "table_notes": {
+      "instructors": "holds each instructor's certification level, approval date, status, and specializations array",
+      "course_offerings": "lists the course sections each instructor teaches with their per-student fees"
+    },
+    "output_field_notes": {
+      "instructor_id": "the unique identifier for the instructor",
+      "instructor_name": "the instructor's full name, cleaned and capitalized",
+      "certification_level": "the instructor's certification tier as a number",
+      "min_fee": "the lowest per-student fee across all the instructor's courses, or 0 if certification level is below 3",
+      "primary_category": "the first specialization from the instructor's teaching categories"
+    },
+    "field_logic": [
+      "instructor_name: take the name from the instructors table, remove leading and trailing spaces, and capitalize the first letter of each word",
+      "certification_level: convert the text certification level to an integer",
+      "min_fee: find the smallest fee value across all course offerings for this instructor; if the instructor's certification level is below 3, replace that minimum with 0",
+      "primary_category: extract the first element from the specializations array"
+    ],
+    "edge_cases": [
+      "If an instructor has certification level below 3, output 0 for min_fee instead of the actual minimum.",
+      "If an instructor's status is not 'active' (case-insensitive), exclude them.",
+      "If an instructor's approval date is before January 1, 2023, exclude them."
+    ],
+    "filter_note": "Only instructors with status 'active' (case-insensitive) and approval date on or after January 1, 2023 are included.",
+    "order_by_note": "Results are ordered by instructor_id in ascending order."
+  },
+  "schema_ddl": "CREATE TABLE instructors (instructor_id INT PRIMARY KEY, instructor_name VARCHAR(100), cert_level_text VARCHAR(10), approval_date VARCHAR(20), status VARCHAR(20), specializations TEXT[]); CREATE TABLE course_offerings (offering_id INT PRIMARY KEY, instructor_id INT, course_code VARCHAR(20), per_student_fee NUMERIC(8,2));",
+  "example_input_data": "INSERT INTO instructors (instructor_id, instructor_name, cert_level_text, approval_date, status, specializations) VALUES (101, '  alice johnson  ', '4', '2023-02-15', 'Active', ARRAY['Data Science', 'Machine Learning']), (102, 'bob smith', '2', '2023-03-10', 'ACTIVE', ARRAY['Web Development', 'Design']), (103, 'CAROL white', '5', '2022-12-01', 'active', ARRAY['Business', 'Marketing']), (104, 'david lee', '3', '2023-06-20', 'active', ARRAY['Cloud Computing', 'DevOps']); INSERT INTO course_offerings (offering_id, instructor_id, course_code, per_student_fee) VALUES (1, 101, 'DS101', 299.00), (2, 101, 'ML201', 399.00), (3, 101, 'DS102', 249.00), (4, 102, 'WEB101', 199.00), (5, 102, 'WEB202', 279.00), (6, 104, 'CLOUD301', 450.00), (7, 104, 'DEVOPS101', 350.00);",
+  "example_output_columns": [
+    "instructor_id",
+    "instructor_name",
+    "certification_level",
+    "min_fee",
+    "primary_category"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Alice Johnson",
+      4,
+      "249.00",
+      "Data Science"
+    ],
+    [
+      102,
+      "Bob Smith",
+      2,
+      "0.00",
+      "Web Development"
+    ],
+    [
+      104,
+      "David Lee",
+      3,
+      "350.00",
+      "Cloud Computing"
+    ]
+  ],
+  "test_data": "INSERT INTO instructors (instructor_id, instructor_name, cert_level_text, approval_date, status, specializations) VALUES (201, '  maria garcia  ', '5', '2023-01-01', 'active', ARRAY['Finance', 'Accounting', 'Tax']), (202, 'JAMES BROWN', '1', '2023-04-15', 'Active', ARRAY['Photography']), (203, 'linda martinez', '3', '2023-05-20', 'ACTIVE', ARRAY['Writing', 'Content Marketing']), (204, 'robert taylor', '4', '2022-11-30', 'active', ARRAY['Security', 'Networking']), (205, 'susan anderson', '2', '2023-07-10', 'inactive', ARRAY['Graphic Design']), (206, 'michael davis', '4', '2023-08-05', 'active', ARRAY['AI', 'Robotics']), (207, 'patricia wilson', '3', '2023-09-12', 'active', ARRAY['Project Management']), (208, 'christopher moore', '5', '2023-02-28', 'suspended', ARRAY['Leadership']), (209, 'jennifer jackson', '1', '2023-03-15', 'active', ARRAY['Languages']), (210, 'daniel white', '4', '2023-01-20', 'active', ARRAY['Database', 'SQL', 'NoSQL']); INSERT INTO course_offerings (offering_id, instructor_id, course_code, per_student_fee) VALUES (101, 201, 'FIN101', 320.00), (102, 201, 'ACC201', 280.00), (103, 201, 'TAX301', 400.00), (104, 202, 'PHOTO101', 150.00), (105, 202, 'PHOTO201', 180.00), (106, 203, 'WRITE101', 220.00), (107, 203, 'CONTENT201', 260.00), (108, 203, 'WRITE301', 300.00), (109, 206, 'AI101', 500.00), (110, 206, 'AI201', 550.00), (111, 206, 'ROBOT301', 480.00), (112, 207, 'PM101', 350.00), (113, 207, 'PM201', 390.00), (114, 209, 'LANG101', 120.00), (115, 210, 'DB101', 310.00), (116, 210, 'SQL201', 340.00), (117, 210, 'NOSQL301', 370.00);",
+  "test_expected_columns": [
+    "instructor_id",
+    "instructor_name",
+    "certification_level",
+    "min_fee",
+    "primary_category"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Maria Garcia",
+      5,
+      "280.00",
+      "Finance"
+    ],
+    [
+      202,
+      "James Brown",
+      1,
+      "0.00",
+      "Photography"
+    ],
+    [
+      203,
+      "Linda Martinez",
+      3,
+      "220.00",
+      "Writing"
+    ],
+    [
+      206,
+      "Michael Davis",
+      4,
+      "480.00",
+      "AI"
+    ],
+    [
+      207,
+      "Patricia Wilson",
+      3,
+      "350.00",
+      "Project Management"
+    ],
+    [
+      209,
+      "Jennifer Jackson",
+      1,
+      "0.00",
+      "Languages"
+    ],
+    [
+      210,
+      "Daniel White",
+      4,
+      "310.00",
+      "Database"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "same_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "join instructors to course_offerings on instructor_id",
+      "filter instructors by approval_date >= literal date AND LOWER(status) = 'active'",
+      "per instructor: find MIN(per_student_fee) from course_offerings",
+      "gate: CASE WHEN cert_level_text::INT >= 3 THEN min_fee ELSE 0",
+      "clean: TRIM and INITCAP instructor_name, cast cert_level_text to INT, extract specializations[1]",
+      "output one row per qualifying instructor ordered by instructor_id"
+    ]
+  },
+  "hints": [
+    "You need to combine instructor attributes with their course fees, then pick the smallest fee per instructor.",
+    "Filter instructors by converting their status to lowercase and comparing, and by casting their approval date string to a date for comparison with January 1, 2023.",
+    "Use MIN to find the lowest fee per instructor, then wrap it in a CASE that checks whether the instructor's certification level (cast to integer) is at least 3\u2014if not, output 0 instead of the minimum."
+  ],
+  "answer_key": "WITH instructor_min_fees AS (SELECT i.instructor_id, INITCAP(TRIM(i.instructor_name)) AS instructor_name, i.cert_level_text::INT AS certification_level, i.specializations[1] AS primary_category, MIN(co.per_student_fee) AS actual_min_fee FROM instructors i JOIN course_offerings co ON i.instructor_id = co.instructor_id WHERE i.approval_date::DATE >= DATE '2023-01-01' AND LOWER(i.status) = 'active' GROUP BY i.instructor_id, i.instructor_name, i.cert_level_text, i.specializations) SELECT instructor_id, instructor_name, certification_level, CASE WHEN certification_level >= 3 THEN actual_min_fee ELSE 0.00 END AS min_fee, primary_category FROM instructor_min_fees ORDER BY instructor_id;",
+  "_meta": {
+    "question_type": "gated_lookup",
+    "original_qtype": "gated_lookup",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-27T18:01:11.730119",
+    "problem_id": "8c23e0ecc7cb",
+    "validation_attempts": 1,
+    "scenario": "an online course platform tracking course completion and certification",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "case_keep",
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "high"
+  },
+  "example_output_schema": [
+    [
+      "instructor_id",
+      "INTEGER"
+    ],
+    [
+      "instructor_name",
+      "TEXT"
+    ],
+    [
+      "certification_level",
+      "INTEGER"
+    ],
+    [
+      "min_fee",
+      "NUMERIC"
+    ],
+    [
+      "primary_category",
+      "TEXT"
+    ]
+  ]
+}

@@ -6,6 +6,8 @@ I'm continuing work from a prior Cowork session on my **Data Analyst Interview P
 
 **Project location:** `<this project folder>/data_analyst_interview_prep/`. Connect/grant access to the **repo root `bitterscientist.com`** — the SQL recipe playbook lives outside this project at `folders/sql/sql_problem_patterns.html`, so the next session needs the common ancestor to reach both.
 
+**Scope (added 2026-06-26):** this project owns the interview-drill notebooks AND the `folders/sql` pattern blogs (sql_problem_patterns.html, python_problem_patterns.html). It is a SEPARATE cowork from the job-application project (`job_posting_resume_optimizer`), which handles resumes, cover letters, interview cheatsheets, and application tracking. Keep drill/blog work here; keep application work there.
+
 **Read these before doing anything:**
 1. `data_analyst_interview_prep/context.md` — full project context (start at "CURRENT STATE — read this first"): what each notebook is, the statistical methods notebook design (nb05), the roadmap, and the tone rules.
 2. `data_analyst_interview_prep/cowork_handoff.md` — folder layout + statistical methods flow (nb05) + architecture notes.

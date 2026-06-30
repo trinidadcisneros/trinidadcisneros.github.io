@@ -1,0 +1,223 @@
+{
+  "problem": {
+    "title": "Preferred Pharmacy Cheapest Prescription Cost",
+    "prompt": "You are working with a same-day medication delivery service that partners with multiple retail pharmacies. The network maintains a preferred-pharmacy roster based on delivery performance; only pharmacies with an on-time percentage of 85% or higher are eligible for automated prescription routing. Each prescription may have multiple fulfillment offers from different pharmacies with varying costs. Write a query that returns one row per prescription showing the cheapest available cost among all offers, but ONLY if the cheapest offer comes from a preferred pharmacy (on_time_pct >= 85). If the cheapest offer is from a non-preferred pharmacy, output 0 as the cost. The output must include prescription_code (the full NDC-like code from the prescriptions table, cleaned and uppercased), pharmacy_name (the trading name from the pharmacy, title-cased with whitespace trimmed), region (the first US state abbreviation from the service_areas array in the pharmacies table), cheapest_cost (the minimum offered cost, or 0 if non-preferred), and delivery_month (the month name extracted from the prescription's written date). Order the results by prescription_code ascending. This problem is modeled on public procurement and healthcare claims datasets (data.gov, CMS).",
+    "display": {
+      "context": "You are working with a same-day medication delivery service that partners with multiple retail pharmacies based on their on-time delivery performance.",
+      "task": "Write a query that returns the cheapest prescription cost per prescription, but only if the cheapest offer comes from a preferred pharmacy with on-time percentage of 85% or higher; otherwise output 0.",
+      "table_notes": {
+        "pharmacies": "Holds each pharmacy's performance metrics including on_time_pct and service areas",
+        "prescription_offers": "Contains multiple cost offers per prescription from different pharmacies"
+      },
+      "output_field_notes": {
+        "prescription_code": "The prescription's national drug code identifier in clean uppercase format",
+        "pharmacy_name": "The name of the pharmacy that offered the cheapest cost",
+        "region": "The first US state abbreviation served by that pharmacy",
+        "cheapest_cost": "The minimum offered cost if from a preferred pharmacy, otherwise 0",
+        "delivery_month": "The month name when the prescription was written"
+      },
+      "field_logic": [
+        "prescription_code: take the raw code from the prescriptions table, remove any whitespace, and convert to uppercase",
+        "pharmacy_name: take the trading name from the pharmacy, remove surrounding whitespace, and capitalize each word",
+        "region: extract the first element from the service areas array",
+        "cheapest_cost: find the minimum offered cost across all offers for the prescription; if the pharmacy offering that minimum has on_time_pct of 85 or higher, use that cost; otherwise use 0",
+        "delivery_month: extract the month name from the prescription written date"
+      ],
+      "edge_cases": [
+        "If a prescription has multiple offers at the same minimum cost from different pharmacies, pick any one of them for the pharmacy name and region",
+        "If the pharmacy with the cheapest offer has on_time_pct below 85, the cheapest_cost must be 0",
+        "If the on_time_pct is exactly 85, the pharmacy qualifies as preferred"
+      ],
+      "filter_note": "All prescriptions are included in the output regardless of whether their cheapest offer is preferred",
+      "order_by_note": "Results are ordered by prescription_code in ascending alphabetical order"
+    },
+    "schema_ddl": "CREATE TABLE pharmacies (pharmacy_id INT PRIMARY KEY, trading_name VARCHAR(100), on_time_pct NUMERIC(5,2), service_areas TEXT[]); CREATE TABLE prescription_offers (offer_id INT PRIMARY KEY, prescription_code_raw VARCHAR(50), pharmacy_id INT, offered_cost NUMERIC(10,2), written_date VARCHAR(20));",
+    "example_input_data": "INSERT INTO pharmacies (pharmacy_id, trading_name, on_time_pct, service_areas) VALUES (1, '  QuickMeds Express  ', 92.50, ARRAY['CA', 'NV', 'AZ']), (2, 'healthPLUS pharmacy', 78.00, ARRAY['TX', 'OK']), (3, ' APEX Wellness ', 88.30, ARRAY['NY', 'NJ', 'CT']), (4, 'cornerstone RX', 85.00, ARRAY['FL', 'GA']); INSERT INTO prescription_offers (offer_id, prescription_code_raw, pharmacy_id, offered_cost, written_date) VALUES (101, ' ndc-12345 ', 1, 45.00, '2024-03-15'), (102, ' ndc-12345 ', 2, 38.00, '2024-03-15'), (103, 'NDC-67890', 3, 120.00, '2024-04-22'), (104, 'NDC-67890', 4, 115.00, '2024-04-22'), (105, ' ndc-11111 ', 1, 22.50, '2024-05-10'), (106, ' ndc-11111 ', 3, 25.00, '2024-05-10'), (107, 'ndc-22222', 2, 95.00, '2024-06-08');",
+    "example_output_columns": [
+      "prescription_code",
+      "pharmacy_name",
+      "region",
+      "cheapest_cost",
+      "delivery_month"
+    ],
+    "example_output_rows": [
+      [
+        "NDC-11111",
+        "Quickmeds Express",
+        "CA",
+        "22.50",
+        "May"
+      ],
+      [
+        "NDC-12345",
+        "Healthplus Pharmacy",
+        "TX",
+        "0.00",
+        "March"
+      ],
+      [
+        "NDC-22222",
+        "Healthplus Pharmacy",
+        "TX",
+        "0.00",
+        "June"
+      ],
+      [
+        "NDC-67890",
+        "Cornerstone Rx",
+        "FL",
+        "115.00",
+        "April"
+      ]
+    ],
+    "test_data": "INSERT INTO pharmacies (pharmacy_id, trading_name, on_time_pct, service_areas) VALUES (1, '  QuickMeds Express  ', 92.50, ARRAY['CA', 'NV', 'AZ']), (2, 'healthPLUS pharmacy', 78.00, ARRAY['TX', 'OK']), (3, ' APEX Wellness ', 88.30, ARRAY['NY', 'NJ', 'CT']), (4, 'cornerstone RX', 85.00, ARRAY['FL', 'GA']), (5, 'metro health co', 91.20, ARRAY['IL', 'IN', 'WI']), (6, '  VALUE rx chain  ', 82.50, ARRAY['OH', 'MI']), (7, 'premier scripts', 86.70, ARRAY['WA', 'OR']), (8, 'budget meds', 74.30, ARRAY['NC', 'SC']); INSERT INTO prescription_offers (offer_id, prescription_code_raw, pharmacy_id, offered_cost, written_date) VALUES (201, ' ndc-10001 ', 1, 35.00, '2024-01-12'), (202, ' ndc-10001 ', 2, 28.00, '2024-01-12'), (203, ' ndc-10001 ', 5, 30.00, '2024-01-12'), (204, 'NDC-10002', 3, 150.00, '2024-02-18'), (205, 'NDC-10002', 4, 145.00, '2024-02-18'), (206, 'NDC-10002', 6, 140.00, '2024-02-18'), (207, ' ndc-10003 ', 7, 55.00, '2024-03-05'), (208, ' ndc-10003 ', 8, 52.00, '2024-03-05'), (209, 'ndc-10004', 1, 88.00, '2024-04-20'), (210, 'ndc-10004', 3, 92.00, '2024-04-20'), (211, ' NDC-10005 ', 2, 18.00, '2024-05-15'), (212, ' NDC-10005 ', 5, 19.50, '2024-05-15'), (213, ' NDC-10005 ', 7, 17.00, '2024-05-15'), (214, 'ndc-10006', 4, 200.00, '2024-06-10'), (215, 'ndc-10006', 6, 195.00, '2024-06-10'), (216, 'NDC-10007', 1, 110.00, '2024-07-22'), (217, 'NDC-10007', 5, 105.00, '2024-07-22'), (218, ' ndc-10008 ', 3, 65.00, '2024-08-30'), (219, ' ndc-10008 ', 8, 60.00, '2024-08-30'), (220, 'ndc-10009', 7, 42.00, '2024-09-14'), (221, ' NDC-10010 ', 4, 78.00, '2024-10-05'), (222, ' NDC-10010 ', 5, 75.00, '2024-10-05'), (223, ' NDC-10010 ', 2, 72.00, '2024-10-05');",
+    "test_expected_columns": [
+      "prescription_code",
+      "pharmacy_name",
+      "region",
+      "cheapest_cost",
+      "delivery_month"
+    ],
+    "test_expected_rows": [
+      [
+        "NDC-10001",
+        "Healthplus Pharmacy",
+        "TX",
+        "0.00",
+        "January"
+      ],
+      [
+        "NDC-10002",
+        "Value Rx Chain",
+        "OH",
+        "0.00",
+        "February"
+      ],
+      [
+        "NDC-10003",
+        "Budget Meds",
+        "NC",
+        "0.00",
+        "March"
+      ],
+      [
+        "NDC-10004",
+        "Quickmeds Express",
+        "CA",
+        "88.00",
+        "April"
+      ],
+      [
+        "NDC-10005",
+        "Premier Scripts",
+        "WA",
+        "17.00",
+        "May"
+      ],
+      [
+        "NDC-10006",
+        "Value Rx Chain",
+        "OH",
+        "0.00",
+        "June"
+      ],
+      [
+        "NDC-10007",
+        "Metro Health Co",
+        "IL",
+        "105.00",
+        "July"
+      ],
+      [
+        "NDC-10008",
+        "Budget Meds",
+        "NC",
+        "0.00",
+        "August"
+      ],
+      [
+        "NDC-10009",
+        "Premier Scripts",
+        "WA",
+        "42.00",
+        "September"
+      ],
+      [
+        "NDC-10010",
+        "Healthplus Pharmacy",
+        "TX",
+        "0.00",
+        "October"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "same_rows",
+      "recipe": "enrich-join",
+      "composite_moves": [
+        "join pharmacies to prescription_offers on pharmacy_id to bring on_time_pct attribute",
+        "per-entity (prescription_code) pick the minimum offered_cost using window function or subquery",
+        "gate with CASE: if the pharmacy offering the minimum has on_time_pct >= 85 use that cost, else 0",
+        "clean prescription_code_raw with TRIM and UPPER",
+        "clean trading_name with TRIM and INITCAP",
+        "extract first element from service_areas array",
+        "cast written_date from VARCHAR to DATE",
+        "extract month name from the date using TO_CHAR",
+        "round the final cost to two decimals"
+      ]
+    },
+    "hints": [
+      "You need to identify which pharmacy offered the cheapest cost for each prescription, then check that pharmacy's on_time percentage.",
+      "Use a window function like ROW_NUMBER partitioned by prescription to find the cheapest offer per prescription, then join back to the pharmacies table to get the performance metric.",
+      "The final SELECT should use CASE to check: if the pharmacy with ROW_NUMBER = 1 has on_time_pct >= 85, output the cost; otherwise output 0. Remember to clean the prescription code (TRIM and UPPER), the pharmacy name (TRIM and INITCAP), extract the first service area from the array, cast the date string, and extract the month name."
+    ],
+    "answer_key": "WITH ranked_offers AS (SELECT UPPER(TRIM(prescription_code_raw)) AS prescription_code, pharmacy_id, offered_cost, written_date, ROW_NUMBER() OVER (PARTITION BY UPPER(TRIM(prescription_code_raw)) ORDER BY offered_cost ASC, pharmacy_id ASC) AS rn FROM prescription_offers), cheapest AS (SELECT r.prescription_code, r.pharmacy_id, r.offered_cost, r.written_date FROM ranked_offers r WHERE r.rn = 1) SELECT c.prescription_code, INITCAP(TRIM(p.trading_name)) AS pharmacy_name, p.service_areas[1] AS region, CASE WHEN p.on_time_pct >= 85 THEN ROUND(c.offered_cost, 2) ELSE 0.00 END AS cheapest_cost, TO_CHAR(c.written_date::DATE, 'FMMonth') AS delivery_month FROM cheapest c JOIN pharmacies p ON c.pharmacy_id = p.pharmacy_id ORDER BY c.prescription_code ASC;",
+    "_meta": {
+      "question_type": "gated_lookup",
+      "original_qtype": "gated_lookup",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-27T14:31:00.819553",
+      "problem_id": "a1f76db51322",
+      "validation_attempts": 1,
+      "scenario": "a same day medication delivery service tracking on-time delivery performance",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "case_keep",
+      "cleaning_required": true,
+      "cleaning_level": "high",
+      "cleaning_all_six": true,
+      "cleaning_per_category": 1,
+      "cleaning_bonus": null,
+      "typecast_twist": true,
+      "realism": "high"
+    },
+    "example_output_schema": [
+      [
+        "prescription_code",
+        "TEXT"
+      ],
+      [
+        "pharmacy_name",
+        "TEXT"
+      ],
+      [
+        "region",
+        "TEXT"
+      ],
+      [
+        "cheapest_cost",
+        "NUMERIC"
+      ],
+      [
+        "delivery_month",
+        "TEXT"
+      ]
+    ]
+  },
+  "user_solution": "/*\n- only pharmacies with an on-time percentage of 85% or higher are eligible for automated prescription routing.\n- Each prescription may have multiple fulfillment offers from different pharmacies with varying costs.\n- CASE WHEN on_time_pct >= 85 THEN MIN(offered_cost) ELSE 0.00\n\n\n\n\nTable: pharmacies\nHolds each pharmacy's performance metrics including on_time_pct and service areas\npharmacy_id\t                        INT PRIMARY KEY\ntrading_name\t                    VARCHAR(100)\non_time_pct\t                        NUMERIC(5,2)\nservice_areas\t                    TEXT[]\n\nTable: prescription_offers\nContains multiple cost offers per prescription from different pharmacies\noffer_id\t                        INT PRIMARY KEY\nprescription_code_raw\t            VARCHAR(50)\npharmacy_id\t                        INT\noffered_cost\t                    NUMERIC(10,2)\nwritten_date\t                    VARCHAR(20)\n\nOUTPUT\nprescription_code,\npharmacy_name,\nregion,\ncheapest_cost,\ndelivery_month\n\n*/\n\nSELECT \n    prescription_code,\n    pharmacy_name, \n    region, \n    CASE WHEN on_time_pct >= 85 THEN offered_cost ELSE 0 END AS cheapest_cost,\n    delivery_month\nFROM (\n    SELECT UPPER(TRIM(o.prescription_code_raw)) AS prescription_code, \n           INITCAP(TRIM(p.trading_name)) AS pharmacy_name, \n           service_areas[1] AS region, \n           offered_cost, \n           on_time_pct,\n           TO_CHAR(written_date::date, 'FMMonth') AS  delivery_month,\n           ROW_NUMBER() OVER (PARTITION BY UPPER(TRIM(o.prescription_code_raw)) ORDER BY offered_cost) AS rn\n    FROM pharmacies AS p\n    LEFT JOIN prescription_offers AS o\n    USING(pharmacy_id)\n) ranked\nWHERE rn = 1\nORDER BY prescription_code;\n\n",
+  "solved_at": "2026-06-27T15:10:11.487273"
+}

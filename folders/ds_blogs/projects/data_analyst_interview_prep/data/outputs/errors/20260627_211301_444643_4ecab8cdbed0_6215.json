@@ -1,0 +1,54 @@
+{
+  "logged_at": "2026-06-27T21:13:01.444643",
+  "failure_kind": "sql_error",
+  "problem_id": "4ecab8cdbed0",
+  "question_type": "enrich_join",
+  "original_qtype": "enrich_join",
+  "subtype": "compound",
+  "scenario": "a digital pharmacy tracking prescription submissions through PBM adjudication",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "enrich-join",
+  "title": "High-Utilizer Pharmacies with Expensive Claims",
+  "prompt": "You are working with a digital pharmacy tracking prescription submissions through PBM adjudication, modeled on CMS Medicare Part D datasets (data.gov). The `claims` table tracks each submitted claim with its adjudication status stored as text, dispensed quantity stored as text, and a list of NDC codes (National Drug Codes) in an array. The `pharmacies` table holds pharmacy information with tax IDs stored as text including spaces and capitalization inconsistencies. Write a query that identifies pharmacies meeting ALL of these conditions: (1) at least 3 PAID claims (adjudication_status = 'PAID'), (2) zero REJECTED claims (adjudication_status = 'REJECTED'), (3) total dispensed quantity across all PAID claims is at least 1000 units, and (4) at least one PAID claim dispensed a drug in the opioid category (the first NDC code in the ndc_list array starts with '60505'). For each qualifying pharmacy, return: the pharmacy NPI (national provider identifier), the pharmacy name cleaned (trimmed and title-cased), the tax ID cleaned (spaces removed and uppercased), the total dispensed quantity across PAID claims rounded to the nearest integer, the month name (no padding) of the most recent PAID claim, and the count of PAID claims. Order the output by total dispensed quantity descending, then by pharmacy NPI ascending.",
+  "schema_ddl": "CREATE TABLE pharmacies (pharmacy_npi VARCHAR(10) PRIMARY KEY, pharmacy_name VARCHAR(100), tax_id VARCHAR(20)); CREATE TABLE claims (claim_id VARCHAR(20) PRIMARY KEY, pharmacy_npi VARCHAR(10), adjudication_status VARCHAR(20), dispensed_quantity VARCHAR(10), submission_date VARCHAR(10), ndc_list TEXT[]);",
+  "answer_key": "WITH pharmacy_stats AS (SELECT c.pharmacy_npi, COUNT(CASE WHEN c.adjudication_status = 'PAID' THEN 1 END) AS paid_count, COUNT(CASE WHEN c.adjudication_status = 'REJECTED' THEN 1 END) AS rejected_count, SUM(CASE WHEN c.adjudication_status = 'PAID' THEN c.dispensed_quantity::NUMERIC ELSE 0 END) AS total_quantity, MAX(CASE WHEN c.adjudication_status = 'PAID' THEN c.submission_date::DATE END) AS most_recent_date, COUNT(CASE WHEN c.adjudication_status = 'PAID' AND SUBSTRING(c.ndc_list[1], 1, 5) = '60505' THEN 1 END) AS opioid_count FROM claims c GROUP BY c.pharmacy_npi) SELECT ps.pharmacy_npi, INITCAP(TRIM(p.pharmacy_name)) AS pharmacy_name, UPPER(REPLACE(p.tax_id, ' ', '')) AS tax_id, ROUND(ps.total_quantity) AS total_quantity, TO_CHAR(ps.most_recent_date, 'FMMonth') AS most_recent_month, ps.paid_count AS paid_claim_count FROM pharmacy_stats ps JOIN pharmacies p ON ps.pharmacy_npi = p.pharmacy_npi WHERE ps.paid_count >= 3 AND ps.rejected_count = 0 AND ps.total_quantity >= 1000 AND ps.opioid_count >= 1 ORDER BY ps.total_quantity DESC, ps.pharmacy_npi ASC;",
+  "test_expected_columns": [
+    "pharmacy_npi",
+    "pharmacy_name",
+    "tax_id",
+    "total_quantity",
+    "most_recent_month",
+    "paid_claim_count"
+  ],
+  "test_expected_rows": [
+    [
+      "4444444444",
+      "North Medical Rx",
+      "40-4040404",
+      "1800",
+      "March",
+      3
+    ],
+    [
+      "6666666666",
+      "West Care Scripts",
+      "60-6060606",
+      "1350",
+      "March",
+      3
+    ],
+    [
+      "1111111111",
+      "Prime  Health Rx",
+      "10-1010101",
+      "1150",
+      "April",
+      4
+    ]
+  ],
+  "user_solution": "/*\nWrite a query that identifies pharmacies meeting ALL of these conditions:\nat least 3 PAID claims (adjudication_status = 'PAID'),\nzero REJECTED claims (adjudication_status = 'REJECTED'),\ntotal dispensed quantity across all PAID claims is at least 1000 units, and\nat least one PAID claim dispensed a drug in the opioid category (the first NDC code in the ndc_list array starts with '60505')\nFor each qualifying pharmacy, return: the pharmacy NPI (national provider identifier), the pharmacy name cleaned (trimmed and title-cased), the tax ID cleaned (spaces removed and uppercased), the total dispensed quantity across PAID claims rounded to the nearest integer, the month name (no padding) of the most recent PAID claim, and the count of PAID claims.\nOrder the output by total dispensed quantity descending, then by pharmacy NPI ascending.\n*/\n\nSELECT\n    p.pharmacy_npi,\n    INITCAP(TRIM(p.pharmacy_name)) AS pharmacy_name,\n    REPLACE(p.tax_id, ' ',  '') AS tax_id,\n    SUM(c.dispensed_quantity::int)::int AS total_quantity,\n    MAX(submission_date::date) AS most_recent_month,\n    SUM(CASE WHEN c.adjudication_status = 'PAID' THEN 1 ELSE 0 END) AS paid_claim_count\nFROM pharmacies AS p\nLEFT JOIN claims AS c\nON p.pharmacy_npi = c.pharmacy_npi\nWHERE c.adjudication_status = 'PAID'\nGROUP BY 1\nHAVING SUM(CASE WHEN c.adjudication_status = 'PAID' THEN 1 ELSE 0 END) >= 3 \n        AND SUM(CASE WHEN c.adjudication_status = 'PAID' THEN c.dispensed_quantity::int ELSE 0 END) >= 1000\n        AND SUM(CASE WHEN '60505' = SPLIT_PART(c.ndc_list, '-', 1) THEN 1 ELSE 0 END) > 0\nORDER BY total_quantity DESC, pharmacy_npi;\n\n\n\n\n\n",
+  "error_message": "function split_part(text[], unknown, integer) does not exist\nLINE 25:         AND SUM(CASE WHEN '60505' = SPLIT_PART(c.ndc_list, '...\n                                             ^\nHINT:  No function matches the given name and argument types. You might need to add explicit type casts.\n",
+  "your_columns": null,
+  "your_rows": null
+}

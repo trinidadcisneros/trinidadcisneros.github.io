@@ -1,0 +1,158 @@
+{
+  "title": "Cashback Gate by Account Tier",
+  "prompt": "You are working with a neobank modeled on public consumer finance datasets. The bank awards cashback on debit card swipes only for accounts that meet a minimum tier. Each account has a tier level (1-5) stored in the `accounts` table. The `swipes` table records debit card transactions; each row includes a merchant category array and a gross swipe amount stored as text. The tier gate is tier >= 3. For qualifying accounts, compute the cashback by summing the first element of each merchant category array (a numeric category code stored as text) and multiplying by 0.01, then round to two decimal places. For accounts below tier 3, output 0.00 as the cashback. Each account name is stored with leading/trailing whitespace and should be cleaned and title-cased in the output. The swipe amount is stored as VARCHAR and must be cast to numeric. Each swipe has a timestamp; extract the month number and use it as a weighting factor: cashback contribution = (category_code * 0.01 * amount * month_number). Return one row per account with columns: account_name, tier, total_cashback. Order by account_name ascending. Accounts with no swipes should appear with 0.00 cashback.",
+  "display": {
+    "context": "You are working with a neobank modeled on public consumer finance datasets.",
+    "task": "Write a query that computes cashback for each account, gated by a tier threshold.",
+    "table_notes": {
+      "accounts": "one row per account with tier level and name",
+      "swipes": "one row per debit card swipe with merchant categories, amount text, and timestamp"
+    },
+    "output_field_notes": {
+      "account_name": "the account holder name cleaned and title-cased",
+      "tier": "the account tier level",
+      "total_cashback": "the cashback amount rounded to two decimal places, 0.00 if tier is below 3"
+    },
+    "field_logic": [
+      "account_name: take the name from the accounts table, remove leading and trailing spaces, and capitalize each word",
+      "total_cashback: for each swipe, take the first element of the merchant category array, cast it from text to a number, multiply by 0.01, multiply by the swipe amount cast to numeric, multiply by the month number extracted from the swipe timestamp, sum across all swipes for the account, and round to two decimal places; if the account tier is below 3, output 0.00 instead"
+    ],
+    "edge_cases": [
+      "If an account has no swipes, output 0.00 as the cashback.",
+      "If an account tier is below 3, output 0.00 regardless of swipes."
+    ],
+    "filter_note": "All accounts are included in the output.",
+    "order_by_note": "Results are ordered by account_name ascending."
+  },
+  "schema_ddl": "CREATE TABLE accounts (account_id INT PRIMARY KEY, account_name VARCHAR(100), tier INT); CREATE TABLE swipes (swipe_id INT PRIMARY KEY, account_id INT, merchant_categories TEXT[], swipe_amount VARCHAR(20), swipe_ts TIMESTAMP);",
+  "example_input_data": "INSERT INTO accounts (account_id, account_name, tier) VALUES (1, '  alice CHEN  ', 4), (2, ' bob TAYLOR ', 2), (3, ' CAROL kim  ', 3), (4, '  dan LEE  ', 1); INSERT INTO swipes (swipe_id, account_id, merchant_categories, swipe_amount, swipe_ts) VALUES (101, 1, ARRAY['12', '34'], '150.00', '2024-01-15 10:00:00'), (102, 1, ARRAY['25', '67'], '200.00', '2024-02-20 14:00:00'), (103, 2, ARRAY['30', '45'], '100.00', '2024-03-10 09:00:00'), (104, 3, ARRAY['18', '56'], '80.00', '2024-01-25 16:00:00'), (105, 3, ARRAY['22', '78'], '120.00', '2024-04-05 11:00:00');",
+  "example_output_columns": [
+    "account_name",
+    "tier",
+    "total_cashback"
+  ],
+  "example_output_rows": [
+    [
+      "Alice Chen",
+      4,
+      "118.00"
+    ],
+    [
+      "Bob Taylor",
+      2,
+      "0.00"
+    ],
+    [
+      "Carol Kim",
+      3,
+      "120.00"
+    ],
+    [
+      "Dan Lee",
+      1,
+      "0.00"
+    ]
+  ],
+  "test_data": "INSERT INTO accounts (account_id, account_name, tier) VALUES (1, '  alice CHEN  ', 4), (2, ' bob TAYLOR ', 2), (3, ' CAROL kim  ', 3), (4, '  dan LEE  ', 1), (5, '  eve GARCIA  ', 5), (6, ' frank BROWN ', 3), (7, '  grace MILLER  ', 2); INSERT INTO swipes (swipe_id, account_id, merchant_categories, swipe_amount, swipe_ts) VALUES (101, 1, ARRAY['12', '34'], '150.00', '2024-01-15 10:00:00'), (102, 1, ARRAY['25', '67'], '200.00', '2024-02-20 14:00:00'), (103, 2, ARRAY['30', '45'], '100.00', '2024-03-10 09:00:00'), (104, 3, ARRAY['18', '56'], '80.00', '2024-01-25 16:00:00'), (105, 3, ARRAY['22', '78'], '120.00', '2024-04-05 11:00:00'), (106, 5, ARRAY['10', '20'], '300.00', '2024-05-12 08:00:00'), (107, 5, ARRAY['15', '30'], '250.00', '2024-06-18 13:00:00'), (108, 6, ARRAY['20', '40'], '180.00', '2024-07-22 15:00:00'), (109, 6, ARRAY['8', '16'], '90.00', '2024-08-30 12:00:00'), (110, 2, ARRAY['35', '50'], '120.00', '2024-09-05 10:00:00'), (111, 7, ARRAY['5', '10'], '60.00', '2024-10-14 14:00:00'), (112, 1, ARRAY['28', '42'], '175.00', '2024-11-20 09:00:00'), (113, 3, ARRAY['14', '28'], '95.00', '2024-12-08 11:00:00');",
+  "test_expected_columns": [
+    "account_name",
+    "tier",
+    "total_cashback"
+  ],
+  "test_expected_rows": [
+    [
+      "Alice Chen",
+      4,
+      "657.00"
+    ],
+    [
+      "Bob Taylor",
+      2,
+      "0.00"
+    ],
+    [
+      "Carol Kim",
+      3,
+      "279.60"
+    ],
+    [
+      "Dan Lee",
+      1,
+      "0.00"
+    ],
+    [
+      "Eve Garcia",
+      5,
+      "375.00"
+    ],
+    [
+      "Frank Brown",
+      3,
+      "309.60"
+    ],
+    [
+      "Grace Miller",
+      2,
+      "0.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "same_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "LEFT JOIN accounts to swipes to keep all accounts",
+      "For each swipe: extract first element from merchant_categories array and cast to numeric",
+      "Cast swipe_amount from VARCHAR to numeric",
+      "Extract month number from swipe_ts timestamp",
+      "Compute cashback contribution per swipe as category_code * 0.01 * amount * month_number",
+      "Aggregate (SUM) cashback contributions per account",
+      "Apply tier gate: if tier >= 3 use computed sum, else 0.00",
+      "Round total cashback to two decimal places",
+      "Clean account_name with TRIM and INITCAP for output"
+    ]
+  },
+  "hints": [
+    "Consider how to handle accounts that do not meet the tier requirement.",
+    "Think about extracting values from arrays and converting text fields to numbers before calculations.",
+    "Remember to apply a conditional check on the tier to decide between the computed cashback and a fallback value."
+  ],
+  "answer_key": "SELECT INITCAP(TRIM(a.account_name)) AS account_name, a.tier, ROUND(CASE WHEN a.tier >= 3 THEN COALESCE(SUM((s.merchant_categories[1])::NUMERIC * 0.01 * s.swipe_amount::NUMERIC * EXTRACT(MONTH FROM s.swipe_ts)), 0) ELSE 0 END, 2) AS total_cashback FROM accounts a LEFT JOIN swipes s ON a.account_id = s.account_id GROUP BY a.account_id, a.account_name, a.tier ORDER BY account_name;",
+  "_meta": {
+    "question_type": "gated_lookup",
+    "original_qtype": "gated_lookup",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-27T19:43:17.670238",
+    "problem_id": "a7f32876798d",
+    "validation_attempts": 2,
+    "scenario": "a neobank tracking debit card swipes and deposit funnel",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "case_inside",
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "high"
+  },
+  "example_output_schema": [
+    [
+      "account_name",
+      "TEXT"
+    ],
+    [
+      "tier",
+      "INTEGER"
+    ],
+    [
+      "total_cashback",
+      "NUMERIC"
+    ]
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "logged_at": "2026-06-26T16:33:58.591116",
+  "failure_kind": "sql_error",
+  "problem_id": "95045cdb6c1f",
+  "question_type": "select_analytical",
+  "original_qtype": "select_analytical",
+  "subtype": null,
+  "scenario": "an online course platform tracking course completion and certification",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "enrich-join",
+  "title": "Course Completion with Tag Filtering",
+  "prompt": "You are analyzing completion data from an online learning platform, modeled on open education datasets like those from data.gov and EdX public reports. Each completion record includes a `completion_date_text` stored as VARCHAR (format 'YYYY-MM-DD'), a `course_id_code` that may have leading/trailing spaces, a `completion_tags` array indicating delivery modes (e.g., '{\"self_paced\", \"instructor_led\"}'), and a `score_text` stored as VARCHAR. Your task: For all courses with at least one completion tagged 'self_paced' in the second half of 2024 (July 1 onward), calculate the average score (from the numeric interpretation of `score_text`) and the count of distinct learners who completed each course. Filter to courses where the average score exceeds 75.0. Return columns: `course_title`, `avg_score` (rounded to 1 decimal), and `learner_count`. Order by `avg_score` descending, then by `course_title` ascending. Courses with NULL scores should be excluded from average calculations. Any course title should appear in Title Case format.",
+  "schema_ddl": "CREATE TABLE courses (course_id VARCHAR(20) PRIMARY KEY, course_title VARCHAR(200), category VARCHAR(50)); CREATE TABLE completions (completion_id SERIAL PRIMARY KEY, course_id_code VARCHAR(20), learner_id INT, completion_date_text VARCHAR(20), score_text VARCHAR(10), completion_tags TEXT[]);",
+  "answer_key": "SELECT INITCAP(c.course_title) AS course_title, ROUND(AVG(NULLIF(TRIM(comp.score_text), '')::NUMERIC), 1) AS avg_score, COUNT(DISTINCT comp.learner_id) AS learner_count FROM courses c JOIN completions comp ON c.course_id = TRIM(comp.course_id_code) WHERE comp.completion_date_text::DATE >= DATE '2024-07-01' AND 'self_paced' = ANY(comp.completion_tags) AND NULLIF(TRIM(comp.score_text), '') IS NOT NULL GROUP BY c.course_id, c.course_title HAVING AVG(NULLIF(TRIM(comp.score_text), '')::NUMERIC) > 75.0 ORDER BY avg_score DESC, course_title ASC;",
+  "test_expected_columns": [
+    "course_title",
+    "avg_score",
+    "learner_count"
+  ],
+  "test_expected_rows": [
+    [
+      "Cybersecurity Essentials",
+      "90.0",
+      3
+    ],
+    [
+      "Data Analysis Basics",
+      "84.3",
+      4
+    ],
+    [
+      "Introduction To Python",
+      "81.0",
+      4
+    ],
+    [
+      "Database Design",
+      "75.5",
+      2
+    ]
+  ],
+  "user_solution": "/*\nPURPOSE\n- AnalyzE completion data from an online learning platform\n- Each completion record includes a \n\ncompletion_date_text   stored as VARCHAR (format 'YYYY-MM-DD')\ncourse_id_code         that may have leading/trailing spaces\ncompletion_tags        array \nscore_text             stored as VARCHAR.\n\nOUTPUT\ncourse_title\t        courses\navg_score               completions\nlearner_count           completions\n\nCONDITIONS\n- At least one 'self_paced' = ANY(completion_tags) in the >= '2024-07-01' \n- AVG(score_text::int) AS avg_score\n- Courses with NULL scores should be excluded from average calculations.\n- COUNT(DISTINCT(learner_id::int)) AS learner_count\n- HAVING(AVG(score_text::int)) >= 75\n- Any course title should appear in Title Case format.\n\nORDER BY avg_score DESC, course_title;\n\n1. JOIN\n2. AGGREGATE\n3. FILTER\n*/\nSELECT\n    INITCAP(TRIM(cs.course_title)) AS course_title,\n    ROUND(AVG(cl.score_text::int), 1) AS avg_score,\n    COUNT(DISTINCT cl.learner_id) AS learner_count\nFROM completions AS cl\nJOIN courses AS cs\n    ON TRIM(cs.course_id) = TRIM(cl.course_id_code)\nWHERE TRIM(cl.completion_date_text)::date >= '2024-07-01' \n        AND TRIM(cl.completion_date_text)::date < '2025-01-01'\n        AND cl.score_text IS NOT NULL\n        AND 'self_paced' = ANY(completion_tags)\nGROUP BY 1\nHAVING(AVG(score_text::int)) >= 75 \nORDER BY avg_score DESC, course_title;\n\n\n",
+  "error_message": "invalid input syntax for type integer: \"\"\n",
+  "your_columns": null,
+  "your_rows": null
+}

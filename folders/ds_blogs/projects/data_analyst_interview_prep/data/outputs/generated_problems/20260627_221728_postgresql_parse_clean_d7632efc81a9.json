@@ -1,0 +1,261 @@
+{
+  "title": "Extract Alert Tags and Metadata",
+  "prompt": "You are working with an observability platform modeled on public incident-response datasets (PagerDuty / DORA metrics). The alerts table stores each triggered alert with an array of classification tags (e.g., ['infra', 'network', 'p1']) and a raw `ack_duration` field captured as text with extra whitespace. Write a query that cleans and parses each alert to extract: the first tag (or 'untagged' if the array is empty), the total number of tags, whether the alert is tagged as 'database', and the acknowledged duration in minutes as a numeric value. Your output must include alert_id, first_tag, tag_count, is_database_alert (true/false), and ack_minutes. Order the results by alert_id ascending.",
+  "display": {
+    "context": "You are working with an observability platform modeled on public incident-response datasets (PagerDuty / DORA metrics).",
+    "task": "Write a query that cleans and parses each alert to extract the first tag, tag count, database membership flag, and acknowledgment duration in minutes.",
+    "table_notes": {
+      "alerts": "Stores each triggered alert with an array of classification tags and a raw acknowledgment duration field captured as text with extra whitespace"
+    },
+    "output_field_notes": {
+      "alert_id": "The unique identifier of the alert",
+      "first_tag": "The first tag in the tags array, or the literal text 'untagged' if the array is empty or NULL",
+      "tag_count": "The total number of tags in the tags array, or zero if the array is empty or NULL",
+      "is_database_alert": "A boolean flag indicating whether the tags array contains the value 'database'",
+      "ack_minutes": "The acknowledgment duration converted from the text field to a numeric value representing minutes"
+    },
+    "field_logic": [
+      "first_tag: extract the first element from the tags array; if the array is empty or NULL, substitute the literal text 'untagged'",
+      "tag_count: count the number of elements in the tags array; if the array is NULL, treat it as zero",
+      "is_database_alert: check whether the literal value 'database' appears anywhere in the tags array",
+      "ack_minutes: strip leading and trailing whitespace from the raw acknowledgment duration text, then convert it to a numeric value"
+    ],
+    "edge_cases": [
+      "If the tags array is NULL, then first_tag should be 'untagged' and tag_count should be zero",
+      "If the tags array is empty, then first_tag should be 'untagged' and tag_count should be zero",
+      "If the ack_duration text contains leading or trailing spaces, then those spaces must be removed before converting to a number"
+    ],
+    "filter_note": "All rows from the alerts table are included in the output",
+    "order_by_note": "The output rows are ordered by alert_id in ascending order"
+  },
+  "schema_ddl": "CREATE TABLE alerts (alert_id INT PRIMARY KEY, alert_name VARCHAR(100), tags TEXT[], ack_duration VARCHAR(20), severity VARCHAR(10));",
+  "example_input_data": "INSERT INTO alerts (alert_id, alert_name, tags, ack_duration, severity) VALUES (101, 'DB connection timeout', ARRAY['database', 'infra', 'p1'], '  12.5  ', 'high'), (102, 'API rate limit exceeded', ARRAY['api', 'network'], '8.0', 'medium'), (103, 'Disk usage warning', ARRAY['infra'], ' 15 ', 'low'), (104, 'Memory leak detected', NULL, '22.3', 'high'), (105, 'Cache eviction spike', ARRAY[]::TEXT[], '5.7', 'medium'), (106, 'Database replica lag', ARRAY['database', 'replication', 'p2'], '18.9', 'medium');",
+  "example_output_columns": [
+    "alert_id",
+    "first_tag",
+    "tag_count",
+    "is_database_alert",
+    "ack_minutes"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "database",
+      3,
+      true,
+      "12.5"
+    ],
+    [
+      102,
+      "api",
+      2,
+      false,
+      "8.0"
+    ],
+    [
+      103,
+      "infra",
+      1,
+      false,
+      "15"
+    ],
+    [
+      104,
+      "untagged",
+      0,
+      false,
+      "22.3"
+    ],
+    [
+      105,
+      "untagged",
+      0,
+      false,
+      "5.7"
+    ],
+    [
+      106,
+      "database",
+      3,
+      true,
+      "18.9"
+    ]
+  ],
+  "test_data": "INSERT INTO alerts (alert_id, alert_name, tags, ack_duration, severity) VALUES (201, 'CPU threshold breach', ARRAY['compute', 'infra', 'p1'], '10.2', 'high'), (202, 'SSL cert expiring', ARRAY['security', 'tls'], '  7.8  ', 'medium'), (203, 'Load balancer failure', ARRAY['network', 'infra'], '25.5', 'critical'), (204, 'Query timeout', ARRAY['database', 'performance'], '14.0  ', 'high'), (205, 'Backup job failed', NULL, ' 30.1', 'high'), (206, 'Message queue overflow', ARRAY['messaging', 'kafka'], '6.4', 'medium'), (207, 'DNS resolution slow', ARRAY['network'], '11.9 ', 'low'), (208, 'Prometheus scrape error', ARRAY[]::TEXT[], '  9.3  ', 'low'), (209, 'DB write latency', ARRAY['database', 'storage', 'p2'], '19.7', 'medium'), (210, 'Container restart loop', ARRAY['k8s', 'infra', 'p1'], '13.2', 'high'), (211, 'API gateway timeout', ARRAY['api', 'network', 'gateway'], '8.6', 'medium'), (212, 'Redis eviction rate high', ARRAY['cache', 'redis'], '  16.5', 'medium'), (213, 'Log ingestion delay', NULL, '21.0  ', 'low'), (214, 'Service mesh timeout', ARRAY['istio', 'network'], '12.8', 'high'), (215, 'Database connection pool', ARRAY['database', 'infra'], '  10.9  ', 'medium');",
+  "test_expected_columns": [
+    "alert_id",
+    "first_tag",
+    "tag_count",
+    "is_database_alert",
+    "ack_minutes"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "compute",
+      3,
+      false,
+      "10.2"
+    ],
+    [
+      202,
+      "security",
+      2,
+      false,
+      "7.8"
+    ],
+    [
+      203,
+      "network",
+      2,
+      false,
+      "25.5"
+    ],
+    [
+      204,
+      "database",
+      2,
+      true,
+      "14.0"
+    ],
+    [
+      205,
+      "untagged",
+      0,
+      false,
+      "30.1"
+    ],
+    [
+      206,
+      "messaging",
+      2,
+      false,
+      "6.4"
+    ],
+    [
+      207,
+      "network",
+      1,
+      false,
+      "11.9"
+    ],
+    [
+      208,
+      "untagged",
+      0,
+      false,
+      "9.3"
+    ],
+    [
+      209,
+      "database",
+      3,
+      true,
+      "19.7"
+    ],
+    [
+      210,
+      "k8s",
+      3,
+      false,
+      "13.2"
+    ],
+    [
+      211,
+      "api",
+      3,
+      false,
+      "8.6"
+    ],
+    [
+      212,
+      "cache",
+      2,
+      false,
+      "16.5"
+    ],
+    [
+      213,
+      "untagged",
+      0,
+      false,
+      "21.0"
+    ],
+    [
+      214,
+      "istio",
+      2,
+      false,
+      "12.8"
+    ],
+    [
+      215,
+      "database",
+      2,
+      true,
+      "10.9"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "row-transform",
+    "composite_moves": [
+      "parse-clean: extract-array-element",
+      "parse-clean: array-length",
+      "parse-clean: array-membership",
+      "parse-clean: trim-and-cast-numeric"
+    ]
+  },
+  "hints": [
+    "Look at PostgreSQL array functions for accessing elements by position and checking membership.",
+    "Use array indexing with [1] to get the first element, ARRAY_LENGTH to count elements, and the ANY operator to check if a value exists in the array.",
+    "Combine COALESCE to handle NULL/empty arrays for first_tag, COALESCE on ARRAY_LENGTH for tag_count, use 'database' = ANY(tags) for the flag, and TRIM then cast ::NUMERIC for ack_minutes."
+  ],
+  "answer_key": "SELECT alert_id, COALESCE(tags[1], 'untagged') AS first_tag, COALESCE(ARRAY_LENGTH(tags, 1), 0) AS tag_count, COALESCE('database' = ANY(tags), false) AS is_database_alert, TRIM(ack_duration)::NUMERIC AS ack_minutes FROM alerts ORDER BY alert_id;",
+  "_meta": {
+    "question_type": "parse_clean",
+    "original_qtype": "parse_clean",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-27T22:17:27.937451",
+    "problem_id": "d7632efc81a9",
+    "validation_attempts": 1,
+    "scenario": "an observability platform tracking alert acknowledge time and MTTR",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "array_access",
+    "cleaning_required": false,
+    "cleaning_level": null,
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": null,
+    "typecast_twist": false,
+    "realism": "high"
+  },
+  "example_output_schema": [
+    [
+      "alert_id",
+      "INTEGER"
+    ],
+    [
+      "first_tag",
+      "TEXT"
+    ],
+    [
+      "tag_count",
+      "INTEGER"
+    ],
+    [
+      "is_database_alert",
+      "BOOLEAN"
+    ],
+    [
+      "ack_minutes",
+      "NUMERIC"
+    ]
+  ]
+}

@@ -1,0 +1,147 @@
+{
+  "title": "Compliant Expense Merchant Lookup",
+  "prompt": "You are working with an expense management system modeled on public procurement datasets (data.gov). The `expense_policies` table stores per-merchant eligibility rules: each merchant has a `compliance_status` (stored as TEXT but actually containing 'A' for approved, 'S' for suspended, or 'R' for rejected) and `policy_tags` (an ARRAY of TEXT) describing allowed categories. The `receipt_captures` table records OCR-captured receipts: each receipt has a `merchant_id`, a `capture_date` (stored as TEXT 'YYYY-MM-DD'), a `total_amount` (numeric), and a `category_code` (TEXT). A merchant may have multiple captured receipts. For each merchant that appears in `expense_policies`, report the merchant_id, the merchant's normalized name (the `merchant_name` column in `expense_policies` needs its leading/trailing whitespace removed and title-cased), the earliest capture date (as a DATE), and the `lowest_eligible_amount`: if the merchant's compliance_status is 'A' (approved) AND the receipt with the minimum total_amount for that merchant has a category_code present in the merchant's policy_tags array, output that minimum amount rounded to two decimals; otherwise output 0.00. Return one row per merchant found in `expense_policies`, ordered by merchant_id ascending. Edge case: one merchant has no receipts (its earliest_capture should be NULL and lowest_eligible_amount 0.00); another merchant is suspended so its amount is 0.00 despite having receipts; another merchant is approved but the cheapest receipt's category is not in the allowed tags, so the amount is also 0.00.",
+  "schema_ddl": "CREATE TABLE expense_policies (merchant_id INT PRIMARY KEY, merchant_name TEXT, compliance_status TEXT, policy_tags TEXT[]); CREATE TABLE receipt_captures (receipt_id INT PRIMARY KEY, merchant_id INT, capture_date TEXT, total_amount NUMERIC, category_code TEXT);",
+  "example_input_data": "INSERT INTO expense_policies (merchant_id, merchant_name, compliance_status, policy_tags) VALUES (101, '  office depot  ', 'A', ARRAY['OFFICE', 'SUPPLIES']), (102, 'starbucks CAFE', 'A', ARRAY['MEALS', 'TRAVEL']), (103, 'ACME rentals', 'S', ARRAY['EQUIPMENT']), (104, 'fedex Store', 'A', ARRAY['SHIPPING', 'OFFICE']), (105, '  quickPrint ', 'A', ARRAY['MARKETING']); INSERT INTO receipt_captures (receipt_id, merchant_id, capture_date, total_amount, category_code) VALUES (1, 101, '2024-03-15', 45.00, 'OFFICE'), (2, 101, '2024-04-02', 30.00, 'SUPPLIES'), (3, 102, '2024-03-20', 12.50, 'MEALS'), (4, 102, '2024-03-22', 8.75, 'SNACKS'), (5, 103, '2024-03-18', 200.00, 'EQUIPMENT'), (6, 104, '2024-03-25', 18.00, 'SHIPPING');",
+  "example_output_columns": [
+    "merchant_id",
+    "merchant_name",
+    "earliest_capture",
+    "lowest_eligible_amount"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Office Depot",
+      "2024-03-15",
+      "30.00"
+    ],
+    [
+      102,
+      "Starbucks Cafe",
+      "2024-03-20",
+      "0.00"
+    ],
+    [
+      103,
+      "Acme Rentals",
+      "2024-03-18",
+      "0.00"
+    ],
+    [
+      104,
+      "Fedex Store",
+      "2024-03-25",
+      "18.00"
+    ],
+    [
+      105,
+      "Quickprint",
+      null,
+      "0.00"
+    ]
+  ],
+  "test_data": "INSERT INTO expense_policies (merchant_id, merchant_name, compliance_status, policy_tags) VALUES (201, ' staples INC ', 'A', ARRAY['OFFICE', 'TECH']), (202, 'dunkin DONUTS', 'A', ARRAY['MEALS']), (203, 'Budget CAR rental', 'R', ARRAY['TRAVEL']), (204, '  UPS store  ', 'A', ARRAY['SHIPPING']), (205, 'Print SHOP pro', 'S', ARRAY['MARKETING', 'OFFICE']), (206, 'target SUPPLIES', 'A', ARRAY['GENERAL']), (207, 'subway sandwiches', 'A', ARRAY['MEALS', 'TRAVEL']), (208, ' KINKO prints ', 'A', ARRAY['OFFICE', 'SUPPLIES']); INSERT INTO receipt_captures (receipt_id, merchant_id, capture_date, total_amount, category_code) VALUES (11, 201, '2024-01-10', 150.00, 'OFFICE'), (12, 201, '2024-02-05', 75.00, 'TECH'), (13, 201, '2024-03-01', 120.00, 'FURNITURE'), (14, 202, '2024-01-15', 22.00, 'MEALS'), (15, 202, '2024-01-20', 18.00, 'BREAKFAST'), (16, 202, '2024-02-10', 15.00, 'MEALS'), (17, 203, '2024-01-12', 300.00, 'TRAVEL'), (18, 203, '2024-02-08', 250.00, 'TRAVEL'), (19, 204, '2024-01-18', 25.00, 'SHIPPING'), (20, 204, '2024-01-25', 30.00, 'SHIPPING'), (21, 204, '2024-02-14', 20.00, 'PACKAGING'), (22, 205, '2024-01-22', 100.00, 'MARKETING'), (23, 205, '2024-02-18', 80.00, 'OFFICE'), (24, 206, '2024-01-28', 50.00, 'GENERAL'), (25, 206, '2024-02-20', 45.00, 'SUPPLIES'), (26, 207, '2024-01-30', 12.00, 'MEALS'), (27, 207, '2024-02-12', 10.00, 'MEALS'), (28, 207, '2024-02-25', 14.00, 'SNACKS'), (29, 208, '2024-02-01', 60.00, 'OFFICE'), (30, 208, '2024-02-15', 55.00, 'SUPPLIES');",
+  "test_expected_columns": [
+    "merchant_id",
+    "merchant_name",
+    "earliest_capture",
+    "lowest_eligible_amount"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Staples Inc",
+      "2024-01-10",
+      "75.00"
+    ],
+    [
+      202,
+      "Dunkin Donuts",
+      "2024-01-15",
+      "15.00"
+    ],
+    [
+      203,
+      "Budget Car Rental",
+      "2024-01-12",
+      "0.00"
+    ],
+    [
+      204,
+      "Ups Store",
+      "2024-01-18",
+      "0.00"
+    ],
+    [
+      205,
+      "Print Shop Pro",
+      "2024-01-22",
+      "0.00"
+    ],
+    [
+      206,
+      "Target Supplies",
+      "2024-01-28",
+      "0.00"
+    ],
+    [
+      207,
+      "Subway Sandwiches",
+      "2024-01-30",
+      "10.00"
+    ],
+    [
+      208,
+      "Kinko Prints",
+      "2024-02-01",
+      "55.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "same_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "join expense_policies to receipt_captures on merchant_id",
+      "trim and title-case merchant_name with TRIM and INITCAP",
+      "cast capture_date from TEXT to DATE",
+      "extract earliest capture_date per merchant using MIN",
+      "partition receipts by merchant and find minimum total_amount row using MIN aggregate",
+      "cast compliance_status from TEXT for comparison",
+      "check if minimum-amount receipt's category_code is in policy_tags array using ANY",
+      "gate with CASE: if compliance_status = 'A' AND category matches tags, output rounded minimum amount; else 0.00",
+      "coalesce NULL earliest_capture to preserve merchants with no receipts",
+      "order by merchant_id"
+    ]
+  },
+  "hints": [
+    "You need to bring together merchant policy rules and their receipts, then find the cheapest receipt per merchant.",
+    "The compliance_status column is stored as text but holds single-letter codes; the policy_tags column is an array you can check membership against.",
+    "Use a window function or GROUP BY to find the minimum total_amount per merchant, then a CASE expression to decide whether that amount qualifies or should be replaced with 0.00 based on the merchant's approval status and whether the cheapest receipt's category is in the allowed tags array."
+  ],
+  "answer_key": "WITH merchant_receipts AS (\n  SELECT \n    p.merchant_id,\n    INITCAP(TRIM(p.merchant_name)) AS merchant_name,\n    p.compliance_status,\n    p.policy_tags,\n    MIN(r.capture_date::DATE) AS earliest_capture,\n    (ARRAY_AGG(r.total_amount ORDER BY r.total_amount))[1] AS min_amount,\n    (ARRAY_AGG(r.category_code ORDER BY r.total_amount))[1] AS min_category\n  FROM expense_policies p\n  LEFT JOIN receipt_captures r ON p.merchant_id = r.merchant_id\n  GROUP BY p.merchant_id, p.merchant_name, p.compliance_status, p.policy_tags\n)\nSELECT \n  merchant_id,\n  merchant_name,\n  earliest_capture,\n  CASE \n    WHEN TRIM(compliance_status) = 'A' \n         AND min_category = ANY(policy_tags) \n    THEN ROUND(min_amount, 2)\n    ELSE 0.00\n  END AS lowest_eligible_amount\nFROM merchant_receipts\nORDER BY merchant_id;",
+  "_meta": {
+    "question_type": "gated_lookup",
+    "original_qtype": "random_any",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-26T18:01:36.604253",
+    "problem_id": "dfa82a9a6539",
+    "validation_attempts": 1,
+    "scenario": "an expense management app tracking receipt capture and policy compliance",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "case_keep",
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "high"
+  }
+}

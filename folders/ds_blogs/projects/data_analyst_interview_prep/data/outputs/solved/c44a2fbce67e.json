@@ -1,0 +1,172 @@
+{
+  "problem": {
+    "title": "Filter Installment Plans by Merchant Trust Score",
+    "prompt": "You are working with a buy-now-pay-later service modeled on consumer finance data (CFPB Consumer Credit Panel). The 'merchants' table holds vendor information including a trust score assigned by the platform. The 'installment_plans' table contains payment schedules for each merchant's purchases, including multiple pricing tiers per merchant. Your task: produce a report of the LOWEST monthly payment amount available for each merchant that has a trust score of 70 or higher. Merchants with trust scores below 70 should be excluded from the output entirely. The merchant name needs cleaning: trim whitespace and capitalize each word. The trust score is stored as text and must be converted to a number for comparison. Each merchant's primary category is stored as an array, and you must extract the first category. Each merchant has multiple installment plans; return exactly ONE row per qualifying merchant for the plan with the LOWEST monthly payment (break ties by the smaller plan_id). The plan launch date is stored as text in 'YYYY-MM-DD' format and must be cast to a date; output the month name from the launch date of that lowest-payment plan. Round the monthly payment to 2 decimal places. If a merchant has a NULL trust score (represented as an empty string), treat it as failing the threshold. Output columns: merchant_name, primary_category, launch_month, min_monthly_payment. Order by merchant_name ascending.",
+    "display": {
+      "context": "You are working with a buy-now-pay-later service modeled on consumer finance data (CFPB Consumer Credit Panel).",
+      "task": "Write a query that returns ONE row per qualifying merchant (trust score 70 or higher): the lowest monthly payment among that merchant's installment plans, plus the launch month of that lowest-payment plan.",
+      "table_notes": {
+        "merchants": "Holds vendor information including trust score and category tags assigned by the platform",
+        "installment_plans": "Contains payment schedules and pricing tiers for each merchant's purchases"
+      },
+      "output_field_notes": {
+        "merchant_name": "The vendor's name after cleaning and capitalization",
+        "primary_category": "The first category from the merchant's category array",
+        "launch_month": "The month name from the launch date of the lowest-payment plan",
+        "min_monthly_payment": "The lowest monthly payment amount available for that merchant"
+      },
+      "field_logic": [
+        "merchant_name: take the merchant name, remove surrounding whitespace, and capitalize the first letter of each word",
+        "primary_category: extract the first element from the merchant's category array",
+        "launch_month: take the launch date of the lowest-payment plan, cast it to a date, and extract the full month name without padding",
+        "min_monthly_payment: the smallest monthly payment across that merchant's plans (one row per merchant), rounded to two decimal places"
+      ],
+      "edge_cases": [
+        "If a merchant's trust score is stored as an empty string, treat it as NULL and exclude that merchant",
+        "If a merchant has a trust score below 70, exclude that merchant from the output",
+        "If a merchant has multiple installment plans, pick the one with the lowest monthly payment amount"
+      ],
+      "filter_note": "Only merchants with a trust score of 70 or higher are included",
+      "order_by_note": "Results are ordered by merchant name in ascending alphabetical order"
+    },
+    "schema_ddl": "CREATE TABLE merchants (merchant_id INTEGER PRIMARY KEY, merchant_name VARCHAR(100), trust_score_text VARCHAR(10), categories TEXT[]); CREATE TABLE installment_plans (plan_id INTEGER PRIMARY KEY, merchant_id INTEGER, monthly_payment NUMERIC(10,2), launch_date_text VARCHAR(20));",
+    "example_input_data": "INSERT INTO merchants (merchant_id, merchant_name, trust_score_text, categories) VALUES (1, '  fashion hub  ', '85', ARRAY['Apparel', 'Accessories']), (2, 'tech DEALS', '65', ARRAY['Electronics', 'Gadgets']), (3, 'home essentials', '72', ARRAY['Home', 'Kitchen']), (4, 'beauty BAR', '', ARRAY['Beauty', 'Personal Care']); INSERT INTO installment_plans (plan_id, merchant_id, monthly_payment, launch_date_text) VALUES (101, 1, 49.99, '2024-03-15'), (102, 1, 39.99, '2024-03-20'), (103, 2, 89.99, '2024-04-10'), (104, 3, 29.99, '2024-05-01'), (105, 3, 34.99, '2024-05-05'), (106, 4, 19.99, '2024-06-01');",
+    "example_output_columns": [
+      "merchant_name",
+      "primary_category",
+      "launch_month",
+      "min_monthly_payment"
+    ],
+    "example_output_rows": [
+      [
+        "Fashion Hub",
+        "Apparel",
+        "March",
+        "39.99"
+      ],
+      [
+        "Home Essentials",
+        "Home",
+        "May",
+        "29.99"
+      ]
+    ],
+    "test_data": "INSERT INTO merchants (merchant_id, merchant_name, trust_score_text, categories) VALUES (10, '  outdoor GEAR  ', '92', ARRAY['Sports', 'Outdoor']), (11, 'book world', '68', ARRAY['Books', 'Media']), (12, 'pet paradise', '75', ARRAY['Pets', 'Supplies']), (13, 'music STORE', '70', ARRAY['Music', 'Instruments']), (14, 'art gallery', '', ARRAY['Art', 'Decor']), (15, 'toy town', '55', ARRAY['Toys', 'Games']), (16, 'office PRO', '88', ARRAY['Office', 'Supplies']), (17, 'garden CENTER', '71', ARRAY['Garden', 'Plants']), (18, 'auto PARTS', '45', ARRAY['Automotive', 'Parts']), (19, 'fitness ZONE', '80', ARRAY['Fitness', 'Health']), (20, 'craft CORNER', '73', ARRAY['Crafts', 'Hobbies']); INSERT INTO installment_plans (plan_id, merchant_id, monthly_payment, launch_date_text) VALUES (201, 10, 59.99, '2024-01-15'), (202, 10, 69.99, '2024-01-20'), (203, 10, 54.99, '2024-01-25'), (204, 11, 24.99, '2024-02-10'), (205, 12, 44.99, '2024-03-05'), (206, 12, 39.99, '2024-03-10'), (207, 13, 99.99, '2024-04-01'), (208, 13, 89.99, '2024-04-05'), (209, 14, 34.99, '2024-05-10'), (210, 15, 29.99, '2024-06-15'), (211, 16, 49.99, '2024-07-20'), (212, 16, 44.99, '2024-07-25'), (213, 17, 64.99, '2024-08-01'), (214, 17, 59.99, '2024-08-10'), (215, 18, 79.99, '2024-09-05'), (216, 19, 69.99, '2024-10-12'), (217, 19, 74.99, '2024-10-15'), (218, 20, 39.99, '2024-11-20'), (219, 20, 34.99, '2024-11-25'), (220, 20, 29.99, '2024-11-30');",
+    "test_expected_columns": [
+      "merchant_name",
+      "primary_category",
+      "launch_month",
+      "min_monthly_payment"
+    ],
+    "test_expected_rows": [
+      [
+        "Craft Corner",
+        "Crafts",
+        "November",
+        "29.99"
+      ],
+      [
+        "Fitness Zone",
+        "Fitness",
+        "October",
+        "69.99"
+      ],
+      [
+        "Garden Center",
+        "Garden",
+        "August",
+        "59.99"
+      ],
+      [
+        "Music Store",
+        "Music",
+        "April",
+        "89.99"
+      ],
+      [
+        "Office Pro",
+        "Office",
+        "July",
+        "44.99"
+      ],
+      [
+        "Outdoor Gear",
+        "Sports",
+        "January",
+        "54.99"
+      ],
+      [
+        "Pet Paradise",
+        "Pets",
+        "March",
+        "39.99"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "enrich-join",
+      "composite_moves": [
+        "join merchants to installment_plans on merchant_id",
+        "cast trust_score_text to numeric",
+        "filter WHERE trust_score >= 70 (exclude non-qualifiers)",
+        "extract first element from categories array",
+        "cast launch_date_text to date",
+        "extract month name from date",
+        "compute MIN(monthly_payment) per merchant",
+        "trim and capitalize merchant_name",
+        "round min_monthly_payment to 2 decimals"
+      ]
+    },
+    "hints": [
+      "You'll need to join the two tables and filter based on a condition from the merchants table.",
+      "The trust score is stored as text, so you'll need to cast it before comparing to 70. Empty strings should be handled as failing the threshold.",
+      "To return one row per merchant carrying the lowest plan's launch month, rank each merchant's plans with ROW_NUMBER() OVER (PARTITION BY merchant ORDER BY monthly_payment) and keep rn = 1 (MIN + GROUP BY can't carry the right launch month). Then apply TRIM/INITCAP, array indexing, date casting, TO_CHAR with FM, and rounding."
+    ],
+    "answer_key": "SELECT merchant_name, primary_category, launch_month, min_monthly_payment\nFROM (\n    SELECT\n        INITCAP(TRIM(m.merchant_name))                         AS merchant_name,\n        m.categories[1]                                        AS primary_category,\n        TO_CHAR(ip.launch_date_text::DATE, 'FMMonth')          AS launch_month,\n        ROUND(ip.monthly_payment, 2)                           AS min_monthly_payment,\n        ROW_NUMBER() OVER (PARTITION BY m.merchant_id\n                           ORDER BY ip.monthly_payment, ip.plan_id) AS rn\n    FROM merchants m\n    JOIN installment_plans ip ON m.merchant_id = ip.merchant_id\n    WHERE COALESCE(NULLIF(m.trust_score_text, ''), '0')::NUMERIC >= 70\n) z\nWHERE rn = 1\nORDER BY merchant_name;",
+    "_meta": {
+      "question_type": "gated_lookup",
+      "original_qtype": "gated_lookup",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-27T16:37:48.183358",
+      "problem_id": "c44a2fbce67e",
+      "validation_attempts": 1,
+      "scenario": "a buy-now-pay-later service tracking installment payment compliance",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "where_exclude",
+      "cleaning_required": true,
+      "cleaning_level": "high",
+      "cleaning_all_six": true,
+      "cleaning_per_category": 1,
+      "cleaning_bonus": null,
+      "typecast_twist": true,
+      "realism": "high",
+      "answer_key_fixed": "2026-06-27: corrected to one-row-per-merchant lowest-payment pick (was grouping by launch_date_text, splitting merchants into multiple rows)"
+    },
+    "example_output_schema": [
+      [
+        "merchant_name",
+        "TEXT"
+      ],
+      [
+        "primary_category",
+        "TEXT"
+      ],
+      [
+        "launch_month",
+        "TEXT"
+      ],
+      [
+        "min_monthly_payment",
+        "NUMERIC"
+      ]
+    ]
+  },
+  "user_solution": "/* notes */\nWITH base AS (\n    SELECT\n        INITCAP(TRIM(merchant_name)) AS merchant_name,\n        categories[1] AS primary_category,\n        TO_CHAR(launch_date_text::DATE, 'FMMonth') as launch_month,\n        monthly_payment::numeric AS min_monthly_payment,\n        ROW_NUMBER() OVER (PARTITION BY INITCAP(TRIM(merchant_name)) ORDER BY monthly_payment) AS rn\n    FROM merchants AS m\n    LEFT JOIN installment_plans AS i\n        USING(merchant_id)\n    WHERE NULLIF(m.trust_score_text, '')::INT IS NOT NULL \n        AND NULLIF(m.trust_score_text, '')::INT >= 70\n)\nSELECT\n    merchant_name,\t\n    primary_category,\t\n    launch_month,\t\n    min_monthly_payment\nFROM base\nWHERE rn = 1\nORDER BY 1;\n",
+  "solved_at": "2026-06-27T17:30:51.857196"
+}

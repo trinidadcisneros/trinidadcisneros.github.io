@@ -1,0 +1,265 @@
+{
+  "problem": {
+    "title": "Parse Watch Session Timestamps",
+    "prompt": "You are working with a streaming video service modeled on public media consumption datasets (Nielsen, FCC). The sessions table tracks raw watch events with messy timestamp strings and contains columns for user_id, session_start_raw (a text timestamp that may have leading/trailing spaces), video_id, and minutes_watched. The session_start_raw column stores timestamps as VARCHAR in the format 'YYYY-MM-DD HH24:MI:SS' but often includes extra whitespace. Write a query that cleans each session_start_raw value, extracts the watch month name, calculates how many whole days have passed between session_start and a reference cutoff date of '2024-12-01', and truncates the cleaned timestamp to the start of its day. Return one row per session with columns: session_id, clean_start (the trimmed timestamp cast to TIMESTAMP), month_name (the full month name from clean_start), days_ago (whole days from clean_start to '2024-12-01'), and day_start (clean_start truncated to midnight). Order the results by session_id.",
+    "display": {
+      "context": "You are working with a streaming video service modeled on public media consumption datasets.",
+      "task": "Write a query that cleans each session_start_raw value, extracts the watch month name, calculates how many whole days have passed between session_start and a reference cutoff date, and truncates the cleaned timestamp to the start of its day.",
+      "table_notes": {
+        "sessions": "Tracks raw watch events with messy timestamp strings, user identifiers, video identifiers, and watch duration in minutes"
+      },
+      "output_field_notes": {
+        "session_id": "The unique identifier for each watch session",
+        "clean_start": "The session start timestamp after removing extra whitespace and converting to TIMESTAMP type",
+        "month_name": "The full name of the month when the session started",
+        "days_ago": "The number of whole days from the session start to the cutoff date of December 1, 2024",
+        "day_start": "The session start timestamp truncated to midnight of that day"
+      },
+      "field_logic": [
+        "clean_start: remove leading and trailing whitespace from session_start_raw and convert the result to a TIMESTAMP",
+        "month_name: extract the full month name from the cleaned timestamp",
+        "days_ago: compute the whole-day difference between the cutoff date and the cleaned session start",
+        "day_start: truncate the cleaned timestamp to the beginning of its day"
+      ],
+      "edge_cases": [
+        "If session_start_raw has leading or trailing spaces, they must be removed before conversion.",
+        "If session_start_raw is NULL, the cleaned timestamp and derived fields will be NULL."
+      ],
+      "filter_note": "All rows from the sessions table are included in the output.",
+      "order_by_note": "Results are ordered by session_id in ascending order."
+    },
+    "schema_ddl": "CREATE TABLE sessions (session_id INT PRIMARY KEY, user_id INT, session_start_raw VARCHAR(50), video_id INT, minutes_watched INT);",
+    "example_input_data": "INSERT INTO sessions (session_id, user_id, session_start_raw, video_id, minutes_watched) VALUES (1, 101, '2024-11-15 14:30:00', 501, 45), (2, 102, '  2024-11-20 09:15:00  ', 502, 30), (3, 103, '2024-10-05 18:45:00', 503, 120), (4, 104, ' 2024-11-28 22:00:00', 504, 60), (5, 105, '2024-09-12 08:30:00  ', 505, 25), (6, 106, NULL, 506, 15);",
+    "example_output_columns": [
+      "session_id",
+      "clean_start",
+      "month_name",
+      "days_ago",
+      "day_start"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "2024-11-15 14:30:00",
+        "November",
+        16.0,
+        "2024-11-15 00:00:00"
+      ],
+      [
+        2,
+        "2024-11-20 09:15:00",
+        "November",
+        11.0,
+        "2024-11-20 00:00:00"
+      ],
+      [
+        3,
+        "2024-10-05 18:45:00",
+        "October",
+        57.0,
+        "2024-10-05 00:00:00"
+      ],
+      [
+        4,
+        "2024-11-28 22:00:00",
+        "November",
+        3.0,
+        "2024-11-28 00:00:00"
+      ],
+      [
+        5,
+        "2024-09-12 08:30:00",
+        "September",
+        80.0,
+        "2024-09-12 00:00:00"
+      ],
+      [
+        6,
+        null,
+        null,
+        null,
+        null
+      ]
+    ],
+    "test_data": "INSERT INTO sessions (session_id, user_id, session_start_raw, video_id, minutes_watched) VALUES (101, 201, '2024-11-01 00:00:00', 601, 90), (102, 202, '   2024-11-30 23:59:59   ', 602, 5), (103, 203, '2024-10-15 12:00:00', 603, 75), (104, 204, ' 2024-08-20 06:30:00', 604, 150), (105, 205, '2024-11-25 17:45:00  ', 605, 40), (106, 206, '2024-07-04 10:15:00', 606, 20), (107, 207, NULL, 607, 10), (108, 208, '  2024-09-01 14:20:00', 608, 55), (109, 209, '2024-10-31 20:00:00  ', 609, 35), (110, 210, ' 2024-06-15 08:45:00  ', 610, 65), (111, 211, '2024-11-15 11:30:00', 611, 80), (112, 212, '  2024-12-01 00:00:00', 612, 12), (113, 213, '2024-05-10 16:00:00  ', 613, 45), (114, 214, ' 2024-11-10 19:30:00  ', 614, 95), (115, 215, '2024-08-05 07:15:00', 615, 30);",
+    "test_expected_columns": [
+      "session_id",
+      "clean_start",
+      "month_name",
+      "days_ago",
+      "day_start"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        "2024-11-01 00:00:00",
+        "November",
+        30.0,
+        "2024-11-01 00:00:00"
+      ],
+      [
+        102,
+        "2024-11-30 23:59:59",
+        "November",
+        1.0,
+        "2024-11-30 00:00:00"
+      ],
+      [
+        103,
+        "2024-10-15 12:00:00",
+        "October",
+        47.0,
+        "2024-10-15 00:00:00"
+      ],
+      [
+        104,
+        "2024-08-20 06:30:00",
+        "August",
+        103.0,
+        "2024-08-20 00:00:00"
+      ],
+      [
+        105,
+        "2024-11-25 17:45:00",
+        "November",
+        6.0,
+        "2024-11-25 00:00:00"
+      ],
+      [
+        106,
+        "2024-07-04 10:15:00",
+        "July",
+        150.0,
+        "2024-07-04 00:00:00"
+      ],
+      [
+        107,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        108,
+        "2024-09-01 14:20:00",
+        "September",
+        91.0,
+        "2024-09-01 00:00:00"
+      ],
+      [
+        109,
+        "2024-10-31 20:00:00",
+        "October",
+        31.0,
+        "2024-10-31 00:00:00"
+      ],
+      [
+        110,
+        "2024-06-15 08:45:00",
+        "June",
+        169.0,
+        "2024-06-15 00:00:00"
+      ],
+      [
+        111,
+        "2024-11-15 11:30:00",
+        "November",
+        16.0,
+        "2024-11-15 00:00:00"
+      ],
+      [
+        112,
+        "2024-12-01 00:00:00",
+        "December",
+        0.0,
+        "2024-12-01 00:00:00"
+      ],
+      [
+        113,
+        "2024-05-10 16:00:00",
+        "May",
+        205.0,
+        "2024-05-10 00:00:00"
+      ],
+      [
+        114,
+        "2024-11-10 19:30:00",
+        "November",
+        21.0,
+        "2024-11-10 00:00:00"
+      ],
+      [
+        115,
+        "2024-08-05 07:15:00",
+        "August",
+        118.0,
+        "2024-08-05 00:00:00"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "row-transform: TRIM whitespace from VARCHAR timestamp",
+        "row-transform: cast cleaned string to TIMESTAMP",
+        "row-transform: TO_CHAR to extract month name",
+        "row-transform: date subtraction for whole days",
+        "row-transform: DATE_TRUNC to midnight"
+      ]
+    },
+    "hints": [
+      "Start by removing any leading or trailing whitespace from the raw timestamp column.",
+      "Use TRIM to clean the string, then cast it to a TIMESTAMP type. Extract the month name using TO_CHAR with the 'FMMonth' format.",
+      "Calculate the whole-day difference by subtracting the cleaned timestamp (cast to DATE) from DATE '2024-12-01'. Truncate the cleaned timestamp to the day level using DATE_TRUNC('day', ...)."
+    ],
+    "answer_key": "SELECT session_id, TRIM(session_start_raw)::TIMESTAMP AS clean_start, TO_CHAR(TRIM(session_start_raw)::TIMESTAMP, 'FMMonth') AS month_name, DATE '2024-12-01' - TRIM(session_start_raw)::TIMESTAMP::DATE AS days_ago, DATE_TRUNC('day', TRIM(session_start_raw)::TIMESTAMP) AS day_start FROM sessions ORDER BY session_id;",
+    "_meta": {
+      "question_type": "parse_clean",
+      "original_qtype": "parse_clean",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-28T22:45:39.811612",
+      "problem_id": "6e12051224c4",
+      "validation_attempts": 1,
+      "scenario": "a streaming video service tracking watch time and binge depth",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "date_extract",
+      "cleaning_required": false,
+      "cleaning_level": null,
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": false,
+      "realism": "high"
+    },
+    "example_output_schema": [
+      [
+        "session_id",
+        "INTEGER"
+      ],
+      [
+        "clean_start",
+        "TIMESTAMP"
+      ],
+      [
+        "month_name",
+        "TEXT"
+      ],
+      [
+        "days_ago",
+        "INTEGER"
+      ],
+      [
+        "day_start",
+        "TIMESTAMP"
+      ]
+    ]
+  },
+  "user_solution": "/* notes */\nSELECT\n    session_id,\n    TRIM(session_start_raw)::timestamp AS clean_start,\n    TO_CHAR(TRIM(session_start_raw)::date, 'FMMonth') AS month_name,\n    ('2024-12-01'::date - TRIM(session_start_raw)::date) AS days_ago,\n    TRIM(session_start_raw)::date AS day_start\nFROM sessions\nORDER BY 1\n",
+  "solved_at": "2026-06-28T22:54:01.446018"
+}

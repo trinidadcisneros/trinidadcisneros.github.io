@@ -1,0 +1,330 @@
+{
+  "problem": {
+    "title": "Patient Mood Trends with RANGE Interval Frame",
+    "prompt": "A mental health platform (modeled on CDC BRFSS mental health tracking) maintains a `mood_logs` table. Each row is a patient's daily mood rating with a `log_date` (stored as TEXT 'YYYY-MM-DD'), a self-reported `mood_score` (1-10 integer, stored as TEXT), a `patient_id` (state abbreviation format, two uppercase letters), a `session_type` (TEXT array of session tags), and a `notes` column (raw text with leading/trailing whitespace). You need to compute, for each log, a 7-day trailing average mood score: the average of all mood scores logged by the same patient on dates from 7 days before the current log_date UP TO AND INCLUDING the current log_date. Rows with the same log_date must share the same 7-day window (peer rows). Return: `patient_id`, `log_date`, `cleaned_notes` (trimmed, lowercase), `first_tag` (the first element of the session_type array), `log_month` (two-digit numeric month extracted from log_date), `mood_score` (as INTEGER), and `trailing_7day_avg` (rounded to 1 decimal). Filter to rows where the session_type array contains 'cbt'. Order by patient_id, log_date.",
+    "schema_ddl": "CREATE TABLE mood_logs (patient_id TEXT, log_date TEXT, mood_score TEXT, session_type TEXT[], notes TEXT);",
+    "example_input_data": "INSERT INTO mood_logs (patient_id, log_date, mood_score, session_type, notes) VALUES ('CA', '2024-06-01', '7', ARRAY['cbt', 'journaling'], '  First session  '), ('CA', '2024-06-03', '6', ARRAY['cbt'], ' Follow-up '), ('CA', '2024-06-08', '8', ARRAY['cbt', 'mindfulness'], 'PROGRESS NOTED'), ('CA', '2024-06-09', '8', ARRAY['cbt'], '  Same '), ('NY', '2024-06-05', '5', ARRAY['cbt'], ' Initial '), ('NY', '2024-06-10', '7', ARRAY['emdr'], 'Different'), ('NY', '2024-06-12', '9', ARRAY['cbt'], '  better  ');",
+    "example_output_columns": [
+      "patient_id",
+      "log_date",
+      "cleaned_notes",
+      "first_tag",
+      "log_month",
+      "mood_score",
+      "trailing_7day_avg"
+    ],
+    "example_output_rows": [
+      [
+        "CA",
+        "2024-06-01",
+        "first session",
+        "cbt",
+        "06",
+        7,
+        "7.0"
+      ],
+      [
+        "CA",
+        "2024-06-03",
+        "follow-up",
+        "cbt",
+        "06",
+        6,
+        "6.5"
+      ],
+      [
+        "CA",
+        "2024-06-08",
+        "progress noted",
+        "cbt",
+        "06",
+        8,
+        "7.0"
+      ],
+      [
+        "CA",
+        "2024-06-09",
+        "same",
+        "cbt",
+        "06",
+        8,
+        "7.3"
+      ],
+      [
+        "NY",
+        "2024-06-05",
+        "initial",
+        "cbt",
+        "06",
+        5,
+        "5.0"
+      ],
+      [
+        "NY",
+        "2024-06-12",
+        "better",
+        "cbt",
+        "06",
+        9,
+        "9.0"
+      ]
+    ],
+    "test_data": "INSERT INTO mood_logs (patient_id, log_date, mood_score, session_type, notes) VALUES ('CA', '2024-05-20', '6', ARRAY['cbt'], '  early  '), ('CA', '2024-05-27', '7', ARRAY['cbt', 'dbt'], ' WEEK later '), ('CA', '2024-05-28', '7', ARRAY['cbt'], 'next day'), ('CA', '2024-06-01', '8', ARRAY['cbt'], ' June start '), ('CA', '2024-06-02', '9', ARRAY['cbt'], '  improving  '), ('CA', '2024-06-02', '9', ARRAY['cbt', 'somatic'], 'same day'), ('CA', '2024-06-08', '5', ARRAY['cbt'], 'DIP'), ('CA', '2024-06-09', '6', ARRAY['emdr'], 'skip'), ('CA', '2024-06-15', '10', ARRAY['cbt'], ' peak '), ('NY', '2024-05-25', '4', ARRAY['cbt'], ' start '), ('NY', '2024-06-01', '5', ARRAY['cbt'], '  june  '), ('NY', '2024-06-02', '6', ARRAY['emdr'], 'nope'), ('NY', '2024-06-08', '7', ARRAY['cbt', 'act'], 'MID'), ('NY', '2024-06-09', '7', ARRAY['cbt'], 'SAME'), ('NY', '2024-06-09', '8', ARRAY['cbt'], 'peer'), ('NY', '2024-06-15', '9', ARRAY['cbt'], ' good '), ('NY', '2024-06-16', '9', ARRAY['cbt'], '  STABLE  '), ('TX', '2024-06-01', '3', ARRAY['cbt'], ' low '), ('TX', '2024-06-01', '4', ARRAY['cbt'], 'peer2'), ('TX', '2024-06-08', '6', ARRAY['cbt'], ' rising '), ('TX', '2024-06-09', '7', ARRAY['emdr'], 'nope'), ('TX', '2024-06-15', '8', ARRAY['cbt'], ' UP '), ('TX', '2024-06-22', '9', ARRAY['cbt'], ' week later '), ('MA', '2024-06-01', '', ARRAY['cbt'], ' missing '), ('MA', '2024-06-08', '5', ARRAY['cbt'], ' first valid '), ('MA', '2024-06-15', '6', ARRAY['emdr'], 'skip'), ('MA', '2024-06-22', '7', ARRAY['cbt'], '  later  ');",
+    "test_expected_columns": [
+      "patient_id",
+      "log_date",
+      "cleaned_notes",
+      "first_tag",
+      "log_month",
+      "mood_score",
+      "trailing_7day_avg"
+    ],
+    "test_expected_rows": [
+      [
+        "CA",
+        "2024-05-20",
+        "early",
+        "cbt",
+        "05",
+        6,
+        "6.0"
+      ],
+      [
+        "CA",
+        "2024-05-27",
+        "week later",
+        "cbt",
+        "05",
+        7,
+        "7.0"
+      ],
+      [
+        "CA",
+        "2024-05-28",
+        "next day",
+        "cbt",
+        "05",
+        7,
+        "7.0"
+      ],
+      [
+        "CA",
+        "2024-06-01",
+        "june start",
+        "cbt",
+        "06",
+        8,
+        "7.3"
+      ],
+      [
+        "CA",
+        "2024-06-02",
+        "improving",
+        "cbt",
+        "06",
+        9,
+        "8.0"
+      ],
+      [
+        "CA",
+        "2024-06-02",
+        "same day",
+        "cbt",
+        "06",
+        9,
+        "8.0"
+      ],
+      [
+        "CA",
+        "2024-06-08",
+        "dip",
+        "cbt",
+        "06",
+        5,
+        "7.7"
+      ],
+      [
+        "CA",
+        "2024-06-15",
+        "peak",
+        "cbt",
+        "06",
+        10,
+        "10.0"
+      ],
+      [
+        "MA",
+        "2024-06-08",
+        "first valid",
+        "cbt",
+        "06",
+        5,
+        "5.0"
+      ],
+      [
+        "MA",
+        "2024-06-22",
+        "later",
+        "cbt",
+        "06",
+        7,
+        "7.0"
+      ],
+      [
+        "NY",
+        "2024-05-25",
+        "start",
+        "cbt",
+        "05",
+        4,
+        "4.0"
+      ],
+      [
+        "NY",
+        "2024-06-01",
+        "june",
+        "cbt",
+        "06",
+        5,
+        "5.0"
+      ],
+      [
+        "NY",
+        "2024-06-08",
+        "mid",
+        "cbt",
+        "06",
+        7,
+        "7.0"
+      ],
+      [
+        "NY",
+        "2024-06-09",
+        "peer",
+        "cbt",
+        "06",
+        8,
+        "7.3"
+      ],
+      [
+        "NY",
+        "2024-06-09",
+        "same",
+        "cbt",
+        "06",
+        7,
+        "7.3"
+      ],
+      [
+        "NY",
+        "2024-06-15",
+        "good",
+        "cbt",
+        "06",
+        9,
+        "8.0"
+      ],
+      [
+        "NY",
+        "2024-06-16",
+        "stable",
+        "cbt",
+        "06",
+        9,
+        "9.0"
+      ],
+      [
+        "TX",
+        "2024-06-01",
+        "peer2",
+        "cbt",
+        "06",
+        4,
+        "3.5"
+      ],
+      [
+        "TX",
+        "2024-06-01",
+        "low",
+        "cbt",
+        "06",
+        3,
+        "3.5"
+      ],
+      [
+        "TX",
+        "2024-06-08",
+        "rising",
+        "cbt",
+        "06",
+        6,
+        "6.0"
+      ],
+      [
+        "TX",
+        "2024-06-15",
+        "up",
+        "cbt",
+        "06",
+        8,
+        "8.0"
+      ],
+      [
+        "TX",
+        "2024-06-22",
+        "week later",
+        "cbt",
+        "06",
+        9,
+        "9.0"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "cast log_date TEXT to DATE",
+        "cast mood_score TEXT to INTEGER, handle empty string as NULL",
+        "filter to rows where 'cbt' is in session_type array",
+        "TRIM and LOWER notes",
+        "extract first element of session_type array",
+        "EXTRACT month from log_date as two-digit text",
+        "window function AVG(mood_score) OVER (PARTITION BY patient_id ORDER BY log_date::DATE RANGE BETWEEN INTERVAL '6 days' PRECEDING AND CURRENT ROW)",
+        "ROUND trailing average to 1 decimal",
+        "ORDER BY patient_id, log_date"
+      ]
+    },
+    "hints": [
+      "You need a trailing date-based window that includes all rows in the same partition whose log_date is within 7 days before (or on) the current row's date. Rows with the same date should see the same frame.",
+      "Use a RANGE frame instead of ROWS, keyed on the ORDER BY date value. The frame clause should specify an INTERVAL of 6 days PRECEDING (to get 7 days total including CURRENT ROW).",
+      "The exact frame clause is: RANGE BETWEEN INTERVAL '6 days' PRECEDING AND CURRENT ROW. Don't forget to cast log_date to DATE in the ORDER BY and also cast mood_score to INTEGER. Filter using 'cbt' = ANY(session_type). Extract the month with TO_CHAR(log_date::DATE, 'MM')."
+    ],
+    "answer_key": "WITH cleaned AS (\n  SELECT\n    patient_id,\n    log_date,\n    LOWER(TRIM(notes)) AS cleaned_notes,\n    session_type[1] AS first_tag,\n    TO_CHAR(log_date::DATE, 'MM') AS log_month,\n    CASE WHEN mood_score = '' THEN NULL ELSE mood_score::INTEGER END AS mood_score\n  FROM mood_logs\n  WHERE 'cbt' = ANY(session_type)\n)\nSELECT\n  patient_id,\n  log_date,\n  cleaned_notes,\n  first_tag,\n  log_month,\n  mood_score,\n  ROUND(\n    AVG(mood_score) OVER (\n      PARTITION BY patient_id\n      ORDER BY log_date::DATE\n      RANGE BETWEEN INTERVAL '6 days' PRECEDING AND CURRENT ROW\n    ),\n    1\n  ) AS trailing_7day_avg\nFROM cleaned\nWHERE mood_score IS NOT NULL\nORDER BY patient_id, log_date;",
+    "_meta": {
+      "question_type": "window_frames",
+      "original_qtype": "random_any",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-25T18:16:36.764317",
+      "problem_id": "d26ac4d9d572",
+      "validation_attempts": 1,
+      "scenario": "a mental health app tracking session completion and journal entries",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "range_between",
+      "cleaning_required": true,
+      "cleaning_level": "high",
+      "cleaning_all_six": true,
+      "cleaning_per_category": 1,
+      "cleaning_bonus": null,
+      "typecast_twist": true,
+      "realism": "high"
+    }
+  },
+  "user_solution": "/*\nProEach row is a patient's daily mood rating with a \n`log_date` (stored as TEXT 'YYYY-MM-DD'), \na self-reported `mood_score` (1-10 integer, stored as TEXT), a\n `patient_id` (state abbreviation format, two uppercase letters), a \n`session_type` (TEXT array of session tags), and a \n`notes` column (raw text with leading/trailing whitespace).\n\nYou need to compute, for each log, a 7-day trailing average mood score: the average of all mood scores logged by the same patient on dates from 7 days before the current log_date UP TO AND INCLUDING the current log_date.\n\nRows with the same log_date must share the same 7-day window (peer rows).\n\nReturn: \npatient_id`, \nlog_date`, \ncleaned_notes` (trimmed, lowercase), \nfirst_tag` (the first element of the session_type array), \nlog_month` (two-digit numeric month extracted from log_date), \nmood_score` (as INTEGER)\ntrailing_7day_avg` (rounded to 1 decimal).\n\nFILTER\n\n\n\n\n\nTable: mood_logs\npatient_id\t        TEXT\nlog_date\t        TEXT\nmood_score\t        TEXT\nsession_type\t    TEXT[]\nnotes\t            TEXT\n\n*/\n\nSELECT\n    patient_id,\n    log_date::date,\n    lower(TRIM(notes)) AS cleaned_notes,\n    session_type[1] AS first_tag,\n    LPAD(EXTRACT(month FROM log_date::date)::VARCHAR, 2, '0') AS log_month,\n    NULLIF(mood_score, '')::int AS mood_score,\n    ROUND(AVG(NULLIF(mood_score, '')::int) OVER (PARTITION BY patient_id ORDER BY log_date::date\n                RANGE BETWEEN INTERVAL '6 days' PRECEDING AND CURRENT ROW),1) AS trailing_7day_avg\nFROM mood_logs\nWHERE 'cbt' = ANY(session_type) AND NULLIF(mood_score, '')::int IS NOT NULL\nORDER BY patient_id, log_date;\n\n\n\n",
+  "solved_at": "2026-06-25T18:38:31.068768"
+}

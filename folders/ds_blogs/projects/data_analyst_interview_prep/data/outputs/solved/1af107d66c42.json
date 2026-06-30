@@ -1,0 +1,265 @@
+{
+  "problem": {
+    "title": "Parse Workout Timestamps and Calculate Next Session",
+    "prompt": "You are working with a fitness app tracking workout completion modeled on public health activity datasets (CDC Physical Activity Monitor). The `workout_sessions` table stores completion records, but the `completed_at` column contains raw timestamp strings that sometimes include trailing notes in parentheses (e.g., '2024-03-15 09:15:00 (morning run)'). You need to parse these messy timestamps, extract useful date components, and calculate each user's next scheduled workout date. Write a query that cleans the timestamp, extracts the day of the week as a number (0=Sunday, 6=Saturday), formats the cleaned date as 'Month DD, YYYY' (e.g., 'March 15, 2024'), and computes the next workout date by adding 3 days to the cleaned timestamp. Return one row per workout session with columns: user_id, session_id, day_of_week, formatted_date, next_workout_date. Order the results by user_id ascending, then session_id ascending. Handle rows where completed_at may be NULL by showing NULL for all derived date fields.",
+    "display": {
+      "context": "You are working with a fitness app tracking workout completion modeled on public health activity datasets (CDC Physical Activity Monitor).",
+      "task": "Write a query that cleans messy workout timestamps, extracts day-of-week numbers, formats dates in readable form, and calculates the next scheduled workout date.",
+      "table_notes": {
+        "workout_sessions": "stores each user's completed workout with a raw timestamp that may contain trailing notes in parentheses"
+      },
+      "output_field_notes": {
+        "user_id": "the identifier of the user who completed the workout",
+        "session_id": "the unique identifier for this workout session",
+        "day_of_week": "the day of the week as a number where 0 is Sunday and 6 is Saturday",
+        "formatted_date": "the workout date in readable Month DD, YYYY format",
+        "next_workout_date": "the date of the next scheduled workout, three days after this session"
+      },
+      "field_logic": [
+        "day_of_week: extract the day-of-week number from the cleaned timestamp",
+        "formatted_date: convert the cleaned timestamp to a readable Month DD, YYYY text format",
+        "next_workout_date: add three days to the cleaned timestamp to get the next workout date"
+      ],
+      "edge_cases": [
+        "If completed_at is NULL then all derived date fields are NULL.",
+        "If the timestamp string contains parentheses with notes then extract only the leading timestamp portion before parsing."
+      ],
+      "filter_note": "All rows from workout_sessions are included in the output.",
+      "order_by_note": "Results are ordered by user_id ascending, then session_id ascending."
+    },
+    "schema_ddl": "CREATE TABLE workout_sessions (session_id INT PRIMARY KEY, user_id INT NOT NULL, completed_at TEXT, workout_type VARCHAR(50));",
+    "example_input_data": "INSERT INTO workout_sessions (session_id, user_id, completed_at, workout_type) VALUES (1, 101, '2024-03-15 09:15:00 (morning run)', 'cardio'), (2, 101, '2024-03-18 18:30:00', 'strength'), (3, 102, '2024-03-10 07:00:00 (early yoga)', 'flexibility'), (4, 102, NULL, 'cardio'), (5, 103, '2024-03-20 12:00:00', 'cardio'), (6, 103, '2024-03-22 14:45:00 (interval training)', 'hiit');",
+    "example_output_columns": [
+      "user_id",
+      "session_id",
+      "day_of_week",
+      "formatted_date",
+      "next_workout_date"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        1,
+        "5",
+        "March 15, 2024",
+        "2024-03-18"
+      ],
+      [
+        101,
+        2,
+        "1",
+        "March 18, 2024",
+        "2024-03-21"
+      ],
+      [
+        102,
+        3,
+        "0",
+        "March 10, 2024",
+        "2024-03-13"
+      ],
+      [
+        102,
+        4,
+        null,
+        null,
+        null
+      ],
+      [
+        103,
+        5,
+        "3",
+        "March 20, 2024",
+        "2024-03-23"
+      ],
+      [
+        103,
+        6,
+        "5",
+        "March 22, 2024",
+        "2024-03-25"
+      ]
+    ],
+    "test_data": "INSERT INTO workout_sessions (session_id, user_id, completed_at, workout_type) VALUES (101, 201, '2024-01-05 06:00:00 (pre-work session)', 'cardio'), (102, 201, '2024-01-08 19:00:00', 'strength'), (103, 201, NULL, 'flexibility'), (104, 202, '2024-01-12 10:30:00 (weekend workout)', 'cardio'), (105, 202, '2024-01-15 08:15:00', 'hiit'), (106, 203, '2024-02-01 07:45:00', 'cardio'), (107, 203, '2024-02-04 17:00:00 (evening run)', 'cardio'), (108, 203, '2024-02-07 11:00:00', 'strength'), (109, 204, NULL, 'cardio'), (110, 204, '2024-02-10 09:30:00 (Saturday morning)', 'flexibility'), (111, 205, '2024-02-14 12:00:00', 'cardio'), (112, 205, '2024-02-17 14:00:00 (afternoon session)', 'strength'), (113, 206, '2024-02-20 06:30:00', 'cardio'), (114, 206, NULL, 'hiit'), (115, 207, '2024-02-25 16:00:00 (Sunday workout)', 'cardio');",
+    "test_expected_columns": [
+      "user_id",
+      "session_id",
+      "day_of_week",
+      "formatted_date",
+      "next_workout_date"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        101,
+        "5",
+        "January 05, 2024",
+        "2024-01-08"
+      ],
+      [
+        201,
+        102,
+        "1",
+        "January 08, 2024",
+        "2024-01-11"
+      ],
+      [
+        201,
+        103,
+        null,
+        null,
+        null
+      ],
+      [
+        202,
+        104,
+        "5",
+        "January 12, 2024",
+        "2024-01-15"
+      ],
+      [
+        202,
+        105,
+        "1",
+        "January 15, 2024",
+        "2024-01-18"
+      ],
+      [
+        203,
+        106,
+        "4",
+        "February 01, 2024",
+        "2024-02-04"
+      ],
+      [
+        203,
+        107,
+        "0",
+        "February 04, 2024",
+        "2024-02-07"
+      ],
+      [
+        203,
+        108,
+        "3",
+        "February 07, 2024",
+        "2024-02-10"
+      ],
+      [
+        204,
+        109,
+        null,
+        null,
+        null
+      ],
+      [
+        204,
+        110,
+        "6",
+        "February 10, 2024",
+        "2024-02-13"
+      ],
+      [
+        205,
+        111,
+        "3",
+        "February 14, 2024",
+        "2024-02-17"
+      ],
+      [
+        205,
+        112,
+        "6",
+        "February 17, 2024",
+        "2024-02-20"
+      ],
+      [
+        206,
+        113,
+        "2",
+        "February 20, 2024",
+        "2024-02-23"
+      ],
+      [
+        206,
+        114,
+        null,
+        null,
+        null
+      ],
+      [
+        207,
+        115,
+        "0",
+        "February 25, 2024",
+        "2024-02-28"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "parse: SPLIT_PART to extract timestamp before parentheses",
+        "cast: convert text to timestamp",
+        "date: EXTRACT(DOW FROM ts) to get day-of-week number",
+        "date: TO_CHAR(ts, fmt) to format readable date",
+        "date: date + INTERVAL to compute next workout date",
+        "null-handling: CASE or direct null-propagation for missing timestamps"
+      ]
+    },
+    "hints": [
+      "You'll need to clean the completed_at column by removing any text in parentheses before converting it to a timestamp.",
+      "Use SPLIT_PART with a space-parenthesis delimiter to extract just the timestamp portion, then cast it to TIMESTAMP. EXTRACT(DOW FROM ...) gives you the day of week as a number.",
+      "The complete solution: SPLIT_PART(completed_at, ' (', 1)::TIMESTAMP to get a clean timestamp, then EXTRACT(DOW FROM ...) for day_of_week, TO_CHAR(..., 'FMMonth DD, YYYY') for formatted_date, and (... + INTERVAL '3 days')::DATE for next_workout_date. All these functions return NULL naturally when the input is NULL."
+    ],
+    "answer_key": "SELECT user_id, session_id, EXTRACT(DOW FROM SPLIT_PART(completed_at, ' (', 1)::TIMESTAMP) AS day_of_week, TO_CHAR(SPLIT_PART(completed_at, ' (', 1)::TIMESTAMP, 'FMMonth DD, YYYY') AS formatted_date, (SPLIT_PART(completed_at, ' (', 1)::TIMESTAMP + INTERVAL '3 days')::DATE AS next_workout_date FROM workout_sessions ORDER BY user_id, session_id;",
+    "_meta": {
+      "question_type": "parse_clean",
+      "original_qtype": "parse_clean",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-29T06:55:02.640882",
+      "problem_id": "1af107d66c42",
+      "validation_attempts": 2,
+      "scenario": "a fitness app tracking workout completion and active days per week",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "date_extract",
+      "cleaning_required": false,
+      "cleaning_level": null,
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": false,
+      "realism": "high"
+    },
+    "example_output_schema": [
+      [
+        "user_id",
+        "INTEGER"
+      ],
+      [
+        "session_id",
+        "INTEGER"
+      ],
+      [
+        "day_of_week",
+        "NUMERIC"
+      ],
+      [
+        "formatted_date",
+        "TEXT"
+      ],
+      [
+        "next_workout_date",
+        "DATE"
+      ]
+    ]
+  },
+  "user_solution": "/* notes */\n\nSELECT\n    user_id,\n    session_id,\n    EXTRACT(DOW FROM TRIM(SPLIT_PART(completed_at, ' (', 1))::timestamp ) AS day_of_week,\n    TO_CHAR(TRIM(SPLIT_PART(completed_at, ' (', 1))::timestamp, 'FMMonth DD, YYYY') AS formatted_date,\n    (TRIM(SPLIT_PART(completed_at, ' (', 1))::timestamp + INTERVAL '3 days')::date AS next_workout_date\nFROM workout_sessions\nORDER BY 1",
+  "solved_at": "2026-06-29T07:33:06.805469"
+}

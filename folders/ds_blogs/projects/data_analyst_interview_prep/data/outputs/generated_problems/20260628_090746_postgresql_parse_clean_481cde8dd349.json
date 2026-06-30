@@ -1,0 +1,230 @@
+{
+  "title": "Parse Video Session Tags Array",
+  "prompt": "You are working with a streaming video analytics platform modeled on public media consumption datasets. The `viewing_sessions` table stores each watch session with an array of content tags applied by the recommendation engine. Some sessions have no tags, others have one or many. Write a query that extracts the first tag from the array, counts how many tags are attached, and flags whether the session includes the 'binge-watched' tag. Return columns `session_id`, `first_tag`, `tag_count`, and `is_binge_session`. Sessions with no tags should show NULL for `first_tag`, 0 for `tag_count`, and FALSE for `is_binge_session`. Order the results by `session_id` ascending.",
+  "display": {
+    "context": "You are working with a streaming video analytics platform modeled on public media consumption datasets.",
+    "task": "Write a query that extracts the first tag from the array, counts how many tags are attached, and flags whether the session includes the 'binge-watched' tag.",
+    "table_notes": {
+      "viewing_sessions": "stores each watch session with an array of content tags applied by the recommendation engine"
+    },
+    "output_field_notes": {
+      "session_id": "unique identifier for the viewing session",
+      "first_tag": "the first tag in the array, or NULL if no tags exist",
+      "tag_count": "how many tags are attached to the session",
+      "is_binge_session": "true if the session is tagged as binge-watched, false otherwise"
+    },
+    "field_logic": [
+      "first_tag: take the first element from the tags array using array indexing; if the array is empty, return NULL",
+      "tag_count: count how many elements are in the tags array; if the array is NULL or empty, return 0",
+      "is_binge_session: check if the text 'binge-watched' appears anywhere in the tags array"
+    ],
+    "edge_cases": [
+      "If a session has no tags (NULL or empty array), then first_tag is NULL, tag_count is 0, and is_binge_session is FALSE"
+    ],
+    "filter_note": "All rows from the viewing_sessions table are included in the output.",
+    "order_by_note": "Results are ordered by session_id in ascending order."
+  },
+  "schema_ddl": "CREATE TABLE viewing_sessions (session_id INT PRIMARY KEY, user_id INT NOT NULL, content_id VARCHAR(50) NOT NULL, watch_minutes INT NOT NULL, session_date DATE NOT NULL, tags TEXT[]);",
+  "example_input_data": "INSERT INTO viewing_sessions (session_id, user_id, content_id, watch_minutes, session_date, tags) VALUES (101, 5001, 'SHOW-8472', 45, '2024-03-15', ARRAY['drama', 'binge-watched', 'trending']), (102, 5002, 'MOVIE-3391', 120, '2024-03-16', ARRAY['action']), (103, 5003, 'SHOW-6612', 30, '2024-03-16', ARRAY[]::TEXT[]), (104, 5004, 'SHOW-8472', 90, '2024-03-17', ARRAY['drama', 'trending', 'new-release', 'binge-watched']), (105, 5005, 'MOVIE-1123', 95, '2024-03-18', NULL), (106, 5006, 'SHOW-7734', 60, '2024-03-19', ARRAY['comedy', 'family', 'weekend']);",
+  "example_output_columns": [
+    "session_id",
+    "first_tag",
+    "tag_count",
+    "is_binge_session"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "drama",
+      3,
+      true
+    ],
+    [
+      102,
+      "action",
+      1,
+      false
+    ],
+    [
+      103,
+      null,
+      0,
+      false
+    ],
+    [
+      104,
+      "drama",
+      4,
+      true
+    ],
+    [
+      105,
+      null,
+      0,
+      false
+    ],
+    [
+      106,
+      "comedy",
+      3,
+      false
+    ]
+  ],
+  "test_data": "INSERT INTO viewing_sessions (session_id, user_id, content_id, watch_minutes, session_date, tags) VALUES (201, 6001, 'SHOW-9921', 25, '2024-04-01', ARRAY['documentary', 'educational']), (202, 6002, 'MOVIE-4412', 140, '2024-04-02', ARRAY['sci-fi', 'binge-watched', 'award-winner', 'trending', 'premium']), (203, 6003, 'SHOW-3345', 15, '2024-04-03', ARRAY[]::TEXT[]), (204, 6004, 'SHOW-8876', 180, '2024-04-04', ARRAY['binge-watched']), (205, 6005, 'MOVIE-2234', 105, '2024-04-05', NULL), (206, 6006, 'SHOW-5567', 55, '2024-04-06', ARRAY['thriller', 'mystery', 'new-release']), (207, 6007, 'SHOW-7788', 200, '2024-04-07', ARRAY['drama', 'binge-watched', 'classic', 'highly-rated', 'recommended', 'trending']), (208, 6008, 'MOVIE-6699', 95, '2024-04-08', ARRAY['romance']), (209, 6009, 'SHOW-1122', 40, '2024-04-09', ARRAY['comedy']), (210, 6010, 'SHOW-3344', 10, '2024-04-10', ARRAY[]::TEXT[]), (211, 6011, 'MOVIE-5566', 130, '2024-04-11', NULL), (212, 6012, 'SHOW-9988', 75, '2024-04-12', ARRAY['action', 'adventure', 'binge-watched', 'trending']), (213, 6013, 'SHOW-7766', 50, '2024-04-13', ARRAY['family', 'animation', 'kids']), (214, 6014, 'MOVIE-4433', 110, '2024-04-14', ARRAY['horror', 'suspense']), (215, 6015, 'SHOW-2211', 5, '2024-04-15', ARRAY[]::TEXT[]);",
+  "test_expected_columns": [
+    "session_id",
+    "first_tag",
+    "tag_count",
+    "is_binge_session"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "documentary",
+      2,
+      false
+    ],
+    [
+      202,
+      "sci-fi",
+      5,
+      true
+    ],
+    [
+      203,
+      null,
+      0,
+      false
+    ],
+    [
+      204,
+      "binge-watched",
+      1,
+      true
+    ],
+    [
+      205,
+      null,
+      0,
+      false
+    ],
+    [
+      206,
+      "thriller",
+      3,
+      false
+    ],
+    [
+      207,
+      "drama",
+      6,
+      true
+    ],
+    [
+      208,
+      "romance",
+      1,
+      false
+    ],
+    [
+      209,
+      "comedy",
+      1,
+      false
+    ],
+    [
+      210,
+      null,
+      0,
+      false
+    ],
+    [
+      211,
+      null,
+      0,
+      false
+    ],
+    [
+      212,
+      "action",
+      4,
+      true
+    ],
+    [
+      213,
+      "family",
+      3,
+      false
+    ],
+    [
+      214,
+      "horror",
+      2,
+      false
+    ],
+    [
+      215,
+      null,
+      0,
+      false
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "row-transform",
+    "composite_moves": [
+      "array-index-first-element",
+      "array-length-count",
+      "array-membership-any",
+      "null-handling-coalesce"
+    ]
+  },
+  "hints": [
+    "PostgreSQL arrays are 1-based, so the first element is accessed with a specific index.",
+    "Use ARRAY_LENGTH with dimension 1 to count elements; remember it returns NULL for NULL arrays, so you'll need to handle that case.",
+    "The ANY operator lets you check if a value appears anywhere in an array; combine it with a comparison operator to build your boolean flag."
+  ],
+  "answer_key": "SELECT session_id, tags[1] AS first_tag, COALESCE(ARRAY_LENGTH(tags, 1), 0) AS tag_count, COALESCE('binge-watched' = ANY(tags), FALSE) AS is_binge_session FROM viewing_sessions ORDER BY session_id;",
+  "_meta": {
+    "question_type": "parse_clean",
+    "original_qtype": "parse_clean",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-28T09:07:46.348400",
+    "problem_id": "481cde8dd349",
+    "validation_attempts": 1,
+    "scenario": "a streaming video service tracking watch time and binge depth",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "array_access",
+    "cleaning_required": false,
+    "cleaning_level": null,
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": null,
+    "typecast_twist": false,
+    "realism": "high"
+  },
+  "example_output_schema": [
+    [
+      "session_id",
+      "INTEGER"
+    ],
+    [
+      "first_tag",
+      "TEXT"
+    ],
+    [
+      "tag_count",
+      "INTEGER"
+    ],
+    [
+      "is_binge_session",
+      "BOOLEAN"
+    ]
+  ]
+}

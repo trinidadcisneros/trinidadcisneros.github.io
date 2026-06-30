@@ -1,0 +1,485 @@
+{
+  "title": "Unpivot Squad Match Stats by Month",
+  "prompt": "You are working with a battle royale mobile game that tracks squad match completion and invites. The squad_monthly_stats table stores monthly match counts for each squad across three game modes in wide format (columns for_solo_count, for_duo_count, for_squad_count). Each monthly snapshot row also includes the squad_name (which may have extra whitespace), the month as a VARCHAR date like '2024-01-15', and an array of active_regions where the squad played that month. Write a query that unpivots this wide table into long format with one row per (squad, month, game_mode) combination. The output must have columns: squad_id, squad_name (cleaned: trimmed and title-cased), month_label (the full month name from the month date, e.g. 'January'), game_mode (the literal label for each unpivoted column: 'Solo' for_solo_count, 'Duo' for_duo_count, 'Squad' for_squad_count), match_count (the numeric value from the unpivoted column, rounded to the nearest integer), and primary_region (the first element of the active_regions array). Exclude any rows where the match count is NULL. Order the results by squad_id ASC, then game_mode ASC, then month_label ASC (chronologically: January before February, etc.).",
+  "display": {
+    "context": "You are working with a battle royale mobile game that tracks squad match completion and invites.",
+    "task": "Write a query that unpivots the squad_monthly_stats table from wide format (separate columns per game mode) to long format with one row per (squad, month, game_mode) combination.",
+    "table_notes": {
+      "squad_monthly_stats": "stores monthly match counts for each squad across three game modes (solo, duo, squad) in wide format, along with squad name, month date, and active regions"
+    },
+    "output_field_notes": {
+      "squad_id": "the unique identifier for the squad",
+      "squad_name": "the name of the squad, cleaned and formatted",
+      "month_label": "the full name of the month from the stored date",
+      "game_mode": "the game mode label (Solo, Duo, or Squad) corresponding to the unpivoted column",
+      "match_count": "the number of matches completed in that mode and month, rounded to the nearest integer",
+      "primary_region": "the first region from the squad's active regions array for that month"
+    },
+    "field_logic": [
+      "squad_name: take the raw squad name, remove leading and trailing whitespace, and capitalize each word",
+      "month_label: extract the full month name from the month date string (convert to date first, then format as full month name)",
+      "game_mode: assign the literal label 'Solo' for the solo count column, 'Duo' for the duo count column, and 'Squad' for the squad count column",
+      "match_count: take the numeric value from each unpivoted column and round it to the nearest whole number",
+      "primary_region: extract the first element from the active regions array (arrays are 1-indexed)"
+    ],
+    "edge_cases": [
+      "If a match count column contains NULL, exclude that row from the output.",
+      "If the month date is stored as text, convert it to a date type before extracting the month name."
+    ],
+    "filter_note": "Only rows where the unpivoted match count is not NULL are included.",
+    "order_by_note": "Results are ordered by squad_id ascending, then game_mode ascending (alphabetically: Duo, Solo, Squad), then month_label ascending (chronologically: January, February, etc.)."
+  },
+  "schema_ddl": "CREATE TABLE squad_monthly_stats (squad_id INT, squad_name VARCHAR(100), month VARCHAR(20), solo_count DECIMAL(10,2), duo_count DECIMAL(10,2), squad_count DECIMAL(10,2), active_regions TEXT[]);",
+  "example_input_data": "INSERT INTO squad_monthly_stats (squad_id, squad_name, month, solo_count, duo_count, squad_count, active_regions) VALUES (1, ' Phoenix Rising ', '2024-01-15', 45.6, 32.1, NULL, ARRAY['NA', 'EU']), (2, 'shadow WOLVES  ', '2024-01-15', 12.3, 18.9, 25.4, ARRAY['APAC', 'SA']), (1, ' Phoenix Rising ', '2024-02-15', 50.2, 40.5, 35.8, ARRAY['NA', 'EU', 'APAC']), (2, 'shadow WOLVES  ', '2024-02-15', NULL, 22.7, 30.1, ARRAY['APAC']);",
+  "example_output_columns": [
+    "squad_id",
+    "squad_name",
+    "month_label",
+    "game_mode",
+    "match_count",
+    "primary_region"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Phoenix Rising",
+      "January",
+      "Duo",
+      "32",
+      "NA"
+    ],
+    [
+      1,
+      "Phoenix Rising",
+      "February",
+      "Duo",
+      "41",
+      "NA"
+    ],
+    [
+      1,
+      "Phoenix Rising",
+      "January",
+      "Solo",
+      "46",
+      "NA"
+    ],
+    [
+      1,
+      "Phoenix Rising",
+      "February",
+      "Solo",
+      "50",
+      "NA"
+    ],
+    [
+      1,
+      "Phoenix Rising",
+      "February",
+      "Squad",
+      "36",
+      "NA"
+    ],
+    [
+      2,
+      "Shadow Wolves",
+      "January",
+      "Duo",
+      "19",
+      "APAC"
+    ],
+    [
+      2,
+      "Shadow Wolves",
+      "February",
+      "Duo",
+      "23",
+      "APAC"
+    ],
+    [
+      2,
+      "Shadow Wolves",
+      "January",
+      "Solo",
+      "12",
+      "APAC"
+    ],
+    [
+      2,
+      "Shadow Wolves",
+      "January",
+      "Squad",
+      "25",
+      "APAC"
+    ],
+    [
+      2,
+      "Shadow Wolves",
+      "February",
+      "Squad",
+      "30",
+      "APAC"
+    ]
+  ],
+  "test_data": "INSERT INTO squad_monthly_stats (squad_id, squad_name, month, solo_count, duo_count, squad_count, active_regions) VALUES (1, ' Phoenix Rising ', '2024-01-15', 45.6, 32.1, NULL, ARRAY['NA', 'EU']), (2, 'shadow WOLVES  ', '2024-01-15', 12.3, 18.9, 25.4, ARRAY['APAC', 'SA']), (3, 'TITAN force', '2024-01-15', 55.8, NULL, 42.2, ARRAY['EU']), (1, ' Phoenix Rising ', '2024-02-15', 50.2, 40.5, 35.8, ARRAY['NA', 'EU', 'APAC']), (2, 'shadow WOLVES  ', '2024-02-15', NULL, 22.7, 30.1, ARRAY['APAC']), (3, 'TITAN force', '2024-02-15', 60.1, 38.3, 48.9, ARRAY['EU', 'NA']), (4, '  viper SQUAD ', '2024-01-15', 28.4, 35.7, 41.0, ARRAY['SA', 'NA']), (4, '  viper SQUAD ', '2024-02-15', 33.9, NULL, 45.5, ARRAY['SA']), (5, 'Dragon Slayers', '2024-01-15', NULL, NULL, NULL, ARRAY['APAC']), (1, ' Phoenix Rising ', '2024-03-15', 48.7, 36.2, 39.4, ARRAY['NA']), (2, 'shadow WOLVES  ', '2024-03-15', 15.6, 20.8, NULL, ARRAY['APAC', 'EU']), (3, 'TITAN force', '2024-03-15', NULL, 41.1, 50.3, ARRAY['EU']), (4, '  viper SQUAD ', '2024-03-15', 31.2, 38.9, 43.7, ARRAY['SA', 'APAC', 'NA']), (5, 'Dragon Slayers', '2024-02-15', 22.5, 27.8, 33.2, ARRAY['APAC', 'SA']), (5, 'Dragon Slayers', '2024-03-15', 25.1, NULL, 35.9, ARRAY['APAC']);",
+  "test_expected_columns": [
+    "squad_id",
+    "squad_name",
+    "month_label",
+    "game_mode",
+    "match_count",
+    "primary_region"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "Phoenix Rising",
+      "January",
+      "Duo",
+      "32",
+      "NA"
+    ],
+    [
+      1,
+      "Phoenix Rising",
+      "February",
+      "Duo",
+      "41",
+      "NA"
+    ],
+    [
+      1,
+      "Phoenix Rising",
+      "March",
+      "Duo",
+      "36",
+      "NA"
+    ],
+    [
+      1,
+      "Phoenix Rising",
+      "January",
+      "Solo",
+      "46",
+      "NA"
+    ],
+    [
+      1,
+      "Phoenix Rising",
+      "February",
+      "Solo",
+      "50",
+      "NA"
+    ],
+    [
+      1,
+      "Phoenix Rising",
+      "March",
+      "Solo",
+      "49",
+      "NA"
+    ],
+    [
+      1,
+      "Phoenix Rising",
+      "February",
+      "Squad",
+      "36",
+      "NA"
+    ],
+    [
+      1,
+      "Phoenix Rising",
+      "March",
+      "Squad",
+      "39",
+      "NA"
+    ],
+    [
+      2,
+      "Shadow Wolves",
+      "January",
+      "Duo",
+      "19",
+      "APAC"
+    ],
+    [
+      2,
+      "Shadow Wolves",
+      "February",
+      "Duo",
+      "23",
+      "APAC"
+    ],
+    [
+      2,
+      "Shadow Wolves",
+      "March",
+      "Duo",
+      "21",
+      "APAC"
+    ],
+    [
+      2,
+      "Shadow Wolves",
+      "January",
+      "Solo",
+      "12",
+      "APAC"
+    ],
+    [
+      2,
+      "Shadow Wolves",
+      "March",
+      "Solo",
+      "16",
+      "APAC"
+    ],
+    [
+      2,
+      "Shadow Wolves",
+      "January",
+      "Squad",
+      "25",
+      "APAC"
+    ],
+    [
+      2,
+      "Shadow Wolves",
+      "February",
+      "Squad",
+      "30",
+      "APAC"
+    ],
+    [
+      3,
+      "Titan Force",
+      "February",
+      "Duo",
+      "38",
+      "EU"
+    ],
+    [
+      3,
+      "Titan Force",
+      "March",
+      "Duo",
+      "41",
+      "EU"
+    ],
+    [
+      3,
+      "Titan Force",
+      "January",
+      "Solo",
+      "56",
+      "EU"
+    ],
+    [
+      3,
+      "Titan Force",
+      "February",
+      "Solo",
+      "60",
+      "EU"
+    ],
+    [
+      3,
+      "Titan Force",
+      "January",
+      "Squad",
+      "42",
+      "EU"
+    ],
+    [
+      3,
+      "Titan Force",
+      "February",
+      "Squad",
+      "49",
+      "EU"
+    ],
+    [
+      3,
+      "Titan Force",
+      "March",
+      "Squad",
+      "50",
+      "EU"
+    ],
+    [
+      4,
+      "Viper Squad",
+      "January",
+      "Duo",
+      "36",
+      "SA"
+    ],
+    [
+      4,
+      "Viper Squad",
+      "March",
+      "Duo",
+      "39",
+      "SA"
+    ],
+    [
+      4,
+      "Viper Squad",
+      "January",
+      "Solo",
+      "28",
+      "SA"
+    ],
+    [
+      4,
+      "Viper Squad",
+      "February",
+      "Solo",
+      "34",
+      "SA"
+    ],
+    [
+      4,
+      "Viper Squad",
+      "March",
+      "Solo",
+      "31",
+      "SA"
+    ],
+    [
+      4,
+      "Viper Squad",
+      "January",
+      "Squad",
+      "41",
+      "SA"
+    ],
+    [
+      4,
+      "Viper Squad",
+      "February",
+      "Squad",
+      "46",
+      "SA"
+    ],
+    [
+      4,
+      "Viper Squad",
+      "March",
+      "Squad",
+      "44",
+      "SA"
+    ],
+    [
+      5,
+      "Dragon Slayers",
+      "February",
+      "Duo",
+      "28",
+      "APAC"
+    ],
+    [
+      5,
+      "Dragon Slayers",
+      "February",
+      "Solo",
+      "23",
+      "APAC"
+    ],
+    [
+      5,
+      "Dragon Slayers",
+      "March",
+      "Solo",
+      "25",
+      "APAC"
+    ],
+    [
+      5,
+      "Dragon Slayers",
+      "February",
+      "Squad",
+      "33",
+      "APAC"
+    ],
+    [
+      5,
+      "Dragon Slayers",
+      "March",
+      "Squad",
+      "36",
+      "APAC"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "reshape",
+    "composite_moves": [
+      "reshape (unpivot: UNION ALL of 3 SELECTs, one per game mode column, each with literal label)",
+      "string cleaning (TRIM, INITCAP on squad_name)",
+      "type cast (month VARCHAR to DATE)",
+      "date formatting (TO_CHAR for month name)",
+      "numeric rounding (ROUND on match counts)",
+      "array indexing (active_regions[1] for primary region)",
+      "NULL filter (WHERE IS NOT NULL on unpivoted value)",
+      "multi-level ORDER BY (squad_id, game_mode, month name in chronological order via CASE)"
+    ]
+  },
+  "hints": [
+    "PostgreSQL does not have a native UNPIVOT command; you need to manually stack the columns using UNION ALL, with one SELECT per game mode column.",
+    "Each SELECT in the UNION ALL should include a literal string for the game_mode ('Solo', 'Duo', 'Squad') and pull the corresponding count column. Add a WHERE clause to each branch to exclude NULL counts.",
+    "To order by month name chronologically, use a CASE expression in the ORDER BY clause that maps month names to numeric positions (January = 1, February = 2, March = 3, etc.). Wrap the entire UNION ALL in a subquery so you can apply ORDER BY with the CASE expression."
+  ],
+  "answer_key": "SELECT squad_id, INITCAP(TRIM(squad_name)) AS squad_name, TO_CHAR(month::DATE, 'FMMonth') AS month_label, game_mode, ROUND(match_count) AS match_count, active_regions[1] AS primary_region FROM (SELECT squad_id, squad_name, month, 'Solo' AS game_mode, solo_count AS match_count, active_regions FROM squad_monthly_stats WHERE solo_count IS NOT NULL UNION ALL SELECT squad_id, squad_name, month, 'Duo' AS game_mode, duo_count AS match_count, active_regions FROM squad_monthly_stats WHERE duo_count IS NOT NULL UNION ALL SELECT squad_id, squad_name, month, 'Squad' AS game_mode, squad_count AS match_count, active_regions FROM squad_monthly_stats WHERE squad_count IS NOT NULL) AS unpivoted ORDER BY squad_id ASC, game_mode ASC, CASE TO_CHAR(month::DATE, 'FMMonth') WHEN 'January' THEN 1 WHEN 'February' THEN 2 WHEN 'March' THEN 3 WHEN 'April' THEN 4 WHEN 'May' THEN 5 WHEN 'June' THEN 6 WHEN 'July' THEN 7 WHEN 'August' THEN 8 WHEN 'September' THEN 9 WHEN 'October' THEN 10 WHEN 'November' THEN 11 WHEN 'December' THEN 12 END ASC;",
+  "_meta": {
+    "question_type": "unpivot",
+    "original_qtype": "unpivot",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-27T19:24:00.242435",
+    "problem_id": "a63092cc9728",
+    "validation_attempts": 3,
+    "scenario": "a battle royale mobile game tracking match completion and squad invites",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "drop",
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "moderate"
+  },
+  "example_output_schema": [
+    [
+      "squad_id",
+      "INTEGER"
+    ],
+    [
+      "squad_name",
+      "TEXT"
+    ],
+    [
+      "month_label",
+      "TEXT"
+    ],
+    [
+      "game_mode",
+      "TEXT"
+    ],
+    [
+      "match_count",
+      "NUMERIC"
+    ],
+    [
+      "primary_region",
+      "TEXT"
+    ]
+  ]
+}

@@ -1,0 +1,296 @@
+{
+  "title": "Clean Sleep Session Text Fields",
+  "prompt": "You are working with a sleep tracking app modeled on public health survey datasets (NHANES, BRFSS). The `sleep_sessions` table stores each night's sleep data. The `session_notes` column contains free-text notes entered by users that often have inconsistent formatting: extra whitespace, inconsistent capitalization, and embedded email addresses. The `user_email` column sometimes has leading or trailing spaces. Write a query that extracts and cleans these fields for reporting. For each session, extract the username (the part before the '@' in the email address), clean the email address by removing any leading or trailing spaces, capitalize the first letter of each word in the session notes while removing extra internal spaces, and extract the domain name (the part after the '@') from the email. Return columns `session_id`, `username`, `clean_email`, `clean_notes`, and `domain`. Order the results by `session_id` ascending. Some session notes may be NULL; if so, return NULL for `clean_notes`.",
+  "display": {
+    "context": "You are working with a sleep tracking app modeled on public health survey datasets (NHANES, BRFSS).",
+    "task": "Write a query that extracts and cleans user email addresses and session notes for reporting.",
+    "table_notes": {
+      "sleep_sessions": "holds one row per sleep session with user email and free-text notes"
+    },
+    "output_field_notes": {
+      "session_id": "unique identifier for the sleep session",
+      "username": "the portion of the email address before the at-sign",
+      "clean_email": "the email address with leading and trailing spaces removed",
+      "clean_notes": "the session notes with each word capitalized and extra spaces removed, or NULL if the original note was NULL",
+      "domain": "the portion of the email address after the at-sign"
+    },
+    "field_logic": [
+      "username: extract everything before the at-sign in the email address",
+      "clean_email: remove any leading or trailing spaces from the email",
+      "clean_notes: capitalize the first letter of each word and collapse multiple spaces into one, or return NULL if the note is NULL",
+      "domain: extract everything after the at-sign in the email address"
+    ],
+    "edge_cases": [
+      "If session_notes is NULL, then clean_notes should also be NULL.",
+      "If the email has leading or trailing spaces, those must be removed.",
+      "If session_notes has multiple consecutive spaces, those must be collapsed to single spaces."
+    ],
+    "filter_note": "All rows from sleep_sessions are included.",
+    "order_by_note": "Results are ordered by session_id in ascending order."
+  },
+  "schema_ddl": "CREATE TABLE sleep_sessions (session_id INT PRIMARY KEY, user_email VARCHAR(100), sleep_score INT, session_notes TEXT);",
+  "example_input_data": "INSERT INTO sleep_sessions (session_id, user_email, sleep_score, session_notes) VALUES (101, ' alice.wonder@sleepwell.io ', 82, '  good   night sleep, felt   rested'), (102, 'bob.builder@dreamtrack.com', 75, 'woke up twice  during night'), (103, '  charlie.day@restful.net', 90, NULL), (104, 'diana.moon@sleepwell.io  ', 68, 'had trouble   falling asleep'), (105, 'eve.adams@dreamtrack.com', 88, 'EXCELLENT REST'), (106, 'frank.ocean@restful.net', 79, 'light sleep  but refreshing');",
+  "example_output_columns": [
+    "session_id",
+    "username",
+    "clean_email",
+    "clean_notes",
+    "domain"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "alice.wonder",
+      "alice.wonder@sleepwell.io",
+      "Good Night Sleep, Felt Rested",
+      "sleepwell.io"
+    ],
+    [
+      102,
+      "bob.builder",
+      "bob.builder@dreamtrack.com",
+      "Woke Up Twice During Night",
+      "dreamtrack.com"
+    ],
+    [
+      103,
+      "charlie.day",
+      "charlie.day@restful.net",
+      null,
+      "restful.net"
+    ],
+    [
+      104,
+      "diana.moon",
+      "diana.moon@sleepwell.io",
+      "Had Trouble Falling Asleep",
+      "sleepwell.io"
+    ],
+    [
+      105,
+      "eve.adams",
+      "eve.adams@dreamtrack.com",
+      "Excellent Rest",
+      "dreamtrack.com"
+    ],
+    [
+      106,
+      "frank.ocean",
+      "frank.ocean@restful.net",
+      "Light Sleep But Refreshing",
+      "restful.net"
+    ]
+  ],
+  "test_data": "INSERT INTO sleep_sessions (session_id, user_email, sleep_score, session_notes) VALUES (201, '   grace.hopper@sleepwell.io', 85, 'deep    sleep all   night long'), (202, 'henry.ford@dreamtrack.com   ', 72, '  interrupted by    noise'), (203, 'iris.west@restful.net', 91, NULL), (204, '  jack.sparrow@sleepwell.io  ', 65, 'restless    and uncomfortable'), (205, 'kate.bishop@dreamtrack.com', 80, 'SOLID UNINTERRUPTED SLEEP'), (206, 'leo.messi@restful.net   ', 77, '   brief wake-ups'), (207, 'maria.garcia@sleepwell.io', 83, 'calm and   peaceful night'), (208, '  nina.simone@dreamtrack.com  ', 70, NULL), (209, 'oscar.wilde@restful.net', 89, 'very  comfortable   temperature'), (210, 'paula.abdul@sleepwell.io  ', 76, '  felt   groggy    in morning'), (211, 'quinn.baker@dreamtrack.com', 84, 'quick   fall   asleep'), (212, '  rachel.green@restful.net', 78, 'moderate  quality   rest'), (213, 'steve.jobs@sleepwell.io   ', 92, 'PERFECT CONDITIONS FOR SLEEP'), (214, 'tina.turner@dreamtrack.com', 74, '  woke   up   early'), (215, 'uma.thurman@restful.net  ', 81, 'good  duration   and quality'), (216, 'victor.hugo@sleepwell.io', 73, NULL), (217, '  wendy.williams@dreamtrack.com', 87, 'comfortable   bed setup'), (218, 'xavier.lopez@restful.net  ', 79, '  slightly   warm room'), (219, 'yara.shahidi@sleepwell.io   ', 86, 'relaxed   before   bed'), (220, '  zoe.saldana@dreamtrack.com  ', 75, 'average  night overall');",
+  "test_expected_columns": [
+    "session_id",
+    "username",
+    "clean_email",
+    "clean_notes",
+    "domain"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "grace.hopper",
+      "grace.hopper@sleepwell.io",
+      "Deep Sleep All Night Long",
+      "sleepwell.io"
+    ],
+    [
+      202,
+      "henry.ford",
+      "henry.ford@dreamtrack.com",
+      "Interrupted By Noise",
+      "dreamtrack.com"
+    ],
+    [
+      203,
+      "iris.west",
+      "iris.west@restful.net",
+      null,
+      "restful.net"
+    ],
+    [
+      204,
+      "jack.sparrow",
+      "jack.sparrow@sleepwell.io",
+      "Restless And Uncomfortable",
+      "sleepwell.io"
+    ],
+    [
+      205,
+      "kate.bishop",
+      "kate.bishop@dreamtrack.com",
+      "Solid Uninterrupted Sleep",
+      "dreamtrack.com"
+    ],
+    [
+      206,
+      "leo.messi",
+      "leo.messi@restful.net",
+      "Brief Wake-Ups",
+      "restful.net"
+    ],
+    [
+      207,
+      "maria.garcia",
+      "maria.garcia@sleepwell.io",
+      "Calm And Peaceful Night",
+      "sleepwell.io"
+    ],
+    [
+      208,
+      "nina.simone",
+      "nina.simone@dreamtrack.com",
+      null,
+      "dreamtrack.com"
+    ],
+    [
+      209,
+      "oscar.wilde",
+      "oscar.wilde@restful.net",
+      "Very Comfortable Temperature",
+      "restful.net"
+    ],
+    [
+      210,
+      "paula.abdul",
+      "paula.abdul@sleepwell.io",
+      "Felt Groggy In Morning",
+      "sleepwell.io"
+    ],
+    [
+      211,
+      "quinn.baker",
+      "quinn.baker@dreamtrack.com",
+      "Quick Fall Asleep",
+      "dreamtrack.com"
+    ],
+    [
+      212,
+      "rachel.green",
+      "rachel.green@restful.net",
+      "Moderate Quality Rest",
+      "restful.net"
+    ],
+    [
+      213,
+      "steve.jobs",
+      "steve.jobs@sleepwell.io",
+      "Perfect Conditions For Sleep",
+      "sleepwell.io"
+    ],
+    [
+      214,
+      "tina.turner",
+      "tina.turner@dreamtrack.com",
+      "Woke Up Early",
+      "dreamtrack.com"
+    ],
+    [
+      215,
+      "uma.thurman",
+      "uma.thurman@restful.net",
+      "Good Duration And Quality",
+      "restful.net"
+    ],
+    [
+      216,
+      "victor.hugo",
+      "victor.hugo@sleepwell.io",
+      null,
+      "sleepwell.io"
+    ],
+    [
+      217,
+      "wendy.williams",
+      "wendy.williams@dreamtrack.com",
+      "Comfortable Bed Setup",
+      "dreamtrack.com"
+    ],
+    [
+      218,
+      "xavier.lopez",
+      "xavier.lopez@restful.net",
+      "Slightly Warm Room",
+      "restful.net"
+    ],
+    [
+      219,
+      "yara.shahidi",
+      "yara.shahidi@sleepwell.io",
+      "Relaxed Before Bed",
+      "sleepwell.io"
+    ],
+    [
+      220,
+      "zoe.saldana",
+      "zoe.saldana@dreamtrack.com",
+      "Average Night Overall",
+      "dreamtrack.com"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "row-transform",
+    "composite_moves": [
+      "parse email to extract username and domain",
+      "clean email by trimming spaces",
+      "normalize and capitalize session notes text",
+      "handle NULL session notes"
+    ]
+  },
+  "hints": [
+    "You will need to use string functions to extract parts of the email address around the '@' symbol.",
+    "The TRIM function removes leading and trailing spaces. INITCAP capitalizes the first letter of each word. Use REGEXP_REPLACE to collapse multiple spaces into one.",
+    "Use SPLIT_PART(user_email, '@', 1) to get the username and SPLIT_PART(user_email, '@', 2) to get the domain. For the notes, first trim and collapse spaces with REGEXP_REPLACE(session_notes, '\\s+', ' ', 'g'), then apply INITCAP. Wrap the notes transformation in a way that preserves NULLs."
+  ],
+  "answer_key": "SELECT session_id, SPLIT_PART(TRIM(user_email), '@', 1) AS username, TRIM(user_email) AS clean_email, CASE WHEN session_notes IS NOT NULL THEN INITCAP(TRIM(REGEXP_REPLACE(session_notes, '\\s+', ' ', 'g'))) ELSE NULL END AS clean_notes, SPLIT_PART(TRIM(user_email), '@', 2) AS domain FROM sleep_sessions ORDER BY session_id;",
+  "_meta": {
+    "question_type": "parse_clean",
+    "original_qtype": "parse_clean",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-28T09:27:58.751985",
+    "problem_id": "fd882a2d5363",
+    "validation_attempts": 1,
+    "scenario": "a sleep tracking app tracking sleep score and goal achievement",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "string_clean",
+    "cleaning_required": false,
+    "cleaning_level": null,
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": null,
+    "typecast_twist": false,
+    "realism": "high"
+  },
+  "example_output_schema": [
+    [
+      "session_id",
+      "INTEGER"
+    ],
+    [
+      "username",
+      "TEXT"
+    ],
+    [
+      "clean_email",
+      "TEXT"
+    ],
+    [
+      "clean_notes",
+      "TEXT"
+    ],
+    [
+      "domain",
+      "TEXT"
+    ]
+  ]
+}

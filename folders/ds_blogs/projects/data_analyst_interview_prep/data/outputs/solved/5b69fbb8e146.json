@@ -1,0 +1,335 @@
+{
+  "problem": {
+    "title": "Parse User Goal Tags and Streaks",
+    "prompt": "You are working with a language learning application that tracks user progress and goals. The user_progress table is modeled on publicly available educational engagement datasets (similar to Kaggle's Duolingo SLAM challenge data). Each user has a comma-delimited string of daily completion codes, a text array of learning goal tags, and a nullable field for their target proficiency level. The daily_codes column stores codes like 'L' (lesson completed), 'P' (practice), 'S' (streak day), separated by commas. The goal_tags array holds user-selected goals like 'conversational', 'business', 'travel'. The target_level column may be blank or contain values like 'A1', 'B2', 'C1' following the CEFR standard. Write a query that extracts the user's first goal tag (or 'none' if the array is empty), counts how many goal tags they have set, flags whether they have the 'business' goal, extracts the count of daily activity codes, and cleans the target level (trim spaces, uppercase, or 'NOT_SET' if blank). Return columns: user_id, first_goal, goal_count, has_business_goal, activity_count, clean_target_level. Order by user_id ascending.",
+    "display": {
+      "context": "You are working with a language learning application that tracks user progress and goals, modeled on educational engagement datasets (data.gov, Kaggle Duolingo data).",
+      "task": "Write a query that parses each user's goal tags array to extract the first goal, count total goals, flag business learners, parse the daily activity codes to count entries, and clean the target proficiency level.",
+      "table_notes": {
+        "user_progress": "stores each user's daily activity codes (comma-delimited string), learning goal tags (text array), and target CEFR proficiency level (may be blank or messy)"
+      },
+      "output_field_notes": {
+        "user_id": "the unique identifier for the user",
+        "first_goal": "the first element from the goal_tags array, or the text 'none' if the array is empty",
+        "goal_count": "the number of tags in the goal_tags array",
+        "has_business_goal": "true if the goal_tags array contains the tag 'business', false otherwise",
+        "activity_count": "the number of daily activity codes in the daily_codes string (count of comma-separated parts)",
+        "clean_target_level": "the target_level field with leading and trailing spaces removed and converted to uppercase, or the text 'NOT_SET' if the field is blank or null"
+      },
+      "field_logic": [
+        "first_goal: take the first element from the goal_tags array if it exists, otherwise the text 'none'",
+        "goal_count: count how many elements are in the goal_tags array",
+        "has_business_goal: check if the text 'business' appears anywhere in the goal_tags array",
+        "activity_count: split the daily_codes string by commas and count the resulting parts",
+        "clean_target_level: remove leading and trailing spaces from target_level, convert to uppercase, or use the text 'NOT_SET' if the original value is blank or null"
+      ],
+      "edge_cases": [
+        "If the goal_tags array is empty, first_goal should be 'none' and goal_count should be 0.",
+        "If target_level is null or contains only whitespace, clean_target_level should be 'NOT_SET'.",
+        "If goal_tags does not contain 'business', has_business_goal should be false."
+      ],
+      "filter_note": "All rows from the user_progress table are included in the output.",
+      "order_by_note": "The output rows are ordered by user_id in ascending order."
+    },
+    "schema_ddl": "CREATE TABLE user_progress (user_id INT PRIMARY KEY, username VARCHAR(50), daily_codes TEXT, goal_tags TEXT[], target_level VARCHAR(20), signup_date DATE);",
+    "example_input_data": "INSERT INTO user_progress (user_id, username, daily_codes, goal_tags, target_level, signup_date) VALUES (101, 'alice_es', 'L,L,S,P,L', ARRAY['conversational', 'travel'], 'B1', '2024-01-15'), (102, 'bob_fr', 'L,P', ARRAY['business', 'conversational'], ' b2 ', '2024-02-01'), (103, 'carol_de', 'L', ARRAY[]::TEXT[], NULL, '2024-02-10'), (104, 'david_ja', 'L,L,L,S,S,P', ARRAY['business'], 'C1', '2024-01-20'), (105, 'eve_it', 'P,L,L', ARRAY['travel', 'conversational', 'reading'], '  ', '2024-03-05'), (106, 'frank_pt', 'L,S', ARRAY['business', 'travel', 'writing'], 'a1', '2024-01-25');",
+    "example_output_columns": [
+      "user_id",
+      "first_goal",
+      "goal_count",
+      "has_business_goal",
+      "activity_count",
+      "clean_target_level"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "conversational",
+        2,
+        false,
+        5,
+        "B1"
+      ],
+      [
+        102,
+        "business",
+        2,
+        true,
+        2,
+        "B2"
+      ],
+      [
+        103,
+        "none",
+        0,
+        false,
+        1,
+        "NOT_SET"
+      ],
+      [
+        104,
+        "business",
+        1,
+        true,
+        6,
+        "C1"
+      ],
+      [
+        105,
+        "travel",
+        3,
+        false,
+        3,
+        ""
+      ],
+      [
+        106,
+        "business",
+        3,
+        true,
+        2,
+        "A1"
+      ]
+    ],
+    "test_data": "INSERT INTO user_progress (user_id, username, daily_codes, goal_tags, target_level, signup_date) VALUES (201, 'user_a', 'L', ARRAY['conversational'], 'A2', '2024-01-10'), (202, 'user_b', 'L,L,L,L,L,L,L', ARRAY['business', 'writing', 'reading'], 'b1 ', '2024-01-12'), (203, 'user_c', 'P', ARRAY[]::TEXT[], '', '2024-01-14'), (204, 'user_d', 'S,S,S', ARRAY['travel'], NULL, '2024-01-16'), (205, 'user_e', 'L,P,L,P,L,P,L,P', ARRAY['conversational', 'business'], '  c2  ', '2024-01-18'), (206, 'user_f', 'L,L', ARRAY['reading', 'writing'], 'A1', '2024-01-20'), (207, 'user_g', 'L,S,P,L,S,P,L,S,P', ARRAY['business'], 'B2', '2024-01-22'), (208, 'user_h', 'P,P,P,P', ARRAY['travel', 'conversational'], ' A2', '2024-01-24'), (209, 'user_i', 'L', ARRAY['business', 'travel', 'conversational', 'reading'], 'c1', '2024-01-26'), (210, 'user_j', 'L,L,L', ARRAY[]::TEXT[], '   ', '2024-01-28'), (211, 'user_k', 'S', ARRAY['writing'], NULL, '2024-01-30'), (212, 'user_l', 'L,P,L', ARRAY['conversational', 'reading', 'writing', 'business'], 'B1', '2024-02-01'), (213, 'user_m', 'L,L,L,L', ARRAY['travel', 'business'], ' b2', '2024-02-03'), (214, 'user_n', 'P,P', ARRAY['reading'], '', '2024-02-05'), (215, 'user_o', 'L,S,L,S,L', ARRAY['conversational'], 'A1 ', '2024-02-07'), (216, 'user_p', 'L,L,L,L,L', ARRAY[]::TEXT[], 'C2', '2024-02-09'), (217, 'user_q', 'P', ARRAY['business', 'conversational', 'travel'], NULL, '2024-02-11'), (218, 'user_r', 'L,P', ARRAY['writing', 'reading', 'business'], '  a2  ', '2024-02-13'), (219, 'user_s', 'S,S', ARRAY['travel', 'conversational'], 'B1', '2024-02-15'), (220, 'user_t', 'L', ARRAY['conversational'], '  ', '2024-02-17');",
+    "test_expected_columns": [
+      "user_id",
+      "first_goal",
+      "goal_count",
+      "has_business_goal",
+      "activity_count",
+      "clean_target_level"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "conversational",
+        1,
+        false,
+        1,
+        "A2"
+      ],
+      [
+        202,
+        "business",
+        3,
+        true,
+        7,
+        "B1"
+      ],
+      [
+        203,
+        "none",
+        0,
+        false,
+        1,
+        "NOT_SET"
+      ],
+      [
+        204,
+        "travel",
+        1,
+        false,
+        3,
+        "NOT_SET"
+      ],
+      [
+        205,
+        "conversational",
+        2,
+        true,
+        8,
+        "C2"
+      ],
+      [
+        206,
+        "reading",
+        2,
+        false,
+        2,
+        "A1"
+      ],
+      [
+        207,
+        "business",
+        1,
+        true,
+        9,
+        "B2"
+      ],
+      [
+        208,
+        "travel",
+        2,
+        false,
+        4,
+        "A2"
+      ],
+      [
+        209,
+        "business",
+        4,
+        true,
+        1,
+        "C1"
+      ],
+      [
+        210,
+        "none",
+        0,
+        false,
+        3,
+        ""
+      ],
+      [
+        211,
+        "writing",
+        1,
+        false,
+        1,
+        "NOT_SET"
+      ],
+      [
+        212,
+        "conversational",
+        4,
+        true,
+        3,
+        "B1"
+      ],
+      [
+        213,
+        "travel",
+        2,
+        true,
+        4,
+        "B2"
+      ],
+      [
+        214,
+        "reading",
+        1,
+        false,
+        2,
+        "NOT_SET"
+      ],
+      [
+        215,
+        "conversational",
+        1,
+        false,
+        5,
+        "A1"
+      ],
+      [
+        216,
+        "none",
+        0,
+        false,
+        5,
+        "C2"
+      ],
+      [
+        217,
+        "business",
+        3,
+        true,
+        1,
+        "NOT_SET"
+      ],
+      [
+        218,
+        "writing",
+        3,
+        true,
+        2,
+        "A2"
+      ],
+      [
+        219,
+        "travel",
+        2,
+        false,
+        2,
+        "B1"
+      ],
+      [
+        220,
+        "conversational",
+        1,
+        false,
+        1,
+        ""
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "row-transform: extract first array element with COALESCE fallback",
+        "row-transform: count array length",
+        "row-transform: check array membership with ANY",
+        "row-transform: count delimited string parts",
+        "row-transform: clean and normalize text with TRIM, UPPER, NULLIF"
+      ]
+    },
+    "hints": [
+      "PostgreSQL arrays are 1-indexed, so the first element is accessed with [1]. You can get the array length with a built-in function that takes the array and dimension number.",
+      "To check if a value exists in an array, use the = ANY(array_column) syntax. For counting comma-separated values, consider splitting the string and counting the parts.",
+      "Use COALESCE to provide a default when the first array element is NULL (empty array), ARRAY_LENGTH(goal_tags, 1) for the count, 'business' = ANY(goal_tags) for the boolean flag, and ARRAY_LENGTH(STRING_TO_ARRAY(daily_codes, ','), 1) to count codes. Clean target_level with UPPER(TRIM(NULLIF(target_level, ''))) wrapped in COALESCE(..., 'NOT_SET')."
+    ],
+    "answer_key": "SELECT user_id, COALESCE(goal_tags[1], 'none') AS first_goal, COALESCE(ARRAY_LENGTH(goal_tags, 1), 0) AS goal_count, ('business' = ANY(goal_tags)) AS has_business_goal, ARRAY_LENGTH(STRING_TO_ARRAY(daily_codes, ','), 1) AS activity_count, COALESCE(UPPER(TRIM(NULLIF(target_level, ''))), 'NOT_SET') AS clean_target_level FROM user_progress ORDER BY user_id;",
+    "_meta": {
+      "question_type": "parse_clean",
+      "original_qtype": "parse_clean",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-27T22:30:19.119888",
+      "problem_id": "5b69fbb8e146",
+      "validation_attempts": 1,
+      "scenario": "a language learning app tracking daily streaks and lesson completion",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "array_access",
+      "cleaning_required": false,
+      "cleaning_level": null,
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": false,
+      "realism": "high"
+    },
+    "example_output_schema": [
+      [
+        "user_id",
+        "INTEGER"
+      ],
+      [
+        "first_goal",
+        "TEXT"
+      ],
+      [
+        "goal_count",
+        "INTEGER"
+      ],
+      [
+        "has_business_goal",
+        "BOOLEAN"
+      ],
+      [
+        "activity_count",
+        "INTEGER"
+      ],
+      [
+        "clean_target_level",
+        "TEXT"
+      ]
+    ]
+  },
+  "user_solution": "/* notes */\n\nSELECT\n    user_id,\t\n    goal_tags[1] AS first_goal,\n    COALESCE(ARRAY_LENGTH(goal_tags, 1),0) AS goal_count,\n    COALESCE('business' = ANY(goal_tags) ) has_business_goal,\n    array_length(string_to_array(daily_codes, ','), 1) AS activity_count,\n    COALESCE(UPPER(TRIM(NULLIF(target_level, ''))), 'NOT_SET') AS clean_target_level\nFROM user_progress\nORDER BY 1;",
+  "solved_at": "2026-06-27T23:39:24.174339"
+}

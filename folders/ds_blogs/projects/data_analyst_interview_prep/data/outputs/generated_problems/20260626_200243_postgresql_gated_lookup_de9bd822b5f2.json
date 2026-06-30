@@ -1,0 +1,206 @@
+{
+  "title": "Gated Lookup: Match Offer by Driver Rating",
+  "prompt": "You are working with a ride-share app modeled on public transportation and gig-economy datasets (BLS, Kaggle ride-share samples). The system tracks ride requests and the drivers who bid to accept them. Each driver has a performance rating (1-5 scale). Business policy is to show the customer the *lowest* bid from drivers rated 4.0 or higher; if no qualifying driver has bid, the customer sees NULL for the offered price. Write a query that returns one row per request showing the request_id, the customer_name, the offered_price (lowest bid from drivers rated >= 4.0, or NULL if none exist), and the bidding_driver_name (the name of the driver who placed that lowest qualifying bid, or NULL). Order the output by request_id ascending. The driver rating gate is stored in the drivers table; the bids are in the ride_bids table. Each request may have multiple bids from different drivers. Driver names are stored with inconsistent casing and extra spaces; normalize them to Title Case and trim whitespace. The customer_tags column in the requests table is an array; you will reference it to determine display labels. One request is flagged with a 'vip' tag; if that tag is present in the array, prepend 'VIP: ' to the customer_name in the output (use the first element of customer_tags to check). The bid_timestamp is stored as TEXT in 'YYYY-MM-DD HH24:MI' format; cast it to TIMESTAMP before any date operations. For reporting, include a bid_hour column showing the hour (0-23) when the lowest qualifying bid was placed (or NULL if no qualifying bid). Round the offered_price to two decimal places.",
+  "display": {
+    "context": "You are working with a ride-share app modeled on public transportation and gig-economy datasets.",
+    "task": "Write a query that returns one row per request showing the lowest bid from drivers rated 4.0 or higher, or NULL if no such driver has bid.",
+    "table_notes": {
+      "requests": "Stores ride requests with customer information and classification tags.",
+      "drivers": "Stores driver profiles including their performance rating.",
+      "ride_bids": "Stores bids placed by drivers on ride requests, with bid amounts and timestamps."
+    },
+    "output_field_notes": {
+      "request_id": "The unique identifier of the ride request.",
+      "customer_name": "The name of the customer who made the request, with VIP prefix if applicable.",
+      "offered_price": "The lowest bid amount from drivers rated 4.0 or higher, or NULL if none exist.",
+      "bidding_driver_name": "The name of the driver who placed the lowest qualifying bid, or NULL.",
+      "bid_hour": "The hour of day when the lowest qualifying bid was placed, or NULL."
+    },
+    "field_logic": [
+      "customer_name: take the name from requests, and if the first tag in customer_tags is 'vip', prepend 'VIP: ' to it",
+      "offered_price: find the lowest bid amount among all bids where the driver's rating is at least 4.0; if no such bid exists, return NULL; round to two decimal places",
+      "bidding_driver_name: take the driver name associated with the lowest qualifying bid, normalize to title case with leading and trailing spaces removed, or NULL if no qualifying bid",
+      "bid_hour: extract the hour from the timestamp of the lowest qualifying bid, or NULL if no qualifying bid"
+    ],
+    "edge_cases": [
+      "If a request has no bids from drivers rated 4.0 or higher, offered_price, bidding_driver_name, and bid_hour are all NULL.",
+      "If a request has multiple bids at the same lowest amount from different qualifying drivers, pick the one with the earliest bid timestamp.",
+      "If a customer has 'vip' as the first element in customer_tags, prepend 'VIP: ' to customer_name."
+    ],
+    "filter_note": "All requests are included in the output, regardless of whether they have qualifying bids.",
+    "order_by_note": "The output rows are ordered by request_id ascending."
+  },
+  "schema_ddl": "CREATE TABLE requests (request_id INT PRIMARY KEY, customer_name VARCHAR(100), customer_tags TEXT[]); CREATE TABLE drivers (driver_id INT PRIMARY KEY, driver_name VARCHAR(100), rating NUMERIC(3,1)); CREATE TABLE ride_bids (bid_id INT PRIMARY KEY, request_id INT, driver_id INT, bid_amount NUMERIC(10,2), bid_timestamp TEXT);",
+  "example_input_data": "INSERT INTO requests (request_id, customer_name, customer_tags) VALUES (1, 'Alice Chen', ARRAY['vip', 'frequent']), (2, 'Bob Martinez', ARRAY['new']), (3, 'Carol Wu', ARRAY['standard']), (4, 'David Kim', ARRAY['corporate']); INSERT INTO drivers (driver_id, driver_name, rating) VALUES (101, '  JOHN SMITH  ', 4.8), (102, 'sarah JONES', 3.5), (103, 'Mike LEE', 4.2), (104, 'EMMA brown', 4.9); INSERT INTO ride_bids (bid_id, request_id, driver_id, bid_amount, bid_timestamp) VALUES (1, 1, 101, 25.50, '2024-03-15 08:30'), (2, 1, 102, 22.00, '2024-03-15 08:35'), (3, 1, 103, 24.00, '2024-03-15 08:32'), (4, 2, 102, 18.00, '2024-03-15 09:15'), (5, 2, 104, 20.00, '2024-03-15 09:10'), (6, 3, 101, 30.00, '2024-03-15 10:05'), (7, 3, 103, 28.50, '2024-03-15 10:08');",
+  "example_output_columns": [
+    "request_id",
+    "customer_name",
+    "offered_price",
+    "bidding_driver_name",
+    "bid_hour"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "VIP: Alice Chen",
+      "24.00",
+      "Mike Lee",
+      "8"
+    ],
+    [
+      2,
+      "Bob Martinez",
+      "20.00",
+      "Emma Brown",
+      "9"
+    ],
+    [
+      3,
+      "Carol Wu",
+      "28.50",
+      "Mike Lee",
+      "10"
+    ],
+    [
+      4,
+      "David Kim",
+      null,
+      null,
+      null
+    ]
+  ],
+  "test_data": "INSERT INTO requests (request_id, customer_name, customer_tags) VALUES (1, 'Alice Chen', ARRAY['vip', 'frequent']), (2, 'Bob Martinez', ARRAY['new']), (3, 'Carol Wu', ARRAY['standard']), (4, 'David Kim', ARRAY['corporate']), (5, 'Eve Taylor', ARRAY['standard']), (6, 'Frank White', ARRAY['vip']), (7, 'Grace Lee', ARRAY['business']), (8, 'Henry Park', ARRAY['student']); INSERT INTO drivers (driver_id, driver_name, rating) VALUES (101, '  JOHN SMITH  ', 4.8), (102, 'sarah JONES', 3.5), (103, 'Mike LEE', 4.2), (104, 'EMMA brown', 4.9), (105, 'chris DAVIS  ', 4.0), (106, '  LISA wilson', 3.2), (107, 'TOM anderson', 4.5), (108, 'ANNA moore  ', 3.8); INSERT INTO ride_bids (bid_id, request_id, driver_id, bid_amount, bid_timestamp) VALUES (1, 1, 101, 25.50, '2024-03-15 08:30'), (2, 1, 102, 22.00, '2024-03-15 08:35'), (3, 1, 103, 24.00, '2024-03-15 08:32'), (4, 2, 102, 18.00, '2024-03-15 09:15'), (5, 2, 104, 20.00, '2024-03-15 09:10'), (6, 2, 106, 16.50, '2024-03-15 09:12'), (7, 3, 101, 30.00, '2024-03-15 10:05'), (8, 3, 103, 28.50, '2024-03-15 10:08'), (9, 3, 102, 27.00, '2024-03-15 10:10'), (10, 4, 102, 35.00, '2024-03-15 11:20'), (11, 4, 106, 33.00, '2024-03-15 11:25'), (12, 5, 105, 40.00, '2024-03-15 12:00'), (13, 5, 107, 38.50, '2024-03-15 12:05'), (14, 5, 103, 39.00, '2024-03-15 12:03'), (15, 6, 101, 22.00, '2024-03-15 13:15'), (16, 6, 104, 22.00, '2024-03-15 13:10'), (17, 6, 107, 23.00, '2024-03-15 13:20'), (18, 7, 108, 45.00, '2024-03-15 14:30'), (19, 7, 102, 42.00, '2024-03-15 14:35'), (20, 8, 106, 50.00, '2024-03-15 15:00'), (21, 8, 102, 48.00, '2024-03-15 15:05'), (22, 8, 108, 47.00, '2024-03-15 15:10');",
+  "test_expected_columns": [
+    "request_id",
+    "customer_name",
+    "offered_price",
+    "bidding_driver_name",
+    "bid_hour"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "VIP: Alice Chen",
+      "24.00",
+      "Mike Lee",
+      "8"
+    ],
+    [
+      2,
+      "Bob Martinez",
+      "20.00",
+      "Emma Brown",
+      "9"
+    ],
+    [
+      3,
+      "Carol Wu",
+      "28.50",
+      "Mike Lee",
+      "10"
+    ],
+    [
+      4,
+      "David Kim",
+      null,
+      null,
+      null
+    ],
+    [
+      5,
+      "Eve Taylor",
+      "38.50",
+      "Tom Anderson",
+      "12"
+    ],
+    [
+      6,
+      "VIP: Frank White",
+      "22.00",
+      "Emma Brown",
+      "13"
+    ],
+    [
+      7,
+      "Grace Lee",
+      null,
+      null,
+      null
+    ],
+    [
+      8,
+      "Henry Park",
+      null,
+      null,
+      null
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "same_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "join ride_bids to drivers to attach rating to each bid",
+      "filter bids where driver rating >= 4.0",
+      "per-request pick: use ROW_NUMBER() OVER (PARTITION BY request_id ORDER BY bid_amount, bid_timestamp) to identify the lowest qualifying bid",
+      "left join requests to the winning bid rows",
+      "gate with CASE: if no qualifying bid exists (LEFT JOIN produces NULL), output NULL for price/driver/hour; otherwise output the picked bid details",
+      "clean driver names with TRIM and INITCAP",
+      "check customer_tags array first element with customer_tags[1] and prepend 'VIP: ' if = 'vip'",
+      "cast bid_timestamp from TEXT to TIMESTAMP",
+      "extract hour from the timestamp",
+      "round bid_amount to two decimals"
+    ]
+  },
+  "hints": [
+    "Start by identifying which bids come from drivers with a rating of at least 4.0.",
+    "For each request, use a window function to rank the qualifying bids by amount (then by timestamp to break ties), and keep only the top one.",
+    "Join the requests table to the best bid per request, using a LEFT JOIN so requests without qualifying bids still appear; use CASE to output NULL when the join finds nothing."
+  ],
+  "answer_key": "WITH qualifying_bids AS (SELECT rb.request_id, rb.driver_id, rb.bid_amount, rb.bid_timestamp, d.driver_name, ROW_NUMBER() OVER (PARTITION BY rb.request_id ORDER BY rb.bid_amount, rb.bid_timestamp::TIMESTAMP) AS rn FROM ride_bids rb JOIN drivers d ON rb.driver_id = d.driver_id WHERE d.rating >= 4.0), best_bids AS (SELECT request_id, bid_amount, driver_name, bid_timestamp FROM qualifying_bids WHERE rn = 1) SELECT r.request_id, CASE WHEN r.customer_tags[1] = 'vip' THEN 'VIP: ' || r.customer_name ELSE r.customer_name END AS customer_name, ROUND(b.bid_amount, 2) AS offered_price, INITCAP(TRIM(b.driver_name)) AS bidding_driver_name, EXTRACT(HOUR FROM b.bid_timestamp::TIMESTAMP) AS bid_hour FROM requests r LEFT JOIN best_bids b ON r.request_id = b.request_id ORDER BY r.request_id;",
+  "_meta": {
+    "question_type": "gated_lookup",
+    "original_qtype": "gated_lookup",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-26T20:02:42.978102",
+    "problem_id": "de9bd822b5f2",
+    "validation_attempts": 1,
+    "scenario": "a ride share app tracking match rate from request to driver acceptance",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "rownumber_pick",
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "high"
+  },
+  "example_output_schema": [
+    [
+      "request_id",
+      "INTEGER"
+    ],
+    [
+      "customer_name",
+      "VARCHAR"
+    ],
+    [
+      "offered_price",
+      "NUMERIC"
+    ],
+    [
+      "bidding_driver_name",
+      "TEXT"
+    ],
+    [
+      "bid_hour",
+      "NUMERIC"
+    ]
+  ]
+}

@@ -33,6 +33,7 @@ REF = {
   ("LENGTH(s)", "Number of characters", "LENGTH('hello')", "5"),
   ("LPAD(s, len, pad)", "Left-pad to a fixed width", "LPAD('7',3,'0')", "007"),
   ("REGEXP_REPLACE(s, pat, r, 'g')", "Regex replace (g = all)", "REGEXP_REPLACE('a1b2c3','[0-9]','','g')", "abc"),
+  ("STRING_TO_ARRAY(s, sep)", "Split text into an array", "STRING_TO_ARRAY('a-b-c','-')", "{a,b,c}"),
  ],
  'fn-array': [
   ("arr[n]", "Nth element (arrays are 1-based)", "(ARRAY['a','b','c'])[2]", "b"),

@@ -1,0 +1,295 @@
+{
+  "title": "Clean and Parse Provider Email Domains",
+  "prompt": "You are working with a telehealth platform that tracks visit completion and follow-up scheduling, modeled on CMS telehealth utilization datasets (data.gov). The `providers` table contains provider contact information that was imported from multiple source systems, resulting in messy formatting. Many provider email addresses have leading/trailing whitespace and inconsistent casing. Provider names sometimes include unwanted prefix terms like \"Dr.\" or \"RN\" that were embedded in the import. Your task is to write a query that cleans the provider names by removing the prefix \"Dr.\" (case-insensitive) and standardizing the capitalization, extracts the email domain from the provider's email address, and builds a clean array of the domain parts. Return one row per provider showing the cleaned name, the email domain, and the domain parts as an array. Order the results by the cleaned provider name alphabetically.",
+  "display": {
+    "context": "You are working with a telehealth platform that tracks visit completion and follow-up scheduling, modeled on CMS telehealth utilization datasets (data.gov).",
+    "task": "Write a query that cleans provider names, extracts email domains, and splits domains into component parts.",
+    "table_notes": {
+      "providers": "stores provider contact information imported from multiple source systems with inconsistent formatting"
+    },
+    "output_field_notes": {
+      "provider_id": "unique identifier for the provider",
+      "clean_name": "the provider's full name with unwanted prefixes removed and proper capitalization applied",
+      "email_domain": "the domain portion extracted from the provider's email address",
+      "domain_parts": "the domain broken into its components as an array"
+    },
+    "field_logic": [
+      "clean_name: remove the text 'Dr.' from anywhere in the raw provider name (case does not matter), then capitalize the first letter of each word",
+      "email_domain: take the portion of the email address that appears after the @ symbol",
+      "domain_parts: split the domain string into pieces separated by periods and store as an array"
+    ],
+    "edge_cases": [
+      "If the provider name contains 'Dr.' in any casing (DR., dr., Dr.), it should be removed before capitalization",
+      "If the email has leading or trailing spaces, they should be removed before extracting the domain"
+    ],
+    "filter_note": "All provider rows are included in the output.",
+    "order_by_note": "Results are ordered by the cleaned provider name in ascending alphabetical order."
+  },
+  "schema_ddl": "CREATE TABLE providers (provider_id INT PRIMARY KEY, provider_name VARCHAR(100), email VARCHAR(150), specialty VARCHAR(50));",
+  "example_input_data": "INSERT INTO providers (provider_id, provider_name, email, specialty) VALUES (1, 'Dr. sarah wilson', '  swilson@healthnet.org  ', 'Family Medicine'), (2, 'DR. JAMES CHEN', 'jchen@telecare.com', 'Cardiology'), (3, 'maria rodriguez', 'mrodriguez@virtualmd.co.uk', 'Pediatrics'), (4, 'dr. kevin PARK', ' kpark@rxhealth.io ', 'Psychiatry'), (5, 'EMILY DAVIS', 'edavis@medconnect.health', 'Internal Medicine'), (6, 'Dr. robert LEE', 'rlee@careprovider.net', 'Dermatology');",
+  "example_output_columns": [
+    "provider_id",
+    "clean_name",
+    "email_domain",
+    "domain_parts"
+  ],
+  "example_output_rows": [
+    [
+      5,
+      "Emily Davis",
+      "medconnect.health",
+      [
+        "medconnect",
+        "health"
+      ]
+    ],
+    [
+      2,
+      "James Chen",
+      "telecare.com",
+      [
+        "telecare",
+        "com"
+      ]
+    ],
+    [
+      4,
+      "Kevin Park",
+      "rxhealth.io",
+      [
+        "rxhealth",
+        "io"
+      ]
+    ],
+    [
+      3,
+      "Maria Rodriguez",
+      "virtualmd.co.uk",
+      [
+        "virtualmd",
+        "co",
+        "uk"
+      ]
+    ],
+    [
+      6,
+      "Robert Lee",
+      "careprovider.net",
+      [
+        "careprovider",
+        "net"
+      ]
+    ],
+    [
+      1,
+      "Sarah Wilson",
+      "healthnet.org",
+      [
+        "healthnet",
+        "org"
+      ]
+    ]
+  ],
+  "test_data": "INSERT INTO providers (provider_id, provider_name, email, specialty) VALUES (101, 'Dr. AMANDA CLARK', 'aclark@firstcare.org', 'Family Medicine'), (102, 'dr. michael BROWN', '  mbrown@healthsys.com  ', 'Cardiology'), (103, 'LINDA thompson', 'lthompson@medicalgroup.net', 'Pediatrics'), (104, 'DR. thomas WHITE', 'twhite@virtualhealth.io', 'Psychiatry'), (105, 'Dr. jennifer MARTIN', '  jmartin@rxcare.co.uk  ', 'Internal Medicine'), (106, 'david GARCIA', 'dgarcia@telehealth.health', 'Dermatology'), (107, 'DR. SUSAN martinez', 'smartinez@providers.org', 'Family Medicine'), (108, 'dr. charles ANDERSON', 'canderson@medtech.ai', 'Cardiology'), (109, 'Dr. PATRICIA taylor', '  ptaylor@healthnetwork.com  ', 'Pediatrics'), (110, 'matthew THOMAS', 'mthomas@caresystem.net', 'Psychiatry'), (111, 'Dr. barbara JACKSON', 'bjackson@medconnect.health', 'Internal Medicine'), (112, 'DR. christopher WHITE', '  cwhite@virtualcare.io  ', 'Dermatology'), (113, 'Dr. nancy HARRIS', 'nharris@rxprovider.org', 'Family Medicine'), (114, 'daniel CLARK', 'dclark@healthportal.com', 'Cardiology'), (115, 'DR. karen LEWIS', 'klewis@telemd.co.uk', 'Pediatrics');",
+  "test_expected_columns": [
+    "provider_id",
+    "clean_name",
+    "email_domain",
+    "domain_parts"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      "Amanda Clark",
+      "firstcare.org",
+      [
+        "firstcare",
+        "org"
+      ]
+    ],
+    [
+      111,
+      "Barbara Jackson",
+      "medconnect.health",
+      [
+        "medconnect",
+        "health"
+      ]
+    ],
+    [
+      108,
+      "Charles Anderson",
+      "medtech.ai",
+      [
+        "medtech",
+        "ai"
+      ]
+    ],
+    [
+      112,
+      "Christopher White",
+      "virtualcare.io",
+      [
+        "virtualcare",
+        "io"
+      ]
+    ],
+    [
+      114,
+      "Daniel Clark",
+      "healthportal.com",
+      [
+        "healthportal",
+        "com"
+      ]
+    ],
+    [
+      106,
+      "David Garcia",
+      "telehealth.health",
+      [
+        "telehealth",
+        "health"
+      ]
+    ],
+    [
+      105,
+      "Jennifer Martin",
+      "rxcare.co.uk",
+      [
+        "rxcare",
+        "co",
+        "uk"
+      ]
+    ],
+    [
+      115,
+      "Karen Lewis",
+      "telemd.co.uk",
+      [
+        "telemd",
+        "co",
+        "uk"
+      ]
+    ],
+    [
+      103,
+      "Linda Thompson",
+      "medicalgroup.net",
+      [
+        "medicalgroup",
+        "net"
+      ]
+    ],
+    [
+      110,
+      "Matthew Thomas",
+      "caresystem.net",
+      [
+        "caresystem",
+        "net"
+      ]
+    ],
+    [
+      102,
+      "Michael Brown",
+      "healthsys.com",
+      [
+        "healthsys",
+        "com"
+      ]
+    ],
+    [
+      113,
+      "Nancy Harris",
+      "rxprovider.org",
+      [
+        "rxprovider",
+        "org"
+      ]
+    ],
+    [
+      109,
+      "Patricia Taylor",
+      "healthnetwork.com",
+      [
+        "healthnetwork",
+        "com"
+      ]
+    ],
+    [
+      107,
+      "Susan Martinez",
+      "providers.org",
+      [
+        "providers",
+        "org"
+      ]
+    ],
+    [
+      104,
+      "Thomas White",
+      "virtualhealth.io",
+      [
+        "virtualhealth",
+        "io"
+      ]
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "row-transform",
+    "composite_moves": [
+      "row-transform: apply TRIM to email, REPLACE to remove Dr. from name, INITCAP for capitalization, SUBSTRING FROM to extract domain after @, STRING_TO_ARRAY to split domain by period"
+    ]
+  },
+  "hints": [
+    "You will need to clean both the provider name and the email address using different string functions.",
+    "Use REPLACE to remove unwanted text from the provider name, then apply INITCAP for proper capitalization. Use TRIM on the email before extracting the domain.",
+    "Extract the domain using SUBSTRING with FROM and FOR, specifying the position after the @ symbol. Split the domain into parts using STRING_TO_ARRAY with '.' as the delimiter."
+  ],
+  "answer_key": "SELECT provider_id, INITCAP(TRIM(REGEXP_REPLACE(provider_name, 'dr\\.', '', 'gi'))) AS clean_name, SUBSTRING(TRIM(email) FROM POSITION('@' IN TRIM(email)) + 1) AS email_domain, STRING_TO_ARRAY(SUBSTRING(TRIM(email) FROM POSITION('@' IN TRIM(email)) + 1), '.') AS domain_parts FROM providers ORDER BY INITCAP(TRIM(REGEXP_REPLACE(provider_name, 'dr\\.', '', 'gi')));",
+  "_meta": {
+    "question_type": "parse_clean",
+    "original_qtype": "parse_clean",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-28T20:21:30.186670",
+    "problem_id": "61ae52477f5e",
+    "validation_attempts": 1,
+    "scenario": "a telehealth platform tracking visit completion and follow-up scheduling",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "string_clean",
+    "cleaning_required": false,
+    "cleaning_level": null,
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": null,
+    "typecast_twist": false,
+    "realism": "high",
+    "answer_key_fixed": "2026-06-28: clean_name was not trimmed after removing 'Dr.', leaving a leading space that also corrupted the ORDER BY; now TRIM + REGEXP_REPLACE 'dr.' case-insensitive (also catches mixed case like dR.)"
+  },
+  "example_output_schema": [
+    [
+      "provider_id",
+      "INTEGER"
+    ],
+    [
+      "clean_name",
+      "TEXT"
+    ],
+    [
+      "email_domain",
+      "TEXT"
+    ],
+    [
+      "domain_parts",
+      "TEXT[]"
+    ]
+  ]
+}

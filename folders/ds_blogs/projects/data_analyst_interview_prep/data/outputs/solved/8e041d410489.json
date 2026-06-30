@@ -1,0 +1,122 @@
+{
+  "problem": {
+    "title": "Net Watch Time Flow by Show",
+    "prompt": "You are working with a streaming video service tracking watch time and binge depth. The `watch_events` table records both viewing sessions (when users watch content) and refund sessions (when users request time credited back due to playback issues). Each row has a `show_title`, an `event_type` (either 'view' or 'refund'), and a `minutes` value. View events increase the net watch time; refund events decrease it. Write a query that computes the net watch time for each show (total view minutes minus total refund minutes) and returns the show title and the net watch time in minutes. Negative values are valid and indicate the show has had more refunded time than watched time. Return all shows that appear in the watch_events table, in any order.",
+    "display": {
+      "context": "You are working with a streaming video service tracking watch time and binge depth.",
+      "task": "Write a query that computes the net watch time for each show and returns the show title and net watch time in minutes.",
+      "table_notes": {
+        "watch_events": "records viewing sessions and refund sessions with minutes for each event"
+      },
+      "output_field_notes": {
+        "show_title": "the cleaned title of the show",
+        "net_minutes": "the total view minutes minus the total refund minutes for the show"
+      },
+      "field_logic": [
+        "show_title: take the title from the watch_events table, drop leading and trailing spaces, and capitalize each word",
+        "net_minutes: sum all minutes where event_type is view, then subtract the sum of all minutes where event_type is refund"
+      ],
+      "edge_cases": [
+        "If a show has more refunded minutes than viewed minutes, net_minutes will be negative.",
+        "If a show has multiple view or refund events, sum all of them."
+      ],
+      "filter_note": "All shows that appear in the watch_events table are included.",
+      "order_by_note": "The output rows may be returned in any order."
+    },
+    "schema_ddl": "CREATE TABLE watch_events (event_id INT PRIMARY KEY, show_title TEXT, event_type TEXT, minutes TEXT, event_date TEXT);",
+    "example_input_data": "INSERT INTO watch_events (event_id, show_title, event_type, minutes, event_date) VALUES (1, ' stranger things ', 'view', '45', '2024-01-15'), (2, 'The Crown', 'view', '60', '2024-01-16'), (3, ' stranger things ', 'refund', '10', '2024-01-17'), (4, 'breaking bad  ', 'view', '50', '2024-01-18'), (5, 'The Crown', 'refund', '20', '2024-01-19'), (6, 'breaking bad  ', 'view', '55', '2024-01-20'), (7, ' stranger things ', 'view', '30', '2024-01-21'), (8, 'The Crown', 'refund', '80', '2024-01-22');",
+    "example_output_columns": [
+      "show_title",
+      "net_minutes"
+    ],
+    "example_output_rows": [
+      [
+        "Stranger Things",
+        "65"
+      ],
+      [
+        "Breaking Bad",
+        "105"
+      ],
+      [
+        "The Crown",
+        "-40"
+      ]
+    ],
+    "test_data": "INSERT INTO watch_events (event_id, show_title, event_type, minutes, event_date) VALUES (101, ' game of thrones ', 'view', '120', '2024-02-01'), (102, ' game of thrones ', 'view', '90', '2024-02-02'), (103, 'westworld  ', 'view', '75', '2024-02-03'), (104, ' game of thrones ', 'refund', '30', '2024-02-04'), (105, 'westworld  ', 'refund', '15', '2024-02-05'), (106, 'the witcher', 'view', '40', '2024-02-06'), (107, 'the witcher', 'refund', '50', '2024-02-07'), (108, 'westworld  ', 'view', '60', '2024-02-08'), (109, ' game of thrones ', 'view', '100', '2024-02-09'), (110, 'westworld  ', 'refund', '25', '2024-02-10'), (111, 'the witcher', 'view', '35', '2024-02-11'), (112, ' game of thrones ', 'refund', '20', '2024-02-12'), (113, 'ozark ', 'view', '80', '2024-02-13'), (114, 'ozark ', 'view', '95', '2024-02-14'), (115, 'ozark ', 'refund', '10', '2024-02-15'), (116, 'the witcher', 'refund', '30', '2024-02-16'), (117, 'westworld  ', 'view', '45', '2024-02-17'), (118, ' game of thrones ', 'view', '110', '2024-02-18'), (119, 'ozark ', 'view', '70', '2024-02-19'), (120, 'the witcher', 'view', '20', '2024-02-20');",
+    "test_expected_columns": [
+      "show_title",
+      "net_minutes"
+    ],
+    "test_expected_rows": [
+      [
+        "The Witcher",
+        "15"
+      ],
+      [
+        "Westworld",
+        "140"
+      ],
+      [
+        "Ozark",
+        "235"
+      ],
+      [
+        "Game Of Thrones",
+        "370"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "reshape",
+      "composite_moves": [
+        "string-clean-title",
+        "cast-minutes-to-numeric",
+        "signed-aggregate-view-minus-refund",
+        "group-by-show"
+      ]
+    },
+    "hints": [
+      "You need to combine opposing event types into a single net value per show.",
+      "Use conditional aggregation with CASE inside SUM to handle view and refund events differently.",
+      "Remember to clean the show title before grouping, and cast the minutes column to a numeric type before summing."
+    ],
+    "answer_key": "SELECT INITCAP(TRIM(show_title)) AS show_title, SUM(CASE WHEN event_type = 'view' THEN minutes::NUMERIC WHEN event_type = 'refund' THEN -minutes::NUMERIC END) AS net_minutes FROM watch_events GROUP BY INITCAP(TRIM(show_title));",
+    "_meta": {
+      "question_type": "pivot",
+      "original_qtype": "pivot",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-27T19:18:52.913841",
+      "problem_id": "8e041d410489",
+      "validation_attempts": 1,
+      "scenario": "a streaming video service tracking watch time and binge depth",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": "signed_aggregate",
+      "subtype": null,
+      "cleaning_required": true,
+      "cleaning_level": "moderate",
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": true,
+      "realism": "moderate"
+    },
+    "example_output_schema": [
+      [
+        "show_title",
+        "TEXT"
+      ],
+      [
+        "net_minutes",
+        "NUMERIC"
+      ]
+    ]
+  },
+  "user_solution": "/* notes */\n\nSELECT\n    INITCAP(TRIM(show_title)) AS show_title,\n    SUM(CASE WHEN event_type = 'view' THEN minutes::int ELSE 0 END) -\n    SUM(CASE WHEN event_type = 'refund' THEN minutes::int ELSE 0 END) AS net_minutes\nFROM watch_events\nGROUP BY 1\nORDER BY 1;",
+  "solved_at": "2026-06-27T19:21:23.033365"
+}

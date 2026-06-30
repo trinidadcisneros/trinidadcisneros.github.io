@@ -1,0 +1,228 @@
+{
+  "title": "Benefits Enrollment Gated by Onboarding Status",
+  "prompt": "You are working with an HR platform tracking onboarding completion and benefits enrollment, modeled on public workforce datasets (BLS, Census). The `employees` table records each employee's department code (NAICS 2-digit), onboarding completion flag stored as a text value ('Y' or 'N'), and hire date. The `benefit_plans` table records all plan options an employee can choose from, with monthly premium amounts and plan types stored as an array of tags. Some employees have multiple plan options; others may have none listed yet. Write a query that returns one row per employee showing their employee_id, department (cleaned and capitalized), hire_month name (no padding), and their lowest available monthly premium IF they have completed onboarding (onboarding_complete = 'Y'), otherwise 0. If an employee has no plans listed, treat their premium as NULL before applying the gate. Exclude any employee hired on or after 2024-07-01. Order by employee_id ascending.",
+  "display": {
+    "context": "You are working with an HR platform tracking onboarding completion and benefits enrollment, modeled on public workforce datasets (BLS, Census).",
+    "task": "Write a query that returns each employee's ID, department, hire month name, and their lowest available monthly premium if they completed onboarding, otherwise 0.",
+    "table_notes": {
+      "employees": "records each employee's department code, onboarding completion flag (stored as text 'Y' or 'N'), and hire date",
+      "benefit_plans": "records all plan options available to each employee with monthly premium amounts and plan type tags"
+    },
+    "output_field_notes": {
+      "employee_id": "the unique identifier for the employee",
+      "department": "the department name cleaned of whitespace and with each word capitalized",
+      "hire_month": "the name of the month the employee was hired with no trailing padding",
+      "lowest_premium": "the smallest monthly premium among the employee's available plans if they completed onboarding, otherwise zero; null if no plans are listed"
+    },
+    "field_logic": [
+      "department: take the department name from the employees table, remove spaces around it, and capitalize each word",
+      "hire_month: extract the month name from the hire date with no trailing spaces",
+      "lowest_premium: find the smallest monthly premium value across all of the employee's benefit plan rows; if the employee's onboarding completion flag is 'Y' use that minimum, otherwise use 0; if the employee has no plan rows the minimum is null and the gate still applies (null if completed, 0 if not)"
+    ],
+    "edge_cases": [
+      "If an employee has multiple benefit plan rows, pick the one with the smallest monthly premium.",
+      "If an employee has completed onboarding (the text value 'Y') and has at least one plan, output the lowest premium.",
+      "If an employee has not completed onboarding (the text value is not 'Y'), output 0 for the premium.",
+      "If an employee has no benefit plan rows at all, the minimum is null before the gate is applied."
+    ],
+    "filter_note": "Only employees hired before 2024-07-01 are included.",
+    "order_by_note": "Rows are ordered by employee_id ascending."
+  },
+  "schema_ddl": "CREATE TABLE employees (employee_id INT PRIMARY KEY, department_name VARCHAR(100), onboarding_complete VARCHAR(1), hire_date DATE, naics_code VARCHAR(2)); CREATE TABLE benefit_plans (plan_id INT PRIMARY KEY, employee_id INT, monthly_premium DECIMAL(10,2), plan_tags TEXT[]);",
+  "example_input_data": "INSERT INTO employees (employee_id, department_name, onboarding_complete, hire_date, naics_code) VALUES (101, '  Human Resources  ', 'Y', '2024-01-15', '54'), (102, 'IT Services', 'N', '2024-02-20', '51'), (103, 'Finance  ', 'Y', '2024-03-10', '52'), (104, 'Marketing', 'Y', '2024-04-05', '54'), (105, 'Operations', 'N', '2024-05-12', '48'), (106, 'Sales', 'Y', '2024-08-01', '44'); INSERT INTO benefit_plans (plan_id, employee_id, monthly_premium, plan_tags) VALUES (1, 101, 250.00, ARRAY['PPO', 'Family']), (2, 101, 180.50, ARRAY['HMO', 'Individual']), (3, 102, 200.00, ARRAY['PPO', 'Individual']), (4, 103, 300.00, ARRAY['PPO', 'Family']), (5, 104, 150.00, ARRAY['HMO', 'Individual']), (6, 104, 220.00, ARRAY['PPO', 'Individual']), (7, 105, 190.00, ARRAY['HMO', 'Family']);",
+  "example_output_columns": [
+    "employee_id",
+    "department",
+    "hire_month",
+    "lowest_premium"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Human Resources",
+      "January",
+      "180.50"
+    ],
+    [
+      102,
+      "It Services",
+      "February",
+      "0.00"
+    ],
+    [
+      103,
+      "Finance",
+      "March",
+      "300.00"
+    ],
+    [
+      104,
+      "Marketing",
+      "April",
+      "150.00"
+    ],
+    [
+      105,
+      "Operations",
+      "May",
+      "0.00"
+    ]
+  ],
+  "test_data": "INSERT INTO employees (employee_id, department_name, onboarding_complete, hire_date, naics_code) VALUES (201, 'Engineering  ', 'Y', '2023-11-10', '54'), (202, '  Legal', 'Y', '2023-12-05', '54'), (203, 'Customer Support  ', 'N', '2024-01-20', '56'), (204, 'Research', 'Y', '2024-02-14', '54'), (205, 'Administration', 'N', '2024-03-08', '92'), (206, 'Procurement', 'Y', '2024-04-22', '42'), (207, 'Quality Assurance', 'Y', '2024-05-30', '33'), (208, 'Logistics  ', 'N', '2024-06-15', '48'), (209, '  Training', 'Y', '2024-06-25', '61'), (210, 'Strategy', 'Y', '2024-07-10', '54'), (211, 'Compliance', 'N', '2024-01-12', '52'), (212, 'Analytics', 'Y', '2024-03-18', '51'), (213, 'Facilities', 'Y', '2024-04-09', '81'), (214, 'Security', 'N', '2024-05-05', '56'), (215, 'Communications', 'Y', '2024-02-28', '51'); INSERT INTO benefit_plans (plan_id, employee_id, monthly_premium, plan_tags) VALUES (101, 201, 275.00, ARRAY['PPO', 'Family']), (102, 201, 195.00, ARRAY['HMO', 'Individual']), (103, 201, 210.00, ARRAY['PPO', 'Individual']), (104, 202, 160.00, ARRAY['HMO', 'Individual']), (105, 203, 230.00, ARRAY['PPO', 'Family']), (106, 203, 175.00, ARRAY['HMO', 'Individual']), (107, 204, 265.00, ARRAY['PPO', 'Family']), (108, 205, 185.00, ARRAY['HMO', 'Individual']), (109, 205, 240.00, ARRAY['PPO', 'Individual']), (110, 206, 155.00, ARRAY['HMO', 'Individual']), (111, 207, 220.00, ARRAY['PPO', 'Individual']), (112, 207, 280.00, ARRAY['PPO', 'Family']), (113, 208, 190.00, ARRAY['HMO', 'Family']), (114, 209, 145.00, ARRAY['HMO', 'Individual']), (115, 209, 205.00, ARRAY['PPO', 'Individual']), (116, 211, 250.00, ARRAY['PPO', 'Family']), (117, 212, 170.00, ARRAY['HMO', 'Individual']), (118, 212, 225.00, ARRAY['PPO', 'Individual']), (119, 213, 200.00, ARRAY['PPO', 'Individual']), (120, 214, 180.00, ARRAY['HMO', 'Individual']), (121, 215, 260.00, ARRAY['PPO', 'Family']), (122, 215, 150.00, ARRAY['HMO', 'Individual']);",
+  "test_expected_columns": [
+    "employee_id",
+    "department",
+    "hire_month",
+    "lowest_premium"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Engineering",
+      "November",
+      "195.00"
+    ],
+    [
+      202,
+      "Legal",
+      "December",
+      "160.00"
+    ],
+    [
+      203,
+      "Customer Support",
+      "January",
+      "0.00"
+    ],
+    [
+      204,
+      "Research",
+      "February",
+      "265.00"
+    ],
+    [
+      205,
+      "Administration",
+      "March",
+      "0.00"
+    ],
+    [
+      206,
+      "Procurement",
+      "April",
+      "155.00"
+    ],
+    [
+      207,
+      "Quality Assurance",
+      "May",
+      "220.00"
+    ],
+    [
+      208,
+      "Logistics",
+      "June",
+      "0.00"
+    ],
+    [
+      209,
+      "Training",
+      "June",
+      "145.00"
+    ],
+    [
+      211,
+      "Compliance",
+      "January",
+      "0.00"
+    ],
+    [
+      212,
+      "Analytics",
+      "March",
+      "170.00"
+    ],
+    [
+      213,
+      "Facilities",
+      "April",
+      "200.00"
+    ],
+    [
+      214,
+      "Security",
+      "May",
+      "0.00"
+    ],
+    [
+      215,
+      "Communications",
+      "February",
+      "150.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "same_rows",
+    "recipe": "enrich-join",
+    "composite_moves": [
+      "filter employees by hire_date < '2024-07-01'",
+      "look up onboarding_complete gate from employees",
+      "per-entity pick: MIN(monthly_premium) from benefit_plans per employee_id",
+      "gate with CASE: if onboarding_complete::boolean then min_premium else 0",
+      "clean department_name with TRIM and INITCAP",
+      "extract hire_month with TO_CHAR using FM modifier",
+      "cast onboarding_complete text to boolean",
+      "handle NULL min_premium with COALESCE in CASE",
+      "reference plan_tags array column (structural requirement)",
+      "round final premium to two decimals"
+    ]
+  },
+  "hints": [
+    "Start by joining employees and benefit_plans, then think about how to get one premium per employee.",
+    "You'll need to find the minimum premium for each employee, but only use it if a certain condition is met on the employees table.",
+    "Use a LEFT JOIN with the gate condition in the ON clause so non-qualifiers are preserved with NULL premiums, then apply a CASE to substitute 0 when the gate fails or the premium is NULL; remember to cast the text onboarding flag to boolean, clean the department name, and extract the month name without padding."
+  ],
+  "answer_key": "SELECT e.employee_id, INITCAP(TRIM(e.department_name)) AS department, TO_CHAR(e.hire_date, 'FMMonth') AS hire_month, ROUND(CASE WHEN e.onboarding_complete::boolean THEN COALESCE(bp_min.min_premium, 0) ELSE 0 END, 2) AS lowest_premium FROM employees e LEFT JOIN (SELECT employee_id, MIN(monthly_premium) AS min_premium FROM benefit_plans GROUP BY employee_id) bp_min ON e.employee_id = bp_min.employee_id WHERE e.hire_date < DATE '2024-07-01' ORDER BY e.employee_id;",
+  "_meta": {
+    "question_type": "gated_lookup",
+    "original_qtype": "gated_lookup",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-26T19:35:41.655171",
+    "problem_id": "331032f18bfa",
+    "validation_attempts": 1,
+    "scenario": "an HR platform tracking onboarding completion and benefits enrollment",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "gate_on",
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "high"
+  },
+  "example_output_schema": [
+    [
+      "employee_id",
+      "INTEGER"
+    ],
+    [
+      "department",
+      "TEXT"
+    ],
+    [
+      "hire_month",
+      "TEXT"
+    ],
+    [
+      "lowest_premium",
+      "NUMERIC"
+    ]
+  ]
+}

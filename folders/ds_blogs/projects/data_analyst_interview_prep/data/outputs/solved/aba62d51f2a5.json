@@ -1,0 +1,214 @@
+{
+  "problem": {
+    "title": "Premium Search Inquiry Minimum Price",
+    "prompt": "You are working with a real estate listing platform modeled on public property datasets (e.g. Zillow Research Data, HUD USPS vacancy data). The platform tracks user searches and property inquiries. Searches are saved with a quality rating (1\u20135), and each search may match multiple properties with different inquiry prices. Write a query that finds, for each search that has a quality rating of 4 or higher, the cheapest inquiry price among all matching properties. For searches that do NOT meet the quality threshold, exclude them from the output entirely. The output must show: search_id, search_name (cleaned and capitalized), quality_rating, search_tags (the second tag only, using 1-based indexing), inquiry_month (the full month name from the earliest inquiry date), and min_inquiry_price (rounded to 2 decimal places). Order the results by search_id ascending.",
+    "display": {
+      "context": "You are working with a real estate listing platform modeled on public property datasets (Zillow Research Data, HUD vacancy data).",
+      "task": "Write a query that finds, for each search that meets a quality threshold, the cheapest inquiry price among all matching properties.",
+      "table_notes": {
+        "saved_searches": "Each row is one saved search with a user-assigned quality rating and tags.",
+        "property_inquiries": "Each row is one inquiry event linking a search to a property with an inquiry price and date."
+      },
+      "output_field_notes": {
+        "search_id": "the unique identifier for the saved search",
+        "search_name": "the name of the saved search, cleaned and with each word capitalized",
+        "quality_rating": "the user-assigned quality score for the search",
+        "search_tags": "the second tag from the search tags array",
+        "inquiry_month": "the full month name of the earliest inquiry date for this search",
+        "min_inquiry_price": "the lowest inquiry price among all properties matching this search, rounded to two decimal places"
+      },
+      "field_logic": [
+        "search_name: take the raw search name, remove leading and trailing spaces, and capitalize the first letter of each word",
+        "search_tags: extract the second element from the tags array (arrays are one-indexed)",
+        "inquiry_month: find the earliest inquiry date for the search, then extract the full month name without padding",
+        "min_inquiry_price: find the smallest inquiry price across all properties for this search, then round to two decimal places"
+      ],
+      "edge_cases": [
+        "If a search has a quality rating below 4, exclude it from the output entirely.",
+        "If a search has multiple property inquiries, choose the one with the lowest price.",
+        "If the search name has leading or trailing spaces, remove them.",
+        "If a search has no second tag, the tags column should be null or empty."
+      ],
+      "filter_note": "Only searches with a quality rating of 4 or higher are included.",
+      "order_by_note": "Results are ordered by search_id in ascending order."
+    },
+    "schema_ddl": "CREATE TABLE saved_searches (search_id INT PRIMARY KEY, search_name VARCHAR(200), quality_rating INT, search_tags TEXT[], created_date DATE); CREATE TABLE property_inquiries (inquiry_id INT PRIMARY KEY, search_id INT, property_id INT, inquiry_price_text VARCHAR(20), inquiry_date DATE);",
+    "example_input_data": "INSERT INTO saved_searches (search_id, search_name, quality_rating, search_tags, created_date) VALUES (1, ' Downtown Lofts ', 5, ARRAY['urban', 'luxury', 'walkable'], '2024-01-15'), (2, 'suburban homes', 3, ARRAY['family', 'yard'], '2024-02-01'), (3, 'Waterfront Condos', 4, ARRAY['water', 'modern', 'pool'], '2024-01-20'), (4, '  Historic District  ', 2, ARRAY['historic'], '2024-03-01'), (5, 'Tech Hub Apartments', 5, ARRAY['tech', 'transit', 'new'], '2024-02-10'); INSERT INTO property_inquiries (inquiry_id, search_id, property_id, inquiry_price_text, inquiry_date) VALUES (101, 1, 201, '450000.00', '2024-03-05'), (102, 1, 202, '425000.50', '2024-03-10'), (103, 2, 203, '350000.00', '2024-03-12'), (104, 3, 204, '520000.75', '2024-04-01'), (105, 3, 205, '510000.00', '2024-03-28'), (106, 5, 206, '380000.00', '2024-05-15'), (107, 5, 207, '395000.25', '2024-05-20');",
+    "example_output_columns": [
+      "search_id",
+      "search_name",
+      "quality_rating",
+      "search_tags",
+      "inquiry_month",
+      "min_inquiry_price"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "Downtown Lofts",
+        5,
+        "luxury",
+        "March",
+        "425000.50"
+      ],
+      [
+        3,
+        "Waterfront Condos",
+        4,
+        "modern",
+        "March",
+        "510000.00"
+      ],
+      [
+        5,
+        "Tech Hub Apartments",
+        5,
+        "transit",
+        "May",
+        "380000.00"
+      ]
+    ],
+    "test_data": "INSERT INTO saved_searches (search_id, search_name, quality_rating, search_tags, created_date) VALUES (10, 'Beachside Villas', 5, ARRAY['beach', 'resort', 'luxury'], '2024-01-10'), (11, ' Mid-century Modern ', 4, ARRAY['retro', 'unique'], '2024-01-25'), (12, 'Budget Apartments', 2, ARRAY['affordable'], '2024-02-05'), (13, 'Golf Course Estates', 5, ARRAY['golf', 'gated', 'premium'], '2024-02-20'), (14, 'Mountain Cabins', 3, ARRAY['mountain', 'rustic'], '2024-03-05'), (15, '  Urban Studios  ', 4, ARRAY['compact', 'city', 'new'], '2024-03-15'), (16, 'Lakefront Properties', 1, ARRAY['lake'], '2024-04-01'), (17, 'Green Living Homes', 5, ARRAY['eco', 'solar', 'sustainable'], '2024-04-10'), (18, 'Penthouse Suites', 4, ARRAY['penthouse', 'views', 'rooftop'], '2024-04-20'), (19, 'Student Housing', 2, ARRAY['student'], '2024-05-01'), (20, 'Retirement Communities', 4, ARRAY['senior', 'accessible', 'community'], '2024-05-10'); INSERT INTO property_inquiries (inquiry_id, search_id, property_id, inquiry_price_text, inquiry_date) VALUES (201, 10, 301, '1250000.00', '2024-06-01'), (202, 10, 302, '1180000.50', '2024-05-25'), (203, 10, 303, '1200000.00', '2024-06-05'), (204, 11, 304, '625000.75', '2024-07-10'), (205, 12, 305, '180000.00', '2024-07-15'), (206, 13, 306, '2100000.00', '2024-08-01'), (207, 13, 307, '2050000.25', '2024-07-28'), (208, 13, 308, '2080000.00', '2024-08-05'), (209, 14, 309, '420000.00', '2024-08-10'), (210, 15, 310, '275000.50', '2024-09-01'), (211, 15, 311, '268000.00', '2024-08-28'), (212, 16, 312, '950000.00', '2024-09-15'), (213, 17, 313, '485000.00', '2024-10-01'), (214, 17, 314, '490000.75', '2024-09-28'), (215, 17, 315, '478000.50', '2024-10-05'), (216, 18, 316, '1850000.00', '2024-11-01'), (217, 18, 317, '1820000.25', '2024-10-28'), (218, 19, 318, '95000.00', '2024-11-10'), (219, 20, 319, '340000.00', '2024-12-01'), (220, 20, 320, '335000.50', '2024-11-28');",
+    "test_expected_columns": [
+      "search_id",
+      "search_name",
+      "quality_rating",
+      "search_tags",
+      "inquiry_month",
+      "min_inquiry_price"
+    ],
+    "test_expected_rows": [
+      [
+        10,
+        "Beachside Villas",
+        5,
+        "resort",
+        "May",
+        "1180000.50"
+      ],
+      [
+        11,
+        "Mid-Century Modern",
+        4,
+        "unique",
+        "July",
+        "625000.75"
+      ],
+      [
+        13,
+        "Golf Course Estates",
+        5,
+        "gated",
+        "July",
+        "2050000.25"
+      ],
+      [
+        15,
+        "Urban Studios",
+        4,
+        "city",
+        "August",
+        "268000.00"
+      ],
+      [
+        17,
+        "Green Living Homes",
+        5,
+        "solar",
+        "September",
+        "478000.50"
+      ],
+      [
+        18,
+        "Penthouse Suites",
+        4,
+        "views",
+        "October",
+        "1820000.25"
+      ],
+      [
+        20,
+        "Retirement Communities",
+        4,
+        "accessible",
+        "November",
+        "335000.50"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "enrich-join",
+      "composite_moves": [
+        "join saved_searches to property_inquiries on search_id",
+        "look up quality_rating gate attribute from saved_searches",
+        "filter WHERE quality_rating >= 4 to exclude non-qualifying searches",
+        "per-entity pick: MIN(inquiry_price_text::NUMERIC) within each search_id group",
+        "TRIM search_name to remove spaces",
+        "INITCAP search_name to capitalize words",
+        "extract search_tags[2] from ARRAY column (1-based indexing)",
+        "cast inquiry_price_text to NUMERIC before MIN",
+        "find MIN(inquiry_date) per search and extract month name with TO_CHAR FMMonth",
+        "ROUND the min price to 2 decimals",
+        "COALESCE search_tags[2] to handle missing second tag"
+      ]
+    },
+    "hints": [
+      "You need to combine information from both tables and filter based on a quality threshold.",
+      "For each qualifying search, find the minimum inquiry price by converting the text price to a number, and also determine the earliest inquiry month.",
+      "Use a GROUP BY on search_id after joining, apply a WHERE clause on quality_rating, and remember to clean the search_name with string functions, extract the second array element, convert the price text to numeric, extract the month name from the earliest date, and handle any missing tags appropriately."
+    ],
+    "answer_key": "SELECT s.search_id, INITCAP(TRIM(s.search_name)) AS search_name, s.quality_rating, COALESCE(s.search_tags[2], '') AS search_tags, TO_CHAR(MIN(pi.inquiry_date), 'FMMonth') AS inquiry_month, ROUND(MIN(pi.inquiry_price_text::NUMERIC), 2) AS min_inquiry_price FROM saved_searches s JOIN property_inquiries pi ON s.search_id = pi.search_id WHERE s.quality_rating >= 4 GROUP BY s.search_id, s.search_name, s.quality_rating, s.search_tags ORDER BY s.search_id;",
+    "_meta": {
+      "question_type": "gated_lookup",
+      "original_qtype": "gated_lookup",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-26T20:14:59.636893",
+      "problem_id": "aba62d51f2a5",
+      "validation_attempts": 2,
+      "scenario": "a real estate listing platform tracking saved searches and inquiry rates",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "where_exclude",
+      "cleaning_required": true,
+      "cleaning_level": "high",
+      "cleaning_all_six": true,
+      "cleaning_per_category": 1,
+      "cleaning_bonus": null,
+      "typecast_twist": true,
+      "realism": "high"
+    },
+    "example_output_schema": [
+      [
+        "search_id",
+        "INTEGER"
+      ],
+      [
+        "search_name",
+        "TEXT"
+      ],
+      [
+        "quality_rating",
+        "INTEGER"
+      ],
+      [
+        "search_tags",
+        "TEXT"
+      ],
+      [
+        "inquiry_month",
+        "TEXT"
+      ],
+      [
+        "min_inquiry_price",
+        "NUMERIC"
+      ]
+    ]
+  },
+  "user_solution": "/* notes */\n\nSELECT\n    search_id,\n    INITCAP(TRIM(search_name)) AS search_name,\n    quality_rating,\n    search_tags[2] AS search_tags,\n    TO_CHAR(MIN(inquiry_date), 'FMMonth') AS inquiry_month,\n    MIN(inquiry_price_text::numeric) AS min_inquiry_price\nFROM saved_searches AS s\nJOIN property_inquiries AS p\nUSING(search_id)\nWHERE quality_rating >= 4\nGROUP BY 1, 2, 3, 4\nORDER BY 1",
+  "solved_at": "2026-06-26T21:07:56.629277"
+}

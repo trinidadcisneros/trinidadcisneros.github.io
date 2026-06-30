@@ -1,0 +1,118 @@
+{
+  "logged_at": "2026-06-29T21:25:28.888922",
+  "failure_kind": "sql_error",
+  "problem_id": "31161333e28d",
+  "question_type": "parse_clean",
+  "original_qtype": "parse_clean",
+  "subtype": "conditional_null",
+  "scenario": "a buy-now-pay-later service tracking installment payment compliance",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "row-transform",
+  "title": "Classify installment payment risk tiers",
+  "prompt": "You are working with a buy-now-pay-later service tracking installment payment compliance, modeled on consumer credit reporting datasets (data.gov). The installment_schedules table has one row per account. Write a query that returns account_id, customer_name, risk_tier, and adjusted_late_fee, ordered by account_id ascending. risk_tier and adjusted_late_fee are computed columns -- build each one exactly as described in Field expectations below.",
+  "schema_ddl": "CREATE TABLE installment_schedules ( account_id INT PRIMARY KEY, customer_name VARCHAR(100), days_overdue VARCHAR(20), grace_days_allowed INT, late_fee NUMERIC(10,2) );",
+  "answer_key": "WITH parsed AS (\n  SELECT\n    account_id,\n    customer_name,\n    late_fee,\n    COALESCE(grace_days_allowed, 7) AS effective_grace,\n    CASE\n      WHEN LOWER(TRIM(COALESCE(days_overdue, ''))) = 'never_late' THEN 0\n      ELSE COALESCE(NULLIF(TRIM(days_overdue), '')::INT, 0)\n    END AS effective_overdue\n  FROM installment_schedules\n)\nSELECT\n  account_id,\n  customer_name,\n  CASE\n    WHEN effective_overdue = 0 THEN 'low'\n    WHEN effective_overdue BETWEEN 1 AND 14 THEN 'medium'\n    WHEN effective_overdue > effective_grace THEN 'critical'\n    ELSE 'high'\n  END AS risk_tier,\n  ROUND(late_fee / NULLIF(1 + effective_grace, 1), 2) AS adjusted_late_fee\nFROM parsed\nORDER BY account_id;",
+  "test_expected_columns": [
+    "account_id",
+    "customer_name",
+    "risk_tier",
+    "adjusted_late_fee"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Grace Thompson",
+      "low",
+      "3.67"
+    ],
+    [
+      202,
+      "Henry Park",
+      "low",
+      "8.75"
+    ],
+    [
+      203,
+      "Iris Watson",
+      "low",
+      "5.91"
+    ],
+    [
+      204,
+      "Jack Foster",
+      "medium",
+      "6.25"
+    ],
+    [
+      205,
+      "Karen Singh",
+      "medium",
+      "10.00"
+    ],
+    [
+      206,
+      "Luis Gomez",
+      "high",
+      "5.63"
+    ],
+    [
+      207,
+      "Maya Patel",
+      "critical",
+      "12.50"
+    ],
+    [
+      208,
+      "Nathan Moore",
+      "critical",
+      "5.79"
+    ],
+    [
+      209,
+      "Olivia White",
+      "critical",
+      "6.19"
+    ],
+    [
+      210,
+      "Paul Jackson",
+      "medium",
+      null
+    ],
+    [
+      211,
+      "Quinn Harris",
+      "low",
+      "10.00"
+    ],
+    [
+      212,
+      "Rachel Green",
+      "medium",
+      "10.63"
+    ],
+    [
+      213,
+      "Sam Davis",
+      "high",
+      "3.65"
+    ],
+    [
+      214,
+      "Tina Brown",
+      "critical",
+      "4.52"
+    ],
+    [
+      215,
+      "Uma Wilson",
+      "medium",
+      "4.09"
+    ]
+  ],
+  "user_solution": "/* notes */\nWITH base AS (\n    SELECT\n        account_id,\n        customer_name,\n        CASE WHEN (days_overdue = 'never_late' OR days_overdue IS NULL OR days_overdue = '') THEN 0 ELSE days_overdue::int END AS days_overdue,\n        CASE WHEN grace_days_allowed IS NULL THEN 7 ELSE grace_days_allowed::int END AS grace_days_allowed,\n        late_fee\n    FROM installment_schedules\n)\nSELECT\n    account_id,\n    customer_name,\n    CASE WHEN days_overdue = 0 THEN 'low'\n        WHEN days_overdue >= 1 AND days_overdue <= 14 THEN 'medium'\n        WHEN days_overdue >= 15 AND days_overdue <= grace_days_allowed THEN 'high'\n        WHEN days_overdue > grace_days_allowed THEN 'critical'\n    END AS risk_tier,\n    ROUND(CASE \n        WHEN grace_days_allowed = 0 THEN NULL \n        ELSE late_fee / NULLIF(1 + grace_days_allowed, 0) \n    END, 2) AS adjusted_late_fee\nFROM base\nORDER BY 1;",
+  "error_message": "invalid input syntax for type integer: \"NEVER_LATE\"\n",
+  "your_columns": null,
+  "your_rows": null
+}

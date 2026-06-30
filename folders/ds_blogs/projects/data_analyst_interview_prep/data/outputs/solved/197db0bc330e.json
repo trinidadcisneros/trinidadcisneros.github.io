@@ -1,0 +1,206 @@
+{
+  "problem": {
+    "title": "Extract Squad Leader Codes from Match IDs",
+    "prompt": "You are working with a battle royale mobile game tracking match completion and squad invites, modeled on public mobile gaming analytics datasets. Each match identifier contains embedded metadata: the first 8 characters are the match timestamp in YYYYMMDD format, the next 3 characters are the region code, and the final 4 characters are the squad leader's player code. Additionally, player names in the system are stored with inconsistent spacing and need to be cleaned for display. Write a query that extracts the region code, the squad leader code (padded to 6 characters with leading zeros for display), and the cleaned player name (removing extra spaces and replacing underscores with spaces) from the matches table. Return columns region_code, leader_code, and display_name. Filter to matches where the region code is not 'XXX' (test/invalid matches). Order the results by match_id.",
+    "display": {
+      "context": "You are working with a battle royale mobile game tracking match completion and squad invites, modeled on public mobile gaming analytics datasets.",
+      "task": "Write a query that extracts the region code and squad leader code from each match identifier, cleans the player name for display, and returns only valid region matches ordered by match_id.",
+      "table_notes": {
+        "matches": "stores one row per completed match with a composite identifier and the squad leader's raw player name"
+      },
+      "output_field_notes": {
+        "region_code": "the three-character region identifier extracted from the match_id",
+        "leader_code": "the four-character squad leader code extracted from the match_id and padded to six characters with leading zeros",
+        "display_name": "the player name with extra spaces removed and underscores replaced by spaces"
+      },
+      "field_logic": [
+        "region_code: extract characters 9 through 11 from the match identifier",
+        "leader_code: extract the last four characters from the match identifier and pad to six characters with leading zeros",
+        "display_name: trim extra spaces from the player name and replace underscores with spaces"
+      ],
+      "edge_cases": [
+        "If the region code is XXX then exclude that match from the results",
+        "If the player name contains multiple consecutive spaces then reduce them to single spaces",
+        "If the player name contains underscores then replace each with a space"
+      ],
+      "filter_note": "Only matches where the region code (characters 9-11 of match_id) is not XXX are included",
+      "order_by_note": "Results are ordered by match_id in ascending order"
+    },
+    "schema_ddl": "CREATE TABLE matches (match_id VARCHAR(15) PRIMARY KEY, player_name VARCHAR(100), squad_size INT, match_duration_sec INT);",
+    "example_input_data": "INSERT INTO matches (match_id, player_name, squad_size, match_duration_sec) VALUES ('20240315NAE1234', 'shadow_warrior  ', 4, 1820), ('20240315EUR5678', 'quick__scope', 4, 1650), ('20240316ASI0042', 'dragon  slayer', 2, 2100), ('20240316XXX9999', '  test_user  ', 1, 300), ('20240317NAE0007', 'elite gamer', 4, 1980), ('20240317SAM3301', 'fire_storm   ', 3, 1575);",
+    "example_output_columns": [
+      "region_code",
+      "leader_code",
+      "display_name"
+    ],
+    "example_output_rows": [
+      [
+        "EUR",
+        "005678",
+        "quick scope"
+      ],
+      [
+        "NAE",
+        "001234",
+        "shadow warrior"
+      ],
+      [
+        "ASI",
+        "000042",
+        "dragon slayer"
+      ],
+      [
+        "NAE",
+        "000007",
+        "elite gamer"
+      ],
+      [
+        "SAM",
+        "003301",
+        "fire storm"
+      ]
+    ],
+    "test_data": "INSERT INTO matches (match_id, player_name, squad_size, match_duration_sec) VALUES ('20240318NAE0001', 'alpha__leader  ', 4, 1900), ('20240318EUR0099', 'beta   warrior', 4, 1750), ('20240318ASI1000', 'gamma_strike', 2, 2050), ('20240318XXX0000', 'invalid__test', 1, 100), ('20240319NAE9999', '  delta  force  ', 4, 2200), ('20240319SAM0500', 'echo_phantom', 3, 1680), ('20240319OCE0010', 'zeta___hunter  ', 2, 1820), ('20240320NAE0250', 'theta player', 4, 1950), ('20240320EUR8888', '  iota___sniper', 4, 2100), ('20240320ASI0003', 'kappa  team', 3, 1590), ('20240320XXX1111', 'another__invalid  ', 1, 200), ('20240321NAE0075', 'lambda___warrior', 4, 2020), ('20240321SAM9950', 'mu_fighter  ', 2, 1700), ('20240321EUR0420', '  nu   commander  ', 3, 1880), ('20240322NAE0008', 'xi__player', 4, 1940), ('20240322ASI7777', 'omicron_squad  ', 4, 2150), ('20240322OCE0100', '  pi  gamer  ', 2, 1765), ('20240322XXX5555', '  test___case  ', 1, 150);",
+    "test_expected_columns": [
+      "region_code",
+      "leader_code",
+      "display_name"
+    ],
+    "test_expected_rows": [
+      [
+        "ASI",
+        "001000",
+        "gamma strike"
+      ],
+      [
+        "EUR",
+        "000099",
+        "beta warrior"
+      ],
+      [
+        "NAE",
+        "000001",
+        "alpha leader"
+      ],
+      [
+        "NAE",
+        "009999",
+        "delta force"
+      ],
+      [
+        "OCE",
+        "000010",
+        "zeta hunter"
+      ],
+      [
+        "SAM",
+        "000500",
+        "echo phantom"
+      ],
+      [
+        "ASI",
+        "000003",
+        "kappa team"
+      ],
+      [
+        "EUR",
+        "008888",
+        "iota sniper"
+      ],
+      [
+        "NAE",
+        "000250",
+        "theta player"
+      ],
+      [
+        "EUR",
+        "000420",
+        "nu commander"
+      ],
+      [
+        "NAE",
+        "000075",
+        "lambda warrior"
+      ],
+      [
+        "SAM",
+        "009950",
+        "mu fighter"
+      ],
+      [
+        "ASI",
+        "007777",
+        "omicron squad"
+      ],
+      [
+        "NAE",
+        "000008",
+        "xi player"
+      ],
+      [
+        "OCE",
+        "000100",
+        "pi gamer"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "row-filter: exclude region XXX",
+        "row-transform: SPLIT_PART/SUBSTRING to extract region_code",
+        "row-transform: SUBSTRING to extract leader_code",
+        "row-transform: LPAD leader_code to 6 characters",
+        "row-transform: BTRIM to remove outer spaces from player_name",
+        "row-transform: REPLACE underscores with spaces in player_name",
+        "row-transform: REGEXP_REPLACE to collapse multiple spaces"
+      ]
+    },
+    "hints": [
+      "You'll need to extract substrings from the match_id at specific positions, and the region code starts at character 9.",
+      "Use SUBSTRING to pull out the pieces you need, and LPAD can pad a string to a target length with a specific character.",
+      "For the player name, combine BTRIM to remove outer whitespace, REPLACE to swap underscores for spaces, and REGEXP_REPLACE(name, ' +', ' ', 'g') to collapse multiple spaces into one."
+    ],
+    "answer_key": "SELECT SUBSTRING(match_id FROM 9 FOR 3) AS region_code, LPAD(SUBSTRING(match_id FROM 12 FOR 4), 6, '0') AS leader_code, REGEXP_REPLACE(REPLACE(BTRIM(player_name), '_', ' '), ' +', ' ', 'g') AS display_name FROM matches WHERE SUBSTRING(match_id FROM 9 FOR 3) <> 'XXX' ORDER BY match_id;",
+    "_meta": {
+      "question_type": "parse_clean",
+      "original_qtype": "parse_clean",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-28T10:51:34.809072",
+      "problem_id": "197db0bc330e",
+      "validation_attempts": 1,
+      "scenario": "a battle royale mobile game tracking match completion and squad invites",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "string_clean",
+      "cleaning_required": false,
+      "cleaning_level": null,
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": false,
+      "realism": "high"
+    },
+    "example_output_schema": [
+      [
+        "region_code",
+        "TEXT"
+      ],
+      [
+        "leader_code",
+        "TEXT"
+      ],
+      [
+        "display_name",
+        "TEXT"
+      ]
+    ]
+  },
+  "user_solution": "/* notes */\n\nSELECT\n    UPPER(REGEXP_REPLACE(match_id, '[[:digit:]]', '', 'g')) AS region_code,\n    LPAD(RIGHT(match_id, 4), 6, '0') AS leader_code,\n    TRIM(REGEXP_REPLACE(player_name, '[_[:space:]]+', ' ', 'g')) AS display_name\nFROM matches\nWHERE UPPER(REGEXP_REPLACE(match_id, '[[:digit:]]', '', 'g')) <> 'XXX'\nORDER BY match_id;",
+  "solved_at": "2026-06-28T11:08:27.853741"
+}

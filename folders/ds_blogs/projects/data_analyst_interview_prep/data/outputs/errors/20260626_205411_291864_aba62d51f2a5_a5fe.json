@@ -1,0 +1,150 @@
+{
+  "logged_at": "2026-06-26T20:54:11.291864",
+  "failure_kind": "wrong_answer",
+  "problem_id": "aba62d51f2a5",
+  "question_type": "gated_lookup",
+  "original_qtype": "gated_lookup",
+  "subtype": "where_exclude",
+  "scenario": "a real estate listing platform tracking saved searches and inquiry rates",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "enrich-join",
+  "title": "Premium Search Inquiry Minimum Price",
+  "prompt": "You are working with a real estate listing platform modeled on public property datasets (e.g. Zillow Research Data, HUD USPS vacancy data). The platform tracks user searches and property inquiries. Searches are saved with a quality rating (1\u20135), and each search may match multiple properties with different inquiry prices. Write a query that finds, for each search that has a quality rating of 4 or higher, the cheapest inquiry price among all matching properties. For searches that do NOT meet the quality threshold, exclude them from the output entirely. The output must show: search_id, search_name (cleaned and capitalized), quality_rating, search_tags (the second tag only, using 1-based indexing), inquiry_month (the full month name from the earliest inquiry date), and min_inquiry_price (rounded to 2 decimal places). Order the results by search_id ascending.",
+  "schema_ddl": "CREATE TABLE saved_searches (search_id INT PRIMARY KEY, search_name VARCHAR(200), quality_rating INT, search_tags TEXT[], created_date DATE); CREATE TABLE property_inquiries (inquiry_id INT PRIMARY KEY, search_id INT, property_id INT, inquiry_price_text VARCHAR(20), inquiry_date DATE);",
+  "answer_key": "SELECT s.search_id, INITCAP(TRIM(s.search_name)) AS search_name, s.quality_rating, COALESCE(s.search_tags[2], '') AS search_tags, TO_CHAR(MIN(pi.inquiry_date), 'FMMonth') AS inquiry_month, ROUND(MIN(pi.inquiry_price_text::NUMERIC), 2) AS min_inquiry_price FROM saved_searches s JOIN property_inquiries pi ON s.search_id = pi.search_id WHERE s.quality_rating >= 4 GROUP BY s.search_id, s.search_name, s.quality_rating, s.search_tags ORDER BY s.search_id;",
+  "test_expected_columns": [
+    "search_id",
+    "search_name",
+    "quality_rating",
+    "search_tags",
+    "inquiry_month",
+    "min_inquiry_price"
+  ],
+  "test_expected_rows": [
+    [
+      10,
+      "Beachside Villas",
+      5,
+      "resort",
+      "May",
+      "1180000.50"
+    ],
+    [
+      11,
+      "Mid-Century Modern",
+      4,
+      "unique",
+      "July",
+      "625000.75"
+    ],
+    [
+      13,
+      "Golf Course Estates",
+      5,
+      "gated",
+      "July",
+      "2050000.25"
+    ],
+    [
+      15,
+      "Urban Studios",
+      4,
+      "city",
+      "August",
+      "268000.00"
+    ],
+    [
+      17,
+      "Green Living Homes",
+      5,
+      "solar",
+      "September",
+      "478000.50"
+    ],
+    [
+      18,
+      "Penthouse Suites",
+      4,
+      "views",
+      "October",
+      "1820000.25"
+    ],
+    [
+      20,
+      "Retirement Communities",
+      4,
+      "accessible",
+      "November",
+      "335000.50"
+    ]
+  ],
+  "user_solution": "/* notes */\n\nWITH base AS (\n    SELECT\n        s.search_id,\n        INITCAP(TRIM(s.search_name)) AS search_name,\n        s.quality_rating AS quality_rating,\n        s.search_tags[2] AS search_tags,\n        TO_CHAR(p.inquiry_date, 'FMMonth') AS inquiry_month,\n        p.inquiry_price_text::numeric AS min_inquiry_price,\n        ROW_NUMBER() OVER (PARTITION BY s.search_id, \n                            INITCAP(TRIM(s.search_name)),\n                            s.quality_rating,\n                            s.search_tags[2]\n                            ORDER BY p.inquiry_price_text::numeric ASC) AS rn\n    FROM saved_searches AS s\n    JOIN property_inquiries AS p\n    USING(search_id)\n    WHERE s.quality_rating >= 4\n)\nSELECT \n    search_id,\n    search_name,\n\tquality_rating,\n\tsearch_tags,\n\tinquiry_month,\n\tmin_inquiry_price\nFROM base\nWHERE rn = 1\nORDER BY search_id;\n",
+  "error_message": null,
+  "your_columns": [
+    "search_id",
+    "search_name",
+    "quality_rating",
+    "search_tags",
+    "inquiry_month",
+    "min_inquiry_price"
+  ],
+  "your_rows": [
+    [
+      10,
+      "Beachside Villas",
+      5,
+      "resort",
+      "May",
+      "1180000.50"
+    ],
+    [
+      11,
+      "Mid-Century Modern",
+      4,
+      "unique",
+      "July",
+      "625000.75"
+    ],
+    [
+      13,
+      "Golf Course Estates",
+      5,
+      "gated",
+      "July",
+      "2050000.25"
+    ],
+    [
+      15,
+      "Urban Studios",
+      4,
+      "city",
+      "August",
+      "268000.00"
+    ],
+    [
+      17,
+      "Green Living Homes",
+      5,
+      "solar",
+      "October",
+      "478000.50"
+    ],
+    [
+      18,
+      "Penthouse Suites",
+      4,
+      "views",
+      "October",
+      "1820000.25"
+    ],
+    [
+      20,
+      "Retirement Communities",
+      4,
+      "accessible",
+      "November",
+      "335000.50"
+    ]
+  ]
+}

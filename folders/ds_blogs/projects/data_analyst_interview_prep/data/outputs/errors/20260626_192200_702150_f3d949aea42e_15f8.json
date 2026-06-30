@@ -1,0 +1,34 @@
+{
+  "logged_at": "2026-06-26T19:22:00.702150",
+  "failure_kind": "wrong_answer",
+  "problem_id": "f3d949aea42e",
+  "question_type": "returns_scalar",
+  "original_qtype": "random_any",
+  "subtype": null,
+  "scenario": "an HR platform tracking onboarding completion and benefits enrollment",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "function-wrapped",
+  "title": "Calculate Average Onboarding Days for Enrolled Employees",
+  "prompt": "You are working with an HR platform tracking employee onboarding and benefits enrollment, modeled on public workforce datasets (BLS / data.gov). Write a PostgreSQL function that accepts a department code and a minimum enrollment tier, then returns the average number of days between hire_date and onboarding_completed_date for employees in that department who enrolled in benefits at or above the specified tier. Only include employees who have both completed onboarding and enrolled in benefits. If no employees match the criteria, return 0. Round the result to two decimal places. Test your function by calling: `SELECT calculate_avg_onboarding_days('IT', 2) AS result;`",
+  "schema_ddl": "CREATE TABLE employees (employee_id INT PRIMARY KEY, first_name VARCHAR(50), last_name VARCHAR(50), department_code VARCHAR(10), hire_date DATE, onboarding_completed_date DATE); CREATE TABLE benefits_enrollment (enrollment_id INT PRIMARY KEY, employee_id INT, enrollment_tier INT, enrollment_date DATE);",
+  "answer_key": "CREATE OR REPLACE FUNCTION calculate_avg_onboarding_days(dept_code VARCHAR, min_tier INT) RETURNS NUMERIC AS $$ BEGIN RETURN ( SELECT COALESCE(ROUND(AVG(e.onboarding_completed_date - e.hire_date), 2), 0) FROM employees e INNER JOIN benefits_enrollment b ON e.employee_id = b.employee_id WHERE e.department_code = dept_code AND b.enrollment_tier >= min_tier AND e.onboarding_completed_date IS NOT NULL ); END; $$ LANGUAGE plpgsql; SELECT calculate_avg_onboarding_days('IT', 2) AS result;",
+  "test_expected_columns": [
+    "result"
+  ],
+  "test_expected_rows": [
+    [
+      "19.92"
+    ]
+  ],
+  "user_solution": "/*\nTable: employees            holds employee demographics, hire dates, and onboarding completion dates\nemployee_id\t                INT PRIMARY KEY\nfirst_name\t                VARCHAR(50)\nlast_name\t                VARCHAR(50)\ndepartment_code\t            VARCHAR(10)\nhire_date\t                DATE\nonboarding_completed_date\tDATE *\n\nTable: benefits_enrollment    records which employees enrolled in benefits and at what tier level\nColumn\t                        Type\nenrollment_id\t                INT PRIMARY KEY\nemployee_id\t                    INT\nenrollment_tier\t                INT\nenrollment_date\t                DATE *\n */\n\nSELECT\n    ROUND(COALESCE(AVG(onboarding_completed_date::date - hire_date::date), 0), 2) AS result\nFROM employees\nWHERE onboarding_completed_date IS NOT NULL AND department_code = 'IT'\n\n",
+  "error_message": null,
+  "your_columns": [
+    "result"
+  ],
+  "your_rows": [
+    [
+      "20.20"
+    ]
+  ]
+}

@@ -277,6 +277,58 @@ def execute_script(dialect: str, script: str) -> None:
 # Run a query and return a DataFrame (used for user-submitted solutions)
 # ============================================================
 
+_SQLSTATE_HELP = {
+    "22P02": "A value could not be converted to the target type (e.g. a ::int / ::numeric / CAST applied to text that isn't a number). Clean or guard the value before casting (CASE / NULLIF, or only cast rows that are numeric).",
+    "22003": "A number is out of range for its column type.",
+    "22012": "Division by zero. Guard the denominator, e.g. NULLIF(denominator, 0).",
+    "22007": "A date/time value could not be parsed in the expected format.",
+    "42703": "A column name does not exist (check the spelling and the table alias).",
+    "42P01": "A table does not exist (check the table name).",
+    "42601": "Syntax error.",
+    "42883": "No function or operator matches that name and argument types (often a missing or wrong cast).",
+    "42803": "A column must appear in GROUP BY or be wrapped in an aggregate.",
+    "42702": "A column reference is ambiguous; qualify it with its table alias.",
+    "23505": "A unique / primary-key constraint was violated (duplicate value).",
+}
+
+
+def _format_pg_error(e, stmt: str, full_sql: str) -> str:
+    """Build a rich, multi-line error: the primary message + SQLSTATE and a
+    plain-English meaning, any DETAIL/HINT/CONTEXT, and the failing SQL printed
+    with line numbers (plus a caret at the exact spot when Postgres reports a
+    statement_position, e.g. for syntax errors)."""
+    diag = getattr(e, "diag", None)
+    primary = (getattr(diag, "message_primary", None) or str(e) or "").strip()
+    code = getattr(e, "pgcode", None)
+    out = [primary + (f"   (SQLSTATE {code})" if code else "")]
+    helptext = _SQLSTATE_HELP.get(code)
+    if helptext:
+        out.append(helptext)
+    for label, attr in (("DETAIL", "message_detail"), ("HINT", "message_hint"), ("CONTEXT", "context")):
+        val = getattr(diag, attr, None) if diag else None
+        if val:
+            out.append(f"{label}: {str(val).strip()}")
+    src = (stmt or full_sql or "").strip("\n")
+    src_lines = src.split("\n")
+    err_line = err_col = None
+    pos = getattr(diag, "statement_position", None) if diag else None
+    if pos:
+        try:
+            p = int(pos) - 1
+            err_line = src.count("\n", 0, p) + 1
+            err_col = p - src.rfind("\n", 0, p)   # 1-based column on that line
+        except Exception:
+            err_line = err_col = None
+    if src.strip():
+        width = len(str(len(src_lines)))
+        out.append("Your SQL:")
+        for i, ln in enumerate(src_lines, 1):
+            out.append(f"  {str(i).rjust(width)} | {ln}")
+            if err_line == i and err_col:
+                out.append("  " + " " * width + " | " + " " * (err_col - 1) + "^")
+    return "\n".join(out)
+
+
 def run_query(dialect: str, sql: str) -> Tuple[Optional[pd.DataFrame], Optional[str]]:
     """
     Run user SQL and return (result_df, error_message).
@@ -296,7 +348,10 @@ def run_query(dialect: str, sql: str) -> Tuple[Optional[pd.DataFrame], Optional[
                     if not statements:
                         return None, "No SQL provided."
                     for stmt in statements:
-                        cur.execute(stmt)
+                        try:
+                            cur.execute(stmt)
+                        except Exception as ex:
+                            return None, _format_pg_error(ex, stmt, sql)
                         if cur.description is not None:
                             cols = [d[0] for d in cur.description]
                             rows = cur.fetchall()
@@ -336,6 +391,73 @@ def run_query(dialect: str, sql: str) -> Tuple[Optional[pd.DataFrame], Optional[
             return None, f"Unknown dialect: {dialect}"
     except Exception as e:
         return None, str(e)
+
+
+def _norm_pg_type(t):
+    """Normalize a Postgres canonical type name to a short upper-cased SQL label."""
+    low = (t or "").strip().lower()
+    if low.endswith("[]"):
+        return _norm_pg_type(low[:-2]) + "[]"
+    repl = {
+        "timestamp without time zone": "TIMESTAMP",
+        "timestamp with time zone": "TIMESTAMPTZ",
+        "time without time zone": "TIME",
+        "character varying": "VARCHAR",
+        "character": "CHAR",
+        "double precision": "DOUBLE PRECISION",
+    }
+    return repl.get(low, low.upper())
+
+
+def run_query_typed(dialect: str, sql: str):
+    """Like run_query but ALSO returns each result column's SQL type name.
+
+    Returns (df, types, error) where `types` is a list of upper-cased SQL type
+    names aligned to df.columns (e.g. TEXT, INTEGER, NUMERIC, BOOLEAN, DATE,
+    TEXT[]), read authoritatively from the database via format_type on the
+    result's type OIDs. `types` is None for non-postgres dialects or if the
+    type lookup fails (the caller then simply omits the output schema).
+    """
+    if dialect != "postgresql":
+        df, err = run_query(dialect, sql)
+        return df, None, err
+    try:
+        conn = psycopg2.connect(**_pg_settings())
+        conn.autocommit = True
+        try:
+            with conn.cursor() as cur:
+                last_df = None
+                last_oids = None
+                statements = _split_pg_statements(sql)
+                if not statements:
+                    return None, None, "No SQL provided."
+                for stmt in statements:
+                    cur.execute(stmt)
+                    if cur.description is not None:
+                        cols = [d[0] for d in cur.description]
+                        last_oids = [d[1] for d in cur.description]
+                        rows = cur.fetchall()
+                        last_df = pd.DataFrame(rows, columns=cols)
+                if last_df is None:
+                    return pd.DataFrame(), None, (
+                        "Query ran but returned no result set. "
+                        "Add a trailing SELECT so the test harness has output."
+                    )
+                types = None
+                if last_oids:
+                    try:
+                        names = []
+                        for oid in last_oids:
+                            cur.execute("SELECT format_type(%s, -1)", (oid,))
+                            names.append(_norm_pg_type(cur.fetchone()[0]))
+                        types = names
+                    except Exception:
+                        types = None
+                return last_df, types, None
+        finally:
+            conn.close()
+    except Exception as e:
+        return None, None, str(e)
 
 
 # ============================================================

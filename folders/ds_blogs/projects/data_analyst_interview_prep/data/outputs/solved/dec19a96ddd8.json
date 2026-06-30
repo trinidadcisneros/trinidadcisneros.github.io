@@ -1,0 +1,250 @@
+{
+  "problem": {
+    "title": "Match Queue First and Last Accept Times",
+    "prompt": "You are analyzing a console online service's matchmaking system. The `match_acceptance_log` table records each player's response when offered a match slot, modeled on public gaming platform telemetry datasets (Steam / Xbox Live session logs). Each row captures `player_id`, `queue_session_id` (a unique queue attempt for that player), `offered_at` (timestamp when the slot was offered, stored as TEXT), `response_status` (acceptance decision, stored as an array of tags describing the response), `response_latency_ms` (time to respond, may be NULL if timed out), and `server_region` (region code, may have leading/trailing whitespace). Write a query that, for each player and queue session, returns the player ID (lowercase), the queue session ID, the server region (trimmed and title-case), the timestamp of the FIRST offer in that session, the timestamp of the LAST offer in that session, the month name of the last offer, the rounded average response latency (ignoring NULLs), and a flag indicating whether the session included any 'declined' responses. Order results by player_id, then queue_session_id.",
+    "schema_ddl": "CREATE TABLE match_acceptance_log (player_id TEXT NOT NULL, queue_session_id INTEGER NOT NULL, offered_at TEXT NOT NULL, response_status TEXT[] NOT NULL, response_latency_ms NUMERIC, server_region TEXT NOT NULL);",
+    "example_input_data": "INSERT INTO match_acceptance_log (player_id, queue_session_id, offered_at, response_status, response_latency_ms, server_region) VALUES ('PLAYER_A', 1, '2024-03-15 10:00:00', ARRAY['accepted'], 1200, ' US-East '), ('PLAYER_A', 1, '2024-03-15 10:05:00', ARRAY['accepted'], 1500, ' US-East '), ('PLAYER_A', 2, '2024-03-15 11:00:00', ARRAY['declined'], 800, ' US-West '), ('PLAYER_B', 1, '2024-03-15 09:30:00', ARRAY['accepted'], NULL, ' EU-West '), ('PLAYER_B', 1, '2024-03-15 09:35:00', ARRAY['accepted'], 2000, ' EU-West '), ('PLAYER_B', 1, '2024-03-15 09:40:00', ARRAY['timed_out'], NULL, ' EU-West '), ('PLAYER_C', 1, '2024-04-10 14:00:00', ARRAY['accepted'], 950, ' US-East '), ('PLAYER_C', 1, '2024-04-10 14:10:00', ARRAY['declined'], 600, ' US-East ');",
+    "example_output_columns": [
+      "player_id",
+      "queue_session_id",
+      "server_region",
+      "first_offer_time",
+      "last_offer_time",
+      "last_offer_month",
+      "avg_latency_ms",
+      "had_decline"
+    ],
+    "example_output_rows": [
+      [
+        "player_a",
+        1,
+        "Us-East",
+        "2024-03-15 10:00:00",
+        "2024-03-15 10:05:00",
+        "March    ",
+        "1350",
+        false
+      ],
+      [
+        "player_a",
+        2,
+        "Us-West",
+        "2024-03-15 11:00:00",
+        "2024-03-15 11:00:00",
+        "March    ",
+        "800",
+        true
+      ],
+      [
+        "player_b",
+        1,
+        "Eu-West",
+        "2024-03-15 09:30:00",
+        "2024-03-15 09:40:00",
+        "March    ",
+        "2000",
+        false
+      ],
+      [
+        "player_c",
+        1,
+        "Us-East",
+        "2024-04-10 14:00:00",
+        "2024-04-10 14:10:00",
+        "April    ",
+        "775",
+        true
+      ]
+    ],
+    "test_data": "INSERT INTO match_acceptance_log (player_id, queue_session_id, offered_at, response_status, response_latency_ms, server_region) VALUES ('PLAYER_D', 1, '2024-01-05 08:00:00', ARRAY['accepted'], 1100, ' AP-Southeast '), ('PLAYER_D', 1, '2024-01-05 08:02:00', ARRAY['accepted'], 1300, ' AP-Southeast '), ('PLAYER_D', 1, '2024-01-05 08:05:00', ARRAY['declined'], NULL, ' AP-Southeast '), ('PLAYER_D', 1, '2024-01-05 08:10:00', ARRAY['accepted'], 900, ' AP-Southeast '), ('PLAYER_D', 2, '2024-02-20 12:00:00', ARRAY['timed_out'], NULL, ' US-Central '), ('PLAYER_E', 1, '2024-01-10 16:00:00', ARRAY['accepted'], 2200, ' EU-North '), ('PLAYER_E', 2, '2024-01-10 17:00:00', ARRAY['accepted'], 1800, ' EU-North '), ('PLAYER_E', 2, '2024-01-10 17:05:00', ARRAY['accepted'], 1600, ' EU-North '), ('PLAYER_E', 2, '2024-01-10 17:10:00', ARRAY['declined'], 500, ' EU-North '), ('PLAYER_F', 1, '2024-03-01 09:00:00', ARRAY['accepted'], 1050, ' US-East '), ('PLAYER_F', 1, '2024-03-01 09:15:00', ARRAY['accepted'], 1250, ' US-East '), ('PLAYER_F', 1, '2024-03-01 09:30:00', ARRAY['accepted'], 1150, ' US-East '), ('PLAYER_G', 1, '2024-05-15 20:00:00', ARRAY['declined'], 700, ' AP-Northeast '), ('PLAYER_G', 2, '2024-06-01 10:00:00', ARRAY['accepted'], NULL, ' AP-Northeast '), ('PLAYER_G', 2, '2024-06-01 10:05:00', ARRAY['accepted'], 1900, ' AP-Northeast '), ('PLAYER_G', 2, '2024-06-01 10:10:00', ARRAY['accepted'], 2100, ' AP-Northeast '), ('PLAYER_G', 2, '2024-06-01 10:15:00', ARRAY['timed_out'], NULL, ' AP-Northeast '), ('PLAYER_H', 1, '2024-07-20 14:00:00', ARRAY['accepted'], 3000, ' EU-West '), ('PLAYER_I', 1, '2024-08-10 11:00:00', ARRAY['declined'], 400, ' US-West '), ('PLAYER_I', 1, '2024-08-10 11:05:00', ARRAY['declined'], 450, ' US-West '), ('PLAYER_J', 1, '2024-09-05 08:00:00', ARRAY['accepted'], NULL, ' US-Central '), ('PLAYER_J', 1, '2024-09-05 08:02:00', ARRAY['accepted'], NULL, ' US-Central '), ('PLAYER_J', 1, '2024-09-05 08:05:00', ARRAY['accepted'], 1700, ' US-Central '), ('PLAYER_J', 2, '2024-10-01 15:00:00', ARRAY['declined'], 550, ' US-Central '), ('PLAYER_J', 2, '2024-10-01 15:10:00', ARRAY['accepted'], 1450, ' US-Central '), ('PLAYER_K', 1, '2024-11-12 19:00:00', ARRAY['timed_out'], NULL, ' EU-South '), ('PLAYER_K', 1, '2024-11-12 19:05:00', ARRAY['accepted'], 2500, ' EU-South '), ('PLAYER_K', 1, '2024-11-12 19:10:00', ARRAY['accepted'], 2300, ' EU-South '), ('PLAYER_K', 1, '2024-11-12 19:15:00', ARRAY['declined'], 600, ' EU-South '), ('PLAYER_L', 1, '2024-12-01 10:00:00', ARRAY['accepted'], 1000, ' AP-Southeast ');",
+    "test_expected_columns": [
+      "player_id",
+      "queue_session_id",
+      "server_region",
+      "first_offer_time",
+      "last_offer_time",
+      "last_offer_month",
+      "avg_latency_ms",
+      "had_decline"
+    ],
+    "test_expected_rows": [
+      [
+        "player_d",
+        1,
+        "Ap-Southeast",
+        "2024-01-05 08:00:00",
+        "2024-01-05 08:10:00",
+        "January  ",
+        "1100",
+        true
+      ],
+      [
+        "player_d",
+        2,
+        "Us-Central",
+        "2024-02-20 12:00:00",
+        "2024-02-20 12:00:00",
+        "February ",
+        null,
+        false
+      ],
+      [
+        "player_e",
+        1,
+        "Eu-North",
+        "2024-01-10 16:00:00",
+        "2024-01-10 16:00:00",
+        "January  ",
+        "2200",
+        false
+      ],
+      [
+        "player_e",
+        2,
+        "Eu-North",
+        "2024-01-10 17:00:00",
+        "2024-01-10 17:10:00",
+        "January  ",
+        "1300",
+        true
+      ],
+      [
+        "player_f",
+        1,
+        "Us-East",
+        "2024-03-01 09:00:00",
+        "2024-03-01 09:30:00",
+        "March    ",
+        "1150",
+        false
+      ],
+      [
+        "player_g",
+        1,
+        "Ap-Northeast",
+        "2024-05-15 20:00:00",
+        "2024-05-15 20:00:00",
+        "May      ",
+        "700",
+        true
+      ],
+      [
+        "player_g",
+        2,
+        "Ap-Northeast",
+        "2024-06-01 10:00:00",
+        "2024-06-01 10:15:00",
+        "June     ",
+        "2000",
+        false
+      ],
+      [
+        "player_h",
+        1,
+        "Eu-West",
+        "2024-07-20 14:00:00",
+        "2024-07-20 14:00:00",
+        "July     ",
+        "3000",
+        false
+      ],
+      [
+        "player_i",
+        1,
+        "Us-West",
+        "2024-08-10 11:00:00",
+        "2024-08-10 11:05:00",
+        "August   ",
+        "425",
+        true
+      ],
+      [
+        "player_j",
+        1,
+        "Us-Central",
+        "2024-09-05 08:00:00",
+        "2024-09-05 08:05:00",
+        "September",
+        "1700",
+        false
+      ],
+      [
+        "player_j",
+        2,
+        "Us-Central",
+        "2024-10-01 15:00:00",
+        "2024-10-01 15:10:00",
+        "October  ",
+        "1000",
+        true
+      ],
+      [
+        "player_k",
+        1,
+        "Eu-South",
+        "2024-11-12 19:00:00",
+        "2024-11-12 19:15:00",
+        "November ",
+        "1800",
+        true
+      ],
+      [
+        "player_l",
+        1,
+        "Ap-Southeast",
+        "2024-12-01 10:00:00",
+        "2024-12-01 10:00:00",
+        "December ",
+        "1000",
+        false
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "rank-partition",
+      "composite_moves": [
+        "type-cast offered_at TEXT to TIMESTAMP for ordering",
+        "trim and initcap server_region for display",
+        "lower player_id for normalization",
+        "FIRST_VALUE and LAST_VALUE window functions over PARTITION BY player_id, queue_session_id ORDER BY offered_at::TIMESTAMP with explicit ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING frame for LAST_VALUE",
+        "extract month name from last_offer using TO_CHAR",
+        "compute AVG(response_latency_ms) ignoring NULLs using window function",
+        "check if 'declined' is ANY element in response_status array using = ANY(array)",
+        "round average latency using ROUND",
+        "GROUP BY to collapse window results to one row per partition"
+      ]
+    },
+    "hints": [
+      "You'll need to identify the first and last offer timestamp within each player's queue session. Consider how window functions can access values at partition boundaries.",
+      "The default frame for window functions only looks up to the current row. To get the true last value in a partition, you must explicitly specify a frame that extends to the partition's end.",
+      "Use FIRST_VALUE and LAST_VALUE with PARTITION BY player_id, queue_session_id ORDER BY offered_at::TIMESTAMP. For LAST_VALUE, add ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING. Clean player_id with LOWER, server_region with TRIM and INITCAP, extract the month with TO_CHAR, round the average latency, and check for 'declined' in the response_status array with = ANY(response_status)."
+    ],
+    "answer_key": "WITH windowed AS (\n  SELECT\n    LOWER(player_id) AS player_id,\n    queue_session_id,\n    INITCAP(TRIM(server_region)) AS server_region,\n    offered_at::TIMESTAMP AS offered_ts,\n    response_latency_ms,\n    'declined' = ANY(response_status) AS is_decline,\n    FIRST_VALUE(offered_at::TIMESTAMP) OVER (\n      PARTITION BY player_id, queue_session_id\n      ORDER BY offered_at::TIMESTAMP\n    ) AS first_offer_time,\n    LAST_VALUE(offered_at::TIMESTAMP) OVER (\n      PARTITION BY player_id, queue_session_id\n      ORDER BY offered_at::TIMESTAMP\n      ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING\n    ) AS last_offer_time\n  FROM match_acceptance_log\n)\nSELECT\n  player_id,\n  queue_session_id,\n  server_region,\n  first_offer_time,\n  last_offer_time,\n  TO_CHAR(last_offer_time, 'Month') AS last_offer_month,\n  ROUND(AVG(response_latency_ms)) AS avg_latency_ms,\n  BOOL_OR(is_decline) AS had_decline\nFROM windowed\nGROUP BY player_id, queue_session_id, server_region, first_offer_time, last_offer_time\nORDER BY player_id, queue_session_id;",
+    "_meta": {
+      "question_type": "window_first_last",
+      "original_qtype": "random_any",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-26T16:35:41.228021",
+      "problem_id": "dec19a96ddd8",
+      "validation_attempts": 1,
+      "scenario": "a console online service tracking multiplayer match acceptance",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": null,
+      "cleaning_required": true,
+      "cleaning_level": "high",
+      "cleaning_all_six": true,
+      "cleaning_per_category": 1,
+      "cleaning_bonus": null,
+      "typecast_twist": true,
+      "realism": "high"
+    }
+  },
+  "user_solution": "/*\n\nmatch_acceptance_log\n- records each player's response when offered a match slot\n\nINPUTS\nTable: match_acceptance_log\nplayer_id\t                    TEXT NOT NULL\nqueue_session_id\t            INTEGER NOT NULL\noffered_at\t                    TEXT NOT NULL\nresponse_status\t                TEXT[] NOT NULL\nresponse_latency_ms\t            NUMERIC\nserver_region\t                TEXT NOT NULL\n\nOUTPUT\nplayer_id\t\nqueue_session_id\t\nserver_region\t\nfirst_offer_time\tthe timestamp of the FIRST offer in that session\nlast_offer_time\t    the timestamp of the LAST offer in that session\nlast_offer_month\tthe month name of the last offer\navg_latency_ms\t    rounded average response latency (ignoring NULLs)\nhad_decline          session included any 'declined' responses\n\nSELECT\n    player_id,\n    queue_session_id,\n    server_region,\n    first_offer_time,\n    last_offer_time,\n    last_offer_month,\n    AVG(CASE WHEN response_latency_ms IS NOT NULL THEN response_latency_ms END)::int avg_latency_ms,\n    had_decline\nFROM base\nWHERE rn = 1\nGROUP BY 1, 2, 3, 4, 5, 6, 8\nORDER BY player_id, queue_session_id;\n\n*/\nWITH base AS (\n    SELECT\n        LOWER(TRIM(player_id)) AS player_id,\n        queue_session_id,\n        INITCAP(TRIM(server_region)) AS server_region,\n        FIRST_VALUE(TRIM(offered_at)::timestamp) OVER (PARTITION BY LOWER(TRIM(player_id)), queue_session_id ORDER BY TRIM(offered_at)::timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS first_offer_time,\n        LAST_VALUE(TRIM(offered_at)::timestamp) OVER (PARTITION BY LOWER(TRIM(player_id)), queue_session_id ORDER BY TRIM(offered_at)::timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_offer_time,\n        TO_CHAR(LAST_VALUE(TRIM(offered_at)::timestamp) OVER (PARTITION BY LOWER(TRIM(player_id)), queue_session_id ORDER BY TRIM(offered_at)::timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING), 'Month') AS last_offer_month,\n        (AVG(response_latency_ms) OVER (PARTITION BY LOWER(TRIM(player_id)), queue_session_id ORDER BY TRIM(offered_at)::timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING))::int AS avg_latency_ms,\n        ('declined' = ANY(response_status)) AS had_decline,\n        ROW_NUMBER() OVER (PARTITION BY LOWER(TRIM(player_id)), queue_session_id ORDER BY ('declined' = ANY(response_status)) DESC, TRIM(offered_at)::timestamp ) AS rn\n    FROM match_acceptance_log\n)\nSELECT\n    player_id,\n    queue_session_id,\n    server_region,\n    first_offer_time,\n    last_offer_time,\n    last_offer_month,\n    avg_latency_ms,\n    had_decline\nFROM base\nWHERE rn = 1;",
+  "solved_at": "2026-06-26T17:26:55.364709"
+}

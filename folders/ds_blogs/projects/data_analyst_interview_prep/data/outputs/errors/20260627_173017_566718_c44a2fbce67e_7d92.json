@@ -1,0 +1,112 @@
+{
+  "logged_at": "2026-06-27T17:30:17.566718",
+  "failure_kind": "wrong_answer",
+  "problem_id": "c44a2fbce67e",
+  "question_type": "gated_lookup",
+  "original_qtype": "gated_lookup",
+  "subtype": "where_exclude",
+  "scenario": "a buy-now-pay-later service tracking installment payment compliance",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "enrich-join",
+  "title": "Filter Installment Plans by Merchant Trust Score",
+  "prompt": "You are working with a buy-now-pay-later service modeled on consumer finance data (CFPB Consumer Credit Panel). The 'merchants' table holds vendor information including a trust score assigned by the platform. The 'installment_plans' table contains payment schedules for each merchant's purchases, including multiple pricing tiers per merchant. Your task: produce a report of the LOWEST monthly payment amount available for each merchant that has a trust score of 70 or higher. Merchants with trust scores below 70 should be excluded from the output entirely. The merchant name needs cleaning: trim whitespace and capitalize each word. The trust score is stored as text and must be converted to a number for comparison. Each merchant's primary category is stored as an array, and you must extract the first category. Each merchant has multiple installment plans; return exactly ONE row per qualifying merchant for the plan with the LOWEST monthly payment (break ties by the smaller plan_id). The plan launch date is stored as text in 'YYYY-MM-DD' format and must be cast to a date; output the month name from the launch date of that lowest-payment plan. Round the monthly payment to 2 decimal places. If a merchant has a NULL trust score (represented as an empty string), treat it as failing the threshold. Output columns: merchant_name, primary_category, launch_month, min_monthly_payment. Order by merchant_name ascending.",
+  "schema_ddl": "CREATE TABLE merchants (merchant_id INTEGER PRIMARY KEY, merchant_name VARCHAR(100), trust_score_text VARCHAR(10), categories TEXT[]); CREATE TABLE installment_plans (plan_id INTEGER PRIMARY KEY, merchant_id INTEGER, monthly_payment NUMERIC(10,2), launch_date_text VARCHAR(20));",
+  "answer_key": "SELECT merchant_name, primary_category, launch_month, min_monthly_payment\nFROM (\n    SELECT\n        INITCAP(TRIM(m.merchant_name))                         AS merchant_name,\n        m.categories[1]                                        AS primary_category,\n        TO_CHAR(ip.launch_date_text::DATE, 'FMMonth')          AS launch_month,\n        ROUND(ip.monthly_payment, 2)                           AS min_monthly_payment,\n        ROW_NUMBER() OVER (PARTITION BY m.merchant_id\n                           ORDER BY ip.monthly_payment, ip.plan_id) AS rn\n    FROM merchants m\n    JOIN installment_plans ip ON m.merchant_id = ip.merchant_id\n    WHERE COALESCE(NULLIF(m.trust_score_text, ''), '0')::NUMERIC >= 70\n) z\nWHERE rn = 1\nORDER BY merchant_name;",
+  "test_expected_columns": [
+    "merchant_name",
+    "primary_category",
+    "launch_month",
+    "min_monthly_payment"
+  ],
+  "test_expected_rows": [
+    [
+      "Craft Corner",
+      "Crafts",
+      "November",
+      "29.99"
+    ],
+    [
+      "Fitness Zone",
+      "Fitness",
+      "October",
+      "69.99"
+    ],
+    [
+      "Garden Center",
+      "Garden",
+      "August",
+      "59.99"
+    ],
+    [
+      "Music Store",
+      "Music",
+      "April",
+      "89.99"
+    ],
+    [
+      "Office Pro",
+      "Office",
+      "July",
+      "44.99"
+    ],
+    [
+      "Outdoor Gear",
+      "Sports",
+      "January",
+      "54.99"
+    ],
+    [
+      "Pet Paradise",
+      "Pets",
+      "March",
+      "39.99"
+    ]
+  ],
+  "user_solution": "/* notes */\nWITH base AS (\n    SELECT\n        INITCAP(TRIM(merchant_name)) AS merchant_name,\n        categories[1] AS primary_category,\n        TO_CHAR(launch_date_text::DATE, 'FMMonth') as launch_month,\n        monthly_payment::numeric AS min_monthly_payment,\n        ROW_NUMBER() OVER (PARTITION BY INITCAP(TRIM(merchant_name)) ORDER BY monthly_payment) AS rn\n    FROM merchants AS m\n    LEFT JOIN installment_plans AS i\n        USING(merchant_id)\n    WHERE NULLIF(m.trust_score_text, '')::INT IS NOT NULL \n        AND NULLIF(m.trust_score_text, '')::INT > 70\n)\nSELECT\n    merchant_name,\t\n    primary_category,\t\n    launch_month,\t\n    min_monthly_payment\nFROM base\nWHERE rn = 1\nORDER BY 1;\n",
+  "error_message": null,
+  "your_columns": [
+    "merchant_name",
+    "primary_category",
+    "launch_month",
+    "min_monthly_payment"
+  ],
+  "your_rows": [
+    [
+      "Craft Corner",
+      "Crafts",
+      "November",
+      "29.99"
+    ],
+    [
+      "Fitness Zone",
+      "Fitness",
+      "October",
+      "69.99"
+    ],
+    [
+      "Garden Center",
+      "Garden",
+      "August",
+      "59.99"
+    ],
+    [
+      "Office Pro",
+      "Office",
+      "July",
+      "44.99"
+    ],
+    [
+      "Outdoor Gear",
+      "Sports",
+      "January",
+      "54.99"
+    ],
+    [
+      "Pet Paradise",
+      "Pets",
+      "March",
+      "39.99"
+    ]
+  ]
+}

@@ -1,0 +1,302 @@
+{
+  "problem": {
+    "title": "Clean Payment Reference Codes",
+    "prompt": "You are working with a buy-now-pay-later service tracking installment payment compliance, modeled on consumer finance transaction datasets (CFPB Consumer Complaints). The `installment_payments` table stores raw payment records, where the `payment_reference` column contains a composite identifier with the format 'TYPE-ACCOUNTID-YYYYMMDD', but the field has inconsistent casing and sometimes extra whitespace. The `processor_code` column holds payment processor identifiers that need to be formatted to a fixed 8-character uppercase code, left-padded with zeros if shorter. Write a query that cleans and reformats these fields, extracts the account ID portion from the payment reference, and determines the position of the first hyphen in each reference string. Return one row per payment with cleaned values, ordered by payment_id.",
+    "display": {
+      "context": "You are working with a buy-now-pay-later service tracking installment payment compliance, modeled on consumer finance transaction datasets.",
+      "task": "Write a query that cleans the payment reference codes, pads the processor codes to 8 uppercase characters, extracts account IDs, and finds hyphen positions.",
+      "table_notes": {
+        "installment_payments": "stores raw payment transaction records with composite reference codes and processor identifiers"
+      },
+      "output_field_notes": {
+        "payment_id": "unique identifier for the payment record",
+        "clean_reference": "the payment reference with trimmed whitespace and uppercase letters",
+        "padded_processor": "the processor code formatted as 8 uppercase characters left-padded with zeros",
+        "account_id": "the middle segment extracted from the payment reference between the first and second hyphens",
+        "first_hyphen_pos": "the character position where the first hyphen appears in the original payment reference"
+      },
+      "field_logic": [
+        "clean_reference: remove leading and trailing spaces from the payment reference and convert all letters to uppercase",
+        "padded_processor: convert the processor code to uppercase and left-pad with zeros to make it exactly 8 characters long",
+        "account_id: extract the second segment from the payment reference by splitting on hyphens",
+        "first_hyphen_pos: find the character position of the first hyphen in the original untrimmed payment reference"
+      ],
+      "edge_cases": [
+        "If the payment reference has leading or trailing spaces, they must be removed before converting case",
+        "If the processor code is already 8 characters, no padding is added",
+        "If the processor code is shorter than 8 characters, zeros are added on the left side"
+      ],
+      "filter_note": "All payment records are included in the output",
+      "order_by_note": "Results are ordered by payment_id in ascending order"
+    },
+    "schema_ddl": "CREATE TABLE installment_payments (payment_id INT PRIMARY KEY, payment_reference VARCHAR(100), processor_code VARCHAR(20), amount_cents INT, payment_date DATE);",
+    "example_input_data": "INSERT INTO installment_payments (payment_id, payment_reference, processor_code, amount_cents, payment_date) VALUES (1, 'bnpl-A12345-20240115', 'SQ42', 5000, '2024-01-15'), (2, '  BNPL-B67890-20240116  ', 'stripe99', 7500, '2024-01-16'), (3, 'Bnpl-C54321-20240117', 'pay', 10000, '2024-01-17'), (4, 'bnpl-D99999-20240118', 'AUTHNET1', 3000, '2024-01-18'), (5, ' bnpl-E11111-20240119 ', 'adyen', 12000, '2024-01-19'), (6, 'BNPL-F22222-20240120', 'KLARNA88', 8500, '2024-01-20');",
+    "example_output_columns": [
+      "payment_id",
+      "clean_reference",
+      "padded_processor",
+      "account_id",
+      "first_hyphen_pos"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "BNPL-A12345-20240115",
+        "0000SQ42",
+        "A12345",
+        5
+      ],
+      [
+        2,
+        "BNPL-B67890-20240116",
+        "STRIPE99",
+        "B67890",
+        7
+      ],
+      [
+        3,
+        "BNPL-C54321-20240117",
+        "00000PAY",
+        "C54321",
+        5
+      ],
+      [
+        4,
+        "BNPL-D99999-20240118",
+        "AUTHNET1",
+        "D99999",
+        5
+      ],
+      [
+        5,
+        "BNPL-E11111-20240119",
+        "000ADYEN",
+        "E11111",
+        6
+      ],
+      [
+        6,
+        "BNPL-F22222-20240120",
+        "KLARNA88",
+        "F22222",
+        5
+      ]
+    ],
+    "test_data": "INSERT INTO installment_payments (payment_id, payment_reference, processor_code, amount_cents, payment_date) VALUES (101, 'bnpl-X00001-20240201', 'sq', 2500, '2024-02-01'), (102, '   BNPL-X00002-20240202   ', 'STRIPE', 4500, '2024-02-02'), (103, 'Bnpl-X00003-20240203', 'pp', 6000, '2024-02-03'), (104, 'bnpl-X00004-20240204', 'AUTHORIZE', 3500, '2024-02-04'), (105, ' bnpl-X00005-20240205 ', 'a', 7200, '2024-02-05'), (106, 'BNPL-X00006-20240206', 'KLARNA99', 9000, '2024-02-06'), (107, 'bnpl-X00007-20240207', 'PAYPAL12', 5500, '2024-02-07'), (108, '  bnpl-X00008-20240208', 'braintree', 8200, '2024-02-08'), (109, 'bnpl-X00009-20240209  ', 'RAZORPAY', 4800, '2024-02-09'), (110, 'BNPL-X00010-20240210', 'mol', 6700, '2024-02-10'), (111, ' BNPL-X00011-20240211 ', 'WORLDPAY', 7900, '2024-02-11'), (112, 'bnpl-X00012-20240212', 'tab', 3300, '2024-02-12'), (113, 'Bnpl-X00013-20240213', 'global', 5100, '2024-02-13'), (114, 'bnpl-X00014-20240214', 'net', 9500, '2024-02-14'), (115, '    bnpl-X00015-20240215    ', 'CYBERSOURCE', 11000, '2024-02-15'), (116, 'BNPL-X00016-20240216', 'p', 2200, '2024-02-16'), (117, 'bnpl-X00017-20240217', 'trustly', 6300, '2024-02-17'), (118, ' bnpl-X00018-20240218 ', 'sofort99', 8900, '2024-02-18'), (119, 'BNPL-X00019-20240219', 'ideal', 4100, '2024-02-19'), (120, 'bnpl-X00020-20240220', 'giropay8', 7500, '2024-02-20');",
+    "test_expected_columns": [
+      "payment_id",
+      "clean_reference",
+      "padded_processor",
+      "account_id",
+      "first_hyphen_pos"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        "BNPL-X00001-20240201",
+        "000000SQ",
+        "X00001",
+        5
+      ],
+      [
+        102,
+        "BNPL-X00002-20240202",
+        "00STRIPE",
+        "X00002",
+        8
+      ],
+      [
+        103,
+        "BNPL-X00003-20240203",
+        "000000PP",
+        "X00003",
+        5
+      ],
+      [
+        104,
+        "BNPL-X00004-20240204",
+        "AUTHORIZ",
+        "X00004",
+        5
+      ],
+      [
+        105,
+        "BNPL-X00005-20240205",
+        "0000000A",
+        "X00005",
+        6
+      ],
+      [
+        106,
+        "BNPL-X00006-20240206",
+        "KLARNA99",
+        "X00006",
+        5
+      ],
+      [
+        107,
+        "BNPL-X00007-20240207",
+        "PAYPAL12",
+        "X00007",
+        5
+      ],
+      [
+        108,
+        "BNPL-X00008-20240208",
+        "BRAINTRE",
+        "X00008",
+        7
+      ],
+      [
+        109,
+        "BNPL-X00009-20240209",
+        "RAZORPAY",
+        "X00009",
+        5
+      ],
+      [
+        110,
+        "BNPL-X00010-20240210",
+        "00000MOL",
+        "X00010",
+        5
+      ],
+      [
+        111,
+        "BNPL-X00011-20240211",
+        "WORLDPAY",
+        "X00011",
+        6
+      ],
+      [
+        112,
+        "BNPL-X00012-20240212",
+        "00000TAB",
+        "X00012",
+        5
+      ],
+      [
+        113,
+        "BNPL-X00013-20240213",
+        "00GLOBAL",
+        "X00013",
+        5
+      ],
+      [
+        114,
+        "BNPL-X00014-20240214",
+        "00000NET",
+        "X00014",
+        5
+      ],
+      [
+        115,
+        "BNPL-X00015-20240215",
+        "CYBERSOU",
+        "X00015",
+        9
+      ],
+      [
+        116,
+        "BNPL-X00016-20240216",
+        "0000000P",
+        "X00016",
+        5
+      ],
+      [
+        117,
+        "BNPL-X00017-20240217",
+        "0TRUSTLY",
+        "X00017",
+        5
+      ],
+      [
+        118,
+        "BNPL-X00018-20240218",
+        "SOFORT99",
+        "X00018",
+        6
+      ],
+      [
+        119,
+        "BNPL-X00019-20240219",
+        "000IDEAL",
+        "X00019",
+        5
+      ],
+      [
+        120,
+        "BNPL-X00020-20240220",
+        "GIROPAY8",
+        "X00020",
+        5
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "extract payment_id",
+        "apply UPPER(TRIM()) to payment_reference",
+        "apply LPAD(UPPER()) to processor_code",
+        "apply SPLIT_PART() to extract account_id segment",
+        "apply POSITION() to find first hyphen",
+        "order by payment_id"
+      ]
+    },
+    "hints": [
+      "You'll need to clean text fields by removing extra spaces and converting case, then extract parts from a delimited string.",
+      "Use TRIM to remove leading/trailing spaces, UPPER to convert to uppercase, SPLIT_PART to extract the second segment between hyphens, and LPAD to pad a string to a fixed width.",
+      "The solution is: SELECT payment_id, UPPER(TRIM(payment_reference)) AS clean_reference, LPAD(UPPER(processor_code), 8, '0') AS padded_processor, SPLIT_PART(payment_reference, '-', 2) AS account_id, POSITION('-' IN payment_reference) AS first_hyphen_pos FROM installment_payments ORDER BY payment_id;"
+    ],
+    "answer_key": "SELECT payment_id, UPPER(TRIM(payment_reference)) AS clean_reference, LPAD(UPPER(processor_code), 8, '0') AS padded_processor, SPLIT_PART(payment_reference, '-', 2) AS account_id, POSITION('-' IN payment_reference) AS first_hyphen_pos FROM installment_payments ORDER BY payment_id;",
+    "_meta": {
+      "question_type": "parse_clean",
+      "original_qtype": "parse_clean",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-06-28T19:58:58.843370",
+      "problem_id": "57f1d53cbbdc",
+      "validation_attempts": 1,
+      "scenario": "a buy-now-pay-later service tracking installment payment compliance",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "string_clean",
+      "cleaning_required": false,
+      "cleaning_level": null,
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": false,
+      "realism": "high"
+    },
+    "example_output_schema": [
+      [
+        "payment_id",
+        "INTEGER"
+      ],
+      [
+        "clean_reference",
+        "TEXT"
+      ],
+      [
+        "padded_processor",
+        "TEXT"
+      ],
+      [
+        "account_id",
+        "TEXT"
+      ],
+      [
+        "first_hyphen_pos",
+        "INTEGER"
+      ]
+    ]
+  },
+  "user_solution": "/* notes */\n\nSELECT\n    payment_id,\n    UPPER(TRIM(payment_reference)) AS clean_reference,\n    LPAD(UPPER(TRIM(processor_code)), 8, '0') AS padded_processor,\n    SPLIT_PART(UPPER(TRIM(payment_reference)), '-', 2) AS account_id,\n    POSITION('-' IN payment_reference) AS first_hyphen_pos\nFROM installment_payments\nORDER BY 1;",
+  "solved_at": "2026-06-28T20:15:45.590502"
+}
