@@ -1,0 +1,214 @@
+{
+  "title": "Find Articles Without Completed Reads",
+  "prompt": "You are working with a news app tracking article completion and subscription conversion, modeled on public digital media engagement datasets (data.gov). The `articles` table stores published content with metadata, and the `reading_sessions` table logs individual user reading events. Write a query that identifies articles that have never been fully read. An article qualifies if it has zero reading sessions with `completion_status = 'completed'` in the `reading_sessions` table. For each qualifying article, display the article ID, a cleaned title (trim whitespace and capitalize each word), a formatted publish date showing the month name, the primary category (the first element of the category tags array), a computed engagement score (raise the view count to the power of 0.5, rounded to 2 decimals), and a display-ready price (if subscription_price_text is blank or NULL use 'Free', otherwise show the numeric value). Return articles in descending order by view_count. Use NOT IN for the filter and include a NULL guard to avoid the NULL trap (the reading_sessions table may contain NULL article_id values from incomplete data ingestion).",
+  "display": {
+    "context": "You are working with a news app tracking article completion and subscription conversion, modeled on public digital media engagement datasets (data.gov).",
+    "task": "Write a query that identifies articles that have never been fully read, displaying cleaned metadata and computed metrics.",
+    "table_notes": {
+      "articles": "stores published content with metadata including titles, publish dates, categories, view counts, and subscription pricing",
+      "reading_sessions": "logs individual user reading events with completion status and article references"
+    },
+    "output_field_notes": {
+      "article_id": "unique identifier for the article",
+      "clean_title": "the article title with whitespace trimmed and each word capitalized",
+      "publish_month": "the month name when the article was published",
+      "primary_category": "the first category from the article's tag list",
+      "engagement_score": "a computed engagement metric based on view count",
+      "display_price": "the subscription price shown as a number, or 'Free' if not specified"
+    },
+    "field_logic": [
+      "clean_title: built from title. - trim any leading or trailing whitespace from title - capitalize the first letter of each word",
+      "publish_month: built from publish_date. - extract the month name from publish_date",
+      "primary_category: built from category_tags. - take the first element from the category_tags array",
+      "engagement_score: built from view_count. - raise view_count to the power of 0.5 - round the result to 2 decimal places",
+      "display_price: built from subscription_price_text. - if subscription_price_text is blank or NULL, use 'Free' - otherwise convert subscription_price_text to a numeric value and display it"
+    ],
+    "edge_cases": [
+      "If an article has no reading sessions at all, include it in the results.",
+      "If reading_sessions contains NULL article_id values, ensure they do not cause the entire result to become empty.",
+      "If subscription_price_text is an empty string or NULL, display 'Free'."
+    ],
+    "filter_note": "Include only articles that have zero reading sessions with completion_status = 'completed', using NOT IN with a NULL guard to avoid the NULL trap.",
+    "order_by_note": "Results are ordered by view_count in descending order."
+  },
+  "schema_ddl": "CREATE TABLE articles (article_id INT PRIMARY KEY, title VARCHAR(200), publish_date DATE, category_tags TEXT[], view_count INT, subscription_price_text VARCHAR(20)); CREATE TABLE reading_sessions (session_id INT PRIMARY KEY, article_id INT, user_id INT, completion_status VARCHAR(20), session_date DATE);",
+  "example_input_data": "INSERT INTO articles (article_id, title, publish_date, category_tags, view_count, subscription_price_text) VALUES (1, '  climate change impacts  ', '2024-01-15', ARRAY['environment', 'science'], 144, '4.99'), (2, 'local election results', '2024-02-20', ARRAY['politics', 'local'], 81, ''), (3, 'new restaurant review', '2024-03-10', ARRAY['food', 'lifestyle'], 64, NULL), (4, 'tech startup funding', '2024-04-05', ARRAY['business', 'technology'], 100, '9.99'), (5, 'sports championship recap', '2024-05-12', ARRAY['sports', 'news'], 121, '2.99'); INSERT INTO reading_sessions (session_id, article_id, user_id, completion_status, session_date) VALUES (1, 1, 101, 'completed', '2024-01-16'), (2, 1, 102, 'partial', '2024-01-17'), (3, 4, 103, 'completed', '2024-04-06'), (4, 2, 104, 'partial', '2024-02-21'), (5, NULL, 105, 'completed', '2024-03-15'), (6, 5, 106, 'partial', '2024-05-13');",
+  "example_output_columns": [
+    "article_id",
+    "clean_title",
+    "publish_month",
+    "primary_category",
+    "engagement_score",
+    "display_price"
+  ],
+  "example_output_rows": [
+    [
+      5,
+      "Sports Championship Recap",
+      "May",
+      "sports",
+      "11.00",
+      "2.99"
+    ],
+    [
+      2,
+      "Local Election Results",
+      "February",
+      "politics",
+      "9.00",
+      "Free"
+    ],
+    [
+      3,
+      "New Restaurant Review",
+      "March",
+      "food",
+      "8.00",
+      "Free"
+    ]
+  ],
+  "test_data": "INSERT INTO articles (article_id, title, publish_date, category_tags, view_count, subscription_price_text) VALUES (10, '  AI ETHICS debate  ', '2024-01-10', ARRAY['technology', 'ethics'], 225, '12.50'), (11, 'community garden project', '2024-02-15', ARRAY['local', 'environment'], 196, ''), (12, 'economic forecast 2024', '2024-03-20', ARRAY['business', 'economy'], 169, '7.99'), (13, 'museum exhibit opening', '2024-04-25', ARRAY['culture', 'arts'], 144, NULL), (14, 'healthcare policy changes', '2024-05-30', ARRAY['health', 'policy'], 121, '5.99'), (15, 'summer concert series', '2024-06-15', ARRAY['entertainment', 'music'], 100, ''), (16, 'school funding proposal', '2024-07-10', ARRAY['education', 'local'], 81, '3.99'), (17, 'transit expansion plan', '2024-08-05', ARRAY['transportation', 'infrastructure'], 64, NULL), (18, 'food festival preview', '2024-09-12', ARRAY['food', 'events'], 49, '2.50'), (19, 'renewable energy report', '2024-10-18', ARRAY['environment', 'science'], 36, ''), (20, 'downtown development update', '2024-11-22', ARRAY['real estate', 'local'], 25, '6.99'); INSERT INTO reading_sessions (session_id, article_id, user_id, completion_status, session_date) VALUES (10, 10, 201, 'completed', '2024-01-11'), (11, 10, 202, 'completed', '2024-01-12'), (12, 12, 203, 'completed', '2024-03-21'), (13, 14, 204, 'completed', '2024-05-31'), (14, 11, 205, 'partial', '2024-02-16'), (15, 13, 206, 'partial', '2024-04-26'), (16, 15, 207, 'partial', '2024-06-16'), (17, 16, 208, 'partial', '2024-07-11'), (18, NULL, 209, 'completed', '2024-08-01'), (19, NULL, 210, 'partial', '2024-08-02'), (20, 18, 211, 'abandoned', '2024-09-13'), (21, 19, 212, 'abandoned', '2024-10-19'), (22, 20, 213, 'partial', '2024-11-23');",
+  "test_expected_columns": [
+    "article_id",
+    "clean_title",
+    "publish_month",
+    "primary_category",
+    "engagement_score",
+    "display_price"
+  ],
+  "test_expected_rows": [
+    [
+      11,
+      "Community Garden Project",
+      "February",
+      "local",
+      "14.00",
+      "Free"
+    ],
+    [
+      13,
+      "Museum Exhibit Opening",
+      "April",
+      "culture",
+      "12.00",
+      "Free"
+    ],
+    [
+      15,
+      "Summer Concert Series",
+      "June",
+      "entertainment",
+      "10.00",
+      "Free"
+    ],
+    [
+      16,
+      "School Funding Proposal",
+      "July",
+      "education",
+      "9.00",
+      "3.99"
+    ],
+    [
+      17,
+      "Transit Expansion Plan",
+      "August",
+      "transportation",
+      "8.00",
+      "Free"
+    ],
+    [
+      18,
+      "Food Festival Preview",
+      "September",
+      "food",
+      "7.00",
+      "2.50"
+    ],
+    [
+      19,
+      "Renewable Energy Report",
+      "October",
+      "environment",
+      "6.00",
+      "Free"
+    ],
+    [
+      20,
+      "Downtown Development Update",
+      "November",
+      "real estate",
+      "5.00",
+      "6.99"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "row-filter",
+    "composite_moves": [
+      "anti-join via NOT IN with NULL guard to filter first table rows by absence in second table",
+      "STRING: INITCAP(TRIM(title)) to clean and capitalize",
+      "ARRAY: category_tags[1] to extract first element",
+      "DATE: EXTRACT(MONTH FROM publish_date) wrapped in TO_CHAR for month name",
+      "CAST: NULLIF for blank-to-NULL conversion",
+      "NUMERIC: POWER and ROUND for engagement score",
+      "CONDITIONAL: CASE WHEN for display price logic"
+    ]
+  },
+  "hints": [
+    "Consider how to exclude articles that appear in the reading_sessions table with a specific completion status, and be mindful of NULL values in foreign keys.",
+    "Use NOT IN with a subquery that selects article_id from reading_sessions where completion_status is 'completed', and add a filter to exclude NULL article_id values in the subquery to avoid the NULL trap.",
+    "The query structure is: SELECT article_id, INITCAP(TRIM(title)), TO_CHAR(publish_date, 'FMMonth'), category_tags[1], ROUND(POWER(view_count, 0.5), 2), CASE WHEN NULLIF(subscription_price_text, '') IS NULL THEN 'Free' ELSE subscription_price_text::numeric::text END FROM articles WHERE article_id NOT IN (SELECT article_id FROM reading_sessions WHERE completion_status = 'completed' AND article_id IS NOT NULL) ORDER BY view_count DESC."
+  ],
+  "answer_key": "SELECT article_id, INITCAP(TRIM(title)) AS clean_title, TO_CHAR(publish_date, 'FMMonth') AS publish_month, category_tags[1] AS primary_category, ROUND(POWER(view_count, 0.5), 2) AS engagement_score, CASE WHEN NULLIF(subscription_price_text, '') IS NULL THEN 'Free' ELSE subscription_price_text::numeric::text END AS display_price FROM articles WHERE article_id NOT IN (SELECT article_id FROM reading_sessions WHERE completion_status = 'completed' AND article_id IS NOT NULL) ORDER BY view_count DESC;",
+  "_meta": {
+    "question_type": "filter_by_other_table",
+    "original_qtype": "filter_by_other_table",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-02T12:20:16.745442",
+    "problem_id": "18071147cf8b",
+    "validation_attempts": 4,
+    "scenario": "a news app tracking article completion and subscription conversion",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "anti_not_in",
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "high"
+  },
+  "example_output_schema": [
+    [
+      "article_id",
+      "INTEGER"
+    ],
+    [
+      "clean_title",
+      "TEXT"
+    ],
+    [
+      "publish_month",
+      "TEXT"
+    ],
+    [
+      "primary_category",
+      "TEXT"
+    ],
+    [
+      "engagement_score",
+      "NUMERIC"
+    ],
+    [
+      "display_price",
+      "TEXT"
+    ]
+  ]
+}

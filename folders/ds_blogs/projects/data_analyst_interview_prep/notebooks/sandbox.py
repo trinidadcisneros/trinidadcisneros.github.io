@@ -393,6 +393,63 @@ def run_query(dialect: str, sql: str) -> Tuple[Optional[pd.DataFrame], Optional[
         return None, str(e)
 
 
+def explain_analyze(dialect: str, sql: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """Run EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) on the LAST statement of `sql`
+    and return (metrics, error). Postgres only. Assumes the schema + data for the
+    current problem are already loaded in the sandbox.
+
+    metrics keys: exec_ms, plan_ms, rows, buffer_blocks, buffer_kb, node.
+    exec_ms/plan_ms are real measured milliseconds; buffer_kb (= shared blocks x 8KB)
+    is the data touched, a stand-in for memory / IO. Runs inside a rolled-back
+    transaction so ANALYZE never persists changes.
+    """
+    if dialect != "postgresql":
+        return None, "Performance metrics are available for PostgreSQL only."
+    if not PG_AVAILABLE:
+        return None, "psycopg2 not installed (pip install psycopg2-binary)."
+    if not sql or not sql.strip():
+        return None, "No SQL provided."
+    try:
+        statements = _split_pg_statements(sql)
+    except Exception:
+        statements = [s for s in sql.split(";") if s.strip()]
+    if not statements:
+        return None, "No SQL provided."
+    setup, target = statements[:-1], statements[-1]
+    try:
+        conn = psycopg2.connect(**_pg_settings())
+        conn.autocommit = False
+        try:
+            with conn.cursor() as cur:
+                for stmt in setup:
+                    cur.execute(stmt)
+                try:
+                    cur.execute("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) " + target)
+                except Exception as ex:
+                    conn.rollback()
+                    return None, _format_pg_error(ex, target, sql)
+                plan = cur.fetchone()[0]
+            conn.rollback()
+        finally:
+            conn.close()
+    except Exception as e:
+        return None, str(e)
+    try:
+        root = plan[0]
+        p = root.get("Plan", {})
+        blocks = (p.get("Shared Hit Blocks", 0) or 0) + (p.get("Shared Read Blocks", 0) or 0)
+        return {
+            "exec_ms": round(root.get("Execution Time", 0.0), 3),
+            "plan_ms": round(root.get("Planning Time", 0.0), 3),
+            "rows": p.get("Actual Rows"),
+            "buffer_blocks": blocks,
+            "buffer_kb": blocks * 8,
+            "node": p.get("Node Type", ""),
+        }, None
+    except Exception as e:
+        return None, f"Could not parse EXPLAIN output: {e}"
+
+
 def _norm_pg_type(t):
     """Normalize a Postgres canonical type name to a short upper-cased SQL label."""
     low = (t or "").strip().lower()

@@ -1,0 +1,286 @@
+{
+  "title": "Clean Sprint Velocity with Nulls and Bounds",
+  "prompt": "You are working with a project management tool that tracks sprint completion and task throughput, modeled on public Jira / Azure DevOps datasets. The `sprint_metrics` table holds weekly performance data for development teams. Some columns contain NULL values, zero denominators, or missing entries. You need to compute a cleaned velocity score. Write a query that produces one row per sprint. For each sprint output: `team_code`, `sprint_week`, `completed_points` (use the stored value, or if NULL use 0), `planned_points` (use the stored value, or if NULL use 0), `max_capacity` (the larger of `planned_points` or `completed_points`), `velocity_ratio` (completed_points divided by planned_points, but if planned_points is 0 treat it as NULL so the division returns NULL instead of an error). Sort the output by `team_code` ascending, then by `sprint_week` ascending.",
+  "display": {
+    "context": "You are working with a project management tool that tracks sprint completion and task throughput, modeled on public Jira datasets.",
+    "task": "Write a query that produces a cleaned velocity metric for each sprint, handling NULL values and zero denominators.",
+    "table_notes": {
+      "sprint_metrics": "holds weekly sprint performance data including completed story points and planned capacity for each team"
+    },
+    "output_field_notes": {
+      "team_code": "the unique identifier for the development team",
+      "sprint_week": "the week ending date of the sprint",
+      "completed_points": "the number of story points completed in the sprint, with NULL replaced by 0",
+      "planned_points": "the number of story points planned for the sprint, with NULL replaced by 0",
+      "max_capacity": "the higher value between planned_points and completed_points",
+      "velocity_ratio": "the ratio of completed_points to planned_points, with division by zero producing NULL"
+    },
+    "field_logic": [
+      "completed_points: built from completed_points.\n- if completed_points is NULL, use 0\n- otherwise use the value from completed_points",
+      "planned_points: built from planned_points.\n- if planned_points is NULL, use 0\n- otherwise use the value from planned_points",
+      "max_capacity: built from planned_points and completed_points.\n- take the larger of the two values after NULL handling",
+      "velocity_ratio: built from completed_points and planned_points.\n- divide completed_points by planned_points\n- if planned_points equals 0, turn it into NULL so the division returns NULL instead of causing an error"
+    ],
+    "edge_cases": [
+      "If completed_points is NULL, treat it as 0.",
+      "If planned_points is NULL, treat it as 0.",
+      "If planned_points equals 0, the velocity_ratio must be NULL (not an error)."
+    ],
+    "filter_note": "All rows from the sprint_metrics table are included.",
+    "order_by_note": "Results are ordered by team_code ascending, then by sprint_week ascending."
+  },
+  "schema_ddl": "CREATE TABLE sprint_metrics (team_code VARCHAR(10), sprint_week DATE, completed_points INT, planned_points INT);",
+  "example_input_data": "INSERT INTO sprint_metrics (team_code, sprint_week, completed_points, planned_points) VALUES ('TEAM-A', '2024-01-07', 34, 40), ('TEAM-A', '2024-01-14', NULL, 35), ('TEAM-B', '2024-01-07', 28, 30), ('TEAM-B', '2024-01-14', 42, NULL), ('TEAM-C', '2024-01-07', 0, 0), ('TEAM-C', '2024-01-14', 15, 20);",
+  "example_output_columns": [
+    "team_code",
+    "sprint_week",
+    "completed_points",
+    "planned_points",
+    "max_capacity",
+    "velocity_ratio"
+  ],
+  "example_output_rows": [
+    [
+      "TEAM-A",
+      "2024-01-07",
+      34,
+      40,
+      40,
+      "0.85"
+    ],
+    [
+      "TEAM-A",
+      "2024-01-14",
+      0,
+      35,
+      35,
+      "0.00"
+    ],
+    [
+      "TEAM-B",
+      "2024-01-07",
+      28,
+      30,
+      30,
+      "0.93"
+    ],
+    [
+      "TEAM-B",
+      "2024-01-14",
+      42,
+      0,
+      42,
+      null
+    ],
+    [
+      "TEAM-C",
+      "2024-01-07",
+      0,
+      0,
+      0,
+      null
+    ],
+    [
+      "TEAM-C",
+      "2024-01-14",
+      15,
+      20,
+      20,
+      "0.75"
+    ]
+  ],
+  "test_data": "INSERT INTO sprint_metrics (team_code, sprint_week, completed_points, planned_points) VALUES ('TEAM-A', '2024-01-21', 50, 45), ('TEAM-A', '2024-01-28', 38, 40), ('TEAM-A', '2024-02-04', NULL, NULL), ('TEAM-B', '2024-01-21', 32, 35), ('TEAM-B', '2024-01-28', 40, 40), ('TEAM-B', '2024-02-04', 45, NULL), ('TEAM-C', '2024-01-21', 18, 25), ('TEAM-C', '2024-01-28', NULL, 30), ('TEAM-C', '2024-02-04', 22, 0), ('TEAM-D', '2024-01-07', 0, 50), ('TEAM-D', '2024-01-14', NULL, 0), ('TEAM-D', '2024-01-21', 60, 55), ('TEAM-D', '2024-01-28', 0, NULL), ('TEAM-E', '2024-01-07', NULL, NULL), ('TEAM-E', '2024-01-14', 25, 20);",
+  "test_expected_columns": [
+    "team_code",
+    "sprint_week",
+    "completed_points",
+    "planned_points",
+    "max_capacity",
+    "velocity_ratio"
+  ],
+  "test_expected_rows": [
+    [
+      "TEAM-A",
+      "2024-01-21",
+      50,
+      45,
+      50,
+      "1.11"
+    ],
+    [
+      "TEAM-A",
+      "2024-01-28",
+      38,
+      40,
+      40,
+      "0.95"
+    ],
+    [
+      "TEAM-A",
+      "2024-02-04",
+      0,
+      0,
+      0,
+      null
+    ],
+    [
+      "TEAM-B",
+      "2024-01-21",
+      32,
+      35,
+      35,
+      "0.91"
+    ],
+    [
+      "TEAM-B",
+      "2024-01-28",
+      40,
+      40,
+      40,
+      "1.00"
+    ],
+    [
+      "TEAM-B",
+      "2024-02-04",
+      45,
+      0,
+      45,
+      null
+    ],
+    [
+      "TEAM-C",
+      "2024-01-21",
+      18,
+      25,
+      25,
+      "0.72"
+    ],
+    [
+      "TEAM-C",
+      "2024-01-28",
+      0,
+      30,
+      30,
+      "0.00"
+    ],
+    [
+      "TEAM-C",
+      "2024-02-04",
+      22,
+      0,
+      22,
+      null
+    ],
+    [
+      "TEAM-D",
+      "2024-01-07",
+      0,
+      50,
+      50,
+      "0.00"
+    ],
+    [
+      "TEAM-D",
+      "2024-01-14",
+      0,
+      0,
+      0,
+      null
+    ],
+    [
+      "TEAM-D",
+      "2024-01-21",
+      60,
+      55,
+      60,
+      "1.09"
+    ],
+    [
+      "TEAM-D",
+      "2024-01-28",
+      0,
+      0,
+      0,
+      null
+    ],
+    [
+      "TEAM-E",
+      "2024-01-07",
+      0,
+      0,
+      0,
+      null
+    ],
+    [
+      "TEAM-E",
+      "2024-01-14",
+      25,
+      20,
+      25,
+      "1.25"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "row-transform",
+    "composite_moves": [
+      "parse_clean_conditional"
+    ]
+  },
+  "hints": [
+    "Think about what happens when a column is NULL or when you divide by zero.",
+    "Use COALESCE to replace NULL values with a default, NULLIF to turn a specific value into NULL, and GREATEST to pick the larger of two numbers.",
+    "Apply COALESCE(completed_points, 0) and COALESCE(planned_points, 0) to handle NULLs, use GREATEST(...) for max_capacity, and NULLIF(planned_points, 0) in the denominator so division by zero yields NULL."
+  ],
+  "answer_key": "SELECT team_code, sprint_week, COALESCE(completed_points, 0) AS completed_points, COALESCE(planned_points, 0) AS planned_points, GREATEST(COALESCE(completed_points, 0), COALESCE(planned_points, 0)) AS max_capacity, ROUND(COALESCE(completed_points, 0)::NUMERIC / NULLIF(COALESCE(planned_points, 0), 0), 2) AS velocity_ratio FROM sprint_metrics ORDER BY team_code, sprint_week;",
+  "_meta": {
+    "question_type": "parse_clean",
+    "original_qtype": "parse_clean",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-02T11:19:41.780748",
+    "problem_id": "2d0689a59d05",
+    "validation_attempts": 1,
+    "scenario": "a project management tool tracking sprint completion and task throughput",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "conditional_null",
+    "cleaning_required": false,
+    "cleaning_level": null,
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": null,
+    "typecast_twist": false,
+    "realism": "high"
+  },
+  "example_output_schema": [
+    [
+      "team_code",
+      "VARCHAR"
+    ],
+    [
+      "sprint_week",
+      "DATE"
+    ],
+    [
+      "completed_points",
+      "INTEGER"
+    ],
+    [
+      "planned_points",
+      "INTEGER"
+    ],
+    [
+      "max_capacity",
+      "INTEGER"
+    ],
+    [
+      "velocity_ratio",
+      "NUMERIC"
+    ]
+  ]
+}

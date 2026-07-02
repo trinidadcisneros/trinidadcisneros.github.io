@@ -1,0 +1,102 @@
+{
+  "logged_at": "2026-07-02T15:01:15.987249",
+  "failure_kind": "wrong_answer",
+  "problem_id": "206071c2d8b6",
+  "question_type": "select_analytical",
+  "original_qtype": "select_analytical",
+  "subtype": null,
+  "scenario": "a community forum tracking thread participation and member retention",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "enrich-aggregate",
+  "title": "Forum Thread Engagement by Category",
+  "prompt": "You are analyzing a community forum system modeled on public forum engagement datasets (Discourse, Stack Overflow public data dumps). The `threads` table stores discussion topics with their category and creation date. The `posts` table records each reply with a member identifier and post timestamp. Your task is to identify categories with strong engagement: categories where the total reply count is at least 8 posts AND where at least one thread has received 3 or more replies. For each qualifying category, report the category name (cleaned and capitalized), the total reply count across all threads in that category, the maximum number of replies any single thread received, the tags array's first element, the month number when the earliest thread in that category was created, and a tier label. The tier is 'premium' if the total reply count is 15 or more, otherwise 'standard'. Some categories may have NULL tags or missing data. Order results by total reply count descending, then by category name ascending.",
+  "schema_ddl": "CREATE TABLE threads (thread_id INT PRIMARY KEY, category VARCHAR(100), created_at DATE, tags TEXT[]); CREATE TABLE posts (post_id INT PRIMARY KEY, thread_id INT, member_id INT, posted_at TIMESTAMP);",
+  "answer_key": "WITH thread_replies AS (SELECT t.thread_id, INITCAP(TRIM(t.category)) AS category_name, t.created_at, t.tags, COUNT(p.post_id) AS reply_count FROM threads t LEFT JOIN posts p ON t.thread_id = p.thread_id GROUP BY t.thread_id, t.category, t.created_at, t.tags), category_agg AS (SELECT category_name, SUM(reply_count) AS total_replies, GREATEST(MAX(reply_count), 0) AS max_thread_replies, MIN(created_at) AS earliest_created, (ARRAY_AGG(tags[1]) FILTER (WHERE tags IS NOT NULL AND ARRAY_LENGTH(tags, 1) > 0))[1] AS primary_tag FROM thread_replies GROUP BY category_name HAVING SUM(reply_count) >= 8 AND GREATEST(MAX(reply_count), 0) >= 3) SELECT category_name, total_replies::NUMERIC AS total_replies, max_thread_replies, primary_tag, EXTRACT(MONTH FROM earliest_created)::INT AS creation_month, CASE WHEN COALESCE(total_replies, 0) >= 15 THEN 'premium' ELSE 'standard' END AS engagement_tier FROM category_agg ORDER BY total_replies DESC, category_name ASC;",
+  "test_expected_columns": [
+    "category_name",
+    "total_replies",
+    "max_thread_replies",
+    "primary_tag",
+    "creation_month",
+    "engagement_tier"
+  ],
+  "test_expected_rows": [
+    [
+      "Security",
+      "12",
+      5,
+      "vpn",
+      6,
+      "standard"
+    ],
+    [
+      "Cloud Computing",
+      "11",
+      4,
+      "aws",
+      4,
+      "standard"
+    ],
+    [
+      "Devops",
+      "8",
+      5,
+      "ci-cd",
+      5,
+      "standard"
+    ],
+    [
+      "Web Development",
+      "8",
+      4,
+      "javascript",
+      1,
+      "standard"
+    ]
+  ],
+  "user_solution": "/*\n\n\n*/\n\nWITH max_tread AS (\n    SELECT\n        t.thread_id,\n        COUNT(*) AS thread_replies\n    FROM posts AS p\n    JOIN threads AS t\n    ON p.thread_id = t.thread_id\n    GROUP BY t.thread_id\n),\nearliest_tag AS (\n    SELECT\n        INITCAP(TRIM(t.category)) AS category_name,\n        LOWER(TRIM(tags[1])) AS primary_tag,\n        ROW_NUMBER() OVER (PARTITION BY INITCAP(TRIM(t.category)) ORDER BY created_at::date) AS rn\n    FROM threads AS t\n)\nSELECT\n    INITCAP(TRIM(t.category)) AS category_name,\n    COALESCE(COUNT(p.post_id),0) AS total_replies,\n    MAX(m.thread_replies) AS max_thread_replies,\n    MAX(e.primary_tag) AS primary_tag,\n    MIN(EXTRACT(month FROM t.created_at)) AS creation_month,\n    CASE WHEN COALESCE(COUNT(p.post_id),0) >= 15 THEN 'premium' ELSE  'standard' END AS engagement_tier\nFROM posts AS p\nJOIN threads AS t\n    ON p.thread_id = t.thread_id\nJOIN max_tread AS m\n    ON p.thread_id = m.thread_id\nJOIN earliest_tag AS e\n    ON INITCAP(TRIM(t.category)) = e.category_name\nWHERE e.rn = 1\nGROUP BY t.category\nHAVING COALESCE(COUNT(p.post_id),0) >= 8 AND MAX(m.thread_replies) >= 3\nORDER BY total_replies DESC, category_name;",
+  "error_message": null,
+  "your_columns": [
+    "category_name",
+    "total_replies",
+    "max_thread_replies",
+    "primary_tag",
+    "creation_month",
+    "engagement_tier"
+  ],
+  "your_rows": [
+    [
+      "Security",
+      12,
+      5,
+      "encryption",
+      "6",
+      "standard"
+    ],
+    [
+      "Cloud Computing",
+      11,
+      4,
+      "aws",
+      "4",
+      "standard"
+    ],
+    [
+      "Devops",
+      8,
+      5,
+      "ci-cd",
+      "5",
+      "standard"
+    ],
+    [
+      "Web Development",
+      8,
+      4,
+      "javascript",
+      "1",
+      "standard"
+    ]
+  ]
+}

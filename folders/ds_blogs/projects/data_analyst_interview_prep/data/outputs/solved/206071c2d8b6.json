@@ -1,0 +1,173 @@
+{
+  "problem": {
+    "title": "Forum Thread Engagement by Category",
+    "prompt": "You are analyzing a community forum system modeled on public forum engagement datasets (Discourse, Stack Overflow public data dumps). The `threads` table stores discussion topics with their category and creation date. The `posts` table records each reply with a member identifier and post timestamp. Your task is to identify categories with strong engagement: categories where the total reply count is at least 8 posts AND where at least one thread has received 3 or more replies. For each qualifying category, report the category name (cleaned and capitalized), the total reply count across all threads in that category, the maximum number of replies any single thread received, the first tag (index 1) of the earliest thread in that category that has a non-empty tags array, the month number when the earliest thread in that category was created, and a tier label. The tier is 'premium' if the total reply count is 15 or more, otherwise 'standard'. Some categories may have NULL tags or missing data. Order results by total reply count descending, then by category name ascending.",
+    "display": {
+      "context": "You are working with a community forum system modeled on public forum engagement datasets (Discourse, Stack Overflow public data dumps).",
+      "task": "Write a query that identifies categories with strong engagement and reports cleaned category names, engagement metrics, the first tag, the creation month, and a tier label.",
+      "table_notes": {
+        "threads": "holds discussion topics with category, creation date, and tag arrays",
+        "posts": "records each reply with the thread it belongs to, the member who posted, and the post timestamp"
+      },
+      "output_field_notes": {
+        "category_name": "the category name, cleaned and with each word capitalized",
+        "total_replies": "the total number of posts across all threads in that category",
+        "max_thread_replies": "the highest number of replies any single thread in that category received",
+        "primary_tag": "the first element from the tags array for threads in that category",
+        "creation_month": "the month number (1-12) when the earliest thread in that category was created",
+        "engagement_tier": "a label indicating the engagement level of the category"
+      },
+      "field_logic": [
+        "category_name: built from category in threads table.\n- trim any leading or trailing spaces from category\n- capitalize the first letter of each word",
+        "total_replies: built from posts table.\n- count all posts for threads in the category",
+        "max_thread_replies: built from posts table.\n- for each thread in the category, count its posts\n- take the greatest count among those threads",
+        "primary_tag: built from tags in threads table.\n- when a category has more than one thread, use the EARLIEST thread by created_at (break ties by the lowest thread_id) that has a non-empty tags array\n- from that chosen thread, take the first element (index 1) of the tags array\n- if no thread in the category has a non-empty tags array, show NULL",
+        "creation_month: built from created_at in threads table.\n- find the earliest created_at date among all threads in the category\n- extract the month number (1-12) from that date",
+        "engagement_tier: built from total_replies.\n- if total_replies is NULL, use 0\n- if the count is 15 or more, assign 'premium'\n- otherwise assign 'standard'"
+      ],
+      "edge_cases": [
+        "primary_tag comes from the EARLIEST thread (by created_at, then lowest thread_id) that has a non-empty tags array; take that thread's first tag.",
+        "If no thread in the category has a non-empty tags array, primary_tag is NULL.",
+        "If total_replies would be NULL, treat it as 0 when determining the tier."
+      ],
+      "filter_note": "Only categories where the total reply count is at least 8 AND at least one thread in that category has 3 or more replies are included.",
+      "order_by_note": "Results are ordered by total reply count descending, then by the cleaned category name ascending."
+    },
+    "schema_ddl": "CREATE TABLE threads (thread_id INT PRIMARY KEY, category VARCHAR(100), created_at DATE, tags TEXT[]); CREATE TABLE posts (post_id INT PRIMARY KEY, thread_id INT, member_id INT, posted_at TIMESTAMP);",
+    "example_input_data": "INSERT INTO threads (thread_id, category, created_at, tags) VALUES (1, ' web development ', '2024-01-15', ARRAY['javascript', 'react']), (2, 'DATA SCIENCE', '2024-02-10', ARRAY['python', 'pandas']), (3, ' web development ', '2024-01-20', ARRAY['css', 'html']), (4, 'DATA SCIENCE', '2024-03-05', NULL), (5, 'mobile apps', '2024-02-28', ARRAY['flutter']), (6, 'mobile apps', '2024-03-10', ARRAY['swift', 'ios']); INSERT INTO posts (post_id, thread_id, member_id, posted_at) VALUES (101, 1, 501, '2024-01-16 10:00:00'), (102, 1, 502, '2024-01-16 11:00:00'), (103, 1, 503, '2024-01-16 12:00:00'), (104, 1, 504, '2024-01-17 09:00:00'), (105, 2, 505, '2024-02-11 10:00:00'), (106, 2, 506, '2024-02-11 11:00:00'), (107, 2, 507, '2024-02-12 10:00:00'), (108, 3, 508, '2024-01-21 10:00:00'), (109, 3, 509, '2024-01-21 11:00:00'), (110, 3, 510, '2024-01-22 10:00:00'), (111, 3, 511, '2024-01-22 11:00:00'), (112, 4, 512, '2024-03-06 10:00:00'), (113, 5, 513, '2024-03-01 10:00:00'), (114, 5, 514, '2024-03-01 11:00:00'), (115, 6, 515, '2024-03-11 10:00:00');",
+    "example_output_columns": [
+      "category_name",
+      "total_replies",
+      "max_thread_replies",
+      "primary_tag",
+      "creation_month",
+      "engagement_tier"
+    ],
+    "example_output_rows": [
+      [
+        "Web Development",
+        "8",
+        4,
+        "javascript",
+        1,
+        "standard"
+      ]
+    ],
+    "test_data": "INSERT INTO threads (thread_id, category, created_at, tags) VALUES (1, ' web development ', '2024-01-15', ARRAY['javascript', 'react']), (2, 'DATA SCIENCE', '2024-02-10', ARRAY['python', 'pandas']), (3, ' web development ', '2024-01-20', ARRAY['css', 'html']), (4, 'DATA SCIENCE', '2024-03-05', NULL), (5, 'mobile apps', '2024-02-28', ARRAY['flutter']), (6, 'mobile apps', '2024-03-10', ARRAY['swift', 'ios']), (7, 'cloud computing', '2024-04-01', ARRAY['aws', 'azure']), (8, 'cloud computing', '2024-04-05', ARRAY['gcp']), (9, 'cloud computing', '2024-04-10', ARRAY['docker']), (10, 'DevOps', '2024-05-01', ARRAY['ci-cd']), (11, 'DevOps', '2024-05-05', NULL), (12, ' security  ', '2024-06-01', ARRAY['encryption']), (13, ' security  ', '2024-06-10', ARRAY['firewall']), (14, ' security  ', '2024-06-15', ARRAY['vpn']), (15, 'AI research', '2024-07-01', NULL); INSERT INTO posts (post_id, thread_id, member_id, posted_at) VALUES (101, 1, 501, '2024-01-16 10:00:00'), (102, 1, 502, '2024-01-16 11:00:00'), (103, 1, 503, '2024-01-16 12:00:00'), (104, 1, 504, '2024-01-17 09:00:00'), (105, 2, 505, '2024-02-11 10:00:00'), (106, 2, 506, '2024-02-11 11:00:00'), (107, 2, 507, '2024-02-12 10:00:00'), (108, 3, 508, '2024-01-21 10:00:00'), (109, 3, 509, '2024-01-21 11:00:00'), (110, 3, 510, '2024-01-22 10:00:00'), (111, 3, 511, '2024-01-22 11:00:00'), (112, 4, 512, '2024-03-06 10:00:00'), (113, 4, 513, '2024-03-06 11:00:00'), (114, 4, 514, '2024-03-06 12:00:00'), (115, 5, 513, '2024-03-01 10:00:00'), (116, 5, 514, '2024-03-01 11:00:00'), (117, 6, 515, '2024-03-11 10:00:00'), (118, 7, 516, '2024-04-02 10:00:00'), (119, 7, 517, '2024-04-02 11:00:00'), (120, 7, 518, '2024-04-02 12:00:00'), (121, 7, 519, '2024-04-03 10:00:00'), (122, 8, 520, '2024-04-06 10:00:00'), (123, 8, 521, '2024-04-06 11:00:00'), (124, 8, 522, '2024-04-06 12:00:00'), (125, 9, 523, '2024-04-11 10:00:00'), (126, 9, 524, '2024-04-11 11:00:00'), (127, 9, 525, '2024-04-11 12:00:00'), (128, 9, 526, '2024-04-11 13:00:00'), (129, 10, 527, '2024-05-02 10:00:00'), (130, 10, 528, '2024-05-02 11:00:00'), (131, 10, 529, '2024-05-02 12:00:00'), (132, 11, 530, '2024-05-06 10:00:00'), (133, 11, 531, '2024-05-06 11:00:00'), (134, 11, 532, '2024-05-06 12:00:00'), (135, 11, 533, '2024-05-06 13:00:00'), (136, 11, 534, '2024-05-06 14:00:00'), (137, 12, 535, '2024-06-02 10:00:00'), (138, 12, 536, '2024-06-02 11:00:00'), (139, 12, 537, '2024-06-02 12:00:00'), (140, 12, 538, '2024-06-02 13:00:00'), (141, 13, 539, '2024-06-11 10:00:00'), (142, 13, 540, '2024-06-11 11:00:00'), (143, 13, 541, '2024-06-11 12:00:00'), (144, 14, 542, '2024-06-16 10:00:00'), (145, 14, 543, '2024-06-16 11:00:00'), (146, 14, 544, '2024-06-16 12:00:00'), (147, 14, 545, '2024-06-16 13:00:00'), (148, 14, 546, '2024-06-16 14:00:00'), (149, 15, 547, '2024-07-02 10:00:00'), (150, 15, 548, '2024-07-02 11:00:00');",
+    "test_expected_columns": [
+      "category_name",
+      "total_replies",
+      "max_thread_replies",
+      "primary_tag",
+      "creation_month",
+      "engagement_tier"
+    ],
+    "test_expected_rows": [
+      [
+        "Security",
+        "12",
+        5,
+        "encryption",
+        6,
+        "standard"
+      ],
+      [
+        "Cloud Computing",
+        "11",
+        4,
+        "aws",
+        4,
+        "standard"
+      ],
+      [
+        "Devops",
+        "8",
+        5,
+        "ci-cd",
+        5,
+        "standard"
+      ],
+      [
+        "Web Development",
+        "8",
+        4,
+        "javascript",
+        1,
+        "standard"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "enrich-aggregate",
+      "composite_moves": [
+        "join threads and posts",
+        "group by category",
+        "aggregate reply counts per category and per thread",
+        "filter groups by total >= 8 AND max >= 3",
+        "clean category name with INITCAP",
+        "extract first array element",
+        "extract month from earliest date",
+        "compute tier with CASE and COALESCE",
+        "order by total descending, category ascending"
+      ]
+    },
+    "hints": [
+      "Start by joining the tables and grouping by category to calculate aggregate metrics.",
+      "Use INITCAP and TRIM to clean the category name, and access the first element of the tags array.",
+      "Apply HAVING to filter categories where the total count is at least 8 and the maximum thread count is at least 3, then use EXTRACT to get the month and CASE with COALESCE for the tier."
+    ],
+    "answer_key": "WITH thread_replies AS (SELECT t.thread_id, INITCAP(TRIM(t.category)) AS category_name, t.created_at, t.tags, COUNT(p.post_id) AS reply_count FROM threads t LEFT JOIN posts p ON t.thread_id = p.thread_id GROUP BY t.thread_id, t.category, t.created_at, t.tags), first_tag AS (SELECT DISTINCT ON (INITCAP(TRIM(category))) INITCAP(TRIM(category)) AS category_name, tags[1] AS primary_tag FROM threads WHERE tags IS NOT NULL AND ARRAY_LENGTH(tags, 1) > 0 ORDER BY INITCAP(TRIM(category)), created_at, thread_id), category_agg AS (SELECT tr.category_name, SUM(tr.reply_count) AS total_replies, GREATEST(MAX(tr.reply_count), 0) AS max_thread_replies, MIN(tr.created_at) AS earliest_created FROM thread_replies tr GROUP BY tr.category_name HAVING SUM(tr.reply_count) >= 8 AND GREATEST(MAX(tr.reply_count), 0) >= 3) SELECT ca.category_name, ca.total_replies::NUMERIC AS total_replies, ca.max_thread_replies, ft.primary_tag, EXTRACT(MONTH FROM ca.earliest_created)::INT AS creation_month, CASE WHEN COALESCE(ca.total_replies, 0) >= 15 THEN 'premium' ELSE 'standard' END AS engagement_tier FROM category_agg ca LEFT JOIN first_tag ft ON ft.category_name = ca.category_name ORDER BY ca.total_replies DESC, ca.category_name ASC;",
+    "_meta": {
+      "question_type": "select_analytical",
+      "original_qtype": "select_analytical",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-07-02T13:29:40.857864",
+      "problem_id": "206071c2d8b6",
+      "validation_attempts": 4,
+      "scenario": "a community forum tracking thread participation and member retention",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": null,
+      "cleaning_required": true,
+      "cleaning_level": "high",
+      "cleaning_all_six": true,
+      "cleaning_per_category": 1,
+      "cleaning_bonus": null,
+      "typecast_twist": true,
+      "realism": "high"
+    },
+    "example_output_schema": [
+      [
+        "category_name",
+        "TEXT"
+      ],
+      [
+        "total_replies",
+        "NUMERIC"
+      ],
+      [
+        "max_thread_replies",
+        "BIGINT"
+      ],
+      [
+        "primary_tag",
+        "TEXT"
+      ],
+      [
+        "creation_month",
+        "INTEGER"
+      ],
+      [
+        "engagement_tier",
+        "TEXT"
+      ]
+    ]
+  },
+  "user_solution": "/*\n\n\n*/\n\nWITH max_tread AS (\n    SELECT\n        t.thread_id,\n        COUNT(*) AS thread_replies\n    FROM posts AS p\n    JOIN threads AS t\n    ON p.thread_id = t.thread_id\n    GROUP BY t.thread_id\n),\nearliest_tag AS (\n    SELECT\n        INITCAP(TRIM(t.category)) AS category_name,\n        LOWER(TRIM(tags[1])) AS primary_tag,\n        ROW_NUMBER() OVER (PARTITION BY INITCAP(TRIM(t.category)) ORDER BY created_at::date) AS rn\n    FROM threads AS t\n)\nSELECT\n    INITCAP(TRIM(t.category)) AS category_name,\n    COALESCE(COUNT(p.post_id),0) AS total_replies,\n    MAX(m.thread_replies) AS max_thread_replies,\n    MAX(e.primary_tag) AS primary_tag,\n    MIN(EXTRACT(month FROM t.created_at)) AS creation_month,\n    CASE WHEN COALESCE(COUNT(p.post_id),0) >= 15 THEN 'premium' ELSE  'standard' END AS engagement_tier\nFROM posts AS p\nJOIN threads AS t\n    ON p.thread_id = t.thread_id\nJOIN max_tread AS m\n    ON p.thread_id = m.thread_id\nJOIN earliest_tag AS e\n    ON INITCAP(TRIM(t.category)) = e.category_name\nWHERE e.rn = 1\nGROUP BY t.category\nHAVING COALESCE(COUNT(p.post_id),0) >= 8 AND MAX(m.thread_replies) >= 3\nORDER BY total_replies DESC, category_name;",
+  "solved_at": "2026-07-02T15:04:47.771186"
+}

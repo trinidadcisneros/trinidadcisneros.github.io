@@ -1,0 +1,289 @@
+{
+  "title": "Clean and Extract CRM Opportunity Names",
+  "prompt": "You are working with a CRM tracking pipeline coverage and won opportunity rates modeled on public sales datasets. The `opportunities` table stores raw opportunity names that follow the pattern `company_name | contact_name | TERRITORY_CODE` where company names may have inconsistent capitalization, contact names need proper casing, and territory codes are uppercase two-letter state abbreviations. Write a query that cleans these names and extracts the three components into separate columns. Include only opportunities in `closed_won` or `negotiation` stage. Order the results by territory code, then by company name.",
+  "display": {
+    "context": "You are working with a CRM tracking pipeline coverage and won opportunity rates modeled on public sales datasets.",
+    "task": "Write a query that cleans opportunity names and extracts the company, contact, and territory components into separate columns.",
+    "table_notes": {
+      "opportunities": "stores raw opportunity records with pipe-delimited names and current sales stage"
+    },
+    "output_field_notes": {
+      "opportunity_id": "the unique identifier for the opportunity",
+      "company_name": "the cleaned company name with proper capitalization",
+      "contact_name": "the contact name in proper case",
+      "territory": "the uppercase two-letter state code",
+      "full_display": "a formatted string combining all three components with standard separators",
+      "stage": "the current sales stage of the opportunity"
+    },
+    "field_logic": [
+      "company_name: built from opportunity_name.\n- extract the portion before the first pipe character\n- trim any extra spaces around it\n- capitalize each word (ACME solutions becomes Acme Solutions)",
+      "contact_name: built from opportunity_name.\n- extract the portion between the first and second pipe characters\n- trim any extra spaces around it\n- capitalize each word (john DOE becomes John Doe)",
+      "territory: built from opportunity_name.\n- extract everything after the second pipe character\n- trim any extra spaces\n- convert to uppercase",
+      "full_display: built from company_name, contact_name, and territory.\n- join the three cleaned components with a dash separator\n- format as 'Company - Contact - ST'"
+    ],
+    "edge_cases": [
+      "If opportunity_name has extra spaces around any pipe delimiter, trim them before extraction.",
+      "If any component is missing or the format is malformed, the extraction functions will return empty strings or partial results."
+    ],
+    "filter_note": "Only opportunities with stage equal to 'closed_won' or 'negotiation' are included.",
+    "order_by_note": "Results are ordered first by territory in ascending order, then by company_name in ascending order."
+  },
+  "schema_ddl": "CREATE TABLE opportunities (opportunity_id INT PRIMARY KEY, opportunity_name VARCHAR(200), stage VARCHAR(50), expected_value DECIMAL(12,2), created_date DATE);",
+  "example_input_data": "INSERT INTO opportunities (opportunity_id, opportunity_name, stage, expected_value, created_date) VALUES (1, 'ACME solutions | john DOE | ca', 'closed_won', 125000.00, '2024-01-15'), (2, 'tech INNOVATORS | sarah SMITH | ny', 'negotiation', 85000.00, '2024-02-20'), (3, 'global TRADERS | mike JONES | tx', 'prospecting', 45000.00, '2024-01-10'), (4, '  beta CORP  |  lisa BROWN  |  ca  ', 'closed_won', 95000.00, '2024-03-05'), (5, 'ZENITH partners | robert LEE | fl', 'closed_lost', 150000.00, '2024-02-28'), (6, 'QUANTUM systems | emma DAVIS | ny', 'negotiation', 110000.00, '2024-03-12');",
+  "example_output_columns": [
+    "opportunity_id",
+    "company_name",
+    "contact_name",
+    "territory",
+    "full_display",
+    "stage"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Acme Solutions",
+      "John Doe",
+      "CA",
+      "Acme Solutions - John Doe - CA",
+      "closed_won"
+    ],
+    [
+      4,
+      "Beta Corp",
+      "Lisa Brown",
+      "CA",
+      "Beta Corp - Lisa Brown - CA",
+      "closed_won"
+    ],
+    [
+      6,
+      "Quantum Systems",
+      "Emma Davis",
+      "NY",
+      "Quantum Systems - Emma Davis - NY",
+      "negotiation"
+    ],
+    [
+      2,
+      "Tech Innovators",
+      "Sarah Smith",
+      "NY",
+      "Tech Innovators - Sarah Smith - NY",
+      "negotiation"
+    ]
+  ],
+  "test_data": "INSERT INTO opportunities (opportunity_id, opportunity_name, stage, expected_value, created_date) VALUES (101, 'SUNRISE enterprises | alex MARTIN | az', 'closed_won', 200000.00, '2024-01-05'), (102, 'OCEAN ventures | chris WILSON | ca', 'negotiation', 75000.00, '2024-02-14'), (103, 'mountain GROUP | taylor GREEN | co', 'proposal', 60000.00, '2024-01-22'), (104, '  DELTA solutions  |  jordan WHITE  |  fl  ', 'closed_won', 130000.00, '2024-03-01'), (105, 'RIVER tech | morgan BLACK | ga', 'closed_won', 88000.00, '2024-02-10'), (106, 'STAR industries | casey BLUE | il', 'negotiation', 95000.00, '2024-03-18'), (107, 'VALLEY systems | drew GRAY | ca', 'closed_lost', 105000.00, '2024-01-30'), (108, 'HORIZON partners | jamie SILVER | ny', 'negotiation', 115000.00, '2024-02-25'), (109, 'PEAK consulting | riley GOLD | tx', 'closed_won', 140000.00, '2024-03-08'), (110, 'cloud DYNAMICS | alex COPPER | wa', 'prospecting', 70000.00, '2024-01-18'), (111, '  SUMMIT corp  |  sam IRON  |  az  ', 'negotiation', 125000.00, '2024-02-05'), (112, 'BRIDGE solutions | pat STEEL | ca', 'closed_won', 155000.00, '2024-03-22'), (113, 'LAKE technologies | robin BRONZE | co', 'closed_won', 98000.00, '2024-01-12'), (114, 'COAST enterprises | jordan PEARL | fl', 'negotiation', 82000.00, '2024-02-18'), (115, 'WAVE systems | morgan RUBY | ga', 'closed_won', 102000.00, '2024-03-15'), (116, 'SKY partners | casey JADE | il', 'closed_won', 118000.00, '2024-01-28'), (117, 'FOREST consulting | drew AMBER | ca', 'negotiation', 92000.00, '2024-02-12'), (118, 'FIELD industries | jamie OPAL | ny', 'closed_won', 135000.00, '2024-03-20'), (119, 'PLAIN ventures | riley TOPAZ | tx', 'negotiation', 88000.00, '2024-01-25'), (120, 'RIDGE solutions | alex QUARTZ | wa', 'closed_won', 145000.00, '2024-02-28');",
+  "test_expected_columns": [
+    "opportunity_id",
+    "company_name",
+    "contact_name",
+    "territory",
+    "full_display",
+    "stage"
+  ],
+  "test_expected_rows": [
+    [
+      111,
+      "Summit Corp",
+      "Sam Iron",
+      "AZ",
+      "Summit Corp - Sam Iron - AZ",
+      "negotiation"
+    ],
+    [
+      101,
+      "Sunrise Enterprises",
+      "Alex Martin",
+      "AZ",
+      "Sunrise Enterprises - Alex Martin - AZ",
+      "closed_won"
+    ],
+    [
+      112,
+      "Bridge Solutions",
+      "Pat Steel",
+      "CA",
+      "Bridge Solutions - Pat Steel - CA",
+      "closed_won"
+    ],
+    [
+      117,
+      "Forest Consulting",
+      "Drew Amber",
+      "CA",
+      "Forest Consulting - Drew Amber - CA",
+      "negotiation"
+    ],
+    [
+      102,
+      "Ocean Ventures",
+      "Chris Wilson",
+      "CA",
+      "Ocean Ventures - Chris Wilson - CA",
+      "negotiation"
+    ],
+    [
+      113,
+      "Lake Technologies",
+      "Robin Bronze",
+      "CO",
+      "Lake Technologies - Robin Bronze - CO",
+      "closed_won"
+    ],
+    [
+      114,
+      "Coast Enterprises",
+      "Jordan Pearl",
+      "FL",
+      "Coast Enterprises - Jordan Pearl - FL",
+      "negotiation"
+    ],
+    [
+      104,
+      "Delta Solutions",
+      "Jordan White",
+      "FL",
+      "Delta Solutions - Jordan White - FL",
+      "closed_won"
+    ],
+    [
+      105,
+      "River Tech",
+      "Morgan Black",
+      "GA",
+      "River Tech - Morgan Black - GA",
+      "closed_won"
+    ],
+    [
+      115,
+      "Wave Systems",
+      "Morgan Ruby",
+      "GA",
+      "Wave Systems - Morgan Ruby - GA",
+      "closed_won"
+    ],
+    [
+      116,
+      "Sky Partners",
+      "Casey Jade",
+      "IL",
+      "Sky Partners - Casey Jade - IL",
+      "closed_won"
+    ],
+    [
+      106,
+      "Star Industries",
+      "Casey Blue",
+      "IL",
+      "Star Industries - Casey Blue - IL",
+      "negotiation"
+    ],
+    [
+      118,
+      "Field Industries",
+      "Jamie Opal",
+      "NY",
+      "Field Industries - Jamie Opal - NY",
+      "closed_won"
+    ],
+    [
+      108,
+      "Horizon Partners",
+      "Jamie Silver",
+      "NY",
+      "Horizon Partners - Jamie Silver - NY",
+      "negotiation"
+    ],
+    [
+      109,
+      "Peak Consulting",
+      "Riley Gold",
+      "TX",
+      "Peak Consulting - Riley Gold - TX",
+      "closed_won"
+    ],
+    [
+      119,
+      "Plain Ventures",
+      "Riley Topaz",
+      "TX",
+      "Plain Ventures - Riley Topaz - TX",
+      "negotiation"
+    ],
+    [
+      120,
+      "Ridge Solutions",
+      "Alex Quartz",
+      "WA",
+      "Ridge Solutions - Alex Quartz - WA",
+      "closed_won"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "row-transform",
+    "composite_moves": [
+      "row-filter by stage",
+      "parse opportunity_name with SPLIT_PART",
+      "clean components with TRIM and INITCAP/UPPER",
+      "build full_display with CONCAT_WS",
+      "order by territory and company_name"
+    ]
+  },
+  "hints": [
+    "You need to extract three parts from a pipe-delimited string and clean each part separately.",
+    "Use SPLIT_PART to extract components by position, TRIM to remove extra spaces, and INITCAP or UPPER to fix capitalization.",
+    "For the full_display column, use CONCAT_WS with a dash separator to join the three cleaned components, and apply the WHERE filter to keep only the two specified stages."
+  ],
+  "answer_key": "SELECT\n  opportunity_id,\n  INITCAP(TRIM(SPLIT_PART(opportunity_name, '|', 1))) AS company_name,\n  INITCAP(TRIM(SPLIT_PART(opportunity_name, '|', 2))) AS contact_name,\n  UPPER(TRIM(SPLIT_PART(opportunity_name, '|', 3))) AS territory,\n  CONCAT_WS(' - ',\n    INITCAP(TRIM(SPLIT_PART(opportunity_name, '|', 1))),\n    INITCAP(TRIM(SPLIT_PART(opportunity_name, '|', 2))),\n    UPPER(TRIM(SPLIT_PART(opportunity_name, '|', 3)))\n  ) AS full_display,\n  stage\nFROM opportunities\nWHERE stage IN ('closed_won', 'negotiation')\nORDER BY territory, company_name;",
+  "_meta": {
+    "question_type": "parse_clean",
+    "original_qtype": "parse_clean",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-30T12:05:01.215770",
+    "problem_id": "cf12fb618724",
+    "validation_attempts": 1,
+    "scenario": "a CRM tracking pipeline coverage and won opportunity rates",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "string_clean",
+    "cleaning_required": false,
+    "cleaning_level": null,
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": null,
+    "typecast_twist": false,
+    "realism": "high"
+  },
+  "example_output_schema": [
+    [
+      "opportunity_id",
+      "INTEGER"
+    ],
+    [
+      "company_name",
+      "TEXT"
+    ],
+    [
+      "contact_name",
+      "TEXT"
+    ],
+    [
+      "territory",
+      "TEXT"
+    ],
+    [
+      "full_display",
+      "TEXT"
+    ],
+    [
+      "stage",
+      "VARCHAR"
+    ]
+  ]
+}

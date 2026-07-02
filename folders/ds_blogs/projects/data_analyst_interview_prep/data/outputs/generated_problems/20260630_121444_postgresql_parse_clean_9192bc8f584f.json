@@ -1,0 +1,231 @@
+{
+  "title": "Parse Article Dates & Format Revenue",
+  "prompt": "You are working with a news app tracking article completion and subscription conversion modeled on public media analytics datasets. The `article_views` table stores raw activity data. Each row contains `view_date` as text in 'DD.MM.YYYY' format, `completion_rate` as a decimal that may be NULL, and `monthly_revenue_usd` stored as numeric that needs formatted display. Write a query that parses the date, formats the revenue with a dollar sign and two decimals, and fills missing completion rates with zero. Return one row per view, showing the parsed date, formatted revenue, and cleaned completion rate. Order by the parsed date ascending, then by article_id ascending.",
+  "display": {
+    "context": "You are working with a news app tracking article completion and subscription conversion modeled on public media analytics datasets.",
+    "task": "Write a query that parses raw date strings, formats revenue with currency symbols, and fills missing completion rates.",
+    "table_notes": {
+      "article_views": "stores raw activity data with dates as text, nullable completion rates, and numeric revenue"
+    },
+    "output_field_notes": {
+      "article_id": "the unique identifier for the article",
+      "parsed_date": "the view_date converted from text to a proper date",
+      "revenue_display": "the monthly_revenue_usd formatted as a dollar amount with two decimal places",
+      "completion_pct": "the completion_rate as a percentage, with NULL replaced by zero"
+    },
+    "field_logic": [
+      "parsed_date: built from view_date.\n- convert view_date from the text format 'DD.MM.YYYY' into a proper date",
+      "revenue_display: built from monthly_revenue_usd.\n- format monthly_revenue_usd as a dollar amount with exactly two decimal places and a dollar sign prefix",
+      "completion_pct: built from completion_rate.\n- if completion_rate is NULL, use 0\n- otherwise use completion_rate as-is"
+    ],
+    "edge_cases": [
+      "If completion_rate is NULL, then completion_pct should be 0.",
+      "If monthly_revenue_usd has more than two decimal places, round to exactly two."
+    ],
+    "filter_note": "All rows from article_views are included in the output.",
+    "order_by_note": "Results are ordered by parsed_date ascending, then by article_id ascending."
+  },
+  "schema_ddl": "CREATE TABLE article_views (article_id INT, view_date TEXT, completion_rate NUMERIC(5,2), monthly_revenue_usd NUMERIC(10,2));",
+  "example_input_data": "INSERT INTO article_views (article_id, view_date, completion_rate, monthly_revenue_usd) VALUES (101, '15.03.2024', 0.82, 1250.50), (102, '18.03.2024', NULL, 890.00), (103, '15.03.2024', 0.65, 2100.75), (104, '20.03.2024', 0.91, 450.20), (105, '18.03.2024', 0.55, 3200.00), (106, '22.03.2024', NULL, 675.80);",
+  "example_output_columns": [
+    "article_id",
+    "parsed_date",
+    "revenue_display",
+    "completion_pct"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "2024-03-15",
+      "$1250.50",
+      "0.82"
+    ],
+    [
+      103,
+      "2024-03-15",
+      "$2100.75",
+      "0.65"
+    ],
+    [
+      102,
+      "2024-03-18",
+      "$890.00",
+      "0"
+    ],
+    [
+      105,
+      "2024-03-18",
+      "$3200.00",
+      "0.55"
+    ],
+    [
+      104,
+      "2024-03-20",
+      "$450.20",
+      "0.91"
+    ],
+    [
+      106,
+      "2024-03-22",
+      "$675.80",
+      "0"
+    ]
+  ],
+  "test_data": "INSERT INTO article_views (article_id, view_date, completion_rate, monthly_revenue_usd) VALUES (201, '01.01.2024', 0.45, 1500.99), (202, '05.01.2024', NULL, 2300.10), (203, '01.01.2024', 0.88, 750.00), (204, '10.01.2024', 0.72, 4500.50), (205, '05.01.2024', NULL, 890.25), (206, '15.01.2024', 0.95, 1200.00), (207, '10.01.2024', 0.33, 3100.75), (208, '20.01.2024', NULL, 650.00), (209, '01.01.2024', 0.60, 5200.99), (210, '25.01.2024', 0.78, 999.50), (211, '15.01.2024', NULL, 1750.20), (212, '20.01.2024', 0.50, 4300.00), (213, '25.01.2024', NULL, 825.75), (214, '30.01.2024', 0.92, 2100.10), (215, '30.01.2024', 0.68, 1450.00);",
+  "test_expected_columns": [
+    "article_id",
+    "parsed_date",
+    "revenue_display",
+    "completion_pct"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "2024-01-01",
+      "$1500.99",
+      "0.45"
+    ],
+    [
+      203,
+      "2024-01-01",
+      "$750.00",
+      "0.88"
+    ],
+    [
+      209,
+      "2024-01-01",
+      "$5200.99",
+      "0.60"
+    ],
+    [
+      202,
+      "2024-01-05",
+      "$2300.10",
+      "0"
+    ],
+    [
+      205,
+      "2024-01-05",
+      "$890.25",
+      "0"
+    ],
+    [
+      204,
+      "2024-01-10",
+      "$4500.50",
+      "0.72"
+    ],
+    [
+      207,
+      "2024-01-10",
+      "$3100.75",
+      "0.33"
+    ],
+    [
+      206,
+      "2024-01-15",
+      "$1200.00",
+      "0.95"
+    ],
+    [
+      211,
+      "2024-01-15",
+      "$1750.20",
+      "0"
+    ],
+    [
+      208,
+      "2024-01-20",
+      "$650.00",
+      "0"
+    ],
+    [
+      212,
+      "2024-01-20",
+      "$4300.00",
+      "0.50"
+    ],
+    [
+      210,
+      "2024-01-25",
+      "$999.50",
+      "0.78"
+    ],
+    [
+      213,
+      "2024-01-25",
+      "$825.75",
+      "0"
+    ],
+    [
+      214,
+      "2024-01-30",
+      "$2100.10",
+      "0.92"
+    ],
+    [
+      215,
+      "2024-01-30",
+      "$1450.00",
+      "0.68"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "row-transform",
+    "composite_moves": [
+      "parse view_date from text to date using TO_DATE",
+      "format monthly_revenue_usd to dollar string using TO_CHAR",
+      "replace NULL completion_rate with 0 using COALESCE",
+      "order by parsed date then article_id"
+    ]
+  },
+  "hints": [
+    "You'll need to convert text dates into proper date values and also format numbers as currency strings.",
+    "Use TO_DATE with the pattern 'DD.MM.YYYY' to parse the view_date column, and TO_CHAR with a currency format to display revenue.",
+    "Apply TO_DATE(view_date, 'DD.MM.YYYY') for the date, TO_CHAR(monthly_revenue_usd, '$FM9990.00') for revenue with exactly two decimals and a dollar sign, and COALESCE(completion_rate, 0) to replace NULLs with zero."
+  ],
+  "answer_key": "SELECT article_id, TO_DATE(view_date, 'DD.MM.YYYY') AS parsed_date, TO_CHAR(monthly_revenue_usd, '$FM9990.00') AS revenue_display, COALESCE(completion_rate, 0) AS completion_pct FROM article_views ORDER BY TO_DATE(view_date, 'DD.MM.YYYY'), article_id;",
+  "_meta": {
+    "question_type": "parse_clean",
+    "original_qtype": "parse_clean",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-06-30T12:14:44.826932",
+    "problem_id": "9192bc8f584f",
+    "validation_attempts": 1,
+    "scenario": "a news app tracking article completion and subscription conversion",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "type_cast",
+    "cleaning_required": false,
+    "cleaning_level": null,
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": null,
+    "typecast_twist": false,
+    "realism": "high"
+  },
+  "example_output_schema": [
+    [
+      "article_id",
+      "INTEGER"
+    ],
+    [
+      "parsed_date",
+      "DATE"
+    ],
+    [
+      "revenue_display",
+      "TEXT"
+    ],
+    [
+      "completion_pct",
+      "NUMERIC"
+    ]
+  ]
+}

@@ -1,0 +1,197 @@
+{
+  "title": "Restaurants with No Completed Deliveries",
+  "prompt": "You are working with a food delivery service modeled on public restaurant inspection and order fulfillment datasets (NYC Open Data, Yelp). The system tracks restaurants and their delivery orders. Write a query that identifies all restaurants that have NEVER had a completed delivery (no row in the deliveries table with a matching restaurant_id and delivery_status = 'completed'). For each such restaurant, return the restaurant_id, the restaurant's name after trimming any whitespace and capitalizing each word, the first cuisine tag from their cuisine_tags array, the month their permit was issued (extracted from the permit_date), their listed delivery_fee_text cast to a numeric value, the rounded average preparation time in minutes (rounded to 1 decimal place), and a risk_flag that is 'at_risk' when avg_prep_minutes is NULL (indicating no preparation history) and 'ok' otherwise. Order the results by restaurant_id ascending.",
+  "display": {
+    "context": "You are working with a food delivery service modeled on public restaurant inspection and order fulfillment datasets (NYC Open Data, Yelp).",
+    "task": "Write a query that identifies all restaurants that have NEVER had a completed delivery and returns their details with computed fields.",
+    "table_notes": {
+      "restaurants": "holds restaurant profiles including name, permit date, cuisine tags, fee text, and average prep time",
+      "deliveries": "records each delivery order with restaurant_id, delivery_status, and timestamps"
+    },
+    "output_field_notes": {
+      "restaurant_id": "the unique identifier of the restaurant",
+      "clean_name": "the restaurant's name after trimming whitespace and capitalizing each word",
+      "primary_cuisine": "the first cuisine tag from the restaurant's cuisine array",
+      "permit_month": "the month number when the restaurant's permit was issued",
+      "delivery_fee": "the delivery fee as a numeric value parsed from the text field",
+      "avg_prep_rounded": "the average preparation time rounded to one decimal place",
+      "risk_flag": "indicates whether the restaurant is at risk due to missing preparation data"
+    },
+    "field_logic": [
+      "clean_name: built from restaurant_name.\n- trim any leading or trailing spaces from restaurant_name\n- capitalize the first letter of each word in the trimmed name",
+      "primary_cuisine: built from cuisine_tags.\n- take the first element (position 1) from the cuisine_tags array",
+      "permit_month: built from permit_date.\n- extract the month number from permit_date",
+      "delivery_fee: built from delivery_fee_text.\n- cast delivery_fee_text to a numeric type",
+      "avg_prep_rounded: built from avg_prep_minutes.\n- round avg_prep_minutes to 1 decimal place",
+      "risk_flag: built from avg_prep_minutes.\n- set to 'at_risk' when avg_prep_minutes is NULL\n- set to 'ok' when avg_prep_minutes has a value"
+    ],
+    "edge_cases": [
+      "If a restaurant has no completed deliveries but has deliveries with other statuses, it should still appear in the results.",
+      "If avg_prep_minutes is NULL, the risk_flag must be 'at_risk'."
+    ],
+    "filter_note": "Only restaurants that have NO row in the deliveries table where delivery_status = 'completed' for that restaurant_id are included.",
+    "order_by_note": "Results are ordered by restaurant_id in ascending order."
+  },
+  "schema_ddl": "CREATE TABLE restaurants (restaurant_id INT PRIMARY KEY, restaurant_name VARCHAR(100), permit_date DATE, cuisine_tags TEXT[], delivery_fee_text VARCHAR(20), avg_prep_minutes NUMERIC(5,1)); CREATE TABLE deliveries (delivery_id INT PRIMARY KEY, restaurant_id INT, delivery_status VARCHAR(20), order_date DATE);",
+  "example_input_data": "INSERT INTO restaurants (restaurant_id, restaurant_name, permit_date, cuisine_tags, delivery_fee_text, avg_prep_minutes) VALUES (101, '  Tasty Bites  ', '2023-03-15', ARRAY['Italian', 'Pizza'], '3.50', 25.4), (102, 'quick eats', '2023-07-22', ARRAY['American', 'Burgers'], '2.99', NULL), (103, ' SPICE kingdom ', '2023-01-10', ARRAY['Indian', 'Vegetarian'], '4.00', 30.0), (104, 'fresh market', '2023-11-05', ARRAY['Organic', 'Salads'], '5.50', 15.8), (105, '  Ocean Grill  ', '2023-05-18', ARRAY['Seafood', 'Asian'], '3.75', 28.2); INSERT INTO deliveries (delivery_id, restaurant_id, delivery_status, order_date) VALUES (1, 101, 'completed', '2024-01-10'), (2, 101, 'completed', '2024-01-12'), (3, 102, 'pending', '2024-01-15'), (4, 103, 'completed', '2024-01-18'), (5, 105, 'cancelled', '2024-01-20');",
+  "example_output_columns": [
+    "restaurant_id",
+    "clean_name",
+    "primary_cuisine",
+    "permit_month",
+    "delivery_fee",
+    "avg_prep_rounded",
+    "risk_flag"
+  ],
+  "example_output_rows": [
+    [
+      102,
+      "Quick Eats",
+      "American",
+      "7",
+      "2.99",
+      null,
+      "at_risk"
+    ],
+    [
+      104,
+      "Fresh Market",
+      "Organic",
+      "11",
+      "5.50",
+      "15.8",
+      "ok"
+    ],
+    [
+      105,
+      "Ocean Grill",
+      "Seafood",
+      "5",
+      "3.75",
+      "28.2",
+      "ok"
+    ]
+  ],
+  "test_data": "INSERT INTO restaurants (restaurant_id, restaurant_name, permit_date, cuisine_tags, delivery_fee_text, avg_prep_minutes) VALUES (201, ' burger palace ', '2023-02-10', ARRAY['American', 'Fast Food'], '2.50', 18.3), (202, '  PIZZA world  ', '2023-06-15', ARRAY['Italian', 'Pizza'], '3.00', 22.7), (203, 'taco express', '2023-04-20', ARRAY['Mexican', 'Tacos'], '2.75', NULL), (204, '  sushi BAR  ', '2023-08-12', ARRAY['Japanese', 'Sushi'], '4.50', 35.6), (205, 'VEGAN delight', '2023-10-05', ARRAY['Vegan', 'Organic'], '3.25', NULL), (206, ' noodle house ', '2023-12-18', ARRAY['Asian', 'Chinese'], '3.50', 20.1), (207, '  grill MASTERS  ', '2023-03-28', ARRAY['BBQ', 'American'], '4.00', 28.9), (208, 'salad station', '2023-09-14', ARRAY['Healthy', 'Salads'], '2.00', 12.4), (209, '  COFFEE corner  ', '2023-07-07', ARRAY['Cafe', 'Bakery'], '1.50', 8.2), (210, 'dessert heaven', '2023-11-22', ARRAY['Desserts', 'Sweets'], '2.25', 10.5), (211, ' WRAP zone ', '2023-05-30', ARRAY['Wraps', 'Healthy'], '2.50', NULL), (212, '  BREAKFAST club  ', '2023-01-25', ARRAY['Breakfast', 'Brunch'], '3.00', 15.7); INSERT INTO deliveries (delivery_id, restaurant_id, delivery_status, order_date) VALUES (101, 201, 'completed', '2024-02-01'), (102, 201, 'completed', '2024-02-05'), (103, 202, 'completed', '2024-02-08'), (104, 204, 'completed', '2024-02-10'), (105, 204, 'completed', '2024-02-12'), (106, 206, 'completed', '2024-02-15'), (107, 207, 'completed', '2024-02-18'), (108, 209, 'completed', '2024-02-20'), (109, 210, 'completed', '2024-02-22'), (110, 203, 'pending', '2024-02-25'), (111, 205, 'cancelled', '2024-02-26'), (112, 208, 'pending', '2024-02-27'), (113, 211, 'failed', '2024-02-28'), (114, 212, 'completed', '2024-03-01');",
+  "test_expected_columns": [
+    "restaurant_id",
+    "clean_name",
+    "primary_cuisine",
+    "permit_month",
+    "delivery_fee",
+    "avg_prep_rounded",
+    "risk_flag"
+  ],
+  "test_expected_rows": [
+    [
+      203,
+      "Taco Express",
+      "Mexican",
+      "4",
+      "2.75",
+      null,
+      "at_risk"
+    ],
+    [
+      205,
+      "Vegan Delight",
+      "Vegan",
+      "10",
+      "3.25",
+      null,
+      "at_risk"
+    ],
+    [
+      208,
+      "Salad Station",
+      "Healthy",
+      "9",
+      "2.00",
+      "12.4",
+      "ok"
+    ],
+    [
+      211,
+      "Wrap Zone",
+      "Wraps",
+      "5",
+      "2.50",
+      null,
+      "at_risk"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "row-filter",
+    "composite_moves": [
+      "anti-join with NOT EXISTS to filter restaurants with no completed deliveries",
+      "apply STRING cleaning with INITCAP and TRIM to restaurant_name",
+      "apply ARRAY indexing to extract first cuisine tag",
+      "apply DATE extraction to get permit month",
+      "apply CAST to convert delivery_fee_text to numeric",
+      "apply NUMERIC rounding to avg_prep_minutes",
+      "apply CONDITIONAL logic with CASE for risk_flag based on NULL check",
+      "order by restaurant_id"
+    ]
+  },
+  "hints": [
+    "You need to find restaurants that don't appear in a certain subset of the deliveries table.",
+    "Use NOT EXISTS with a correlated subquery checking for completed deliveries, or use a LEFT JOIN and test for NULL on the right side.",
+    "The answer is: SELECT restaurant_id, INITCAP(TRIM(restaurant_name)) AS clean_name, cuisine_tags[1] AS primary_cuisine, EXTRACT(MONTH FROM permit_date) AS permit_month, delivery_fee_text::NUMERIC AS delivery_fee, ROUND(avg_prep_minutes, 1) AS avg_prep_rounded, CASE WHEN avg_prep_minutes IS NULL THEN 'at_risk' ELSE 'ok' END AS risk_flag FROM restaurants WHERE NOT EXISTS (SELECT 1 FROM deliveries WHERE deliveries.restaurant_id = restaurants.restaurant_id AND delivery_status = 'completed') ORDER BY restaurant_id;"
+  ],
+  "answer_key": "SELECT restaurant_id, INITCAP(TRIM(restaurant_name)) AS clean_name, cuisine_tags[1] AS primary_cuisine, EXTRACT(MONTH FROM permit_date) AS permit_month, delivery_fee_text::NUMERIC AS delivery_fee, ROUND(avg_prep_minutes, 1) AS avg_prep_rounded, CASE WHEN avg_prep_minutes IS NULL THEN 'at_risk' ELSE 'ok' END AS risk_flag FROM restaurants WHERE NOT EXISTS (SELECT 1 FROM deliveries WHERE deliveries.restaurant_id = restaurants.restaurant_id AND delivery_status = 'completed') ORDER BY restaurant_id;",
+  "_meta": {
+    "question_type": "anti_join",
+    "original_qtype": "anti_join",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-02T09:45:53.935310",
+    "problem_id": "32a76999894f",
+    "validation_attempts": 3,
+    "scenario": "a food delivery service tracking order completion and delivery time",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "not_exists",
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "high"
+  },
+  "example_output_schema": [
+    [
+      "restaurant_id",
+      "INTEGER"
+    ],
+    [
+      "clean_name",
+      "TEXT"
+    ],
+    [
+      "primary_cuisine",
+      "TEXT"
+    ],
+    [
+      "permit_month",
+      "NUMERIC"
+    ],
+    [
+      "delivery_fee",
+      "NUMERIC"
+    ],
+    [
+      "avg_prep_rounded",
+      "NUMERIC"
+    ],
+    [
+      "risk_flag",
+      "TEXT"
+    ]
+  ]
+}

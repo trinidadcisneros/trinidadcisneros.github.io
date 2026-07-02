@@ -1,0 +1,260 @@
+{
+  "problem": {
+    "title": "Parse Sleep Stage Distribution from Concatenated Codes",
+    "prompt": "You are working with a sleep tracking app modeled on publicly available sleep research datasets (National Sleep Foundation, American Academy of Sleep Medicine stage coding). The `sleep_sessions` table stores each night's sleep in a single record. The `stage_sequence` column contains a concatenated string of single-letter sleep stage codes (W=wake, R=REM, L=light, D=deep) recorded in 30-minute epochs throughout the night, with no separators. The `session_notes` column holds free-text observations that may have inconsistent casing and extra whitespace. Your task is to extract the FIRST stage code, count the total number of stages recorded, and clean the notes field. Write a query that produces one row per session with the cleaned data, ordered by session date descending then session_id ascending.",
+    "display": {
+      "context": "You are working with a sleep tracking app modeled on publicly available sleep research datasets (National Sleep Foundation, American Academy of Sleep Medicine stage coding).",
+      "task": "Write a query that extracts the first sleep stage code from the concatenated sequence, counts how many stages were recorded, and cleans the session notes, returning one row per session.",
+      "table_notes": {
+        "sleep_sessions": "stores one record per night's sleep session with a concatenated string of stage codes and free-text notes"
+      },
+      "output_field_notes": {
+        "session_id": "the unique identifier for the sleep session",
+        "session_date": "the date the sleep session occurred",
+        "first_stage": "the first sleep stage code from the concatenated sequence",
+        "stage_count": "the total number of sleep stage codes recorded in the sequence",
+        "cleaned_notes": "the session notes with consistent capitalization and no extra whitespace"
+      },
+      "field_logic": [
+        "first_stage: built from stage_sequence.\n- extract the first character from stage_sequence",
+        "stage_count: built from stage_sequence.\n- count the total number of characters in stage_sequence",
+        "cleaned_notes: built from session_notes.\n- remove any leading or trailing whitespace from session_notes\n- capitalize the first letter of each word\n- if session_notes is NULL or empty after trimming, display 'No notes'"
+      ],
+      "edge_cases": [
+        "If stage_sequence is NULL or empty, first_stage should be NULL and stage_count should be 0.",
+        "If session_notes is NULL or contains only whitespace, cleaned_notes should be 'No notes'."
+      ],
+      "filter_note": "All rows from the sleep_sessions table are included in the output.",
+      "order_by_note": "Results are ordered by session_date descending, then by session_id ascending."
+    },
+    "schema_ddl": "CREATE TABLE sleep_sessions (session_id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, session_date DATE NOT NULL, stage_sequence VARCHAR(100), session_notes TEXT, total_minutes INTEGER);",
+    "example_input_data": "INSERT INTO sleep_sessions (session_id, user_id, session_date, stage_sequence, session_notes, total_minutes) VALUES (101, 1, '2024-03-15', 'WLLDDRRRLLW', '  restless night with interruptions  ', 330), (102, 1, '2024-03-14', 'LLDDRRRLLL', 'GOOD DEEP SLEEP', 300), (103, 2, '2024-03-15', 'LLLRRRDDD', NULL, 270), (104, 2, '2024-03-13', 'WLLLRR', '   ', 180), (105, 3, '2024-03-15', '', 'device error - no data', 0), (106, 3, '2024-03-12', 'LLDDDD', 'excellent recovery night', 180);",
+    "example_output_columns": [
+      "session_id",
+      "session_date",
+      "first_stage",
+      "stage_count",
+      "cleaned_notes"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "2024-03-15",
+        "W",
+        11,
+        "Restless Night With Interruptions"
+      ],
+      [
+        103,
+        "2024-03-15",
+        "L",
+        9,
+        "No notes"
+      ],
+      [
+        105,
+        "2024-03-15",
+        "",
+        0,
+        "Device Error - No Data"
+      ],
+      [
+        102,
+        "2024-03-14",
+        "L",
+        10,
+        "Good Deep Sleep"
+      ],
+      [
+        104,
+        "2024-03-13",
+        "W",
+        6,
+        "No notes"
+      ],
+      [
+        106,
+        "2024-03-12",
+        "L",
+        6,
+        "Excellent Recovery Night"
+      ]
+    ],
+    "test_data": "INSERT INTO sleep_sessions (session_id, user_id, session_date, stage_sequence, session_notes, total_minutes) VALUES (201, 4, '2024-03-20', 'RRRLLLDDDDWWLLLRRR', 'woke up feeling refreshed', 540), (202, 4, '2024-03-19', 'LLLLRRRRDDDD', '  MULTIPLE   SPACES   between words  ', 360), (203, 5, '2024-03-20', 'W', 'brief nap only', 30), (204, 5, '2024-03-18', 'DDDDRRRRLLLLLWW', NULL, 450), (205, 6, '2024-03-20', NULL, 'sensor malfunction', 0), (206, 6, '2024-03-17', 'LLLLDDDDRRRR', '', 360), (207, 7, '2024-03-20', 'WWWLLLRRRDDD', '   ', 360), (208, 7, '2024-03-16', 'LLLLLLLLLLLLLLLL', 'uninterrupted light sleep throughout', 480), (209, 8, '2024-03-19', 'RRRRRR', 'all REM - unusual pattern', 180), (210, 8, '2024-03-15', 'LLDDRRRLLLDDDRRRWW', 'good balance of stages', 540), (211, 9, '2024-03-18', '', NULL, 0), (212, 9, '2024-03-14', 'D', 'single deep stage recorded', 30), (213, 10, '2024-03-17', 'LLLRRRLLLDDDDWLLLRRR', '  proper rest after workout  ', 600), (214, 10, '2024-03-13', 'WWWWWW', 'awake most of the night', 180), (215, 11, '2024-03-16', 'LLLLDDDDRRRRLLLL', NULL, 480);",
+    "test_expected_columns": [
+      "session_id",
+      "session_date",
+      "first_stage",
+      "stage_count",
+      "cleaned_notes"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "2024-03-20",
+        "R",
+        18,
+        "Woke Up Feeling Refreshed"
+      ],
+      [
+        203,
+        "2024-03-20",
+        "W",
+        1,
+        "Brief Nap Only"
+      ],
+      [
+        205,
+        "2024-03-20",
+        null,
+        0,
+        "Sensor Malfunction"
+      ],
+      [
+        207,
+        "2024-03-20",
+        "W",
+        12,
+        "No notes"
+      ],
+      [
+        202,
+        "2024-03-19",
+        "L",
+        12,
+        "Multiple   Spaces   Between Words"
+      ],
+      [
+        209,
+        "2024-03-19",
+        "R",
+        6,
+        "All Rem - Unusual Pattern"
+      ],
+      [
+        204,
+        "2024-03-18",
+        "D",
+        15,
+        "No notes"
+      ],
+      [
+        211,
+        "2024-03-18",
+        "",
+        0,
+        "No notes"
+      ],
+      [
+        206,
+        "2024-03-17",
+        "L",
+        12,
+        "No notes"
+      ],
+      [
+        213,
+        "2024-03-17",
+        "L",
+        20,
+        "Proper Rest After Workout"
+      ],
+      [
+        208,
+        "2024-03-16",
+        "L",
+        16,
+        "Uninterrupted Light Sleep Throughout"
+      ],
+      [
+        215,
+        "2024-03-16",
+        "L",
+        16,
+        "No notes"
+      ],
+      [
+        210,
+        "2024-03-15",
+        "L",
+        18,
+        "Good Balance Of Stages"
+      ],
+      [
+        212,
+        "2024-03-14",
+        "D",
+        1,
+        "Single Deep Stage Recorded"
+      ],
+      [
+        214,
+        "2024-03-13",
+        "W",
+        6,
+        "Awake Most Of The Night"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "row-transform: extract first character with SUBSTRING, count characters with LENGTH, clean text with TRIM/INITCAP/COALESCE/NULLIF, apply CONCAT_WS for edge-case display"
+      ]
+    },
+    "hints": [
+      "Use string functions to extract portions of the stage_sequence column and measure its length.",
+      "The SUBSTRING function with FROM can extract a single character at a specific position. LENGTH counts all characters in a string.",
+      "Combine INITCAP with TRIM to clean the notes field, and use COALESCE with NULLIF to handle NULL or whitespace-only values by replacing them with a default message."
+    ],
+    "answer_key": "SELECT session_id, session_date, SUBSTRING(stage_sequence FROM 1 FOR 1) AS first_stage, LENGTH(COALESCE(stage_sequence, '')) AS stage_count, COALESCE(NULLIF(INITCAP(TRIM(session_notes)), ''), 'No notes') AS cleaned_notes FROM sleep_sessions ORDER BY session_date DESC, session_id ASC;",
+    "_meta": {
+      "question_type": "parse_clean",
+      "original_qtype": "parse_clean",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-07-02T11:22:40.923042",
+      "problem_id": "5e489b22984a",
+      "validation_attempts": 1,
+      "scenario": "a sleep tracking app tracking sleep score and goal achievement",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "string_clean",
+      "cleaning_required": false,
+      "cleaning_level": null,
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": false,
+      "realism": "high"
+    },
+    "example_output_schema": [
+      [
+        "session_id",
+        "INTEGER"
+      ],
+      [
+        "session_date",
+        "DATE"
+      ],
+      [
+        "first_stage",
+        "TEXT"
+      ],
+      [
+        "stage_count",
+        "INTEGER"
+      ],
+      [
+        "cleaned_notes",
+        "TEXT"
+      ]
+    ]
+  },
+  "user_solution": "/* notes */\n\nSELECT\n    session_id,\n    session_date,\n    NULLIF(UPPER(LEFT(TRIM(stage_sequence), 1)), '') AS first_stage,\n    COALESCE(LENGTH(TRIM(stage_sequence)), 0) AS stage_count,\n    CASE WHEN INITCAP(TRIM(session_notes)) IS NULL OR INITCAP(TRIM(session_notes)) = '' THEN 'No notes' ELSE INITCAP(TRIM(session_notes)) END AS cleaned_notes\nFROM sleep_sessions\nORDER BY 2 DESC;",
+  "solved_at": "2026-07-02T11:29:36.813533"
+}

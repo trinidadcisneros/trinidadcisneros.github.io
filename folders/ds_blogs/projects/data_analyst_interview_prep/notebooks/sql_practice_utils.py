@@ -189,6 +189,11 @@ QUESTION_TYPES = {
         "description": "Keep rows in one set with NO matching row in another (customers who never ordered, products never sold). NOT EXISTS (NULL-safe), LEFT JOIN ... WHERE right IS NULL, or NOT IN (only when the subquery column is non-NULL).",
         "dialects": ["postgresql", "mysql"],
     },
+    "filter_by_other_table": {
+        "label": "Filter one table by a condition in another table (semi / anti / count)",
+        "description": "Multi-table row filter: two tables share a key; keep or drop FIRST-table rows by whether — or how often — they match the SECOND table. Semi-join (has a match: IN / EXISTS), anti-join (no match: NOT EXISTS / LEFT JOIN ... IS NULL / NOT IN), or a count threshold (GROUP BY ... HAVING COUNT).",
+        "dialects": ["postgresql", "mysql"],
+    },
     "window_edge": {
         "label": "Window Function Edge Cases",
         "description": "ROWS vs RANGE, frame edges, RANK vs DENSE_RANK vs ROW_NUMBER nuance.",
@@ -232,6 +237,11 @@ QUESTION_TYPES = {
     "enrich_join": {
         "label": "Look up columns from another table (enrich-join)",
         "description": "JOIN to pull a column/value onto each row (not aggregate-per-group). Methods: straight lookup/enrich, self-join (one table, two roles), cross join (all combinations), match a per-group value, or compound eligibility (roll up then multi-condition filter).",
+        "dialects": ["postgresql", "mysql"],
+    },
+    "join_driving_table": {
+        "label": "Pick the driving table (which table in FROM vs JOIN, INNER vs LEFT)",
+        "description": "Drills the choice of WHICH table anchors the query (goes in FROM) versus which is attached (JOIN), and INNER vs LEFT. The data is built adversarially so the wrong choice returns wrong rows: keep-all-entities needs the entity table driven with a LEFT JOIN so zero-activity rows survive; report-per-event drives the fact so entity-only rows do not appear; two-facts needs one pre-aggregated to avoid a fan-out; entity+parent keeps the entity even when the parent lookup is missing. Output-checked, so the strategy is enforced by the expected rows, not by inspecting the SQL.",
         "dialects": ["postgresql", "mysql"],
     },
     "cross_join": {
@@ -557,6 +567,36 @@ SELECT a.*
 FROM a
 WHERE a.id NOT IN (SELECT fk FROM b WHERE fk IS NOT NULL);
 -- a single NULL in the NOT IN list returns ZERO rows for everyone.
+""",
+    "filter_by_other_table": """\
+-- Filter one table by a condition in another table (two tables share a key)
+
+-- SEMI-JOIN: keep rows that HAVE at least one match (never duplicates a.*)
+SELECT a.*
+FROM a
+WHERE EXISTS (SELECT 1 FROM b WHERE b.fk = a.id);           -- or: a.id IN (SELECT fk FROM b)
+
+-- ANTI-JOIN, need b's columns: LEFT JOIN ... WHERE right IS NULL
+SELECT a.*
+FROM a
+LEFT JOIN b ON b.fk = a.id     -- a condition on b (b.status='x') goes HERE, in ON
+WHERE b.fk IS NULL;            -- ... not in WHERE, or the LEFT JOIN becomes INNER
+
+-- ANTI-JOIN, NULL-safe default: NOT EXISTS
+SELECT a.*
+FROM a
+WHERE NOT EXISTS (SELECT 1 FROM b WHERE b.fk = a.id);
+
+-- ANTI-JOIN, key guaranteed non-NULL: NOT IN (guard the NULL trap)
+SELECT a.*
+FROM a
+WHERE a.id NOT IN (SELECT fk FROM b WHERE fk IS NOT NULL);  -- one NULL -> zero rows
+
+-- COUNT THRESHOLD: keep by HOW MANY match
+SELECT fk
+FROM b
+GROUP BY fk
+HAVING COUNT(*) >= 2;
 """,
     "scalar_extract": """\
 -- Single aggregate over the whole table (one row, one value)
@@ -1511,6 +1551,46 @@ GROUP BY e.employee_id, e.employee_name
 ORDER BY e.employee_id;
 -- 2024 hires with no Q1 sessions show 0; pre-2024 hires are correctly absent.
 """,
+    "join_driving_table": """\
+-- Which table goes in FROM (the driver / anchor) vs JOIN, and INNER vs LEFT.
+-- Rule: the table you want ONE ROW PER goes in FROM; the table you keep every row of
+-- goes in FROM with a LEFT JOIN. INNER placement (FROM vs JOIN) never changes the result.
+
+-- KEEP ALL ENTITIES (every product, incl. zero sales) -> drive the DIM, LEFT JOIN the fact.
+SELECT p.product_id, p.name,
+       COUNT(s.sale_id)             AS units_sold,   -- 0 for products with no sales
+       COALESCE(SUM(s.amount), 0)   AS revenue
+FROM products AS p                                    -- driver: one row per product
+LEFT JOIN sales AS s ON s.product_id = p.product_id
+GROUP BY p.product_id, p.name
+ORDER BY p.product_id;
+-- INNER JOIN here would DROP unsold products -> wrong when zeros must appear.
+
+-- REPORT PER EVENT (one row per sale, labelled) -> drive the FACT, JOIN the dim.
+SELECT s.sale_id, s.sale_date, p.name AS product_name
+FROM sales AS s                                       -- driver: one row per sale
+JOIN products AS p ON p.product_id = s.product_id     -- dim only supplies labels
+ORDER BY s.sale_id;
+-- Driving the dim here would add products that never sold -> wrong grain.
+
+-- TWO FACTS (orders + refunds) -> pre-aggregate one to the join grain, THEN join (no fan-out).
+WITH refund_totals AS (
+    SELECT order_id, SUM(refund_amount) AS refunded
+    FROM refunds GROUP BY order_id                    -- collapse many refunds to one row per order
+)
+SELECT o.order_id, o.amount, COALESCE(r.refunded, 0) AS refunded
+FROM orders AS o
+LEFT JOIN refund_totals AS r ON r.order_id = o.order_id
+ORDER BY o.order_id;
+-- Joining raw orders to raw refunds multiplies rows and double-counts o.amount.
+
+-- TWO DIMS (employee + its department parent) -> drive the entity, LEFT JOIN the parent.
+SELECT e.employee_id, e.name, d.department_name
+FROM employees AS e                                   -- driver: one row per employee
+LEFT JOIN departments AS d ON d.department_id = e.department_id
+ORDER BY e.employee_id;
+-- LEFT keeps employees whose department_id is NULL / unmatched; INNER would drop them.
+""",
     "root_cause_analysis": """\
 -- Root Cause Analysis: the answer surfaces the BUG ROWS, not the broken metric.
 -- A CTE staircase walks symptom -> per-dimension breakdown -> the offender.
@@ -1589,6 +1669,58 @@ def get_code_reference(qtype: str, islands_flavor: str = None, percentile_flavor
     if qtype in CODE_REFERENCE:
         return CODE_REFERENCE[qtype]
     return f"-- No code reference template available for question type: {qtype}\n"
+
+
+def review_sql(problem: Dict[str, Any], user_sql: str, dialect: str = "postgresql",
+               max_tokens: int = 2000) -> Dict[str, Any]:
+    """LLM review of a WORKING solution (metered feature).
+
+    Returns {ok, notes[list[str]], strategy[str], suggested_sql[str], error}.
+    The review is ADVISORY: suggested_sql is not guaranteed faster. The notebook
+    runs EXPLAIN ANALYZE on both the user's SQL and suggested_sql to show real,
+    measured metrics rather than trusting the model's claim.
+    """
+    if not user_sql or not user_sql.strip():
+        return {"ok": False, "error": "No SQL to review."}
+    meta = problem.get("_meta", {})
+    qtype = meta.get("question_type", "")
+    disp = problem.get("display", {}) if isinstance(problem.get("display"), dict) else {}
+    prompt_txt = problem.get("prompt") or disp.get("prompt") or ""
+    schema = problem.get("schema_ddl", "")
+    system = (
+        "You are a senior SQL reviewer for a practice tool. The user's query is ALREADY CORRECT "
+        "(it passed the hidden test). Review it for clarity, efficiency, and join / filter "
+        "strategy. Respond with ONLY a JSON object with these keys:\n"
+        "  notes: array of at most 6 short plain-language strings — concrete improvements, or "
+        "confirmations that something is already good.\n"
+        "  strategy: one short paragraph on the join / filter strategy — which table drives (FROM), "
+        "INNER vs LEFT, and any fan-out or NULL-handling risk.\n"
+        f"  suggested_sql: ONE alternative query that is cleaner or likely faster, runnable as-is "
+        f"in {dialect}. If the original is already optimal, return it unchanged and say so in notes.\n"
+        "Use ONLY the columns in the given schema; never invent columns. Do not wrap the JSON in prose."
+    )
+    user = (
+        f"Dialect: {dialect}\nQuestion type: {qtype}\n\n"
+        f"Problem prompt:\n{prompt_txt}\n\n"
+        f"Schema:\n{schema}\n\n"
+        f"User's working SQL:\n{user_sql}\n\n"
+        "Return the JSON object only."
+    )
+    raw = _call_claude(system, user, max_tokens=max_tokens)
+    if not raw:
+        return {"ok": False, "error": "Review call failed (no response). Try spu.init_claude()."}
+    data = _extract_json(raw)
+    if not data:
+        return {"ok": False, "error": "Could not parse review JSON from the model.", "raw": raw}
+    notes = data.get("notes", [])
+    if isinstance(notes, str):
+        notes = [notes]
+    return {
+        "ok": True,
+        "notes": [str(n) for n in notes][:6],
+        "strategy": str(data.get("strategy", "")).strip(),
+        "suggested_sql": (data.get("suggested_sql") or "").strip(),
+    }
 
 
 # ============================================================
@@ -1810,6 +1942,19 @@ SUBTYPES = {
         ("not_exists", "NOT EXISTS (NULL-safe, preferred)"),
         ("left_join_null", "LEFT JOIN ... WHERE right IS NULL"),
         ("not_in", "NOT IN (only when subquery column is non-NULL)"),
+    ],
+    "filter_by_other_table": [
+        ("semi_join", "Semi-join — keep rows WITH a match (IN / EXISTS)"),
+        ("anti_left_null", "Anti-join — LEFT JOIN ... WHERE right IS NULL (need other table's columns)"),
+        ("anti_not_exists", "Anti-join — NOT EXISTS (NULL-safe default)"),
+        ("anti_not_in", "Anti-join — NOT IN (only when subquery column is non-NULL)"),
+        ("count_threshold", "Count threshold — GROUP BY ... HAVING COUNT (how many match)"),
+    ],
+    "join_driving_table": [
+        ("dim_keep_all", "Drive the entity table, LEFT JOIN the fact (keep zero-activity rows)"),
+        ("fact_report_events", "Drive the fact, JOIN the dim for labels (one row per event)"),
+        ("two_facts_preaggregate", "Two facts: pre-aggregate one, then join (avoid fan-out)"),
+        ("two_dims_entity_parent", "Two dims: drive the entity, LEFT JOIN the parent lookup"),
     ],
     "scalar_extract": [
         ("single_aggregate", "Single aggregate over the whole table"),
@@ -2336,6 +2481,58 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml
         )
         if subtype in _aj_forms:
             base += "\n\n" + _aj_forms[subtype]
+    elif qtype == "filter_by_other_table":
+        _fot_forms = {
+            "semi_join":
+                "USE THIS FORM: SEMI-JOIN — keep FIRST-table rows that HAVE at least one "
+                "match in the SECOND table: `WHERE EXISTS (SELECT 1 FROM b WHERE b.fk = a.id)` "
+                "or `WHERE a.id IN (SELECT fk FROM b)`. It NEVER duplicates the first table's "
+                "rows (a plain JOIN would). Framing: 'who have', 'that appear in', 'with at "
+                "least one'.",
+            "anti_left_null":
+                "USE THIS FORM: ANTI-JOIN via LEFT JOIN ... WHERE right IS NULL — "
+                "`FROM a LEFT JOIN b ON b.fk = a.id WHERE b.fk IS NULL`. Choose this form "
+                "specifically when the OUTPUT also needs column(s) from the second table. Any "
+                "condition on the second table goes in the JOIN ON, NEVER the WHERE (or the "
+                "LEFT JOIN silently collapses to INNER and drops the non-matchers you wanted).",
+            "anti_not_exists":
+                "USE THIS FORM: ANTI-JOIN via NOT EXISTS (the NULL-safe default) — "
+                "`WHERE NOT EXISTS (SELECT 1 FROM b WHERE b.fk = a.id)`. The subquery is "
+                "correlated: the link goes in its WHERE, never an ON.",
+            "anti_not_in":
+                "USE THIS FORM: ANTI-JOIN via NOT IN, and make the NULL trap the teaching "
+                "point — `WHERE a.id NOT IN (SELECT fk FROM b WHERE fk IS NOT NULL)`. Without "
+                "the `IS NOT NULL` guard, a single NULL in the subquery makes the ENTIRE result "
+                "empty. Design the data so the second table's key column has at least one NULL.",
+            "count_threshold":
+                "USE THIS FORM: COUNT THRESHOLD — keep entities by HOW MANY matches, not just "
+                "has / has-no match: `SELECT fk FROM b GROUP BY fk HAVING COUNT(*) >= N` (or "
+                "join first, then GROUP BY ... HAVING). The rule is a NUMBER of matches (2 or "
+                "more, more than N, exactly one). Data MUST include entities above AND below "
+                "the threshold.",
+        }
+        base += (
+            "Build a FILTER-BY-OTHER-TABLE problem (multi-table): two tables share a key; "
+            "KEEP or DROP rows of the FIRST table based on whether — or how often — they "
+            "match a row in the SECOND table. The answer keeps a SUBSET of the first "
+            "table's rows (semi-join, anti-join, or count threshold); it is NOT a sum / avg "
+            "summary.\n"
+            "Hard requirements:\n"
+            "1) TWO tables (or a self-reference) sharing a key. Name BOTH tables and every "
+            "column by its EXACT schema name in the prompt; name the output columns and the "
+            "ORDER BY.\n"
+            "2) The example data MUST include at least one first-table entity WITH a match "
+            "AND at least one WITHOUT, so the filter is non-trivial (not every row, not zero "
+            "rows).\n"
+            "3) Put any condition on the SECOND table (status = 'completed', a date window) "
+            "INSIDE the subquery or the JOIN ON, never a bare WHERE that would drop the rows "
+            "you meant to keep.\n"
+            "4) classification.recipe = `row-filter`; classification.input_arrival = `join`; "
+            "classification.output_shape = `filtered_rows`. Do NOT make the headline an "
+            "aggregate."
+        )
+        if subtype in _fot_forms:
+            base += "\n\n" + _fot_forms[subtype]
     elif qtype == "delete_duplicates":
         base += (
             "DEDUP (delete duplicate rows) — a single table holds duplicate rows; physically "
@@ -2446,6 +2643,60 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml
             ),
         }
         base += _EJ[_ej]
+    elif qtype == "join_driving_table":
+        _jdt = {
+            "dim_keep_all":
+                "KEEP ALL ENTITIES. Two tables: an ENTITY/dimension table (products, customers, "
+                "employees) and a FACT table (sales, orders, sessions). The report wants ONE ROW "
+                "PER ENTITY, including entities with ZERO fact rows (shown with 0 / NULL). Correct "
+                "answer_key DRIVES the entity table (entity in FROM) and LEFT JOINs the fact, then "
+                "COUNT(fact_key) / COALESCE(SUM(...),0) so non-matchers read 0. "
+                "ADVERSARIAL DATA (required): include at least one entity with NO fact rows at all; "
+                "its 0-row MUST be in the expected output, so an INNER JOIN or driving the fact "
+                "returns the WRONG rows and fails the hidden test.",
+            "fact_report_events":
+                "REPORT PER EVENT. Two tables: a FACT table (one row per event) and a DIM table of "
+                "labels. The report wants ONE ROW PER EVENT with a looked-up label. Correct "
+                "answer_key DRIVES the fact (fact in FROM) and JOINs the dim only to attach columns. "
+                "ADVERSARIAL DATA (required): include at least one DIM row with NO matching fact "
+                "(a product never sold). It MUST NOT appear in the expected output, so driving the "
+                "dim (or a LEFT JOIN from the dim) adds an extra wrong row and fails.",
+            "two_facts_preaggregate":
+                "TWO FACTS. Two fact tables share a key at DIFFERENT grains (orders 1-per-order, "
+                "refunds many-per-order). The report is per the coarser fact. Correct answer_key "
+                "PRE-AGGREGATES the finer fact to the join grain in a CTE/subquery, THEN joins the "
+                "coarser fact to that single-row-per-key summary. "
+                "ADVERSARIAL DATA (required): give at least one key MULTIPLE finer-fact rows so a "
+                "naive raw join FANS OUT and multiplies / double-counts a coarser-table measure; "
+                "the expected output has the correct non-multiplied totals, so the fan-out answer fails.",
+            "two_dims_entity_parent":
+                "TWO DIMS. An ENTITY dim (employees, articles) and its PARENT/lookup dim "
+                "(departments, categories). The report wants ONE ROW PER ENTITY with the parent's "
+                "label. Correct answer_key DRIVES the entity (entity in FROM) and LEFT JOINs the "
+                "parent so entities with a missing/NULL parent key still appear. "
+                "ADVERSARIAL DATA (required): include at least one entity whose parent key is NULL "
+                "or points to a non-existent parent; it MUST appear in the expected output (parent "
+                "label NULL), so an INNER JOIN drops it and fails.",
+        }
+        _k = subtype if subtype in _jdt else random.choice(list(_jdt))
+        base += (
+            "Build a JOIN-DRIVING-TABLE problem: the learner must choose WHICH table goes in FROM "
+            "(the driver / anchor that sets the grain) versus JOIN, and INNER vs LEFT. The whole "
+            "point is that the WRONG choice returns WRONG rows -- so the DATA must make the choice "
+            "visible; do NOT rely on inspecting the SQL.\n"
+            "USE THIS EXACT case: " + _jdt[_k] + "\n"
+            "Hard requirements:\n"
+            "1) Name both tables and every column by its EXACT schema name; name the output columns "
+            "and the ORDER BY in the prompt. Do NOT tell the learner which table to drive or which "
+            "join type to use -- that is the skill being tested; describe only the desired ROWS.\n"
+            "2) The example_input_data AND the hidden test_data must BOTH contain the adversarial "
+            "row(s) described above, so the correct strategy is the ONLY one that reproduces the "
+            "expected output on both.\n"
+            "3) Wrap measures over the LEFT-joined side in COUNT(key) or COALESCE(SUM(...),0) so "
+            "non-matchers read 0, not NULL, where the prompt asks for a number.\n"
+            "4) classification.recipe = `enrich-join` (or `enrich-aggregate` when it groups); "
+            "classification.input_arrival = `join`."
+        )
     elif qtype == "dml":
         # dml_op is chosen randomly in generate_problem so each generation lands on
         # a different operation. If somehow not provided, default to UPDATE.
@@ -5702,6 +5953,7 @@ def recommend_practice(records: List[Dict[str, Any]], top: int = 5) -> List[Dict
 _PB_QTYPE = {
     "filter_strategies":        ("tab-single", "row-filter",        "Single-Table › Filter"),
     "anti_join":                ("tab-single", "rf-leaf-antijoin",  "Single-Table › Filter › Anti-join"),
+    "filter_by_other_table":    ("tab-multi",  "mt-otherfilter",    "Multi-Table › Filter One Table by a Condition in Another Table"),
     "scalar_extract":           ("tab-single", "scalar-extract",    "Single-Table › Scalar"),
     "percentile_metrics":       ("tab-single", "rank-percentile",   "Single-Table › Rank & Percentile"),
     "window_running_total":     ("tab-single", "time-window",       "Single-Table › Window"),
@@ -5726,6 +5978,7 @@ _PB_QTYPE = {
     "unpivot":                  ("tab-reshape","reshape-unpivot",   "Reshape › Unpivot"),
     "series_generation":        ("tab-reshape","reshape-series-generation","Reshape › Series Generation"),
     "enrich_join":              ("tab-multi",  "enrich-join",       "Multi-Table › Look Up Columns"),
+    "join_driving_table":       ("tab-multi",  "enrich-join",       "Multi-Table › Pick the driving table (FROM vs JOIN, INNER vs LEFT)"),
     "cross_join":               ("tab-reshape","reshape-cross-join","Reshape › Cross Join"),
     "dml":                      ("tab-procedural","topic-dml",      "Procedures › Updates, Deletes, Inserts"),
     "dml_update":               ("tab-procedural","topic-dml",      "Procedures › Updates, Deletes, Inserts"),
@@ -5744,6 +5997,11 @@ _PB_SUBTYPE = {
     ("anti_join", "not_exists"):     ("rf-antijoin-notexists", "NOT EXISTS"),
     ("anti_join", "left_join_null"): ("rf-antijoin-leftnull",  "LEFT JOIN … IS NULL"),
     ("anti_join", "not_in"):         ("rf-antijoin-notin",     "NOT IN"),
+    ("filter_by_other_table", "semi_join"):       ("mt-of-semijoin",  "Semi-join (IN / EXISTS)"),
+    ("filter_by_other_table", "anti_left_null"):  ("mt-of-antinull",  "LEFT JOIN … WHERE right IS NULL"),
+    ("filter_by_other_table", "anti_not_exists"): ("mt-of-notexists", "NOT EXISTS"),
+    ("filter_by_other_table", "anti_not_in"):     ("mt-of-notin",     "NOT IN"),
+    ("filter_by_other_table", "count_threshold"): ("mt-of-having",    "GROUP BY … HAVING COUNT"),
     ("filter_strategies", "comparison"): ("rf-leaf-compare",    "Comparison"),
     ("filter_strategies", "null_aware"): ("rf-leaf-null",       "NULL-aware"),
     ("filter_strategies", "pattern"):    ("rf-leaf-pattern",    "Pattern matching"),
@@ -5789,6 +6047,10 @@ _PB_SUBTYPE = {
     ("unpivot", "drop"):      ("up-leaf-drop",      "Columns to rows, drop the empties"),
     ("unpivot", "keep"):      ("up-leaf-keep",      "Columns to rows, keep the empties"),
     ("unpivot", "aggregate"): ("up-leaf-aggregate", "Unpivot then aggregate"),
+    ("join_driving_table", "dim_keep_all"):          ("enrich-aggregate", "Drive the entity, LEFT JOIN the fact (keep zeros)"),
+    ("join_driving_table", "fact_report_events"):    ("enrich-join",      "Drive the fact, JOIN the dim for labels"),
+    ("join_driving_table", "two_facts_preaggregate"):("enrich-aggregate", "Two facts: pre-aggregate one, then join"),
+    ("join_driving_table", "two_dims_entity_parent"):("enrich-join",      "Two dims: drive the entity, LEFT JOIN the parent"),
     ("enrich_join", "straight_lookup"): ("ej-leaf-lookup",   "Straight lookup / enrich"),
     ("enrich_join", "self_join"):       ("ej-leaf-selfjoin", "Self-join: one table, two roles"),
     ("enrich_join", "cross_join"):      ("ej-leaf-cross",    "Cross join: all combinations"),

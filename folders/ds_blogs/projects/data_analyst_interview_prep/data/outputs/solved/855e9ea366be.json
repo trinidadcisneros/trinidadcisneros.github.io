@@ -1,0 +1,336 @@
+{
+  "problem": {
+    "title": "Parse Delivery Zones and Route Tags",
+    "prompt": "You are working with a food delivery service that tracks driver routes and delivery zones. The table stores route codes in a mixed-format text column and delivery zones as a comma-separated list. Each route code follows the pattern 'CCC-NNNN' where CCC is a three-letter city abbreviation and NNNN is a four-digit route number (e.g., 'SFO-0142'). The delivery_zones column contains zone tags separated by commas (e.g., 'DOWNTOWN,MARINA,MISSION'). Your task is to extract the city code, the numeric route number, count how many zones each route covers, and list all zones as an array. Some route_code values have extra whitespace or inconsistent casing that needs cleaning. The output must show route_id, city_code (uppercase, exactly 3 characters), route_number (as an integer), zone_count (the number of zones in the comma-separated list), and zones_array (the zones split into a PostgreSQL array), ordered by route_id.",
+    "display": {
+      "context": "You are working with a food delivery service that tracks driver routes and delivery zones modeled on municipal transportation and logistics datasets.",
+      "task": "Write a query that extracts and cleans route identifiers, splits delivery zone lists into arrays, and counts zones per route.",
+      "table_notes": {
+        "delivery_routes": "holds driver route codes and comma-separated delivery zone tags"
+      },
+      "output_field_notes": {
+        "route_id": "the unique route identifier from the table",
+        "city_code": "the three-letter city abbreviation extracted from the route code, uppercase, no whitespace",
+        "route_number": "the numeric portion of the route code as an integer",
+        "zone_count": "the number of delivery zones assigned to this route",
+        "zones_array": "the delivery zones split into a PostgreSQL text array"
+      },
+      "field_logic": [
+        "city_code: built from route_code.\n- remove all spaces around route_code\n- extract the first 3 characters from the cleaned route_code\n- convert those 3 characters to uppercase",
+        "route_number: built from route_code.\n- remove all spaces around route_code\n- extract characters starting at position 5 for 4 characters (the digits after the hyphen)\n- convert those characters to an integer",
+        "zone_count: built from delivery_zones.\n- split delivery_zones on commas into an array\n- count how many elements are in that array",
+        "zones_array: built from delivery_zones.\n- split delivery_zones on commas into a PostgreSQL text array"
+      ],
+      "edge_cases": [
+        "If route_code has leading or trailing whitespace, remove it before parsing.",
+        "If delivery_zones is NULL or empty, zone_count should be 0 and zones_array should be an empty array."
+      ],
+      "filter_note": "All rows from the delivery_routes table are included.",
+      "order_by_note": "The output rows are ordered by route_id in ascending order."
+    },
+    "schema_ddl": "CREATE TABLE delivery_routes (route_id INT PRIMARY KEY, route_code VARCHAR(20), delivery_zones TEXT);",
+    "example_input_data": "INSERT INTO delivery_routes (route_id, route_code, delivery_zones) VALUES (1, 'SFO-0142', 'DOWNTOWN,MARINA,MISSION'), (2, ' NYC-0089 ', 'BROOKLYN,QUEENS'), (3, 'lax-0501', 'HOLLYWOOD,VENICE,SANTA_MONICA,BEVERLY_HILLS'), (4, 'CHI-0023', 'LOOP'), (5, 'BOS-0200', NULL), (6, ' SEA-0315', 'CAPITOL_HILL,FREMONT,BALLARD');",
+    "example_output_columns": [
+      "route_id",
+      "city_code",
+      "route_number",
+      "zone_count",
+      "zones_array"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "SFO",
+        142,
+        3,
+        [
+          "DOWNTOWN",
+          "MARINA",
+          "MISSION"
+        ]
+      ],
+      [
+        2,
+        "NYC",
+        89,
+        2,
+        [
+          "BROOKLYN",
+          "QUEENS"
+        ]
+      ],
+      [
+        3,
+        "LAX",
+        501,
+        4,
+        [
+          "HOLLYWOOD",
+          "VENICE",
+          "SANTA_MONICA",
+          "BEVERLY_HILLS"
+        ]
+      ],
+      [
+        4,
+        "CHI",
+        23,
+        1,
+        [
+          "LOOP"
+        ]
+      ],
+      [
+        5,
+        "BOS",
+        200,
+        0,
+        []
+      ],
+      [
+        6,
+        "SEA",
+        315,
+        3,
+        [
+          "CAPITOL_HILL",
+          "FREMONT",
+          "BALLARD"
+        ]
+      ]
+    ],
+    "test_data": "INSERT INTO delivery_routes (route_id, route_code, delivery_zones) VALUES (101, 'ATL-0001', 'MIDTOWN,BUCKHEAD'), (102, '  PDX-0750  ', 'PEARL,HAWTHORNE,SELLWOOD,ALBERTA,MISSISSIPPI'), (103, 'den-0999', 'CAPITOL_HILL,LODO'), (104, 'MIA-0505', 'BRICKELL,WYNWOOD,COCONUT_GROVE,SOUTH_BEACH,LITTLE_HAVANA'), (105, 'PHX-0100', ''), (106, 'AUS-0444', 'DOWNTOWN,EAST_AUSTIN,SOUTH_CONGRESS'), (107, ' dal-0222', 'UPTOWN,DEEP_ELLUM,BISHOP_ARTS'), (108, 'PHI-0050', 'CENTER_CITY'), (109, 'SAN-0888', NULL), (110, 'HOU-0333', 'MONTROSE,HEIGHTS,MIDTOWN,DOWNTOWN'), (111, '  MIN-0777  ', 'UPTOWN,NORTHEAST'), (112, 'DET-0666', 'DOWNTOWN,MIDTOWN,CORKTOWN'), (113, 'POR-0123', 'NORTHWEST,SOUTHWEST,NORTHEAST,SOUTHEAST,NORTH,SOUTH'), (114, 'orl-0011', 'DOWNTOWN'), (115, 'TAM-0999', 'YBOR_CITY,HYDE_PARK,CHANNELSIDE');",
+    "test_expected_columns": [
+      "route_id",
+      "city_code",
+      "route_number",
+      "zone_count",
+      "zones_array"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        "ATL",
+        1,
+        2,
+        [
+          "MIDTOWN",
+          "BUCKHEAD"
+        ]
+      ],
+      [
+        102,
+        "PDX",
+        750,
+        5,
+        [
+          "PEARL",
+          "HAWTHORNE",
+          "SELLWOOD",
+          "ALBERTA",
+          "MISSISSIPPI"
+        ]
+      ],
+      [
+        103,
+        "DEN",
+        999,
+        2,
+        [
+          "CAPITOL_HILL",
+          "LODO"
+        ]
+      ],
+      [
+        104,
+        "MIA",
+        505,
+        5,
+        [
+          "BRICKELL",
+          "WYNWOOD",
+          "COCONUT_GROVE",
+          "SOUTH_BEACH",
+          "LITTLE_HAVANA"
+        ]
+      ],
+      [
+        105,
+        "PHX",
+        100,
+        0,
+        []
+      ],
+      [
+        106,
+        "AUS",
+        444,
+        3,
+        [
+          "DOWNTOWN",
+          "EAST_AUSTIN",
+          "SOUTH_CONGRESS"
+        ]
+      ],
+      [
+        107,
+        "DAL",
+        222,
+        3,
+        [
+          "UPTOWN",
+          "DEEP_ELLUM",
+          "BISHOP_ARTS"
+        ]
+      ],
+      [
+        108,
+        "PHI",
+        50,
+        1,
+        [
+          "CENTER_CITY"
+        ]
+      ],
+      [
+        109,
+        "SAN",
+        888,
+        0,
+        []
+      ],
+      [
+        110,
+        "HOU",
+        333,
+        4,
+        [
+          "MONTROSE",
+          "HEIGHTS",
+          "MIDTOWN",
+          "DOWNTOWN"
+        ]
+      ],
+      [
+        111,
+        "MIN",
+        777,
+        2,
+        [
+          "UPTOWN",
+          "NORTHEAST"
+        ]
+      ],
+      [
+        112,
+        "DET",
+        666,
+        3,
+        [
+          "DOWNTOWN",
+          "MIDTOWN",
+          "CORKTOWN"
+        ]
+      ],
+      [
+        113,
+        "POR",
+        123,
+        6,
+        [
+          "NORTHWEST",
+          "SOUTHWEST",
+          "NORTHEAST",
+          "SOUTHEAST",
+          "NORTH",
+          "SOUTH"
+        ]
+      ],
+      [
+        114,
+        "ORL",
+        11,
+        1,
+        [
+          "DOWNTOWN"
+        ]
+      ],
+      [
+        115,
+        "TAM",
+        999,
+        3,
+        [
+          "YBOR_CITY",
+          "HYDE_PARK",
+          "CHANNELSIDE"
+        ]
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "same_rows",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "parse-clean: trim whitespace from route_code",
+        "parse-clean: extract city code substring and uppercase",
+        "parse-clean: extract route number substring and cast to integer",
+        "parse-clean: split delivery_zones into array",
+        "parse-clean: count array length for zone_count"
+      ]
+    },
+    "hints": [
+      "Start by cleaning the route_code to remove any whitespace, then think about how to extract specific character positions.",
+      "Use SUBSTRING with FROM and FOR to grab the city code (positions 1-3) and the route number (positions 5-8 after the hyphen). Convert the city to uppercase and the number to an integer.",
+      "For delivery_zones, use STRING_TO_ARRAY to split on commas, then ARRAY_LENGTH to count elements. Handle NULL zones by using COALESCE to provide an empty string before splitting, which gives an array with one empty element; you can filter that with NULLIF or handle it differently depending on whether LENGTH of the original string is 0."
+    ],
+    "answer_key": "SELECT route_id, UPPER(SUBSTRING(TRIM(route_code) FROM 1 FOR 3)) AS city_code, SUBSTRING(TRIM(route_code) FROM 5 FOR 4)::INT AS route_number, CASE WHEN delivery_zones IS NULL OR LENGTH(TRIM(delivery_zones)) = 0 THEN 0 ELSE ARRAY_LENGTH(STRING_TO_ARRAY(delivery_zones, ','), 1) END AS zone_count, CASE WHEN delivery_zones IS NULL OR LENGTH(TRIM(delivery_zones)) = 0 THEN ARRAY[]::TEXT[] ELSE STRING_TO_ARRAY(delivery_zones, ',') END AS zones_array FROM delivery_routes ORDER BY route_id;",
+    "_meta": {
+      "question_type": "parse_clean",
+      "original_qtype": "parse_clean",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-07-02T10:53:57.741985",
+      "problem_id": "855e9ea366be",
+      "validation_attempts": 1,
+      "scenario": "a food delivery service tracking order completion and delivery time",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "string_clean",
+      "cleaning_required": false,
+      "cleaning_level": null,
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": false,
+      "realism": "high"
+    },
+    "example_output_schema": [
+      [
+        "route_id",
+        "INTEGER"
+      ],
+      [
+        "city_code",
+        "TEXT"
+      ],
+      [
+        "route_number",
+        "INTEGER"
+      ],
+      [
+        "zone_count",
+        "INTEGER"
+      ],
+      [
+        "zones_array",
+        "TEXT[]"
+      ]
+    ]
+  },
+  "user_solution": "/* notes */\n\nSELECT\n    route_id,\n    SPLIT_PART(UPPER(TRIM(route_code)), '-', 1) AS city_code,\n    SPLIT_PART(UPPER(TRIM(route_code)), '-', 2)::int AS route_number,\n    COALESCE(ARRAY_LENGTH(STRING_TO_ARRAY(UPPER(TRIM(delivery_zones)), ','), 1), 0)::INT AS zone_count,\n    COALESCE(STRING_TO_ARRAY(UPPER(TRIM(delivery_zones)), ','), '{}') AS zones_array\nFROM delivery_routes\nORDER BY route_id;",
+  "solved_at": "2026-07-02T11:04:54.871415"
+}
