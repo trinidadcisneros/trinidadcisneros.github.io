@@ -249,6 +249,11 @@ QUESTION_TYPES = {
         "description": "Practice using CROSS JOIN where it is the natural choice: calendar/category skeletons LEFT JOINed to actuals so missing combinations show as 0, fixed-bucket fan-out (one row per (entity, bucket) pair), or all-pairs self-cross-join for pairwise comparisons with a dedupe filter. PostgreSQL.",
         "dialects": ["postgresql"],
     },
+    "math_functions": {
+        "label": "Math functions (rounding, ratios, modulo, powers, sign)",
+        "description": "Single-table numeric math on columns: ROUND/CEIL/FLOOR/TRUNC precision, safe division & percentages (NULLIF guard + numeric cast), MOD / integer division, POWER/SQRT/LN/LOG, and ABS/SIGN/GREATEST/LEAST. Row-level scalar transforms — no joins, no reshape. PostgreSQL.",
+        "dialects": ["postgresql"],
+    },
     "date_operations": {
         "label": "Date Operations & Manipulations",
         "description": "Practice common date and timestamp methods: DATE_TRUNC for cohort buckets (month, week, quarter), EXTRACT for component access (year, dow, hour), date arithmetic with DATE ± INT and INTERVAL, 'X days ago' filtering, inclusive vs exclusive day counts, EXTRACT(EPOCH FROM interval) for durations, generate_series for filling missing days. PostgreSQL.",
@@ -1591,6 +1596,40 @@ LEFT JOIN departments AS d ON d.department_id = e.department_id
 ORDER BY e.employee_id;
 -- LEFT keeps employees whose department_id is NULL / unmatched; INNER would drop them.
 """,
+    "math_functions": """\
+-- Single-table number math on columns (no joins, no reshape).
+
+-- ROUNDING & PRECISION
+SELECT ROUND(price, 2)  AS rounded_2dp,   -- nearest, 2 decimals
+       CEIL(weight)     AS round_up,      -- always up
+       FLOOR(weight)    AS round_down,    -- always down
+       TRUNC(price, 1)  AS cut_to_1dp     -- chop, do not round
+FROM items;
+
+-- SAFE DIVISION / PERCENT (guard zero + integer division)
+SELECT ROUND(100.0 * converted / NULLIF(visits, 0), 2) AS conversion_pct
+FROM funnel;
+
+-- MODULO / INTEGER DIVISION
+SELECT total_cents / 100      AS dollars,   -- whole part
+       MOD(total_cents, 100)  AS cents,     -- remainder
+       (id % 2 = 0)           AS is_even
+FROM payments;
+
+-- POWERS / ROOTS / LOGS (cast to numeric before ROUND)
+SELECT POWER(base, 2)                    AS squared,
+       SQRT(area)                        AS side,
+       ROUND(LN(revenue)::numeric, 3)    AS ln_revenue,
+       ROUND(LOG(10, revenue)::numeric, 3) AS log10_revenue
+FROM metrics;
+
+-- ABSOLUTE / SIGN / ROW-WISE MIN-MAX
+SELECT ABS(actual - target)   AS gap,        -- size, sign dropped
+       SIGN(actual - target)  AS direction,  -- -1 / 0 / +1
+       GREATEST(score, 0)     AS floored,    -- clamp to a floor
+       LEAST(score, 100)      AS capped      -- clamp to a ceiling
+FROM results;
+""",
     "root_cause_analysis": """\
 -- Root Cause Analysis: the answer surfaces the BUG ROWS, not the broken metric.
 -- A CTE staircase walks symptom -> per-dimension breakdown -> the offender.
@@ -1671,33 +1710,85 @@ def get_code_reference(qtype: str, islands_flavor: str = None, percentile_flavor
     return f"-- No code reference template available for question type: {qtype}\n"
 
 
+# Production playbook URL — "Learn more" links point here, NOT the local Live Server page.
+PLAYBOOK_BASE_URL = "https://trinidadcisneros.com/folders/sql/sql_problem_patterns.html"
+
+# Curated catalogue of stable anchors in sql_problem_patterns.html. The reviewer model
+# may only cite keys from this map, so every generated link resolves to a real section.
+PLAYBOOK_REFS = {
+    "distinct_on":        ("gl-leaf-distincton", "DISTINCT ON — one row per group", "picking the earliest / first row per group, e.g. the earliest thread's tag"),
+    "rownumber":          ("gl-leaf-rownumber",  "ROW_NUMBER — pick a row per group", "numbering rows per group and keeping rn = 1"),
+    "left_join_on_where": ("pitfall-on-vs-where","LEFT JOIN: ON vs WHERE", "where a filter on the joined table belongs so you do not drop rows"),
+    "driving_table":      ("enrich-join",        "Look up columns from another table", "which table to drive from vs which to join"),
+    "aggregate_per_group":("enrich-aggregate",   "Join then aggregate per group", "rolling detail rows up to one summary row per group"),
+    "anti_join_notin":    ("mt-of-notin",        "Anti-join with NOT IN (NULL guard)", "keeping rows with no match and the NULL trap"),
+    "semi_join":          ("mt-of-semijoin",     "Semi-join (IN / EXISTS)", "keeping rows that have at least one match"),
+    "having_count":       ("mt-of-having",       "Filter groups by count (HAVING)", "keeping groups by how many rows match"),
+    "window":             ("time-window",        "Window functions", "OVER / PARTITION BY calculations"),
+    "string_clean":       ("functions",          "String & cleaning functions", "TRIM / INITCAP / array element cleanup"),
+}
+
+
+def resolve_playbook_refs(keys):
+    """Turn reviewer reference keys into [{label, url, why}] against PLAYBOOK_REFS."""
+    out = []
+    for k in (keys or []):
+        if k in PLAYBOOK_REFS:
+            anchor, label, why = PLAYBOOK_REFS[k]
+            out.append({"label": label, "url": PLAYBOOK_BASE_URL + "#" + anchor, "why": why})
+    return out
+
+
+_REVIEW_MODES = {
+    "both": "Make the suggested version BOTH clean/readable AND efficient — the balanced "
+            "version you would want in an interview. This is the default.",
+    "readable": "Optimize the suggested version for READABILITY above all: clear CTE structure, "
+                "descriptive names, and inline comments, even if it is not the most efficient.",
+    "performance": "Optimize the suggested version for EFFICIENCY PRINCIPLES: fewest scans / joins, "
+                   "push filters down, avoid fan-out and redundant work, index-friendly predicates. "
+                   "Note in the verdict that on tiny practice data this is about good habits, not "
+                   "measurable speed.",
+}
+
+
 def review_sql(problem: Dict[str, Any], user_sql: str, dialect: str = "postgresql",
-               max_tokens: int = 2000) -> Dict[str, Any]:
+               mode: str = "both", max_tokens: int = 2500) -> Dict[str, Any]:
     """LLM review of a WORKING solution (metered feature).
 
-    Returns {ok, notes[list[str]], strategy[str], suggested_sql[str], error}.
-    The review is ADVISORY: suggested_sql is not guaranteed faster. The notebook
-    runs EXPLAIN ANALYZE on both the user's SQL and suggested_sql to show real,
-    measured metrics rather than trusting the model's claim.
+    `mode` steers the suggested version: 'both' (default, balanced), 'readable'
+    (clarity first), or 'performance' (efficiency principles).
+
+    Returns {ok, verdict, strategy[list], notes[list], suggested_summary[list],
+    suggested_sql[str with inline -- comments], references[list of {label,url,why}]}.
+    ADVISORY: suggested_sql is not guaranteed faster — the notebook runs EXPLAIN
+    ANALYZE on both to show measured metrics.
     """
     if not user_sql or not user_sql.strip():
         return {"ok": False, "error": "No SQL to review."}
+    mode = mode if mode in _REVIEW_MODES else "both"
     meta = problem.get("_meta", {})
     qtype = meta.get("question_type", "")
     disp = problem.get("display", {}) if isinstance(problem.get("display"), dict) else {}
     prompt_txt = problem.get("prompt") or disp.get("prompt") or ""
     schema = problem.get("schema_ddl", "")
+    ref_menu = "\n".join(f"    {k}: {lbl} — {why}" for k, (a, lbl, why) in PLAYBOOK_REFS.items())
     system = (
-        "You are a senior SQL reviewer for a practice tool. The user's query is ALREADY CORRECT "
-        "(it passed the hidden test). Review it for clarity, efficiency, and join / filter "
-        "strategy. Respond with ONLY a JSON object with these keys:\n"
-        "  notes: array of at most 6 short plain-language strings — concrete improvements, or "
-        "confirmations that something is already good.\n"
-        "  strategy: one short paragraph on the join / filter strategy — which table drives (FROM), "
-        "INNER vs LEFT, and any fan-out or NULL-handling risk.\n"
-        f"  suggested_sql: ONE alternative query that is cleaner or likely faster, runnable as-is "
-        f"in {dialect}. If the original is already optimal, return it unchanged and say so in notes.\n"
-        "Use ONLY the columns in the given schema; never invent columns. Do not wrap the JSON in prose."
+        "You are a senior SQL reviewer for a practice tool. The user's query already PASSED "
+        "the hidden test. Keep everything SHORT and scannable — no paragraphs.\n"
+        "SUGGESTION MODE: " + _REVIEW_MODES[mode] + "\n"
+        "Respond with ONLY a JSON object with these keys:\n"
+        "  verdict: ONE short sentence — is it correct and solid, and the single biggest takeaway.\n"
+        "  strategy: array of 2-4 SHORT bullets (max ~15 words each) on the join / filter strategy — "
+        "which table drives (FROM), INNER vs LEFT, and any fan-out or NULL risk. One idea per bullet.\n"
+        "  notes: array of at most 5 SHORT bullets — concrete improvements or confirmations. One idea each.\n"
+        "  suggested_summary: array of 2-4 SHORT plain-language bullets describing what the suggested "
+        "version does, step by step, for a beginner.\n"
+        f"  suggested_sql: ONE alternative query, cleaner or likely faster, runnable as-is in {dialect}, "
+        "WITH a brief plain-language `-- comment` on the lines that do the real work (joins, the "
+        "per-group pick, the filter). If the original is already optimal, return it unchanged and say so.\n"
+        "  references: array of 1-4 keys chosen ONLY from this menu (pick the ones most relevant to the "
+        "suggested query; use the exact key strings):\n" + ref_menu + "\n"
+        "Use ONLY the columns in the given schema; never invent columns. Output the JSON object only."
     )
     user = (
         f"Dialect: {dialect}\nQuestion type: {qtype}\n\n"
@@ -1712,14 +1803,20 @@ def review_sql(problem: Dict[str, Any], user_sql: str, dialect: str = "postgresq
     data = _extract_json(raw)
     if not data:
         return {"ok": False, "error": "Could not parse review JSON from the model.", "raw": raw}
-    notes = data.get("notes", [])
-    if isinstance(notes, str):
-        notes = [notes]
+
+    def _as_list(v):
+        if isinstance(v, str):
+            return [v] if v.strip() else []
+        return [str(x) for x in v] if isinstance(v, list) else []
+
     return {
         "ok": True,
-        "notes": [str(n) for n in notes][:6],
-        "strategy": str(data.get("strategy", "")).strip(),
+        "verdict": str(data.get("verdict", "")).strip(),
+        "strategy": _as_list(data.get("strategy"))[:4],
+        "notes": _as_list(data.get("notes"))[:5],
+        "suggested_summary": _as_list(data.get("suggested_summary"))[:4],
         "suggested_sql": (data.get("suggested_sql") or "").strip(),
+        "references": resolve_playbook_refs(data.get("references")),
     }
 
 
@@ -1955,6 +2052,13 @@ SUBTYPES = {
         ("fact_report_events", "Drive the fact, JOIN the dim for labels (one row per event)"),
         ("two_facts_preaggregate", "Two facts: pre-aggregate one, then join (avoid fan-out)"),
         ("two_dims_entity_parent", "Two dims: drive the entity, LEFT JOIN the parent lookup"),
+    ],
+    "math_functions": [
+        ("rounding", "Rounding & precision (ROUND / CEIL / FLOOR / TRUNC)"),
+        ("division_ratio", "Division & ratios (safe % with NULLIF + numeric cast)"),
+        ("modulo", "Modulo & integer division (MOD / % / DIV)"),
+        ("power_root_log", "Powers, roots & logs (POWER / SQRT / LN / LOG)"),
+        ("abs_sign_extremes", "Absolute, sign & row-wise min/max (ABS / SIGN / GREATEST / LEAST)"),
     ],
     "scalar_extract": [
         ("single_aggregate", "Single aggregate over the whole table"),
@@ -2533,6 +2637,52 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml
         )
         if subtype in _fot_forms:
             base += "\n\n" + _fot_forms[subtype]
+    elif qtype == "math_functions":
+        _mf = {
+            "rounding":
+                "ROUNDING & PRECISION — ROUND(x, n) (nearest at n decimals), CEIL (always up), "
+                "FLOOR (always down), TRUNC(x, n) (chop without rounding). Build data with values "
+                "where these DISAGREE (e.g. 2.5, 2.4, -1.5) so the wrong function gives the wrong "
+                "answer, and a value with more decimals than requested so TRUNC vs ROUND differ.",
+            "division_ratio":
+                "DIVISION / RATIO — a rate or percentage = part / whole. The answer MUST guard the "
+                "two traps: NULLIF(denominator, 0) for a zero denominator, and a numeric cast "
+                "(100.0 * ... or ::numeric) so it is NOT integer division. Include at least one row "
+                "whose denominator is 0 (expected output NULL) and integer columns where a naive "
+                "part/whole would truncate to 0, then ROUND to a fixed number of decimals.",
+            "modulo":
+                "MODULO / INTEGER DIVISION — MOD(x, n) or x % n for the remainder, and x / n for the "
+                "whole part when both are integers. Frame it as even/odd, every-Nth, or splitting a "
+                "total into whole units + leftover. Include values with a non-zero remainder AND an "
+                "exact multiple so the remainder column shows both.",
+            "power_root_log":
+                "POWERS / ROOTS / LOGS — POWER(x, n), SQRT(x), LN(x), LOG(b, x), EXP(x). ROUND their "
+                "result but CAST to ::numeric first (LN/LOG/SQRT return double precision, and "
+                "ROUND(double, int) does not exist). Use perfect squares / round logs where possible "
+                "so the expected output is clean.",
+            "abs_sign_extremes":
+                "ABSOLUTE / SIGN / ROW-WISE MIN-MAX — ABS(x) (size, sign dropped), SIGN(x) (-1/0/+1), "
+                "GREATEST(a, b, ...) and LEAST(a, b, ...) picking the max/min ACROSS columns in one "
+                "row (often clamping with a literal, e.g. GREATEST(score, 0)). Include NEGATIVE values "
+                "so ABS and SIGN clearly matter, and values above/below a clamp literal.",
+        }
+        _k = subtype if subtype in _mf else random.choice(list(_mf))
+        base += (
+            "Build a MATH-FUNCTIONS problem: a SINGLE table, and the answer computes one or more "
+            "NUMERIC columns per row (or a small per-row set) using SQL math functions. No joins, "
+            "no reshape, no mutation.\n"
+            "USE THIS EXACT family: " + _mf[_k] + "\n"
+            "Hard requirements:\n"
+            "1) Name every column by its EXACT schema name; for each computed output column give the "
+            "exact formula in the field rules (function + arguments + any rounding), and name the "
+            "output columns and ORDER BY in the prompt.\n"
+            "2) Design the example AND hidden data so the RIGHT function is the only one that "
+            "reproduces the expected output (values where ROUND/FLOOR/TRUNC differ, a zero "
+            "denominator, negatives for ABS/SIGN, etc.).\n"
+            "3) When rounding a POWER/SQRT/LN/LOG result, cast to ::numeric first.\n"
+            "4) classification.recipe = `row-transform`; classification.input_arrival = "
+            "`single_table`; classification.output_shape = `row_per_input`."
+        )
     elif qtype == "delete_duplicates":
         base += (
             "DEDUP (delete duplicate rows) — a single table holds duplicate rows; physically "
@@ -5966,6 +6116,7 @@ _PB_QTYPE = {
     "window_edge":              ("tab-single", "time-window",       "Single-Table › Window"),
     "union_islands":            ("tab-single", "row-compare",       "Single-Table › Compare › Gaps-and-Islands"),
     "date_operations":          ("tab-single", "date-operations",   "Single-Table › Date Operations"),
+    "math_functions":           ("tab-single", "math-ops",          "Single-Table › Math Operations"),
     "period_over_period":       ("tab-single", "time-window",       "Single-Table › Window › Period over period"),
     "parse_clean":              ("tab-single", "functions",         "Single-Table › Functions"),
     "gated_lookup":             ("tab-multi",  "gated-lookup",      "Multi-Table › Gated Lookup"),
@@ -6047,6 +6198,11 @@ _PB_SUBTYPE = {
     ("unpivot", "drop"):      ("up-leaf-drop",      "Columns to rows, drop the empties"),
     ("unpivot", "keep"):      ("up-leaf-keep",      "Columns to rows, keep the empties"),
     ("unpivot", "aggregate"): ("up-leaf-aggregate", "Unpivot then aggregate"),
+    ("math_functions", "rounding"):          ("mo-leaf-rounding", "Rounding & precision"),
+    ("math_functions", "division_ratio"):    ("mo-leaf-ratio",    "Division & ratios"),
+    ("math_functions", "modulo"):            ("mo-leaf-modulo",   "Modulo & integer division"),
+    ("math_functions", "power_root_log"):    ("mo-leaf-powerlog", "Powers, roots & logs"),
+    ("math_functions", "abs_sign_extremes"): ("mo-leaf-absign",   "Absolute, sign & min/max"),
     ("join_driving_table", "dim_keep_all"):          ("enrich-aggregate", "Drive the entity, LEFT JOIN the fact (keep zeros)"),
     ("join_driving_table", "fact_report_events"):    ("enrich-join",      "Drive the fact, JOIN the dim for labels"),
     ("join_driving_table", "two_facts_preaggregate"):("enrich-aggregate", "Two facts: pre-aggregate one, then join"),

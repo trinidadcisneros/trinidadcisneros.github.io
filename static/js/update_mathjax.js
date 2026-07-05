@@ -10,7 +10,7 @@ var script = document.createElement('script');
 var script2 = document.createElement('script');
 
     script2.src = 
-"https://polyfill.io/v3/polyfill.min.js?features=es6";
+"https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6";
 
     document.head.appendChild(script2);
 

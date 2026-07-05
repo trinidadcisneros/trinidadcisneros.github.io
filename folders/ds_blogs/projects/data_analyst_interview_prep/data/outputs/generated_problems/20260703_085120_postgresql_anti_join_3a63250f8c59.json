@@ -1,0 +1,218 @@
+{
+  "title": "Find Creators with Zero Story Views",
+  "prompt": "You are analyzing a photo sharing app modeled on public social media engagement datasets (data.gov). The platform tracks story creation and view activity. Each story has a posted_date and a tags array. Some creators post stories that receive zero views.\n\nWrite a query that identifies creators who have posted at least one story but have ZERO total views across all their stories. For each such creator, show their profile information and compute summary metrics. The output must include: creator_id, display_name (cleaned), total_stories_posted, first_story_month (YYYY-MM format from the earliest posted_date among their stories), primary_tag (the first tag from their most recent story's tags array), engagement_ratio (views divided by stories, as a two-decimal number), and risk_flag ('at_risk' if they have 3 or more stories with zero views, otherwise 'monitor').\n\nOrder the results by creator_id ascending.",
+  "display": {
+    "context": "You are working with a photo sharing app modeled on public social media engagement datasets (data.gov).",
+    "task": "Write a query that identifies creators who have posted at least one story but have ZERO total views across all their stories, showing their profile information and computed summary metrics.",
+    "table_notes": {
+      "creators": "holds creator profiles with registration details and display names that may need cleaning",
+      "stories": "records each story post with posted_date, tags array, and creator reference",
+      "story_views": "logs individual view events linking viewers to stories"
+    },
+    "output_field_notes": {
+      "creator_id": "the unique identifier of the creator",
+      "display_name": "the cleaned creator display name",
+      "total_stories_posted": "how many stories the creator has posted",
+      "first_story_month": "the month (YYYY-MM) when the creator posted their earliest story",
+      "primary_tag": "the first tag from the creator's most recent story",
+      "engagement_ratio": "views divided by stories, rounded to two decimals",
+      "risk_flag": "a status indicator based on story count"
+    },
+    "field_logic": [
+      "display_name: built from display_name in creators.\n- combine the first_name and last_name columns with a space separator\n- drop any leading or trailing spaces from the combined result",
+      "total_stories_posted: built from stories.\n- count how many story rows exist for this creator",
+      "first_story_month: built from posted_date in stories.\n- find the earliest posted_date among all the creator's stories\n- truncate it to the month level\n- format it as YYYY-MM",
+      "primary_tag: built from tags in stories.\n- identify the creator's most recent story by posted_date\n- take the first element from that story's tags array\n- if the tags array is NULL or empty, use NULL",
+      "engagement_ratio: built from total_views_text in creators and total_stories_posted.\n- convert total_views_text to a number\n- divide by total_stories_posted\n- round to two decimal places",
+      "risk_flag: built from total_stories_posted.\n- if total_stories_posted is 3 or more, assign 'at_risk'\n- otherwise assign 'monitor'"
+    ],
+    "edge_cases": [
+      "If a creator has stories but zero matching rows in story_views, they qualify for the output.",
+      "If total_views_text is NULL, treat it as zero for the ratio calculation.",
+      "If a creator's most recent story has a NULL or empty tags array, primary_tag should be NULL."
+    ],
+    "filter_note": "Only creators who have at least one story AND have zero total views across all their stories are included.",
+    "order_by_note": "Results are ordered by creator_id in ascending order."
+  },
+  "schema_ddl": "CREATE TABLE creators (creator_id INT PRIMARY KEY, first_name VARCHAR(50), last_name VARCHAR(50), registration_date DATE, total_views_text VARCHAR(20)); CREATE TABLE stories (story_id INT PRIMARY KEY, creator_id INT, posted_date DATE, tags TEXT[]); CREATE TABLE story_views (view_id INT PRIMARY KEY, story_id INT, viewer_id INT, viewed_at TIMESTAMP);",
+  "example_input_data": "INSERT INTO creators (creator_id, first_name, last_name, registration_date, total_views_text) VALUES (101, 'Alice', 'Chen', '2024-01-15', '0'), (102, 'Bob  ', '  Lee', '2024-02-01', NULL), (103, 'Carol', 'Davis', '2024-03-10', '150'), (104, 'Dan', 'Martinez', '2024-01-20', '0'); INSERT INTO stories (story_id, creator_id, posted_date, tags) VALUES (1, 101, '2024-02-01', ARRAY['sunset', 'beach']), (2, 101, '2024-03-15', ARRAY['city', 'night']), (3, 102, '2024-02-10', ARRAY['food']), (4, 102, '2024-03-01', ARRAY['travel', 'mountains']), (5, 102, '2024-04-05', ARRAY['portrait']), (6, 103, '2024-03-20', ARRAY['art', 'digital']), (7, 103, '2024-04-01', ARRAY['photography']), (8, 104, '2024-02-15', NULL); INSERT INTO story_views (view_id, story_id, viewer_id, viewed_at) VALUES (1, 6, 201, '2024-03-20 10:00:00'), (2, 6, 202, '2024-03-20 11:30:00'), (3, 7, 201, '2024-04-01 09:15:00');",
+  "example_output_columns": [
+    "creator_id",
+    "display_name",
+    "total_stories_posted",
+    "first_story_month",
+    "primary_tag",
+    "engagement_ratio",
+    "risk_flag"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Alice Chen",
+      2,
+      "2024-02",
+      "city",
+      "0.00",
+      "monitor"
+    ],
+    [
+      102,
+      "Bob     Lee",
+      3,
+      "2024-02",
+      "portrait",
+      "0.00",
+      "at_risk"
+    ],
+    [
+      104,
+      "Dan Martinez",
+      1,
+      "2024-02",
+      null,
+      "0.00",
+      "monitor"
+    ]
+  ],
+  "test_data": "INSERT INTO creators (creator_id, first_name, last_name, registration_date, total_views_text) VALUES (201, 'Emma ', ' Wilson', '2024-01-05', '0'), (202, 'Frank', 'Taylor', '2024-01-12', '0'), (203, 'Grace', 'Anderson', '2024-02-20', '0'), (204, 'Henry', 'Thomas', '2024-03-01', '250'), (205, 'Iris', 'Moore', '2024-01-25', NULL), (206, 'Jack', 'Jackson', '2024-02-15', '0'), (207, 'Karen', 'White', '2024-03-05', '0'), (208, 'Leo', 'Harris', '2024-01-30', '88'); INSERT INTO stories (story_id, creator_id, posted_date, tags) VALUES (101, 201, '2024-01-10', ARRAY['nature']), (102, 201, '2024-02-20', ARRAY['landscape', 'winter']), (103, 202, '2024-01-15', ARRAY['urban']), (104, 202, '2024-02-10', ARRAY['street']), (105, 202, '2024-03-15', ARRAY['architecture']), (106, 202, '2024-04-20', ARRAY['abstract']), (107, 203, '2024-03-01', ARRAY['fashion']), (108, 203, '2024-03-25', ARRAY['style']), (109, 203, '2024-04-10', NULL), (110, 204, '2024-03-10', ARRAY['sports']), (111, 204, '2024-04-15', ARRAY['action', 'dynamic']), (112, 205, '2024-02-05', ARRAY['minimalist']), (113, 206, '2024-02-20', ARRAY['vintage']), (114, 206, '2024-03-10', ARRAY['retro', 'film']), (115, 207, '2024-03-15', ARRAY['macro']), (116, 207, '2024-04-01', ARRAY['closeup']), (117, 207, '2024-04-25', ARRAY['detail', 'texture']), (118, 208, '2024-02-10', ARRAY['wildlife']), (119, 208, '2024-03-20', ARRAY['birds']); INSERT INTO story_views (view_id, story_id, viewer_id, viewed_at) VALUES (101, 110, 301, '2024-03-10 14:00:00'), (102, 110, 302, '2024-03-10 15:30:00'), (103, 111, 301, '2024-04-15 10:00:00'), (104, 111, 303, '2024-04-15 11:45:00'), (105, 118, 302, '2024-02-10 16:20:00'), (106, 119, 301, '2024-03-20 09:00:00');",
+  "test_expected_columns": [
+    "creator_id",
+    "display_name",
+    "total_stories_posted",
+    "first_story_month",
+    "primary_tag",
+    "engagement_ratio",
+    "risk_flag"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Emma   Wilson",
+      2,
+      "2024-01",
+      "landscape",
+      "0.00",
+      "monitor"
+    ],
+    [
+      202,
+      "Frank Taylor",
+      4,
+      "2024-01",
+      "abstract",
+      "0.00",
+      "at_risk"
+    ],
+    [
+      203,
+      "Grace Anderson",
+      3,
+      "2024-03",
+      null,
+      "0.00",
+      "at_risk"
+    ],
+    [
+      205,
+      "Iris Moore",
+      1,
+      "2024-02",
+      "minimalist",
+      "0.00",
+      "monitor"
+    ],
+    [
+      206,
+      "Jack Jackson",
+      2,
+      "2024-02",
+      "retro",
+      "0.00",
+      "monitor"
+    ],
+    [
+      207,
+      "Karen White",
+      3,
+      "2024-03",
+      "detail",
+      "0.00",
+      "at_risk"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "row-filter",
+    "composite_moves": [
+      "anti-join to find creators with no views (NOT IN with guaranteed non-NULL subquery)",
+      "join creators and stories to compute aggregates per creator",
+      "window function to find most recent story per creator for primary_tag",
+      "string cleaning (CONCAT_WS, TRIM)",
+      "array indexing (arr[1])",
+      "date truncation and formatting (DATE_TRUNC, TO_CHAR)",
+      "type cast (text to numeric)",
+      "numeric division with rounding",
+      "conditional logic (CASE WHEN for risk_flag, COALESCE for nulls)"
+    ]
+  },
+  "hints": [
+    "Start by identifying which story_id values have at least one view, then find creators whose stories are not in that set.",
+    "To get the primary tag from the most recent story, consider using a window function like ROW_NUMBER() OVER (PARTITION BY creator_id ORDER BY posted_date DESC) to rank stories, then take tags[1] from the top-ranked story.",
+    "Use NOT IN with a subquery that returns story_id WHERE story_id IS NOT NULL from story_views, then join creators and stories to compute the aggregates. Clean the display name with CONCAT_WS and TRIM, extract the month from the earliest posted_date with DATE_TRUNC and TO_CHAR, cast total_views_text to numeric for the ratio, round the division result, and use CASE WHEN to assign the risk_flag based on story count."
+  ],
+  "answer_key": "WITH story_ranks AS (SELECT story_id, creator_id, posted_date, tags, ROW_NUMBER() OVER (PARTITION BY creator_id ORDER BY posted_date DESC) AS rn FROM stories), creator_summaries AS (SELECT c.creator_id, TRIM(CONCAT_WS(' ', c.first_name, c.last_name)) AS display_name, COUNT(s.story_id) AS total_stories_posted, TO_CHAR(DATE_TRUNC('month', MIN(s.posted_date)), 'YYYY-MM') AS first_story_month, (SELECT sr.tags[1] FROM story_ranks sr WHERE sr.creator_id = c.creator_id AND sr.rn = 1) AS primary_tag, COALESCE(c.total_views_text::numeric, 0) AS total_views, CASE WHEN COUNT(s.story_id) >= 3 THEN 'at_risk' ELSE 'monitor' END AS risk_flag FROM creators c INNER JOIN stories s ON c.creator_id = s.creator_id WHERE s.story_id NOT IN (SELECT story_id FROM story_views WHERE story_id IS NOT NULL) GROUP BY c.creator_id, c.first_name, c.last_name, c.total_views_text) SELECT creator_id, display_name, total_stories_posted, first_story_month, primary_tag, ROUND(total_views::numeric / total_stories_posted, 2) AS engagement_ratio, risk_flag FROM creator_summaries ORDER BY creator_id;",
+  "_meta": {
+    "question_type": "anti_join",
+    "original_qtype": "anti_join",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-03T08:51:20.301626",
+    "problem_id": "3a63250f8c59",
+    "validation_attempts": 3,
+    "scenario": "a photo sharing app tracking story creation and view rates",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "not_in",
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "high"
+  },
+  "example_output_schema": [
+    [
+      "creator_id",
+      "INTEGER"
+    ],
+    [
+      "display_name",
+      "TEXT"
+    ],
+    [
+      "total_stories_posted",
+      "BIGINT"
+    ],
+    [
+      "first_story_month",
+      "TEXT"
+    ],
+    [
+      "primary_tag",
+      "TEXT"
+    ],
+    [
+      "engagement_ratio",
+      "NUMERIC"
+    ],
+    [
+      "risk_flag",
+      "TEXT"
+    ]
+  ]
+}

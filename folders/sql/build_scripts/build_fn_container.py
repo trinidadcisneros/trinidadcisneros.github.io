@@ -53,6 +53,8 @@ REF = {
   ("date + INTERVAL", "Shift by an interval", "DATE '2020-01-15' + INTERVAL '1 month'", "2020-02-15 00:00:00"),
   ("TO_CHAR(ts, fmt)", "Format a timestamp to text (month / weekday NAMES too &mdash; see the format-pattern accordion below)", "TO_CHAR(TIMESTAMP '2020-11-30','YYYY-MM')", "2020-11"),
   ("EXTRACT(DOW FROM d)", "Day of week (0 = Sunday)", "EXTRACT(DOW FROM DATE '2020-11-30')", "1"),
+  ("TO_DATE(s, fmt)", "Parse TEXT into a date &mdash; you give the input format (no guessing)", "TO_DATE('15.03.2024','DD.MM.YYYY')", "2024-03-15"),
+  ("TO_CHAR(date, fmt)", "Format a date as TEXT (the reverse of TO_DATE)", "TO_CHAR(DATE '2024-03-15','YYYY-MM-DD')", "2024-03-15"),
  ],
  'fn-cast': [
   ("x::type  /  CAST(x AS type)", "Convert a value's type", "'42'::int", "42"),
