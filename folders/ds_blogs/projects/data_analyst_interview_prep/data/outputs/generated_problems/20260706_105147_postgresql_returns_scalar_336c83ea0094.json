@@ -1,0 +1,99 @@
+{
+  "title": "Calculate Average Days to First Reply",
+  "prompt": "You are working with a community forum that tracks thread participation and member activity. The forum wants to understand how responsive its community is by measuring how long it takes for a thread to receive its first reply from someone other than the original poster. Write a function `avg_days_to_first_reply(p_category VARCHAR, p_min_views INT)` that returns the average number of days between a thread's creation and its first non-OP reply, considering only threads in the specified category that have at least the minimum view count. The function should return a NUMERIC value rounded to 2 decimal places. If no threads match the criteria, return 0.00. Test your function by calling: `SELECT avg_days_to_first_reply('General Discussion', 50) AS result;`",
+  "display": {
+    "context": "You are working with a community forum that tracks thread participation and member retention.",
+    "task": "Write a function that calculates the average number of days from thread creation to first non-OP reply for threads in a given category with a minimum view count.",
+    "table_notes": {
+      "threads": "Holds each discussion thread with its category, creator, creation timestamp, and view count.",
+      "replies": "Holds each reply to a thread with the member who posted it and the reply timestamp.",
+      "members": "Holds member information including join date and activity status."
+    },
+    "output_field_notes": {
+      "result": "The average number of days from thread creation to first non-OP reply, rounded to 2 decimal places, or 0.00 if no qualifying threads exist."
+    },
+    "field_logic": [
+      "result: built from threads.created_at, replies.replied_at, threads.thread_creator_id, replies.member_id, threads.category, and threads.view_count.\n- for each thread in the specified category where view_count is at least the minimum, find the earliest reply where member_id is different from thread_creator_id\n- calculate the number of days between created_at and that first non-OP replied_at\n- average those day counts across all qualifying threads\n- round the average to 2 decimal places\n- if no threads have a qualifying first reply, return 0.00"
+    ],
+    "edge_cases": [
+      "If a thread has no replies from non-OP members, exclude it from the average calculation.",
+      "If no threads in the category meet the view count threshold or have non-OP replies, return 0.00.",
+      "If view_count is NULL, treat it as 0."
+    ],
+    "filter_note": "Only threads in the specified category with view_count at least the minimum are considered; only replies from members other than the thread creator count as the first reply.",
+    "order_by_note": "Not applicable; the function returns a single scalar value.",
+    "answer_shape": "Write a function avg_days_to_first_reply(p_category VARCHAR, p_min_views INT) RETURNS NUMERIC.\n- Declare\n  - no local variables needed\n- Main query\n  - use a CTE or subquery to join threads with replies\n  - filter threads by category = p_category and COALESCE(view_count, 0) >= p_min_views\n  - filter replies by member_id != thread_creator_id\n  - for each thread, use a window function or subquery to identify the MIN(replied_at) among non-OP replies\n  - calculate the day difference between created_at and that first non-OP replied_at\n  - wrap the entire query in COALESCE(..., 0.00) to handle the case where no rows qualify\n  - AVG the day differences and ROUND to 2 decimal places\n- Return\n  - RETURN (the result of the query);\n- Test call\n  - SELECT avg_days_to_first_reply('General Discussion', 50) AS result;",
+    "function_signature": "avg_days_to_first_reply(p_category VARCHAR, p_min_views INT) RETURNS NUMERIC",
+    "test_call": "SELECT avg_days_to_first_reply('General Discussion', 50) AS result;"
+  },
+  "schema_ddl": "CREATE TABLE members (member_id INT PRIMARY KEY, username VARCHAR(100), joined_date DATE, status VARCHAR(20)); CREATE TABLE threads (thread_id INT PRIMARY KEY, title VARCHAR(200), category VARCHAR(100), thread_creator_id INT, created_at TIMESTAMP, view_count INT); CREATE TABLE replies (reply_id INT PRIMARY KEY, thread_id INT, member_id INT, replied_at TIMESTAMP, content TEXT);",
+  "example_input_data": "INSERT INTO members (member_id, username, joined_date, status) VALUES (1, 'alice_dev', '2023-01-15', 'active'), (2, 'bob_gamer', '2023-02-20', 'active'), (3, 'charlie_tech', '2023-03-10', 'active'), (4, 'diana_writer', '2023-04-05', 'active'), (5, 'eve_admin', '2023-01-01', 'active'); INSERT INTO threads (thread_id, title, category, thread_creator_id, created_at, view_count) VALUES (101, 'Welcome to the forum', 'General Discussion', 1, '2024-01-10 09:00:00', 120), (102, 'Best gaming setup 2024', 'Gaming', 2, '2024-01-12 10:30:00', 85), (103, 'How to optimize queries', 'Technical Help', 3, '2024-01-15 14:00:00', 45), (104, 'New member introduction', 'General Discussion', 4, '2024-01-18 11:00:00', 60), (105, 'Forum rules discussion', 'General Discussion', 5, '2024-01-20 08:00:00', 95), (106, 'Low traffic thread', 'General Discussion', 1, '2024-01-22 16:00:00', 30); INSERT INTO replies (reply_id, thread_id, member_id, replied_at, content) VALUES (1001, 101, 2, '2024-01-12 10:00:00', 'Thanks for the welcome!'), (1002, 101, 3, '2024-01-13 15:00:00', 'Great to be here'), (1003, 102, 1, '2024-01-13 12:00:00', 'Nice setup ideas'), (1004, 104, 1, '2024-01-18 13:00:00', 'Welcome aboard!'), (1005, 105, 1, '2024-01-22 09:00:00', 'I agree with these rules'), (1006, 105, 2, '2024-01-23 10:00:00', 'Makes sense to me');",
+  "example_output_columns": [
+    "result"
+  ],
+  "example_output_rows": [
+    [
+      "1.39"
+    ]
+  ],
+  "test_data": "INSERT INTO members (member_id, username, joined_date, status) VALUES (1, 'alice_dev', '2023-01-15', 'active'), (2, 'bob_gamer', '2023-02-20', 'active'), (3, 'charlie_tech', '2023-03-10', 'active'), (4, 'diana_writer', '2023-04-05', 'active'), (5, 'eve_admin', '2023-01-01', 'active'), (6, 'frank_newbie', '2023-05-01', 'active'), (7, 'grace_mod', '2023-06-15', 'active'), (8, 'henry_lurker', '2023-07-20', 'inactive'), (9, 'iris_contributor', '2023-08-01', 'active'), (10, 'jack_visitor', '2023-09-10', 'active'); INSERT INTO threads (thread_id, title, category, thread_creator_id, created_at, view_count) VALUES (101, 'Welcome to the forum', 'General Discussion', 1, '2024-01-10 09:00:00', 120), (102, 'Best gaming setup 2024', 'Gaming', 2, '2024-01-12 10:30:00', 85), (103, 'How to optimize queries', 'Technical Help', 3, '2024-01-15 14:00:00', 45), (104, 'New member introduction', 'General Discussion', 4, '2024-01-18 11:00:00', 60), (105, 'Forum rules discussion', 'General Discussion', 5, '2024-01-20 08:00:00', 95), (106, 'Low traffic thread', 'General Discussion', 1, '2024-01-22 16:00:00', 30), (107, 'Community guidelines', 'General Discussion', 2, '2024-01-25 10:00:00', 150), (108, 'Troubleshooting help', 'Technical Help', 3, '2024-01-26 12:00:00', 72), (109, 'Gaming news update', 'Gaming', 4, '2024-01-27 14:00:00', 55), (110, 'Feature requests', 'General Discussion', 5, '2024-01-28 09:00:00', 88), (111, 'Empty thread', 'General Discussion', 6, '2024-01-29 11:00:00', 65), (112, 'Only OP replies', 'General Discussion', 7, '2024-01-30 13:00:00', 70), (113, 'Null views thread', 'General Discussion', 8, '2024-02-01 10:00:00', NULL), (114, 'Quick response thread', 'General Discussion', 9, '2024-02-02 08:00:00', 110), (115, 'Delayed response', 'General Discussion', 10, '2024-02-03 07:00:00', 95), (116, 'Multi-reply discussion', 'General Discussion', 1, '2024-02-04 06:00:00', 200), (117, 'Exactly threshold', 'General Discussion', 2, '2024-02-05 15:00:00', 50), (118, 'Just below threshold', 'General Discussion', 3, '2024-02-06 16:00:00', 49), (119, 'Late first reply', 'General Discussion', 4, '2024-02-07 12:00:00', 78), (120, 'Same day reply', 'General Discussion', 5, '2024-02-08 09:00:00', 92); INSERT INTO replies (reply_id, thread_id, member_id, replied_at, content) VALUES (1001, 101, 2, '2024-01-12 10:00:00', 'Thanks for the welcome!'), (1002, 101, 3, '2024-01-13 15:00:00', 'Great to be here'), (1003, 102, 1, '2024-01-13 12:00:00', 'Nice setup ideas'), (1004, 104, 1, '2024-01-18 13:00:00', 'Welcome aboard!'), (1005, 105, 1, '2024-01-22 09:00:00', 'I agree with these rules'), (1006, 105, 2, '2024-01-23 10:00:00', 'Makes sense to me'), (1007, 107, 3, '2024-01-25 11:00:00', 'Good guidelines'), (1008, 107, 4, '2024-01-26 09:00:00', 'Very clear'), (1009, 108, 1, '2024-01-28 14:00:00', 'Try this solution'), (1010, 110, 6, '2024-01-29 10:00:00', 'Great ideas here'), (1011, 112, 7, '2024-01-30 14:00:00', 'Adding more details'), (1012, 112, 7, '2024-01-31 15:00:00', 'Another update from me'), (1013, 114, 10, '2024-02-02 08:30:00', 'Quick response'), (1014, 115, 1, '2024-02-08 07:00:00', 'Sorry for late reply'), (1015, 116, 2, '2024-02-05 08:00:00', 'First response here'), (1016, 116, 3, '2024-02-05 09:00:00', 'Second response'), (1017, 117, 1, '2024-02-07 15:00:00', 'Exactly at threshold'), (1018, 119, 5, '2024-02-14 12:00:00', 'Week later reply'), (1019, 120, 6, '2024-02-08 18:00:00', 'Same day response');",
+  "test_expected_columns": [
+    "result"
+  ],
+  "test_expected_rows": [
+    [
+      "1.88"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "scalar_return",
+    "recipe": "function-wrapped",
+    "composite_moves": [
+      "enrich-join threads with replies",
+      "row-filter by category and view_count threshold",
+      "row-filter replies to exclude OP",
+      "group-aggregate per thread to find MIN replied_at",
+      "row-transform to calculate day difference",
+      "group-aggregate AVG across all threads",
+      "scalar-extract with COALESCE for empty result"
+    ]
+  },
+  "hints": [
+    "You'll need to join threads with their replies and filter out replies from the thread creator.",
+    "For each qualifying thread, find the earliest reply timestamp from a non-OP member, then calculate the day difference from thread creation.",
+    "Use a window function like ROW_NUMBER or a grouped MIN to identify the first non-OP reply per thread, then AVG the day differences and handle the case where no threads qualify by returning 0.00."
+  ],
+  "answer_key": "CREATE OR REPLACE FUNCTION avg_days_to_first_reply(p_category VARCHAR, p_min_views INT)\nRETURNS NUMERIC\nLANGUAGE plpgsql\nAS $$\nBEGIN\n  RETURN (\n    SELECT COALESCE(ROUND(AVG(days_to_reply), 2), 0.00)\n    FROM (\n      SELECT \n        t.thread_id,\n        EXTRACT(EPOCH FROM (MIN(r.replied_at) - t.created_at)) / 86400.0 AS days_to_reply\n      FROM threads t\n      INNER JOIN replies r ON t.thread_id = r.thread_id\n      WHERE t.category = p_category\n        AND COALESCE(t.view_count, 0) >= p_min_views\n        AND r.member_id != t.thread_creator_id\n      GROUP BY t.thread_id, t.created_at\n    ) first_replies\n  );\nEND;\n$$;\n\nSELECT avg_days_to_first_reply('General Discussion', 50) AS result;",
+  "_meta": {
+    "question_type": "returns_scalar",
+    "original_qtype": "returns_scalar",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-06T10:51:46.817280",
+    "problem_id": "336c83ea0094",
+    "validation_attempts": 1,
+    "scenario": "a community forum tracking thread participation and member retention",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": null,
+    "cleaning_required": false,
+    "cleaning_level": null,
+    "cleaning_requested": "moderate",
+    "cleaning_skipped_reason": "cleaning does not apply to this problem type (returns_scalar) \u2014 procedural / mutation / parse types drill control flow and state, not text or number cleanup",
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": null,
+    "typecast_twist": false,
+    "realism": "moderate"
+  },
+  "example_output_schema": [
+    [
+      "result",
+      "NUMERIC"
+    ]
+  ]
+}

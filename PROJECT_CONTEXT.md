@@ -419,6 +419,24 @@ For content-heavy reference guides that don't originate from notebooks, use the 
 
 ## 6. Recent Session Activity Log
 
+### Session: July 4, 2026 (Session 9 — polyfill.io Security Fix, Tableau Blog Series Kickoff)
+
+**SECURITY FIX — polyfill.io removed (needs git push):**
+The site loaded a script from polyfill.io, a CDN that was sold in 2024 and became a known supply chain attack vector. It now shows visitors a fake credentials popup (seen on ds_blogs pages). Replaced all references with Cloudflare's safe mirror `https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6` in:
+- `static/js/update_mathjax.js` (affects every wrapper page that loads MathJax)
+- `folders/ds_blogs/ds_ab_testing_hillstrom.html`
+- `folders/ds_blogs/ds_loan_default_tradeoff_matrix.html`
+- `folders/ds_blogs/ds_loan_default_business_loss.html`
+- `folders/ds_blogs/projects/loanDefaultPrediction/loan_default_tradeoff_matrix.html` (+ checkpoint copy)
+Never use polyfill.io in new pages.
+
+**Tableau + SQL + pandas blog series kickoff:**
+- New project folder: `folders/ds_blogs/projects/tableau_medi_cal/` with `data/`, `sql/`, `notebooks/` subfolders and `TABLEAU_MASTERY_AND_BLOG_CONTEXT.md` (the series context file — read PART 8 for confirmed decisions).
+- Series publishes as **Data Stories** posts using the standalone tabbed HTML pattern, modeled on `ds_loan_default_tradeoff_matrix.html`.
+- Post 1 dataset: Medi-Cal Managed Care Enrollment Report (CHHS Open Data). Post 2: Managed Care Performance Monitoring Dashboard Report (HEDIS). Stretch: HCAI ED Encounters.
+- Angle: each Tableau calculation shown side by side with the SQL and pandas that produce the identical result.
+- Workflow: Trinidad drives Tableau Public Desktop herself with step by step guidance; Claude handles data prep, parity code, and blog HTML.
+
 ### Session: April 3, 2026 (Session 8 — SQL Consolidation, Tabbed Pages, Debugging Guide Rebuild)
 
 **Major Restructure: 20 SQL Posts → 5 Consolidated Tabbed Guides**

@@ -19,7 +19,7 @@
       "risk_flag": "a status indicator based on story count"
     },
     "field_logic": [
-      "display_name: built from display_name in creators.\n- combine the first_name and last_name columns with a space separator\n- drop any leading or trailing spaces from the combined result",
+      "display_name: built from first_name and last_name in creators.\n- trim leading and trailing spaces from first_name and from last_name separately\n- join the two trimmed values with a single space",
       "total_stories_posted: built from stories.\n- count how many story rows exist for this creator",
       "first_story_month: built from posted_date in stories.\n- find the earliest posted_date among all the creator's stories\n- truncate it to the month level\n- format it as YYYY-MM",
       "primary_tag: built from tags in stories.\n- identify the creator's most recent story by posted_date\n- take the first element from that story's tags array\n- if the tags array is NULL or empty, use NULL",
@@ -57,7 +57,7 @@
     ],
     [
       102,
-      "Bob     Lee",
+      "Bob Lee",
       3,
       "2024-02",
       "portrait",
@@ -87,7 +87,7 @@
   "test_expected_rows": [
     [
       201,
-      "Emma   Wilson",
+      "Emma Wilson",
       2,
       "2024-01",
       "landscape",
@@ -161,7 +161,7 @@
     "To get the primary tag from the most recent story, consider using a window function like ROW_NUMBER() OVER (PARTITION BY creator_id ORDER BY posted_date DESC) to rank stories, then take tags[1] from the top-ranked story.",
     "Use NOT IN with a subquery that returns story_id WHERE story_id IS NOT NULL from story_views, then join creators and stories to compute the aggregates. Clean the display name with CONCAT_WS and TRIM, extract the month from the earliest posted_date with DATE_TRUNC and TO_CHAR, cast total_views_text to numeric for the ratio, round the division result, and use CASE WHEN to assign the risk_flag based on story count."
   ],
-  "answer_key": "WITH story_ranks AS (SELECT story_id, creator_id, posted_date, tags, ROW_NUMBER() OVER (PARTITION BY creator_id ORDER BY posted_date DESC) AS rn FROM stories), creator_summaries AS (SELECT c.creator_id, TRIM(CONCAT_WS(' ', c.first_name, c.last_name)) AS display_name, COUNT(s.story_id) AS total_stories_posted, TO_CHAR(DATE_TRUNC('month', MIN(s.posted_date)), 'YYYY-MM') AS first_story_month, (SELECT sr.tags[1] FROM story_ranks sr WHERE sr.creator_id = c.creator_id AND sr.rn = 1) AS primary_tag, COALESCE(c.total_views_text::numeric, 0) AS total_views, CASE WHEN COUNT(s.story_id) >= 3 THEN 'at_risk' ELSE 'monitor' END AS risk_flag FROM creators c INNER JOIN stories s ON c.creator_id = s.creator_id WHERE s.story_id NOT IN (SELECT story_id FROM story_views WHERE story_id IS NOT NULL) GROUP BY c.creator_id, c.first_name, c.last_name, c.total_views_text) SELECT creator_id, display_name, total_stories_posted, first_story_month, primary_tag, ROUND(total_views::numeric / total_stories_posted, 2) AS engagement_ratio, risk_flag FROM creator_summaries ORDER BY creator_id;",
+  "answer_key": "WITH story_ranks AS (SELECT story_id, creator_id, posted_date, tags, ROW_NUMBER() OVER (PARTITION BY creator_id ORDER BY posted_date DESC) AS rn FROM stories), creator_summaries AS (SELECT c.creator_id, CONCAT_WS(' ', TRIM(c.first_name), TRIM(c.last_name)) AS display_name, COUNT(s.story_id) AS total_stories_posted, TO_CHAR(DATE_TRUNC('month', MIN(s.posted_date)), 'YYYY-MM') AS first_story_month, (SELECT sr.tags[1] FROM story_ranks sr WHERE sr.creator_id = c.creator_id AND sr.rn = 1) AS primary_tag, COALESCE(c.total_views_text::numeric, 0) AS total_views, CASE WHEN COUNT(s.story_id) >= 3 THEN 'at_risk' ELSE 'monitor' END AS risk_flag FROM creators c INNER JOIN stories s ON c.creator_id = s.creator_id WHERE s.story_id NOT IN (SELECT story_id FROM story_views WHERE story_id IS NOT NULL) GROUP BY c.creator_id, c.first_name, c.last_name, c.total_views_text) SELECT creator_id, display_name, total_stories_posted, first_story_month, primary_tag, ROUND(total_views::numeric / total_stories_posted, 2) AS engagement_ratio, risk_flag FROM creator_summaries ORDER BY creator_id;",
   "_meta": {
     "question_type": "anti_join",
     "original_qtype": "anti_join",

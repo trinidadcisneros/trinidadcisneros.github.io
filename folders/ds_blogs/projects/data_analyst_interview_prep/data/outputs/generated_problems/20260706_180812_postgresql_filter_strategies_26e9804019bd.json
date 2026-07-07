@@ -1,0 +1,196 @@
+{
+  "title": "Filter providers by NPID pattern and certification",
+  "prompt": "You are working with a telehealth platform that tracks provider profiles. The `providers` table includes a `national_provider_id` text field storing provider IDs that follow various legacy formats, a `specialties` text array listing each provider's board certifications, a `license_issue_date` timestamp when their current license was issued, a `completion_rate_text` text field storing completion percentages as strings (e.g., '87.50' or 'pending'), and a `backup_region` text field that may be NULL. Write a query that returns all providers whose `national_provider_id` starts with 'NP-' followed by exactly 6 digits, who hold a 'psychiatry' certification (case-insensitive, may appear anywhere in the array), and whose license was issued in calendar year 2022 or later. For each matching provider, show: `provider_id`, `full_name` (the `provider_name` trimmed and title-cased), `primary_specialty` (the first element of the `specialties` array), `license_year` (the four-digit year extracted from `license_issue_date`), `completion_pct` (the `completion_rate_text` cast to a numeric, divided by 100.0 to yield a decimal rate, rounded to 3 decimal places), and `region` (the `backup_region` if it is not NULL, otherwise 'unassigned'). Order the results by `provider_id` ascending.",
+  "display": {
+    "context": "You are working with a telehealth platform that tracks provider profiles and board certifications.",
+    "task": "Write a query that returns providers whose national_provider_id starts with 'NP-' followed by exactly 6 digits, who hold a psychiatry certification, and whose license was issued in 2022 or later, showing cleaned and formatted profile fields.",
+    "table_notes": {
+      "providers": "holds one row per healthcare provider with their ID, name, certifications array, license date, completion rate text, and backup region"
+    },
+    "output_field_notes": {
+      "provider_id": "the unique numeric identifier for the provider",
+      "full_name": "the provider's name, cleaned and title-cased",
+      "primary_specialty": "the first board certification from the provider's certifications list",
+      "license_year": "the four-digit calendar year the current license was issued",
+      "completion_pct": "the completion rate as a decimal (0 to 1 scale), rounded to three decimal places",
+      "region": "the backup service region, or a default label if none is assigned"
+    },
+    "field_logic": [
+      "full_name: built from provider_name.\n- remove any leading or trailing whitespace\n- capitalize the first letter of each word",
+      "primary_specialty: built from specialties.\n- take the first element of the certifications array (1-based index)",
+      "license_year: built from license_issue_date.\n- extract the four-digit year component",
+      "completion_pct: built from completion_rate_text.\n- parse the text as a numeric value\n- divide by 100.0 to convert percentage to a decimal rate\n- round to 3 decimal places",
+      "region: built from backup_region.\n- if backup_region is not NULL, use that value\n- otherwise use the literal text 'unassigned'"
+    ],
+    "edge_cases": [],
+    "filter_note": "A row is returned only when ALL of these are true:\nnational_provider_id starts with the literal prefix 'NP-' followed by exactly 6 digit characters (0-9)\nthe specialties array contains the text 'psychiatry' (case-insensitive match)\nlicense_issue_date falls in calendar year 2022 or later (year >= 2022)",
+    "order_by_note": "provider_id ascending"
+  },
+  "schema_ddl": "CREATE TABLE providers (provider_id INT PRIMARY KEY, provider_name TEXT, national_provider_id TEXT, specialties TEXT[], license_issue_date TIMESTAMP, completion_rate_text TEXT, backup_region TEXT);",
+  "example_input_data": "INSERT INTO providers (provider_id, provider_name, national_provider_id, specialties, license_issue_date, completion_rate_text, backup_region) VALUES\n(101, '  alice chen  ', 'NP-482916', ARRAY['psychiatry', 'internal medicine'], '2022-03-15 00:00:00', '92.50', 'northeast'),\n(102, 'BOB MARTINEZ', 'NP-77341', ARRAY['cardiology', 'psychiatry'], '2023-01-20 00:00:00', '88.00', NULL),\n(103, 'carol white', 'NP-5512389', ARRAY['psychiatry'], '2022-11-05 00:00:00', '95.75', 'southwest'),\n(104, 'david kim', 'NP-123456', ARRAY['neurology'], '2022-06-10 00:00:00', '87.25', 'midwest'),\n(105, 'eva patel', 'NP-654321', ARRAY['Psychiatry', 'general practice'], '2021-09-01 00:00:00', '90.00', 'southeast'),\n(106, 'frank lee', 'NP-998877', ARRAY['PSYCHIATRY'], '2023-05-12 00:00:00', '89.50', 'west'),\n(107, 'grace zhou', 'TP-123456', ARRAY['psychiatry'], '2022-08-30 00:00:00', '91.00', 'northeast');",
+  "example_output_columns": [
+    "provider_id",
+    "full_name",
+    "primary_specialty",
+    "license_year",
+    "completion_pct",
+    "region"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Alice Chen",
+      "psychiatry",
+      2022,
+      "0.925",
+      "northeast"
+    ],
+    [
+      106,
+      "Frank Lee",
+      "PSYCHIATRY",
+      2023,
+      "0.895",
+      "west"
+    ]
+  ],
+  "test_data": "INSERT INTO providers (provider_id, provider_name, national_provider_id, specialties, license_issue_date, completion_rate_text, backup_region) VALUES\n(201, 'john doe', 'NP-112233', ARRAY['psychiatry'], '2022-01-01 00:00:00', '85.00', 'north'),\n(202, '  MARY JONES  ', 'NP-445566', ARRAY['Psychiatry', 'pediatrics'], '2022-12-31 23:59:59', '93.25', NULL),\n(203, 'peter smith', 'NP-77889', ARRAY['psychiatry', 'oncology'], '2023-06-15 00:00:00', '88.75', 'south'),\n(204, 'linda brown', 'NP-998877', ARRAY['cardiology'], '2022-03-20 00:00:00', '90.00', 'east'),\n(205, 'sam wilson', 'NP-1234567', ARRAY['psychiatry'], '2022-07-10 00:00:00', '87.50', 'west'),\n(206, 'nina garcia', 'NP-556677', ARRAY['dermatology', 'psychiatry'], '2021-11-15 00:00:00', '92.00', 'central'),\n(207, 'raj kumar', 'XP-123456', ARRAY['psychiatry'], '2022-05-05 00:00:00', '89.00', NULL),\n(208, 'sofia lopez', 'NP-334455', ARRAY['PSYCHIATRY', 'family medicine'], '2024-02-28 00:00:00', '94.50', 'northwest'),\n(209, 'tom harris', 'NP-12345', ARRAY['psychiatry'], '2022-09-01 00:00:00', '86.00', 'northeast'),\n(210, 'una taylor', 'NP-667788', ARRAY['emergency medicine'], '2022-04-12 00:00:00', '91.50', 'southeast'),\n(211, 'victor chen', 'NP-778899', ARRAY['general practice', 'psychiatry'], '2023-11-20 00:00:00', '90.25', 'midwest'),\n(212, '  kate adams  ', 'NP-889900', ARRAY['psychiatry'], '2022-02-14 00:00:00', '88.00', NULL),\n(213, 'leo martin', 'NP-990011', ARRAY['psychiatry', 'surgery'], '2020-12-25 00:00:00', '92.75', 'west'),\n(214, 'mia thompson', 'NP-101112', ARRAY['Psychiatry'], '2022-10-10 10:30:00', '89.50', 'south'),\n(215, 'noah white', 'NP-121314', ARRAY['anesthesiology', 'psychiatry'], '2023-03-03 00:00:00', '87.00', 'east');",
+  "test_expected_columns": [
+    "provider_id",
+    "full_name",
+    "primary_specialty",
+    "license_year",
+    "completion_pct",
+    "region"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "John Doe",
+      "psychiatry",
+      2022,
+      "0.850",
+      "north"
+    ],
+    [
+      202,
+      "Mary Jones",
+      "Psychiatry",
+      2022,
+      "0.933",
+      "unassigned"
+    ],
+    [
+      208,
+      "Sofia Lopez",
+      "PSYCHIATRY",
+      2024,
+      "0.945",
+      "northwest"
+    ],
+    [
+      211,
+      "Victor Chen",
+      "general practice",
+      2023,
+      "0.903",
+      "midwest"
+    ],
+    [
+      212,
+      "Kate Adams",
+      "psychiatry",
+      2022,
+      "0.880",
+      "unassigned"
+    ],
+    [
+      214,
+      "Mia Thompson",
+      "Psychiatry",
+      2022,
+      "0.895",
+      "south"
+    ],
+    [
+      215,
+      "Noah White",
+      "anesthesiology",
+      2023,
+      "0.870",
+      "east"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "row-filter",
+    "composite_moves": [
+      "row-filter: LIKE pattern match on national_provider_id (prefix 'NP-' + 6 digits)",
+      "row-filter: array membership test for 'psychiatry' (case-insensitive)",
+      "row-filter: date year extraction >= 2022",
+      "row-transform: TRIM + INITCAP provider_name",
+      "row-transform: array[1] for primary_specialty",
+      "row-transform: EXTRACT year from license_issue_date",
+      "row-transform: cast completion_rate_text to numeric, divide by 100.0, round to 3 places",
+      "row-transform: COALESCE backup_region with 'unassigned'"
+    ]
+  },
+  "hints": [
+    "Consider how to match a text pattern where the prefix is fixed and the suffix must be exactly six digit characters.",
+    "Use a case-insensitive array membership test to check if 'psychiatry' appears anywhere in the specialties array, and extract the year component from the license timestamp to compare against 2022.",
+    "Use LIKE with 'NP-______' (six underscores) combined with a character class check, or use a regex pattern '~' with '^NP-[0-9]{6}$' to ensure exactly six digits after 'NP-'. Use LOWER(x) = ANY(array) or unnest + lower for case-insensitive array search. Extract the year with EXTRACT(YEAR FROM ...), clean the name with INITCAP(TRIM(...)), access the first specialty with array[1], cast and divide the rate text with (completion_rate_text::numeric / 100.0), round with ROUND(..., 3), and handle NULL region with COALESCE(backup_region, 'unassigned')."
+  ],
+  "answer_key": "SELECT\n  provider_id,\n  INITCAP(TRIM(provider_name)) AS full_name,\n  specialties[1] AS primary_specialty,\n  EXTRACT(YEAR FROM license_issue_date)::INT AS license_year,\n  ROUND((completion_rate_text::NUMERIC / 100.0), 3) AS completion_pct,\n  COALESCE(backup_region, 'unassigned') AS region\nFROM providers\nWHERE\n  national_provider_id ~ '^NP-[0-9]{6}$'\n  AND EXISTS (\n    SELECT 1\n    FROM UNNEST(specialties) AS spec\n    WHERE LOWER(spec) = 'psychiatry'\n  )\n  AND EXTRACT(YEAR FROM license_issue_date) >= 2022\nORDER BY provider_id;",
+  "_meta": {
+    "question_type": "filter_strategies",
+    "original_qtype": "filter_strategies",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-06T18:08:12.572214",
+    "problem_id": "26e9804019bd",
+    "validation_attempts": 2,
+    "scenario": "a telehealth visit completion funnel from booking to provider sign-off",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "pattern",
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_requested": "high",
+    "cleaning_skipped_reason": null,
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "moderate"
+  },
+  "example_output_schema": [
+    [
+      "provider_id",
+      "INTEGER"
+    ],
+    [
+      "full_name",
+      "TEXT"
+    ],
+    [
+      "primary_specialty",
+      "TEXT"
+    ],
+    [
+      "license_year",
+      "INTEGER"
+    ],
+    [
+      "completion_pct",
+      "NUMERIC"
+    ],
+    [
+      "region",
+      "TEXT"
+    ]
+  ]
+}

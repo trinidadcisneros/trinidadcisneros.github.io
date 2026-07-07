@@ -29,8 +29,12 @@ I'm continuing work from a prior Cowork session on my **Data Analyst Interview P
 - Be concise. Don't show code unless I ask — I read diffs myself.
 - No trailing summary of what you just did. Lead with the result and a `computer://` link.
 - No hyphens unless they're compound nouns.
+- **No walls of text in GENERATED problems either.** Every `display` field (especially `answer_shape` / "What to write") must be scannable bullets grouped by phase, one action per bullet, exact table/column names — never a paragraph. Enforced in `sql_practice_utils.py` (2026-07-06); see `context.md` Prompt-engineering gotchas.
+- **No undefined acronyms / invented shorthand in generated problems.** Never use OP/non-OP, DAU, MAU, KPI, FK, PK, etc. in any learner-facing field; write the full plain phrase every time; prefer no acronyms at all. Enforced in `sql_practice_utils.py` generation Hard rules (2026-07-06).
 - After editing a notebook, validate it executes (nbclient) or that all code cells parse, before handing back. For big changes, build in an isolated copy and let me approve before adopting.
 
 **Roadmap if I ask for "next":** flesh out the new `nb02_python_practice.ipynb` (pandas, numpy, basic Python array and string operations), then keep splitting the analyst notebook's four categories into their own thin notebooks on the shared engine (target lineup: SQL, Python, statistical methods, product metrics, dbt/data modeling, version control). Copy nb05's pattern.
+
+**Planned — practice timers (requested 2026-07-06, see `context.md`):** (1) a solve-time tracker that quietly times each problem from open to a passing submit; (2) a per-problem countdown that freezes the editor when time is up, then offers feedback on what was written; (3) a whole-session timer over a set of problems (e.g. five in a chosen number of minutes) that locks the editor at time-up and gives a wrap-up of how many were correct, what worked and what did not, and links to the matching `sql_problem_patterns.html` sections — even for unfinished problems.
 
 **Right now I want to:** [fill in — e.g., "drill A/B testing on Hard difficulty and tune the difficulty curve", "add a chi-square + confidence-interval subtopic to nb03", or "split the analyst notebook's Product Metrics category into its own notebook on the shared engine"].

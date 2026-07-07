@@ -1,0 +1,381 @@
+{
+  "problem": {
+    "title": "Update Story Boost Tier by View Rate",
+    "prompt": "You are working with a photo sharing app that tracks stories and their view performance. Stories can be promoted with a 'boost tier' that increases their visibility. Management wants to adjust the boost tier for stories created in January 2024 based on their actual view rate performance, to optimize promotion spend.\n\nWrite a single UPDATE statement that sets the `boost_tier` column in the `stories` table according to these rules:\n- For stories where `actual_views >= estimated_views * 1.5`, set `boost_tier` to 'premium'\n- For stories where `actual_views >= estimated_views`, set `boost_tier` to 'standard'\n- For all other stories in the date range, set `boost_tier` to 'basic'\n- Only update stories where `created_date` is in January 2024 (between '2024-01-01' and '2024-01-31' inclusive)\n- Stories with NULL `estimated_views` should use 100 as the threshold value for comparisons\n\nAfter the UPDATE, write a SELECT statement that returns all columns from the `stories` table ordered by `story_id` to confirm the changes.",
+    "display": {
+      "context": "You are working with a photo sharing app that tracks stories and their view performance.",
+      "task": "Write a query that updates the boost tier for January 2024 stories based on their view rate performance, then returns all stories ordered by story_id.",
+      "table_notes": {
+        "stories": "holds story metadata including creation date, view counts, and current boost tier"
+      },
+      "output_field_notes": {
+        "story_id": "unique identifier for each story",
+        "creator_username": "username of the member who posted the story",
+        "created_date": "date the story was created",
+        "estimated_views": "the app's predicted number of views for this story",
+        "actual_views": "the number of views the story actually received",
+        "boost_tier": "the promotion level assigned to the story after the update"
+      },
+      "field_logic": [
+        "boost_tier: built from actual_views and estimated_views.\n- if estimated_views is NULL, use 100 as the comparison threshold\n- set to 'premium' when actual_views is at least 1.5 times estimated_views (or at least 150 if estimated_views was NULL)\n- set to 'standard' when actual_views is at least estimated_views (or at least 100 if estimated_views was NULL) but less than the premium threshold\n- set to 'basic' for all other stories in the date range"
+      ],
+      "edge_cases": [
+        "If estimated_views is NULL, treat it as 100 for all threshold comparisons.",
+        "If a story's created_date is outside January 2024, leave its boost_tier unchanged."
+      ],
+      "filter_note": "Only stories created in January 2024 (created_date between '2024-01-01' and '2024-01-31' inclusive) are updated; all other rows are left untouched.",
+      "order_by_note": "The output rows are ordered by story_id ascending.",
+      "answer_shape": "Write a single UPDATE statement that:\n- targets the stories table\n- uses SET boost_tier = CASE WHEN ... to evaluate the three tier conditions in order (premium, standard, basic)\n- includes WHERE created_date BETWEEN '2024-01-01' AND '2024-01-31' to limit the update to January 2024\n- handles NULL estimated_views by using COALESCE(estimated_views, 100) in the CASE comparisons\nFollow with:\n- SELECT * FROM stories ORDER BY story_id; to return the final state",
+      "test_call": "SELECT * FROM stories ORDER BY story_id;"
+    },
+    "schema_ddl": "CREATE TABLE stories (\n  story_id INT PRIMARY KEY,\n  creator_username VARCHAR(50) NOT NULL,\n  created_date DATE NOT NULL,\n  estimated_views INT,\n  actual_views INT NOT NULL,\n  boost_tier VARCHAR(20) NOT NULL\n);",
+    "example_input_data": "INSERT INTO stories (story_id, creator_username, created_date, estimated_views, actual_views, boost_tier) VALUES\n(101, 'alice_photo', '2024-01-05', 200, 350, 'basic'),\n(102, 'bob_captures', '2024-01-10', 150, 160, 'basic'),\n(103, 'carol_snaps', '2024-01-15', NULL, 120, 'standard'),\n(104, 'dave_lens', '2024-01-20', 300, 250, 'premium'),\n(105, 'eve_frames', '2024-01-25', 180, 90, 'standard'),\n(106, 'frank_pics', '2023-12-28', 100, 200, 'basic'),\n(107, 'grace_shots', '2024-02-03', 250, 400, 'basic');",
+    "example_output_columns": [
+      "story_id",
+      "creator_username",
+      "created_date",
+      "estimated_views",
+      "actual_views",
+      "boost_tier"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        "alice_photo",
+        "2024-01-05",
+        200.0,
+        350,
+        "premium"
+      ],
+      [
+        102,
+        "bob_captures",
+        "2024-01-10",
+        150.0,
+        160,
+        "standard"
+      ],
+      [
+        103,
+        "carol_snaps",
+        "2024-01-15",
+        null,
+        120,
+        "standard"
+      ],
+      [
+        104,
+        "dave_lens",
+        "2024-01-20",
+        300.0,
+        250,
+        "basic"
+      ],
+      [
+        105,
+        "eve_frames",
+        "2024-01-25",
+        180.0,
+        90,
+        "basic"
+      ],
+      [
+        106,
+        "frank_pics",
+        "2023-12-28",
+        100.0,
+        200,
+        "basic"
+      ],
+      [
+        107,
+        "grace_shots",
+        "2024-02-03",
+        250.0,
+        400,
+        "basic"
+      ]
+    ],
+    "test_data": "INSERT INTO stories (story_id, creator_username, created_date, estimated_views, actual_views, boost_tier) VALUES\n(201, 'user_a', '2024-01-01', 100, 160, 'basic'),\n(202, 'user_b', '2024-01-02', 200, 310, 'basic'),\n(203, 'user_c', '2024-01-03', 150, 149, 'standard'),\n(204, 'user_d', '2024-01-04', NULL, 80, 'premium'),\n(205, 'user_e', '2024-01-05', NULL, 155, 'basic'),\n(206, 'user_f', '2024-01-06', 180, 180, 'basic'),\n(207, 'user_g', '2024-01-07', 220, 330, 'standard'),\n(208, 'user_h', '2024-01-08', 300, 450, 'basic'),\n(209, 'user_i', '2024-01-09', 0, 50, 'premium'),\n(210, 'user_j', '2024-01-10', 400, 410, 'basic'),\n(211, 'user_k', '2024-01-11', 250, 100, 'standard'),\n(212, 'user_l', '2024-01-12', NULL, 100, 'basic'),\n(213, 'user_m', '2024-01-13', 500, 500, 'premium'),\n(214, 'user_n', '2024-01-31', 120, 200, 'basic'),\n(215, 'user_o', '2023-12-31', 150, 300, 'basic'),\n(216, 'user_p', '2024-02-01', 200, 400, 'basic'),\n(217, 'user_q', '2024-01-15', 100, 100, 'basic'),\n(218, 'user_r', '2024-01-16', 80, 130, 'standard'),\n(219, 'user_s', '2024-01-17', NULL, 151, 'basic'),\n(220, 'user_t', '2024-01-18', 90, 45, 'premium'),\n(221, 'user_u', '2024-01-19', 250, 380, 'basic'),\n(222, 'user_v', '2024-01-20', 300, 299, 'standard'),\n(223, 'user_w', '2024-01-21', 160, 240, 'basic'),\n(224, 'user_x', '2024-01-22', NULL, 99, 'basic'),\n(225, 'user_y', '2024-01-23', 350, 525, 'premium');",
+    "test_expected_columns": [
+      "story_id",
+      "creator_username",
+      "created_date",
+      "estimated_views",
+      "actual_views",
+      "boost_tier"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        "user_a",
+        "2024-01-01",
+        100.0,
+        160,
+        "premium"
+      ],
+      [
+        202,
+        "user_b",
+        "2024-01-02",
+        200.0,
+        310,
+        "premium"
+      ],
+      [
+        203,
+        "user_c",
+        "2024-01-03",
+        150.0,
+        149,
+        "basic"
+      ],
+      [
+        204,
+        "user_d",
+        "2024-01-04",
+        null,
+        80,
+        "basic"
+      ],
+      [
+        205,
+        "user_e",
+        "2024-01-05",
+        null,
+        155,
+        "premium"
+      ],
+      [
+        206,
+        "user_f",
+        "2024-01-06",
+        180.0,
+        180,
+        "standard"
+      ],
+      [
+        207,
+        "user_g",
+        "2024-01-07",
+        220.0,
+        330,
+        "premium"
+      ],
+      [
+        208,
+        "user_h",
+        "2024-01-08",
+        300.0,
+        450,
+        "premium"
+      ],
+      [
+        209,
+        "user_i",
+        "2024-01-09",
+        0.0,
+        50,
+        "premium"
+      ],
+      [
+        210,
+        "user_j",
+        "2024-01-10",
+        400.0,
+        410,
+        "standard"
+      ],
+      [
+        211,
+        "user_k",
+        "2024-01-11",
+        250.0,
+        100,
+        "basic"
+      ],
+      [
+        212,
+        "user_l",
+        "2024-01-12",
+        null,
+        100,
+        "standard"
+      ],
+      [
+        213,
+        "user_m",
+        "2024-01-13",
+        500.0,
+        500,
+        "standard"
+      ],
+      [
+        214,
+        "user_n",
+        "2024-01-31",
+        120.0,
+        200,
+        "premium"
+      ],
+      [
+        215,
+        "user_o",
+        "2023-12-31",
+        150.0,
+        300,
+        "basic"
+      ],
+      [
+        216,
+        "user_p",
+        "2024-02-01",
+        200.0,
+        400,
+        "basic"
+      ],
+      [
+        217,
+        "user_q",
+        "2024-01-15",
+        100.0,
+        100,
+        "standard"
+      ],
+      [
+        218,
+        "user_r",
+        "2024-01-16",
+        80.0,
+        130,
+        "premium"
+      ],
+      [
+        219,
+        "user_s",
+        "2024-01-17",
+        null,
+        151,
+        "premium"
+      ],
+      [
+        220,
+        "user_t",
+        "2024-01-18",
+        90.0,
+        45,
+        "basic"
+      ],
+      [
+        221,
+        "user_u",
+        "2024-01-19",
+        250.0,
+        380,
+        "premium"
+      ],
+      [
+        222,
+        "user_v",
+        "2024-01-20",
+        300.0,
+        299,
+        "basic"
+      ],
+      [
+        223,
+        "user_w",
+        "2024-01-21",
+        160.0,
+        240,
+        "premium"
+      ],
+      [
+        224,
+        "user_x",
+        "2024-01-22",
+        null,
+        99,
+        "basic"
+      ],
+      [
+        225,
+        "user_y",
+        "2024-01-23",
+        350.0,
+        525,
+        "premium"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "state_mutation",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "dml_update with CASE WHEN for tiered value assignment",
+        "WHERE clause for date range filter",
+        "COALESCE for NULL handling in comparisons",
+        "confirming SELECT"
+      ]
+    },
+    "hints": [
+      "Consider how to handle NULL values in the estimated_views column when making comparisons.",
+      "Use a CASE expression inside the SET clause to evaluate the three tier conditions in order from highest to lowest threshold.",
+      "The WHERE clause should restrict the update to only stories created in January 2024, leaving other months unchanged."
+    ],
+    "answer_key": "UPDATE stories\nSET boost_tier = CASE\n  WHEN actual_views >= COALESCE(estimated_views, 100) * 1.5 THEN 'premium'\n  WHEN actual_views >= COALESCE(estimated_views, 100) THEN 'standard'\n  ELSE 'basic'\nEND\nWHERE created_date BETWEEN '2024-01-01' AND '2024-01-31';\n\nSELECT * FROM stories ORDER BY story_id;",
+    "_meta": {
+      "question_type": "dml_update",
+      "original_qtype": "dml_update",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-07-06T15:11:10.465348",
+      "problem_id": "2b72c2771633",
+      "validation_attempts": 1,
+      "scenario": "a photo sharing app tracking story creation and view rates",
+      "dml_op": "UPDATE",
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": null,
+      "cleaning_required": false,
+      "cleaning_level": null,
+      "cleaning_requested": "moderate",
+      "cleaning_skipped_reason": "cleaning does not apply to this problem type (dml_update) \u2014 procedural / mutation / parse types drill control flow and state, not text or number cleanup",
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": false,
+      "realism": "moderate"
+    },
+    "example_output_schema": [
+      [
+        "story_id",
+        "INTEGER"
+      ],
+      [
+        "creator_username",
+        "VARCHAR"
+      ],
+      [
+        "created_date",
+        "DATE"
+      ],
+      [
+        "estimated_views",
+        "INTEGER"
+      ],
+      [
+        "actual_views",
+        "INTEGER"
+      ],
+      [
+        "boost_tier",
+        "VARCHAR"
+      ]
+    ]
+  },
+  "user_solution": "/* Your turn: rebuild it the more efficient way.\n   This is an OUTLINE only. Write the SQL yourself; do not paste the suggested version.\n   Detail level: broad\n*/\n\nUPDATE stories\nSET boost_tier = CASE \n                     WHEN actual_views >= COALESCE(1.5 * estimated_views, 150) THEN 'premium'\n                     WHEN actual_views >= COALESCE(estimated_views, 100) AND actual_views < COALESCE(1.5 * estimated_views, 150) THEN 'standard'\n                     ELSE 'basic' END\nWHERE created_date BETWEEN '2024-01-01' and '2024-01-31';\nSELECT * FROM stories ORDER BY story_id;\n",
+  "solved_at": "2026-07-06T15:36:02.843297"
+}

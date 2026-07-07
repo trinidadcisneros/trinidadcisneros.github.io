@@ -1,0 +1,102 @@
+{
+  "logged_at": "2026-07-06T20:58:50.723805",
+  "failure_kind": "wrong_answer",
+  "problem_id": "2ae9a52331ae",
+  "question_type": "union_islands",
+  "original_qtype": "union_islands",
+  "subtype": "consecutive_day_streak_per_entity",
+  "scenario": "an observability platform tracking alert acknowledge time and MTTR",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "gaps-and-islands",
+  "title": "Alert Acknowledge Streaks per Responder",
+  "prompt": "You are working with an observability platform tracking alert acknowledge time and MTTR. The schema has two tables: `responders` (id, name, on_call_days\u2014a TEXT[] column listing weekdays they are scheduled, and created_date) and `alert_acks` (responder_id, ack_date, response_time_minutes\u2014stored as TEXT). The `alert_acks` table may contain duplicate rows for the same (responder_id, ack_date) because a responder can acknowledge multiple alerts in the same day. Write a query that returns the id and name of every responder who has at least 5 consecutive days of alert activity, along with a cleaned display name, their first scheduled weekday, the month they were created (as a number), their average response time (rounded to 2 decimals), and a priority flag. The output columns are: responder_id, responder_name (trimmed and title-cased), first_on_call_day (the first element of the on_call_days array), created_month (the numeric month from created_date), avg_response_minutes (the average of response_time_minutes cast to numeric then rounded to 2 decimals), and priority_flag ('high' if avg_response_minutes is NULL or >= 60, otherwise 'normal'). A consecutive day streak means the responder acknowledged at least one alert on N days in a row with no gaps; duplicate same-day acknowledgments should be de-duplicated before counting consecutive days. Order the output by responder_id ascending.",
+  "schema_ddl": "CREATE TABLE responders (id INT PRIMARY KEY, name VARCHAR(100), on_call_days TEXT[], created_date DATE); CREATE TABLE alert_acks (responder_id INT, ack_date DATE, response_time_minutes TEXT);",
+  "answer_key": "WITH base AS (SELECT DISTINCT responder_id, ack_date FROM alert_acks), date_groups AS (SELECT responder_id, ack_date, ack_date - ROW_NUMBER() OVER (PARTITION BY responder_id ORDER BY ack_date)::int AS grp FROM base), streaks AS (SELECT responder_id FROM date_groups GROUP BY responder_id, grp HAVING COUNT(*) >= 5), responder_stats AS (SELECT a.responder_id, ROUND(AVG(a.response_time_minutes::numeric), 2) AS avg_response_minutes FROM alert_acks a GROUP BY a.responder_id) SELECT r.id AS responder_id, INITCAP(TRIM(r.name)) AS responder_name, r.on_call_days[1] AS first_on_call_day, EXTRACT(MONTH FROM r.created_date)::int AS created_month, rs.avg_response_minutes, CASE WHEN COALESCE(rs.avg_response_minutes, 60) >= 60 THEN 'high' ELSE 'normal' END AS priority_flag FROM responders r JOIN responder_stats rs ON rs.responder_id = r.id WHERE EXISTS (SELECT 1 FROM streaks s WHERE s.responder_id = r.id) ORDER BY r.id;",
+  "test_expected_columns": [
+    "responder_id",
+    "responder_name",
+    "first_on_call_day",
+    "created_month",
+    "avg_response_minutes",
+    "priority_flag"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "Alice Cooper",
+      "Monday",
+      3,
+      "65.64",
+      "high"
+    ],
+    [
+      4,
+      "David Green",
+      "Monday",
+      6,
+      "155.00",
+      "high"
+    ],
+    [
+      5,
+      "Eve Black",
+      "Tuesday",
+      7,
+      null,
+      "high"
+    ]
+  ],
+  "user_solution": "WITH flag_groups AS (\n    SELECT\n        responder_id,\n        ack_date,\n        ack_date - (ROW_NUMBER() OVER (PARTITION BY responder_id ORDER BY ack_date))::INT AS grp,\n        TRIM(response_time_minutes)::int AS response_time_minutes\n    FROM alert_acks\n),\nbase AS (\nSELECT\n      responder_id, \n      ROUND(AVG(response_time_minutes), 2) AS avg_response_minutes\nFROM flag_groups\nGROUP BY responder_id, grp\nHAVING COUNT(*) >= 5\n)\nSELECT\n    r.id AS responder_id,\t\n    INITCAP(TRIM(r.name)) AS  responder_name,\n    r.on_call_days[1] AS first_on_call_day,\n    TO_CHAR(created_date, 'FMMonth') AS created_month,\t\n    b.avg_response_minutes,\t\n    CASE WHEN b.avg_response_minutes >= 60 THEN 'high' ELSE 'normal' END AS priority_flag\nFROM responders AS r\nJOIN base AS b\nON b.responder_id = r.id\n;\n",
+  "error_message": null,
+  "your_columns": [
+    "responder_id",
+    "responder_name",
+    "first_on_call_day",
+    "created_month",
+    "avg_response_minutes",
+    "priority_flag"
+  ],
+  "your_rows": [
+    [
+      1,
+      "Alice Cooper",
+      "Monday",
+      "March",
+      "55.40",
+      "normal"
+    ],
+    [
+      1,
+      "Alice Cooper",
+      "Monday",
+      "March",
+      "80.00",
+      "high"
+    ],
+    [
+      4,
+      "David Green",
+      "Monday",
+      "June",
+      "190.00",
+      "high"
+    ],
+    [
+      4,
+      "David Green",
+      "Monday",
+      "June",
+      "130.00",
+      "high"
+    ],
+    [
+      5,
+      "Eve Black",
+      "Tuesday",
+      "July",
+      null,
+      "normal"
+    ]
+  ]
+}

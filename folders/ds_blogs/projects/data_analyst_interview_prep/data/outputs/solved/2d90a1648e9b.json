@@ -1,0 +1,185 @@
+{
+  "problem": {
+    "title": "Filter Squad Invites by Status",
+    "prompt": "You are working with a battle royale mobile game that tracks match completion and squad invites. The `squad_invites` table stores invitations sent between players. Each invite has a `sender_username`, a `receiver_username`, an `invite_status` (pending, accepted, declined, expired), and a `sent_at` timestamp. Write a function that accepts a status filter as a parameter and returns all invites matching that status, ordered by `sent_at` descending. The function signature must be: `get_invites_by_status(p_status VARCHAR(20)) RETURNS TABLE (sender_username VARCHAR(50), receiver_username VARCHAR(50), invite_status VARCHAR(20), sent_at TIMESTAMP)`. Test your function by calling: `SELECT * FROM get_invites_by_status('accepted');`",
+    "display": {
+      "context": "You are working with a battle royale mobile game that tracks match completion and squad invites.",
+      "task": "Write a function that returns all squad invites matching a given status, ordered by sent_at descending.",
+      "table_notes": {
+        "squad_invites": "stores invitations sent between players with sender, receiver, status, and timestamp"
+      },
+      "output_field_notes": {
+        "sender_username": "the player who sent the invite",
+        "receiver_username": "the player who received the invite",
+        "invite_status": "the current state of the invitation",
+        "sent_at": "the timestamp when the invite was sent"
+      },
+      "field_logic": [
+        "sender_username: taken directly from the squad_invites table sender_username column",
+        "receiver_username: taken directly from the squad_invites table receiver_username column",
+        "invite_status: taken directly from the squad_invites table invite_status column",
+        "sent_at: taken directly from the squad_invites table sent_at column"
+      ],
+      "edge_cases": [
+        "If no invites match the status filter, return an empty result set",
+        "If multiple invites have the same sent_at timestamp, their relative order is arbitrary"
+      ],
+      "filter_note": "Only rows where invite_status equals the p_status parameter are included",
+      "order_by_note": "Rows are ordered by sent_at descending, newest first",
+      "answer_shape": "Write a function definition:\n- CREATE OR REPLACE FUNCTION get_invites_by_status(p_status VARCHAR(20))\n- RETURNS TABLE (sender_username VARCHAR(50), receiver_username VARCHAR(50), invite_status VARCHAR(20), sent_at TIMESTAMP)\n- AS $$ BEGIN\n- RETURN QUERY (\n  - SELECT si.sender_username, si.receiver_username, si.invite_status, si.sent_at FROM squad_invites si\n  - WHERE si.invite_status = p_status\n  - ORDER BY si.sent_at DESC\n- );\n- END; $$ LANGUAGE plpgsql;\n- Follow with the test call: SELECT * FROM get_invites_by_status('accepted');",
+      "function_signature": "get_invites_by_status(p_status VARCHAR(20)) RETURNS TABLE (sender_username VARCHAR(50), receiver_username VARCHAR(50), invite_status VARCHAR(20), sent_at TIMESTAMP)",
+      "test_call": "SELECT * FROM get_invites_by_status('accepted');"
+    },
+    "schema_ddl": "CREATE TABLE squad_invites (invite_id INT PRIMARY KEY, sender_username VARCHAR(50) NOT NULL, receiver_username VARCHAR(50) NOT NULL, invite_status VARCHAR(20) NOT NULL, sent_at TIMESTAMP NOT NULL);",
+    "example_input_data": "INSERT INTO squad_invites (invite_id, sender_username, receiver_username, invite_status, sent_at) VALUES (1, 'shadow_striker', 'neon_blade', 'accepted', '2024-03-15 14:22:00'), (2, 'ghost_ops', 'shadow_striker', 'pending', '2024-03-15 15:10:00'), (3, 'neon_blade', 'ghost_ops', 'accepted', '2024-03-15 16:05:00'), (4, 'phantom_ace', 'shadow_striker', 'declined', '2024-03-15 17:30:00'), (5, 'neon_blade', 'phantom_ace', 'expired', '2024-03-15 18:45:00'), (6, 'ghost_ops', 'neon_blade', 'accepted', '2024-03-15 19:12:00');",
+    "example_output_columns": [
+      "sender_username",
+      "receiver_username",
+      "invite_status",
+      "sent_at"
+    ],
+    "example_output_rows": [
+      [
+        "ghost_ops",
+        "neon_blade",
+        "accepted",
+        "2024-03-15 19:12:00"
+      ],
+      [
+        "neon_blade",
+        "ghost_ops",
+        "accepted",
+        "2024-03-15 16:05:00"
+      ],
+      [
+        "shadow_striker",
+        "neon_blade",
+        "accepted",
+        "2024-03-15 14:22:00"
+      ]
+    ],
+    "test_data": "INSERT INTO squad_invites (invite_id, sender_username, receiver_username, invite_status, sent_at) VALUES (101, 'viper_queen', 'storm_falcon', 'accepted', '2024-03-20 10:00:00'), (102, 'iron_wolf', 'viper_queen', 'pending', '2024-03-20 10:15:00'), (103, 'storm_falcon', 'iron_wolf', 'accepted', '2024-03-20 10:30:00'), (104, 'blaze_runner', 'viper_queen', 'declined', '2024-03-20 10:45:00'), (105, 'viper_queen', 'blaze_runner', 'expired', '2024-03-20 11:00:00'), (106, 'iron_wolf', 'storm_falcon', 'accepted', '2024-03-20 11:15:00'), (107, 'storm_falcon', 'blaze_runner', 'pending', '2024-03-20 11:30:00'), (108, 'blaze_runner', 'iron_wolf', 'accepted', '2024-03-20 11:45:00'), (109, 'viper_queen', 'iron_wolf', 'declined', '2024-03-20 12:00:00'), (110, 'iron_wolf', 'blaze_runner', 'expired', '2024-03-20 12:15:00'), (111, 'storm_falcon', 'viper_queen', 'accepted', '2024-03-20 12:30:00'), (112, 'blaze_runner', 'storm_falcon', 'accepted', '2024-03-20 12:45:00'), (113, 'viper_queen', 'storm_falcon', 'pending', '2024-03-20 13:00:00'), (114, 'iron_wolf', 'viper_queen', 'accepted', '2024-03-20 13:15:00'), (115, 'storm_falcon', 'iron_wolf', 'expired', '2024-03-20 13:30:00'), (116, 'blaze_runner', 'viper_queen', 'accepted', '2024-03-20 13:45:00'), (117, 'viper_queen', 'blaze_runner', 'declined', '2024-03-20 14:00:00'), (118, 'iron_wolf', 'storm_falcon', 'pending', '2024-03-20 14:15:00'), (119, 'storm_falcon', 'blaze_runner', 'accepted', '2024-03-20 14:30:00'), (120, 'blaze_runner', 'iron_wolf', 'declined', '2024-03-20 14:45:00');",
+    "test_expected_columns": [
+      "sender_username",
+      "receiver_username",
+      "invite_status",
+      "sent_at"
+    ],
+    "test_expected_rows": [
+      [
+        "storm_falcon",
+        "blaze_runner",
+        "accepted",
+        "2024-03-20 14:30:00"
+      ],
+      [
+        "blaze_runner",
+        "viper_queen",
+        "accepted",
+        "2024-03-20 13:45:00"
+      ],
+      [
+        "iron_wolf",
+        "viper_queen",
+        "accepted",
+        "2024-03-20 13:15:00"
+      ],
+      [
+        "blaze_runner",
+        "storm_falcon",
+        "accepted",
+        "2024-03-20 12:45:00"
+      ],
+      [
+        "storm_falcon",
+        "viper_queen",
+        "accepted",
+        "2024-03-20 12:30:00"
+      ],
+      [
+        "blaze_runner",
+        "iron_wolf",
+        "accepted",
+        "2024-03-20 11:45:00"
+      ],
+      [
+        "iron_wolf",
+        "storm_falcon",
+        "accepted",
+        "2024-03-20 11:15:00"
+      ],
+      [
+        "storm_falcon",
+        "iron_wolf",
+        "accepted",
+        "2024-03-20 10:30:00"
+      ],
+      [
+        "viper_queen",
+        "storm_falcon",
+        "accepted",
+        "2024-03-20 10:00:00"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "row-filter",
+      "composite_moves": [
+        "function-wrapped",
+        "row-filter"
+      ]
+    },
+    "hints": [
+      "Start by defining a function that accepts one parameter and returns a table with four columns",
+      "Use RETURN QUERY with a SELECT statement that filters by the parameter value",
+      "Remember to alias the table in your SELECT and qualify all column names to avoid shadowing"
+    ],
+    "answer_key": "CREATE OR REPLACE FUNCTION get_invites_by_status(p_status VARCHAR(20))\nRETURNS TABLE (\n  sender_username VARCHAR(50),\n  receiver_username VARCHAR(50),\n  invite_status VARCHAR(20),\n  sent_at TIMESTAMP\n)\nAS $$\nBEGIN\n  RETURN QUERY (\n    SELECT si.sender_username, si.receiver_username, si.invite_status, si.sent_at\n    FROM squad_invites si\n    WHERE si.invite_status = p_status\n    ORDER BY si.sent_at DESC\n  );\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT * FROM get_invites_by_status('accepted');",
+    "_meta": {
+      "question_type": "returns_table",
+      "original_qtype": "returns_table",
+      "dialect": "postgresql",
+      "difficulty": "easy",
+      "scenario_mode": "random",
+      "generated_at": "2026-07-06T10:24:38.107376",
+      "problem_id": "2d90a1648e9b",
+      "validation_attempts": 1,
+      "scenario": "a battle royale mobile game tracking match completion and squad invites",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": null,
+      "cleaning_required": false,
+      "cleaning_level": null,
+      "cleaning_requested": "high",
+      "cleaning_skipped_reason": "cleaning does not apply to this problem type (returns_table) \u2014 procedural / mutation / parse types drill control flow and state, not text or number cleanup",
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": false,
+      "realism": "moderate"
+    },
+    "example_output_schema": [
+      [
+        "sender_username",
+        "VARCHAR"
+      ],
+      [
+        "receiver_username",
+        "VARCHAR"
+      ],
+      [
+        "invite_status",
+        "VARCHAR"
+      ],
+      [
+        "sent_at",
+        "TIMESTAMP"
+      ]
+    ]
+  },
+  "user_solution": "/* notes */\n\nCREATE OR REPLACE FUNCTION get_invites_by_status(p_status VARCHAR(20))\nRETURNS TABLE (sender_username VARCHAR(50), receiver_username VARCHAR(50), invite_status VARCHAR(20), sent_at TIMESTAMP)\nAS $$ \nBEGIN\n    RETURN QUERY (\n            SELECT\n                s.sender_username,\n                s.receiver_username,\n                s.invite_status,\n                s.sent_at\n            FROM squad_invites AS s\n            WHERE s.invite_status = p_status\n            ORDER BY s.sent_at DESC\n            );\nEND;\n$$ LANGUAGE PLPGSQL;\n\nSELECT * FROM get_invites_by_status('accepted');\n\n",
+  "solved_at": "2026-07-06T10:35:32.312759"
+}

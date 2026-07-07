@@ -1,0 +1,256 @@
+{
+  "logged_at": "2026-07-05T17:26:46.393608",
+  "failure_kind": "wrong_answer",
+  "problem_id": "fbef5cba3bb1",
+  "question_type": "enrich_join",
+  "original_qtype": "random_any",
+  "subtype": "threshold_no_recent",
+  "scenario": "a D2C subscription box service tracking renewal and churn",
+  "difficulty": "easy",
+  "dialect": "postgresql",
+  "recipe": "enrich-join",
+  "title": "Dormant High-Value Subscribers with No Recent Activity",
+  "prompt": "You are analyzing a D2C subscription box service. You have a subscribers table storing each subscriber's current loyalty points and a shipments table recording every shipment date. Identify subscribers who have accumulated at least 500 loyalty points AND have received no shipments on or after 2024-10-01. For each qualifying subscriber, report their subscriber_id, full_name (cleaned and formatted), signup_date_text (converted to a proper date), points balance, total shipment count (all-time, even shipments before the cutoff), preferred_categories array, primary_category (the first category in the array), month of signup, and whether their points balance is odd or even. Output only those subscribers who meet both the points threshold and the recency exclusion.",
+  "schema_ddl": "CREATE TABLE subscribers (subscriber_id INT PRIMARY KEY, full_name VARCHAR(100), signup_date_text VARCHAR(20), points INT, preferred_categories TEXT[]); CREATE TABLE shipments (shipment_id INT PRIMARY KEY, subscriber_id INT, shipment_date DATE);",
+  "answer_key": "SELECT s.subscriber_id, INITCAP(TRIM(s.full_name)) AS full_name, TO_DATE(s.signup_date_text, 'YYYY-MM-DD') AS signup_date, s.points, COUNT(sh.shipment_id) AS total_shipments, s.preferred_categories, s.preferred_categories[1] AS primary_category, EXTRACT(MONTH FROM TO_DATE(s.signup_date_text, 'YYYY-MM-DD')) AS signup_month, CASE WHEN MOD(s.points, 2) = 0 THEN 'even' ELSE 'odd' END AS points_parity FROM subscribers s LEFT JOIN shipments sh ON s.subscriber_id = sh.subscriber_id WHERE s.points >= 500 AND NOT EXISTS (SELECT 1 FROM shipments sh2 WHERE sh2.subscriber_id = s.subscriber_id AND sh2.shipment_date >= DATE '2024-10-01') GROUP BY s.subscriber_id, s.full_name, s.signup_date_text, s.points, s.preferred_categories ORDER BY s.subscriber_id;",
+  "test_expected_columns": [
+    "subscriber_id",
+    "full_name",
+    "signup_date",
+    "points",
+    "total_shipments",
+    "preferred_categories",
+    "primary_category",
+    "signup_month",
+    "points_parity"
+  ],
+  "test_expected_rows": [
+    [
+      6,
+      "Frank Ocean",
+      "2024-04-01",
+      590,
+      2,
+      [
+        "music",
+        "art",
+        "vinyl"
+      ],
+      "music",
+      "4",
+      "even"
+    ],
+    [
+      7,
+      "Grace Hopper",
+      "2024-07-14",
+      1050,
+      1,
+      [
+        "tech",
+        "science"
+      ],
+      "tech",
+      "7",
+      "even"
+    ],
+    [
+      10,
+      "Jack Ryan",
+      "2024-03-18",
+      950,
+      2,
+      [
+        "books",
+        "games"
+      ],
+      "books",
+      "3",
+      "even"
+    ],
+    [
+      11,
+      "Karen Page",
+      "2024-01-22",
+      510,
+      2,
+      [
+        "journalism",
+        "coffee"
+      ],
+      "journalism",
+      "1",
+      "even"
+    ],
+    [
+      12,
+      "Leo Messi",
+      "2024-02-10",
+      840,
+      1,
+      [
+        "sports",
+        "nutrition"
+      ],
+      "sports",
+      "2",
+      "even"
+    ],
+    [
+      14,
+      "Nina Simone",
+      "2024-06-25",
+      670,
+      2,
+      [
+        "music",
+        "soul"
+      ],
+      "music",
+      "6",
+      "even"
+    ],
+    [
+      15,
+      "Oscar Wilde",
+      "2024-07-08",
+      550,
+      1,
+      [
+        "literature",
+        "poetry"
+      ],
+      "literature",
+      "7",
+      "even"
+    ]
+  ],
+  "user_solution": "/* \nFilter: Only subscribers with at least 500 loyalty points and no shipments on or after 2024-10-01 are included.\n*/\n\nWITH total_shipments AS (\n    SELECT\n        subscriber_id,\n        COUNT(shipment_id) AS total_shipments\n    FROM shipments\n    WHERE shipment_date::date < '2024-10-01'\n    GROUP BY subscriber_id\n)\nSELECT\n    subscriber_id,\n    INITCAP(TRIM(full_name)) AS full_name,\n    TO_CHAR(TRIM(signup_date_text)::date, 'YYYY-MM-DD') AS signup_date,\n    points,\n    t.total_shipments,\n    preferred_categories,\n    preferred_categories[1] AS primary_category,\n    EXTRACT('month' from TRIM(signup_date_text)::date) AS signup_month,\n    CASE WHEN MOD(points, 2) = 0 THEN 'even' ELSE 'odd' END AS points_parity\nFROM subscribers AS s\nJOIN total_shipments AS t\nUSING (subscriber_id)\nWHERE points >= 500\nORDER BY 1;",
+  "error_message": null,
+  "your_columns": [
+    "subscriber_id",
+    "full_name",
+    "signup_date",
+    "points",
+    "total_shipments",
+    "preferred_categories",
+    "primary_category",
+    "signup_month",
+    "points_parity"
+  ],
+  "your_rows": [
+    [
+      5,
+      "Eve Adams",
+      "2024-06-12",
+      720,
+      1,
+      [
+        "beauty",
+        "food"
+      ],
+      "beauty",
+      "6",
+      "even"
+    ],
+    [
+      6,
+      "Frank Ocean",
+      "2024-04-01",
+      590,
+      2,
+      [
+        "music",
+        "art",
+        "vinyl"
+      ],
+      "music",
+      "4",
+      "even"
+    ],
+    [
+      7,
+      "Grace Hopper",
+      "2024-07-14",
+      1050,
+      1,
+      [
+        "tech",
+        "science"
+      ],
+      "tech",
+      "7",
+      "even"
+    ],
+    [
+      10,
+      "Jack Ryan",
+      "2024-03-18",
+      950,
+      2,
+      [
+        "books",
+        "games"
+      ],
+      "books",
+      "3",
+      "even"
+    ],
+    [
+      11,
+      "Karen Page",
+      "2024-01-22",
+      510,
+      2,
+      [
+        "journalism",
+        "coffee"
+      ],
+      "journalism",
+      "1",
+      "even"
+    ],
+    [
+      12,
+      "Leo Messi",
+      "2024-02-10",
+      840,
+      1,
+      [
+        "sports",
+        "nutrition"
+      ],
+      "sports",
+      "2",
+      "even"
+    ],
+    [
+      14,
+      "Nina Simone",
+      "2024-06-25",
+      670,
+      2,
+      [
+        "music",
+        "soul"
+      ],
+      "music",
+      "6",
+      "even"
+    ],
+    [
+      15,
+      "Oscar Wilde",
+      "2024-07-08",
+      550,
+      1,
+      [
+        "literature",
+        "poetry"
+      ],
+      "literature",
+      "7",
+      "even"
+    ]
+  ]
+}

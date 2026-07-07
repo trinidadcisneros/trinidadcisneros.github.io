@@ -1,0 +1,373 @@
+{
+  "title": "Archive Overdue Installments for Collections",
+  "prompt": "You are managing a buy-now-pay-later service that tracks customer installment plans. The `installments` table records each scheduled payment, and the `collections_queue` table holds installments that have been escalated to the collections team. Write a single INSERT statement (using INSERT ... SELECT, not bulk INSERT VALUES) that copies all installments from `installments` into `collections_queue` where the installment is overdue by more than 30 days and the customer has missed at least 2 payments on the same purchase. When inserting, set `escalation_date` to the literal date '2024-06-15' and `priority_tier` to 'high' if the outstanding amount is $500 or more, otherwise 'standard'. After the INSERT, confirm the result by selecting all rows from `collections_queue` ordered by `queue_id`.",
+  "display": {
+    "context": "You are managing a buy-now-pay-later service that tracks customer installment plans and escalates overdue payments to collections.",
+    "task": "Write a query that archives qualifying overdue installments into the collections queue with computed escalation date and priority tier fields.",
+    "table_notes": {
+      "installments": "Records each scheduled installment payment for customer purchases, including due date, payment status, and amount.",
+      "collections_queue": "Holds installments that have been escalated to the collections team for recovery action."
+    },
+    "output_field_notes": {
+      "queue_id": "Auto-generated identifier for the collections queue entry.",
+      "purchase_id": "The purchase associated with the overdue installment.",
+      "customer_id": "The customer who owes the installment.",
+      "installment_number": "Which installment in the payment schedule this represents.",
+      "due_date": "The original due date of the installment.",
+      "amount_due": "The dollar amount owed for this installment.",
+      "escalation_date": "The date the installment was escalated to collections.",
+      "priority_tier": "The urgency level assigned based on the amount owed."
+    },
+    "field_logic": [
+      "escalation_date: built from a literal value.\n- set to the literal date '2024-06-15' for all inserted rows",
+      "priority_tier: built from amount_due.\n- 'high' when amount_due is greater than or equal to $500\n- 'standard' when amount_due is less than $500"
+    ],
+    "edge_cases": [],
+    "filter_note": "payment_status is 'missed'\ndue_date is before '2024-05-16' (more than 30 days before the '2024-06-15' cutoff)\nits purchase_id has 2 or more installments whose payment_status is 'missed'",
+    "order_by_note": "queue_id ascending"
+  },
+  "schema_ddl": "CREATE TABLE installments (installment_id SERIAL PRIMARY KEY, purchase_id INT NOT NULL, customer_id INT NOT NULL, installment_number INT NOT NULL, due_date DATE NOT NULL, amount_due NUMERIC(10,2) NOT NULL, payment_status VARCHAR(20) NOT NULL); CREATE TABLE collections_queue (queue_id SERIAL PRIMARY KEY, purchase_id INT NOT NULL, customer_id INT NOT NULL, installment_number INT NOT NULL, due_date DATE NOT NULL, amount_due NUMERIC(10,2) NOT NULL, escalation_date DATE NOT NULL, priority_tier VARCHAR(20) NOT NULL);",
+  "example_input_data": "INSERT INTO installments (purchase_id, customer_id, installment_number, due_date, amount_due, payment_status) VALUES (101, 5001, 1, '2024-03-01', 250.00, 'paid'), (101, 5001, 2, '2024-04-01', 250.00, 'missed'), (101, 5001, 3, '2024-05-01', 250.00, 'missed'), (102, 5002, 1, '2024-04-15', 600.00, 'missed'), (102, 5002, 2, '2024-05-15', 600.00, 'pending'), (103, 5003, 1, '2024-02-10', 150.00, 'missed'), (103, 5003, 2, '2024-03-10', 150.00, 'missed'), (103, 5003, 3, '2024-04-10', 150.00, 'missed');",
+  "example_output_columns": [
+    "queue_id",
+    "purchase_id",
+    "customer_id",
+    "installment_number",
+    "due_date",
+    "amount_due",
+    "escalation_date",
+    "priority_tier"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      101,
+      5001,
+      2,
+      "2024-04-01",
+      "250.00",
+      "2024-06-15",
+      "standard"
+    ],
+    [
+      2,
+      101,
+      5001,
+      3,
+      "2024-05-01",
+      "250.00",
+      "2024-06-15",
+      "standard"
+    ],
+    [
+      3,
+      103,
+      5003,
+      1,
+      "2024-02-10",
+      "150.00",
+      "2024-06-15",
+      "standard"
+    ],
+    [
+      4,
+      103,
+      5003,
+      2,
+      "2024-03-10",
+      "150.00",
+      "2024-06-15",
+      "standard"
+    ],
+    [
+      5,
+      103,
+      5003,
+      3,
+      "2024-04-10",
+      "150.00",
+      "2024-06-15",
+      "standard"
+    ]
+  ],
+  "test_data": "INSERT INTO installments (purchase_id, customer_id, installment_number, due_date, amount_due, payment_status) VALUES (201, 6001, 1, '2024-01-05', 800.00, 'missed'), (201, 6001, 2, '2024-02-05', 800.00, 'missed'), (201, 6001, 3, '2024-03-05', 800.00, 'paid'), (202, 6002, 1, '2024-05-20', 300.00, 'missed'), (202, 6002, 2, '2024-06-01', 300.00, 'missed'), (203, 6003, 1, '2024-03-15', 450.00, 'missed'), (204, 6004, 1, '2024-02-28', 550.00, 'missed'), (204, 6004, 2, '2024-03-28', 550.00, 'missed'), (204, 6004, 3, '2024-04-28', 550.00, 'missed'), (205, 6005, 1, '2024-04-10', 200.00, 'missed'), (205, 6005, 2, '2024-05-10', 200.00, 'missed'), (206, 6006, 1, '2024-01-20', 100.00, 'missed'), (206, 6006, 2, '2024-02-20', 100.00, 'missed'), (206, 6006, 3, '2024-03-20', 100.00, 'missed'), (206, 6006, 4, '2024-04-20', 100.00, 'missed'), (207, 6007, 1, '2024-05-25', 700.00, 'missed'), (207, 6007, 2, '2024-06-10', 700.00, 'missed'), (208, 6008, 1, '2024-03-01', 350.00, 'missed'), (208, 6008, 2, '2024-04-01', 350.00, 'paid'), (209, 6009, 1, '2024-02-15', 120.00, 'missed'), (209, 6009, 2, '2024-03-15', 120.00, 'missed'), (209, 6009, 3, '2024-04-15', 120.00, 'missed'), (209, 6009, 4, '2024-05-15', 120.00, 'pending'), (210, 6010, 1, '2024-01-10', 900.00, 'missed'), (210, 6010, 2, '2024-02-10', 900.00, 'missed'), (210, 6010, 3, '2024-03-10', 900.00, 'missed'), (211, 6011, 1, '2024-04-05', 250.00, 'missed'), (211, 6011, 2, '2024-05-05', 250.00, 'missed'), (211, 6011, 3, '2024-06-05', 250.00, 'pending'), (212, 6012, 1, '2024-03-20', 175.00, 'missed');",
+  "test_expected_columns": [
+    "queue_id",
+    "purchase_id",
+    "customer_id",
+    "installment_number",
+    "due_date",
+    "amount_due",
+    "escalation_date",
+    "priority_tier"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      201,
+      6001,
+      1,
+      "2024-01-05",
+      "800.00",
+      "2024-06-15",
+      "high"
+    ],
+    [
+      2,
+      201,
+      6001,
+      2,
+      "2024-02-05",
+      "800.00",
+      "2024-06-15",
+      "high"
+    ],
+    [
+      3,
+      204,
+      6004,
+      1,
+      "2024-02-28",
+      "550.00",
+      "2024-06-15",
+      "high"
+    ],
+    [
+      4,
+      204,
+      6004,
+      2,
+      "2024-03-28",
+      "550.00",
+      "2024-06-15",
+      "high"
+    ],
+    [
+      5,
+      204,
+      6004,
+      3,
+      "2024-04-28",
+      "550.00",
+      "2024-06-15",
+      "high"
+    ],
+    [
+      6,
+      205,
+      6005,
+      1,
+      "2024-04-10",
+      "200.00",
+      "2024-06-15",
+      "standard"
+    ],
+    [
+      7,
+      205,
+      6005,
+      2,
+      "2024-05-10",
+      "200.00",
+      "2024-06-15",
+      "standard"
+    ],
+    [
+      8,
+      206,
+      6006,
+      1,
+      "2024-01-20",
+      "100.00",
+      "2024-06-15",
+      "standard"
+    ],
+    [
+      9,
+      206,
+      6006,
+      2,
+      "2024-02-20",
+      "100.00",
+      "2024-06-15",
+      "standard"
+    ],
+    [
+      10,
+      206,
+      6006,
+      3,
+      "2024-03-20",
+      "100.00",
+      "2024-06-15",
+      "standard"
+    ],
+    [
+      11,
+      206,
+      6006,
+      4,
+      "2024-04-20",
+      "100.00",
+      "2024-06-15",
+      "standard"
+    ],
+    [
+      12,
+      209,
+      6009,
+      1,
+      "2024-02-15",
+      "120.00",
+      "2024-06-15",
+      "standard"
+    ],
+    [
+      13,
+      209,
+      6009,
+      2,
+      "2024-03-15",
+      "120.00",
+      "2024-06-15",
+      "standard"
+    ],
+    [
+      14,
+      209,
+      6009,
+      3,
+      "2024-04-15",
+      "120.00",
+      "2024-06-15",
+      "standard"
+    ],
+    [
+      15,
+      210,
+      6010,
+      1,
+      "2024-01-10",
+      "900.00",
+      "2024-06-15",
+      "high"
+    ],
+    [
+      16,
+      210,
+      6010,
+      2,
+      "2024-02-10",
+      "900.00",
+      "2024-06-15",
+      "high"
+    ],
+    [
+      17,
+      210,
+      6010,
+      3,
+      "2024-03-10",
+      "900.00",
+      "2024-06-15",
+      "high"
+    ],
+    [
+      18,
+      211,
+      6011,
+      1,
+      "2024-04-05",
+      "250.00",
+      "2024-06-15",
+      "standard"
+    ],
+    [
+      19,
+      211,
+      6011,
+      2,
+      "2024-05-05",
+      "250.00",
+      "2024-06-15",
+      "standard"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "state_mutation",
+    "recipe": "dml_insert",
+    "composite_moves": [
+      "group-aggregate to count missed payments per purchase",
+      "row-filter on overdue threshold and missed count",
+      "row-transform to compute escalation_date and priority_tier",
+      "insert qualifying rows into collections_queue",
+      "confirming SELECT to show final state"
+    ]
+  },
+  "hints": [
+    "You need to identify which purchases have at least 2 missed payments before deciding which installments qualify.",
+    "Use a subquery or CTE to count missed payments per purchase_id, then join back to filter the main table.",
+    "The priority_tier logic goes in a CASE expression in the SELECT part of your INSERT statement, comparing amount_due to 500."
+  ],
+  "answer_key": "INSERT INTO collections_queue (purchase_id, customer_id, installment_number, due_date, amount_due, escalation_date, priority_tier)\nSELECT \n  i.purchase_id,\n  i.customer_id,\n  i.installment_number,\n  i.due_date,\n  i.amount_due,\n  DATE '2024-06-15' AS escalation_date,\n  CASE \n    WHEN i.amount_due >= 500 THEN 'high'\n    ELSE 'standard'\n  END AS priority_tier\nFROM installments i\nWHERE i.payment_status = 'missed'\n  AND i.due_date < DATE '2024-06-15' - INTERVAL '30 days'\n  AND i.purchase_id IN (\n    SELECT purchase_id\n    FROM installments\n    WHERE payment_status = 'missed'\n    GROUP BY purchase_id\n    HAVING COUNT(*) >= 2\n  );\n\nSELECT * FROM collections_queue ORDER BY queue_id;",
+  "_meta": {
+    "question_type": "dml_insert",
+    "original_qtype": "dml_insert",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-06T16:45:08.716155",
+    "problem_id": "60d72e4f3925",
+    "validation_attempts": 1,
+    "scenario": "a buy-now-pay-later service tracking installment payment compliance",
+    "dml_op": "INSERT",
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": null,
+    "cleaning_required": false,
+    "cleaning_level": null,
+    "cleaning_requested": "moderate",
+    "cleaning_skipped_reason": "cleaning does not apply to this problem type (dml_insert) — procedural / mutation / parse types drill control flow and state, not text or number cleanup",
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": null,
+    "typecast_twist": false,
+    "realism": "moderate"
+  },
+  "example_output_schema": [
+    [
+      "queue_id",
+      "INTEGER"
+    ],
+    [
+      "purchase_id",
+      "INTEGER"
+    ],
+    [
+      "customer_id",
+      "INTEGER"
+    ],
+    [
+      "installment_number",
+      "INTEGER"
+    ],
+    [
+      "due_date",
+      "DATE"
+    ],
+    [
+      "amount_due",
+      "NUMERIC"
+    ],
+    [
+      "escalation_date",
+      "DATE"
+    ],
+    [
+      "priority_tier",
+      "VARCHAR"
+    ]
+  ]
+}

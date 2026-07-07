@@ -1,0 +1,146 @@
+{
+  "title": "Top Conversation Starter by Message Rate",
+  "prompt": "You are analyzing conversation engagement on a dating app. The `conversation_starters` table tracks users who initiated conversations during a promotional campaign, including their match count, message activity, profile tags, signup date, and total messages sent (stored as text). Find the single user with the highest average messages per match. If there is a tie in the ratio, pick the user with the most total messages sent. Output their user ID, cleaned display name, primary interest tag, signup month name, rounded ratio, absolute difference from the campaign average ratio of 4.5, and whether their message count was even or odd.",
+  "display": {
+    "context": "You are working with a dating app's conversation engagement data tracking users who started conversations during a promotional campaign.",
+    "task": "Write a query that returns the single user with the highest average messages per match, breaking ties by total messages sent, showing their cleaned profile details and computed engagement metrics.",
+    "table_notes": {
+      "conversation_starters": "holds each user's match count, message activity, profile tags array, signup date, and total messages sent as text"
+    },
+    "output_field_notes": {
+      "user_id": "the identifier of the top user",
+      "display_name": "the user's name with extra spaces removed and each word capitalized",
+      "primary_interest": "the first tag from their interests array",
+      "signup_month": "the month name when they signed up",
+      "messages_per_match": "their average messages per match rounded to one decimal place",
+      "distance_from_benchmark": "the absolute difference between their ratio and the campaign average of 4.5",
+      "message_count_parity": "whether their total message count was even or odd"
+    },
+    "field_logic": [
+      "display_name: built from user_name.\n- remove leading and trailing spaces\n- capitalize the first letter of each word",
+      "primary_interest: built from interest_tags.\n- take the first element from the array",
+      "signup_month: built from signup_date.\n- extract the month as a full month name without padding",
+      "messages_per_match: built from total_messages_text and match_count.\n- convert total_messages_text to a number\n- divide by match_count\n- round to one decimal place",
+      "distance_from_benchmark: built from messages_per_match.\n- take the absolute value of the difference between messages_per_match and 4.5",
+      "message_count_parity: built from total_messages_text.\n- convert total_messages_text to a number\n- if the number modulo 2 equals 0, it is even; otherwise it is odd"
+    ],
+    "edge_cases": [],
+    "filter_note": "",
+    "order_by_note": "messages_per_match descending, then total_messages_text converted to number descending",
+    "answer_shape": "",
+    "function_signature": "",
+    "test_call": ""
+  },
+  "schema_ddl": "CREATE TABLE conversation_starters (\n  user_id INT PRIMARY KEY,\n  user_name VARCHAR(100),\n  match_count INT,\n  total_messages_text VARCHAR(20),\n  interest_tags TEXT[],\n  signup_date DATE\n);",
+  "example_input_data": "INSERT INTO conversation_starters (user_id, user_name, match_count, total_messages_text, interest_tags, signup_date) VALUES\n(101, '  alice  chen  ', 12, '67', ARRAY['hiking', 'photography', 'cooking'], '2024-03-15'),\n(102, 'bob  martinez', 8, '45', ARRAY['gaming', 'music'], '2024-02-10'),\n(103, 'carol   white', 15, '82', ARRAY['travel', 'yoga', 'books'], '2024-01-20'),\n(104, 'david kim', 10, '50', ARRAY['fitness', 'movies'], '2024-03-22'),\n(105, 'emma jones', 6, '33', ARRAY['art', 'coffee'], '2024-04-05'),\n(106, 'frank lee', 9, '49', ARRAY['tech', 'startups', 'ai'], '2024-02-28');",
+  "example_output_columns": [
+    "user_id",
+    "display_name",
+    "primary_interest",
+    "signup_month",
+    "messages_per_match",
+    "distance_from_benchmark",
+    "message_count_parity"
+  ],
+  "example_output_rows": [
+    [
+      102,
+      "Bob  Martinez",
+      "gaming",
+      "February",
+      "5.6",
+      "1.1",
+      "odd"
+    ]
+  ],
+  "test_data": "INSERT INTO conversation_starters (user_id, user_name, match_count, total_messages_text, interest_tags, signup_date) VALUES\n(201, '  sarah   thompson  ', 14, '85', ARRAY['running', 'meditation', 'podcasts'], '2024-01-12'),\n(202, 'michael   brown', 11, '68', ARRAY['music', 'concerts'], '2024-02-18'),\n(203, 'jessica wang  ', 9, '56', ARRAY['reading', 'writing', 'poetry'], '2024-03-05'),\n(204, '  james  rodriguez', 16, '99', ARRAY['soccer', 'travel'], '2024-04-10'),\n(205, 'olivia  davis', 7, '44', ARRAY['dance', 'theatre'], '2024-01-28'),\n(206, 'william chen', 13, '80', ARRAY['food', 'wine', 'dining'], '2024-02-14'),\n(207, 'sophia miller', 10, '62', ARRAY['fashion', 'design'], '2024-03-20'),\n(208, 'daniel park', 8, '50', ARRAY['basketball', 'sports'], '2024-04-02'),\n(209, '  ava   garcia  ', 12, '76', ARRAY['photography', 'nature'], '2024-01-30'),\n(210, 'ethan lee', 15, '93', ARRAY['coding', 'gaming', 'tech'], '2024-02-22'),\n(211, 'mia johnson', 6, '39', ARRAY['yoga', 'wellness'], '2024-03-15'),\n(212, 'noah wilson', 11, '70', ARRAY['hiking', 'camping'], '2024-04-08'),\n(213, 'isabella moore', 9, '58', ARRAY['art', 'museums'], '2024-01-25'),\n(214, 'lucas taylor', 14, '88', ARRAY['movies', 'cinema'], '2024-02-16'),\n(215, 'charlotte anderson', 8, '52', ARRAY['cooking', 'baking'], '2024-03-28'),\n(216, 'mason thomas', 10, '65', ARRAY['music', 'guitar'], '2024-04-12'),\n(217, 'amelia jackson', 7, '46', ARRAY['travel', 'languages'], '2024-01-18'),\n(218, 'logan white', 13, '82', ARRAY['fitness', 'gym'], '2024-02-25'),\n(219, 'harper harris', 12, '78', ARRAY['reading', 'literature'], '2024-03-10'),\n(220, 'benjamin martin', 15, '97', ARRAY['entrepreneurship', 'business'], '2024-04-15');",
+  "test_expected_columns": [
+    "user_id",
+    "display_name",
+    "primary_interest",
+    "signup_month",
+    "messages_per_match",
+    "distance_from_benchmark",
+    "message_count_parity"
+  ],
+  "test_expected_rows": [
+    [
+      217,
+      "Amelia Jackson",
+      "travel",
+      "January",
+      "6.6",
+      "2.1",
+      "even"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "single_value",
+    "recipe": "scalar-extract",
+    "composite_moves": [
+      "scalar-extract"
+    ]
+  },
+  "hints": [
+    "You need to find the user with the best engagement ratio, then format several of their fields for display.",
+    "Calculate the ratio for each user, then use ORDER BY with two columns to break ties, and LIMIT 1 to get the top row.",
+    "Convert total_messages_text to numeric, divide by match_count, order by that ratio descending and then by the numeric total descending, limit 1, and apply INITCAP(TRIM(...)) to user_name, interest_tags[1] for the first tag, TO_CHAR(signup_date, 'FMMonth') for the month name, ROUND for the ratio, ABS for the distance, and CASE with MOD for parity."
+  ],
+  "answer_key": "SELECT\n  user_id,\n  INITCAP(TRIM(user_name)) AS display_name,\n  interest_tags[1] AS primary_interest,\n  TO_CHAR(signup_date, 'FMMonth') AS signup_month,\n  ROUND(total_messages_text::NUMERIC / match_count, 1) AS messages_per_match,\n  ABS(ROUND(total_messages_text::NUMERIC / match_count, 1) - 4.5) AS distance_from_benchmark,\n  CASE WHEN MOD(total_messages_text::NUMERIC, 2) = 0 THEN 'even' ELSE 'odd' END AS message_count_parity\nFROM conversation_starters\nORDER BY total_messages_text::NUMERIC / match_count DESC, total_messages_text::NUMERIC DESC\nLIMIT 1;",
+  "_meta": {
+    "question_type": "scalar_extract",
+    "original_qtype": "scalar_extract",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-06T18:37:23.383444",
+    "problem_id": "d8482a3dab5b",
+    "validation_attempts": 4,
+    "scenario": "a dating app tracking mutual matches and messaging engagement",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "top1",
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_requested": "high",
+    "cleaning_skipped_reason": null,
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "moderate"
+  },
+  "example_output_schema": [
+    [
+      "user_id",
+      "INTEGER"
+    ],
+    [
+      "display_name",
+      "TEXT"
+    ],
+    [
+      "primary_interest",
+      "TEXT"
+    ],
+    [
+      "signup_month",
+      "TEXT"
+    ],
+    [
+      "messages_per_match",
+      "NUMERIC"
+    ],
+    [
+      "distance_from_benchmark",
+      "NUMERIC"
+    ],
+    [
+      "message_count_parity",
+      "TEXT"
+    ]
+  ]
+}

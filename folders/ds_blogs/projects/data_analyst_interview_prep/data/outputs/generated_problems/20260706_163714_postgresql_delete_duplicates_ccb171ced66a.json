@@ -1,0 +1,238 @@
+{
+  "title": "Remove Duplicate Alert Acknowledgments",
+  "prompt": "You are working with an observability platform tracking alert acknowledge time and MTTR. The `alert_acks` table records when each alert was acknowledged, but a bug in the mobile app caused some alerts to be acknowledged multiple times by the same on-call engineer, creating duplicate rows. Your task is to delete the duplicate acknowledgments, keeping only the earliest acknowledgment (lowest `ack_id`) for each combination of `alert_id` and `engineer_id`. After deleting the duplicates, return all surviving rows ordered by `ack_id`. See Field expectations for the duplicate key definition and survivor rule.",
+  "display": {
+    "context": "You are working with an observability platform tracking alert acknowledge time and MTTR.",
+    "task": "Write a query that deletes duplicate acknowledgment records, keeping only the earliest one for each alert and engineer combination.",
+    "table_notes": {
+      "alert_acks": "records when each alert was acknowledged by an on-call engineer"
+    },
+    "output_field_notes": {
+      "ack_id": "the unique identifier for each acknowledgment record",
+      "alert_id": "the identifier of the alert that was acknowledged",
+      "engineer_id": "the identifier of the on-call engineer who acknowledged the alert",
+      "acked_at": "the timestamp when the acknowledgment was recorded",
+      "response_time_seconds": "the number of seconds between the alert firing and the acknowledgment"
+    },
+    "field_logic": [],
+    "edge_cases": [
+      "If an alert-engineer pair has only one acknowledgment, that row must remain untouched.",
+      "If an alert-engineer pair has multiple acknowledgments, keep the one with the lowest ack_id and delete the rest.",
+      "If an alert was acknowledged by different engineers, all those acknowledgments are distinct and must all survive."
+    ],
+    "filter_note": "Delete rows where another row exists with the same alert_id and engineer_id but a lower ack_id.",
+    "order_by_note": "The surviving rows are ordered by ack_id ascending.",
+    "answer_shape": "Write a DELETE statement using a self-join, then a trailing SELECT to show the survivors.\n- DELETE FROM alert_acks\n- USING alert_acks as a second alias\n- WHERE the duplicate key columns match between the two aliases\n- AND the first alias has a higher ack_id than the second alias\n- After the DELETE\n  - SELECT * FROM alert_acks ORDER BY ack_id; to return the surviving rows",
+    "test_call": "SELECT * FROM alert_acks ORDER BY ack_id;"
+  },
+  "schema_ddl": "CREATE TABLE alert_acks (ack_id INT PRIMARY KEY, alert_id INT NOT NULL, engineer_id INT NOT NULL, acked_at TIMESTAMP NOT NULL, response_time_seconds INT NOT NULL);",
+  "example_input_data": "INSERT INTO alert_acks (ack_id, alert_id, engineer_id, acked_at, response_time_seconds) VALUES (1, 101, 5, '2024-03-15 08:23:10', 45), (2, 101, 5, '2024-03-15 08:23:15', 50), (3, 102, 7, '2024-03-15 09:14:22', 120), (4, 103, 5, '2024-03-15 10:05:33', 90), (5, 101, 7, '2024-03-15 08:25:40', 195), (6, 102, 7, '2024-03-15 09:14:30', 128), (7, 104, 9, '2024-03-15 11:42:18', 60);",
+  "example_output_columns": [
+    "ack_id",
+    "alert_id",
+    "engineer_id",
+    "acked_at",
+    "response_time_seconds"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      101,
+      5,
+      "2024-03-15 08:23:10",
+      45
+    ],
+    [
+      3,
+      102,
+      7,
+      "2024-03-15 09:14:22",
+      120
+    ],
+    [
+      4,
+      103,
+      5,
+      "2024-03-15 10:05:33",
+      90
+    ],
+    [
+      5,
+      101,
+      7,
+      "2024-03-15 08:25:40",
+      195
+    ],
+    [
+      7,
+      104,
+      9,
+      "2024-03-15 11:42:18",
+      60
+    ]
+  ],
+  "test_data": "INSERT INTO alert_acks (ack_id, alert_id, engineer_id, acked_at, response_time_seconds) VALUES (101, 201, 10, '2024-03-16 07:10:00', 30), (102, 201, 10, '2024-03-16 07:10:05', 35), (103, 201, 10, '2024-03-16 07:10:12', 42), (104, 202, 12, '2024-03-16 08:20:15', 180), (105, 203, 10, '2024-03-16 09:05:22', 75), (106, 203, 10, '2024-03-16 09:05:30', 83), (107, 204, 15, '2024-03-16 10:15:45', 120), (108, 205, 12, '2024-03-16 11:22:10', 95), (109, 205, 12, '2024-03-16 11:22:18', 103), (110, 205, 12, '2024-03-16 11:22:25', 110), (111, 206, 10, '2024-03-16 12:30:00', 60), (112, 207, 18, '2024-03-16 13:45:30', 200), (113, 208, 15, '2024-03-16 14:10:05', 140), (114, 208, 15, '2024-03-16 14:10:12', 147), (115, 209, 20, '2024-03-16 15:20:00', 55), (116, 201, 12, '2024-03-16 07:11:00', 90), (117, 210, 12, '2024-03-16 16:05:10', 110), (118, 210, 12, '2024-03-16 16:05:18', 118), (119, 211, 22, '2024-03-16 17:00:00', 80), (120, 212, 10, '2024-03-16 18:15:20', 150);",
+  "test_expected_columns": [
+    "ack_id",
+    "alert_id",
+    "engineer_id",
+    "acked_at",
+    "response_time_seconds"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      201,
+      10,
+      "2024-03-16 07:10:00",
+      30
+    ],
+    [
+      104,
+      202,
+      12,
+      "2024-03-16 08:20:15",
+      180
+    ],
+    [
+      105,
+      203,
+      10,
+      "2024-03-16 09:05:22",
+      75
+    ],
+    [
+      107,
+      204,
+      15,
+      "2024-03-16 10:15:45",
+      120
+    ],
+    [
+      108,
+      205,
+      12,
+      "2024-03-16 11:22:10",
+      95
+    ],
+    [
+      111,
+      206,
+      10,
+      "2024-03-16 12:30:00",
+      60
+    ],
+    [
+      112,
+      207,
+      18,
+      "2024-03-16 13:45:30",
+      200
+    ],
+    [
+      113,
+      208,
+      15,
+      "2024-03-16 14:10:05",
+      140
+    ],
+    [
+      115,
+      209,
+      20,
+      "2024-03-16 15:20:00",
+      55
+    ],
+    [
+      116,
+      201,
+      12,
+      "2024-03-16 07:11:00",
+      90
+    ],
+    [
+      117,
+      210,
+      12,
+      "2024-03-16 16:05:10",
+      110
+    ],
+    [
+      119,
+      211,
+      22,
+      "2024-03-16 17:00:00",
+      80
+    ],
+    [
+      120,
+      212,
+      10,
+      "2024-03-16 18:15:20",
+      150
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "state_mutation",
+    "recipe": "delete-duplicates",
+    "composite_moves": [
+      "self-join on duplicate key with id inequality",
+      "delete higher-id rows",
+      "select survivors ordered by primary key"
+    ]
+  },
+  "hints": [
+    "Think about how to compare each row with other rows that share the same alert and engineer.",
+    "Use a self-join to pair each acknowledgment with its duplicates, then delete based on which has the higher ID.",
+    "Write DELETE FROM alert_acks USING alert_acks a2 WHERE alert_acks.alert_id = a2.alert_id AND alert_acks.engineer_id = a2.engineer_id AND alert_acks.ack_id > a2.ack_id, then SELECT all remaining rows ordered by ack_id."
+  ],
+  "answer_key": "DELETE FROM alert_acks USING alert_acks a2 WHERE alert_acks.alert_id = a2.alert_id AND alert_acks.engineer_id = a2.engineer_id AND alert_acks.ack_id > a2.ack_id;\nSELECT * FROM alert_acks ORDER BY ack_id;",
+  "_meta": {
+    "question_type": "delete_duplicates",
+    "original_qtype": "delete_duplicates",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-06T16:37:14.156957",
+    "problem_id": "ccb171ced66a",
+    "validation_attempts": 1,
+    "scenario": "an observability platform tracking alert acknowledge time and MTTR",
+    "dml_op": "DELETE",
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "self_join",
+    "cleaning_required": false,
+    "cleaning_level": null,
+    "cleaning_requested": "moderate",
+    "cleaning_skipped_reason": "cleaning does not apply to this problem type (delete_duplicates) \u2014 procedural / mutation / parse types drill control flow and state, not text or number cleanup",
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": null,
+    "typecast_twist": false,
+    "realism": "moderate"
+  },
+  "example_output_schema": [
+    [
+      "ack_id",
+      "INTEGER"
+    ],
+    [
+      "alert_id",
+      "INTEGER"
+    ],
+    [
+      "engineer_id",
+      "INTEGER"
+    ],
+    [
+      "acked_at",
+      "TIMESTAMP"
+    ],
+    [
+      "response_time_seconds",
+      "INTEGER"
+    ]
+  ]
+}

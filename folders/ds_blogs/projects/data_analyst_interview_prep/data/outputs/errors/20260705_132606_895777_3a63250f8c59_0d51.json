@@ -1,0 +1,148 @@
+{
+  "logged_at": "2026-07-05T13:26:06.895777",
+  "failure_kind": "wrong_answer",
+  "problem_id": "3a63250f8c59",
+  "question_type": "anti_join",
+  "original_qtype": "anti_join",
+  "subtype": "not_in",
+  "scenario": "a photo sharing app tracking story creation and view rates",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "row-filter",
+  "title": "Find Creators with Zero Story Views",
+  "prompt": "You are analyzing a photo sharing app modeled on public social media engagement datasets (data.gov). The platform tracks story creation and view activity. Each story has a posted_date and a tags array. Some creators post stories that receive zero views.\n\nWrite a query that identifies creators who have posted at least one story but have ZERO total views across all their stories. For each such creator, show their profile information and compute summary metrics. The output must include: creator_id, display_name (cleaned), total_stories_posted, first_story_month (YYYY-MM format from the earliest posted_date among their stories), primary_tag (the first tag from their most recent story's tags array), engagement_ratio (views divided by stories, as a two-decimal number), and risk_flag ('at_risk' if they have 3 or more stories with zero views, otherwise 'monitor').\n\nOrder the results by creator_id ascending.",
+  "schema_ddl": "CREATE TABLE creators (creator_id INT PRIMARY KEY, first_name VARCHAR(50), last_name VARCHAR(50), registration_date DATE, total_views_text VARCHAR(20)); CREATE TABLE stories (story_id INT PRIMARY KEY, creator_id INT, posted_date DATE, tags TEXT[]); CREATE TABLE story_views (view_id INT PRIMARY KEY, story_id INT, viewer_id INT, viewed_at TIMESTAMP);",
+  "answer_key": "WITH story_ranks AS (SELECT story_id, creator_id, posted_date, tags, ROW_NUMBER() OVER (PARTITION BY creator_id ORDER BY posted_date DESC) AS rn FROM stories), creator_summaries AS (SELECT c.creator_id, TRIM(CONCAT_WS(' ', c.first_name, c.last_name)) AS display_name, COUNT(s.story_id) AS total_stories_posted, TO_CHAR(DATE_TRUNC('month', MIN(s.posted_date)), 'YYYY-MM') AS first_story_month, (SELECT sr.tags[1] FROM story_ranks sr WHERE sr.creator_id = c.creator_id AND sr.rn = 1) AS primary_tag, COALESCE(c.total_views_text::numeric, 0) AS total_views, CASE WHEN COUNT(s.story_id) >= 3 THEN 'at_risk' ELSE 'monitor' END AS risk_flag FROM creators c INNER JOIN stories s ON c.creator_id = s.creator_id WHERE s.story_id NOT IN (SELECT story_id FROM story_views WHERE story_id IS NOT NULL) GROUP BY c.creator_id, c.first_name, c.last_name, c.total_views_text) SELECT creator_id, display_name, total_stories_posted, first_story_month, primary_tag, ROUND(total_views::numeric / total_stories_posted, 2) AS engagement_ratio, risk_flag FROM creator_summaries ORDER BY creator_id;",
+  "test_expected_columns": [
+    "creator_id",
+    "display_name",
+    "total_stories_posted",
+    "first_story_month",
+    "primary_tag",
+    "engagement_ratio",
+    "risk_flag"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Emma   Wilson",
+      2,
+      "2024-01",
+      "landscape",
+      "0.00",
+      "monitor"
+    ],
+    [
+      202,
+      "Frank Taylor",
+      4,
+      "2024-01",
+      "abstract",
+      "0.00",
+      "at_risk"
+    ],
+    [
+      203,
+      "Grace Anderson",
+      3,
+      "2024-03",
+      null,
+      "0.00",
+      "at_risk"
+    ],
+    [
+      205,
+      "Iris Moore",
+      1,
+      "2024-02",
+      "minimalist",
+      "0.00",
+      "monitor"
+    ],
+    [
+      206,
+      "Jack Jackson",
+      2,
+      "2024-02",
+      "retro",
+      "0.00",
+      "monitor"
+    ],
+    [
+      207,
+      "Karen White",
+      3,
+      "2024-03",
+      "detail",
+      "0.00",
+      "at_risk"
+    ]
+  ],
+  "user_solution": "/*\nSELECT\n    c.creator_id,\n    CONCAT(INITCAP(TRIM(c.first_name)), ' ', INITCAP(TRIM(c.last_name))),\n    COUNT(s.story_id) AS total_stories_posted\nFROM creators AS c\nJOIN stories AS s\n    ON c.creator_id = s.creator_id\nGROUP BY 1, 2\nORDER BY creator_id;\n\nEngagement_ratio: built from total_views_text in creators and total_stories_posted.\nconvert total_views_text to a number\ndivide by total_stories_posted\nround to two decimal places\n\n*/\nWITH early_tag AS (\n    SELECT\n        story_id,\n        creator_id,\n        NULLIF(tags[1], '{}') AS primary_tag,\n        ROW_NUMBER() OVER (PARTITION BY creator_id ORDER BY posted_date DESC) AS rn\n    FROM stories\n),\nearly_post_month AS (\n    SELECT\n        story_id,\n        creator_id,\n        TO_CHAR(posted_date, 'YYYY-MM') AS first_story_month,\n        ROW_NUMBER() OVER (PARTITION BY creator_id ORDER BY posted_date) AS rn\n    FROM stories\n),\nbase AS (\n    SELECT\n        c.creator_id,\n        CONCAT(INITCAP(TRIM(c.first_name)), ' ', INITCAP(TRIM(c.last_name))) AS display_name,\n        COUNT(s.story_id) AS total_stories_posted,\n        ROUND(COALESCE(SUM(total_views_text::numeric) / NULLIF(COUNT(s.story_id), 0), 0), 2) AS engagement_ratio,\n        CASE WHEN COUNT(s.story_id) >= 3 THEN 'at_risk' ELSE 'monitor' END AS risk_flag\n    FROM creators AS c\n    JOIN stories AS s\n        ON c.creator_id = s.creator_id\n    WHERE NOT EXISTS (SELECT 1 FROM story_views AS sv WHERE sv.story_id = s.story_id)\n    GROUP BY 1, 2\n    HAVING COUNT(s.story_id) > 0\n    ORDER BY creator_id\n)\nSELECT\n    b.creator_id,\n    b.display_name,\n    b.total_stories_posted,\n    p.first_story_month,\n    t.primary_tag,\n    b.engagement_ratio,\n    b.risk_flag\nFROM base AS b\nJOIN early_tag AS t\n    ON t.creator_id = b.creator_id\nJOIN early_post_month AS p\n    ON p.creator_id = b.creator_id\nWHERE t.rn = 1 AND p.rn = 1\nORDER BY 1\n;",
+  "error_message": null,
+  "your_columns": [
+    "creator_id",
+    "display_name",
+    "total_stories_posted",
+    "first_story_month",
+    "primary_tag",
+    "engagement_ratio",
+    "risk_flag"
+  ],
+  "your_rows": [
+    [
+      201,
+      "Emma Wilson",
+      2,
+      "2024-01",
+      "landscape",
+      "0.00",
+      "monitor"
+    ],
+    [
+      202,
+      "Frank Taylor",
+      4,
+      "2024-01",
+      "abstract",
+      "0.00",
+      "at_risk"
+    ],
+    [
+      203,
+      "Grace Anderson",
+      3,
+      "2024-03",
+      null,
+      "0.00",
+      "at_risk"
+    ],
+    [
+      205,
+      "Iris Moore",
+      1,
+      "2024-02",
+      "minimalist",
+      "0.00",
+      "monitor"
+    ],
+    [
+      206,
+      "Jack Jackson",
+      2,
+      "2024-02",
+      "retro",
+      "0.00",
+      "monitor"
+    ],
+    [
+      207,
+      "Karen White",
+      3,
+      "2024-03",
+      "detail",
+      "0.00",
+      "at_risk"
+    ]
+  ]
+}

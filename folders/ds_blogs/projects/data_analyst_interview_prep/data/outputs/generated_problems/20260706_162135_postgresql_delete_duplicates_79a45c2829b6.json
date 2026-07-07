@@ -1,0 +1,245 @@
+{
+  "title": "Remove Duplicate Employee Enrollment Records",
+  "prompt": "You are working with an HR platform tracking onboarding completion and benefits enrollment. The `employee_enrollments` table holds records of employees enrolling in benefit plans during onboarding. Due to a system glitch, some employees have duplicate enrollment records with the same `employee_id` and `plan_code` combination. Your task is to physically delete the duplicate rows, keeping only the enrollment with the lowest `enrollment_id` for each (`employee_id`, `plan_code`) pair. After deleting the duplicates, return all remaining enrollment records ordered by `enrollment_id`.",
+  "display": {
+    "context": "You are working with an HR platform tracking onboarding completion and benefits enrollment.",
+    "task": "Write a query that physically deletes duplicate enrollment records, keeping only the one with the lowest enrollment_id for each (employee_id, plan_code) pair.",
+    "table_notes": {
+      "employee_enrollments": "holds employee benefit plan enrollment records created during onboarding"
+    },
+    "output_field_notes": {
+      "enrollment_id": "the unique identifier for each enrollment record",
+      "employee_id": "the identifier of the employee who enrolled",
+      "plan_code": "the code identifying the benefit plan (HEALTH, DENTAL, VISION, RETIREMENT)",
+      "enrollment_date": "the date the enrollment was recorded",
+      "coverage_level": "the coverage tier selected (SINGLE, FAMILY, EMPLOYEE_SPOUSE)"
+    },
+    "field_logic": [],
+    "edge_cases": [
+      "If an (employee_id, plan_code) pair appears only once, that record must remain unchanged.",
+      "If an (employee_id, plan_code) pair appears multiple times, keep only the record with the smallest enrollment_id and delete the rest."
+    ],
+    "filter_note": "The output contains only the surviving enrollment records after duplicates are removed.",
+    "order_by_note": "The output rows are ordered by enrollment_id in ascending order.",
+    "answer_shape": "Write a DELETE statement followed by a trailing SELECT.\n- DELETE FROM employee_enrollments WHERE enrollment_id NOT IN (SELECT MIN(enrollment_id) FROM employee_enrollments GROUP BY employee_id, plan_code)\n- Then SELECT * FROM employee_enrollments ORDER BY enrollment_id to return the surviving rows",
+    "test_call": "SELECT * FROM employee_enrollments ORDER BY enrollment_id;"
+  },
+  "schema_ddl": "CREATE TABLE employee_enrollments (enrollment_id INT PRIMARY KEY, employee_id INT NOT NULL, plan_code VARCHAR(20) NOT NULL, enrollment_date DATE NOT NULL, coverage_level VARCHAR(20) NOT NULL);",
+  "example_input_data": "INSERT INTO employee_enrollments (enrollment_id, employee_id, plan_code, enrollment_date, coverage_level) VALUES (101, 501, 'HEALTH', '2024-01-15', 'FAMILY'), (102, 501, 'HEALTH', '2024-01-15', 'FAMILY'), (103, 502, 'DENTAL', '2024-01-18', 'SINGLE'), (104, 503, 'HEALTH', '2024-01-20', 'EMPLOYEE_SPOUSE'), (105, 503, 'HEALTH', '2024-01-21', 'FAMILY'), (106, 503, 'DENTAL', '2024-01-20', 'SINGLE'), (107, 504, 'VISION', '2024-01-22', 'SINGLE'), (108, 504, 'VISION', '2024-01-23', 'FAMILY');",
+  "example_output_columns": [
+    "enrollment_id",
+    "employee_id",
+    "plan_code",
+    "enrollment_date",
+    "coverage_level"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      501,
+      "HEALTH",
+      "2024-01-15",
+      "FAMILY"
+    ],
+    [
+      103,
+      502,
+      "DENTAL",
+      "2024-01-18",
+      "SINGLE"
+    ],
+    [
+      104,
+      503,
+      "HEALTH",
+      "2024-01-20",
+      "EMPLOYEE_SPOUSE"
+    ],
+    [
+      106,
+      503,
+      "DENTAL",
+      "2024-01-20",
+      "SINGLE"
+    ],
+    [
+      107,
+      504,
+      "VISION",
+      "2024-01-22",
+      "SINGLE"
+    ]
+  ],
+  "test_data": "INSERT INTO employee_enrollments (enrollment_id, employee_id, plan_code, enrollment_date, coverage_level) VALUES (201, 601, 'HEALTH', '2024-02-01', 'FAMILY'), (202, 601, 'HEALTH', '2024-02-01', 'SINGLE'), (203, 601, 'HEALTH', '2024-02-02', 'FAMILY'), (204, 602, 'DENTAL', '2024-02-03', 'SINGLE'), (205, 603, 'VISION', '2024-02-05', 'EMPLOYEE_SPOUSE'), (206, 603, 'VISION', '2024-02-05', 'FAMILY'), (207, 603, 'HEALTH', '2024-02-06', 'FAMILY'), (208, 604, 'RETIREMENT', '2024-02-07', 'SINGLE'), (209, 605, 'HEALTH', '2024-02-08', 'FAMILY'), (210, 605, 'HEALTH', '2024-02-08', 'SINGLE'), (211, 605, 'DENTAL', '2024-02-09', 'SINGLE'), (212, 605, 'DENTAL', '2024-02-10', 'FAMILY'), (213, 606, 'VISION', '2024-02-11', 'SINGLE'), (214, 607, 'HEALTH', '2024-02-12', 'FAMILY'), (215, 607, 'HEALTH', '2024-02-13', 'EMPLOYEE_SPOUSE'), (216, 607, 'HEALTH', '2024-02-14', 'SINGLE'), (217, 607, 'DENTAL', '2024-02-15', 'SINGLE'), (218, 608, 'RETIREMENT', '2024-02-16', 'SINGLE'), (219, 608, 'RETIREMENT', '2024-02-17', 'SINGLE'), (220, 609, 'VISION', '2024-02-18', 'FAMILY'), (221, 609, 'HEALTH', '2024-02-19', 'SINGLE'), (222, 610, 'DENTAL', '2024-02-20', 'FAMILY'), (223, 610, 'DENTAL', '2024-02-21', 'SINGLE'), (224, 610, 'DENTAL', '2024-02-22', 'EMPLOYEE_SPOUSE');",
+  "test_expected_columns": [
+    "enrollment_id",
+    "employee_id",
+    "plan_code",
+    "enrollment_date",
+    "coverage_level"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      601,
+      "HEALTH",
+      "2024-02-01",
+      "FAMILY"
+    ],
+    [
+      204,
+      602,
+      "DENTAL",
+      "2024-02-03",
+      "SINGLE"
+    ],
+    [
+      205,
+      603,
+      "VISION",
+      "2024-02-05",
+      "EMPLOYEE_SPOUSE"
+    ],
+    [
+      207,
+      603,
+      "HEALTH",
+      "2024-02-06",
+      "FAMILY"
+    ],
+    [
+      208,
+      604,
+      "RETIREMENT",
+      "2024-02-07",
+      "SINGLE"
+    ],
+    [
+      209,
+      605,
+      "HEALTH",
+      "2024-02-08",
+      "FAMILY"
+    ],
+    [
+      211,
+      605,
+      "DENTAL",
+      "2024-02-09",
+      "SINGLE"
+    ],
+    [
+      213,
+      606,
+      "VISION",
+      "2024-02-11",
+      "SINGLE"
+    ],
+    [
+      214,
+      607,
+      "HEALTH",
+      "2024-02-12",
+      "FAMILY"
+    ],
+    [
+      217,
+      607,
+      "DENTAL",
+      "2024-02-15",
+      "SINGLE"
+    ],
+    [
+      218,
+      608,
+      "RETIREMENT",
+      "2024-02-16",
+      "SINGLE"
+    ],
+    [
+      220,
+      609,
+      "VISION",
+      "2024-02-18",
+      "FAMILY"
+    ],
+    [
+      221,
+      609,
+      "HEALTH",
+      "2024-02-19",
+      "SINGLE"
+    ],
+    [
+      222,
+      610,
+      "DENTAL",
+      "2024-02-20",
+      "FAMILY"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "state_mutation",
+    "recipe": "delete-duplicates",
+    "composite_moves": [
+      "identify duplicate key (employee_id, plan_code)",
+      "find MIN(enrollment_id) per duplicate key",
+      "delete rows where enrollment_id NOT IN the MIN set",
+      "return surviving rows"
+    ]
+  },
+  "hints": [
+    "Think about how to identify which enrollment_id values should survive for each unique (employee_id, plan_code) combination.",
+    "Consider using a subquery with GROUP BY to find the minimum enrollment_id for each duplicate key, then delete everything not in that set.",
+    "Use DELETE FROM employee_enrollments WHERE enrollment_id NOT IN (SELECT MIN(enrollment_id) FROM employee_enrollments GROUP BY employee_id, plan_code), then SELECT * FROM employee_enrollments ORDER BY enrollment_id."
+  ],
+  "answer_key": "DELETE FROM employee_enrollments WHERE enrollment_id NOT IN (SELECT MIN(enrollment_id) FROM employee_enrollments GROUP BY employee_id, plan_code); SELECT * FROM employee_enrollments ORDER BY enrollment_id;",
+  "_meta": {
+    "question_type": "delete_duplicates",
+    "original_qtype": "delete_duplicates",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-06T16:21:35.858431",
+    "problem_id": "79a45c2829b6",
+    "validation_attempts": 1,
+    "scenario": "an HR platform tracking onboarding completion and benefits enrollment",
+    "dml_op": "DELETE",
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "keep_min_id",
+    "cleaning_required": false,
+    "cleaning_level": null,
+    "cleaning_requested": "moderate",
+    "cleaning_skipped_reason": "cleaning does not apply to this problem type (delete_duplicates) \u2014 procedural / mutation / parse types drill control flow and state, not text or number cleanup",
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": null,
+    "typecast_twist": false,
+    "realism": "moderate"
+  },
+  "example_output_schema": [
+    [
+      "enrollment_id",
+      "INTEGER"
+    ],
+    [
+      "employee_id",
+      "INTEGER"
+    ],
+    [
+      "plan_code",
+      "VARCHAR"
+    ],
+    [
+      "enrollment_date",
+      "DATE"
+    ],
+    [
+      "coverage_level",
+      "VARCHAR"
+    ]
+  ]
+}

@@ -1,0 +1,448 @@
+{
+  "problem": {
+    "title": "Telehealth Visit Status and Rebooking Updates",
+    "prompt": "You are working with a telehealth platform that tracks virtual appointments. The visits table holds one row per scheduled appointment. Some visits have been completed but require status updates and follow-up scheduling incentives. Write a DO block that applies the following rules in order, then end with SELECT * FROM visits ORDER BY visit_id; to return the final state:\n\n1) For all completed visits where `follow_up_needed` is true and `follow_up_scheduled` is false, set `status` to 'pending_rebooking'.\n2) For all visits where `status` is 'pending_rebooking', set `rebooking_incentive` to `visit_fee * 0.20`.\n3) For all visits where `minutes_duration` is 30 or more and `patient_satisfaction_score` is 4 or higher, set `eligible_for_testimonial` to true.\n\nSee the Field expectations below for exact column logic.",
+    "display": {
+      "context": "You are working with a telehealth platform that tracks virtual appointments and follow-up scheduling.",
+      "task": "Write a DO block that applies three UPDATE statements in sequence, then end with SELECT * FROM visits ORDER BY visit_id; to return the final state.",
+      "table_notes": {
+        "visits": "holds one row per scheduled telehealth appointment, including completion status, follow-up flags, and patient feedback"
+      },
+      "output_field_notes": {
+        "visit_id": "unique identifier for the appointment",
+        "patient_name": "name of the patient who booked the visit",
+        "provider_name": "name of the clinician who conducted the visit",
+        "visit_fee": "the base fee charged for the visit in dollars",
+        "minutes_duration": "the length of the completed visit in minutes",
+        "follow_up_needed": "whether the provider marked the visit as requiring a follow-up",
+        "follow_up_scheduled": "whether a follow-up appointment has already been booked",
+        "patient_satisfaction_score": "patient rating from 1 to 5 after the visit",
+        "status": "current status of the visit; changes to 'pending_rebooking' for completed visits needing a follow-up that isn't yet scheduled",
+        "rebooking_incentive": "dollar amount offered to encourage the patient to book the follow-up; set to 20% of visit_fee for visits in pending_rebooking status",
+        "eligible_for_testimonial": "flag indicating the visit qualifies for a patient testimonial request"
+      },
+      "field_logic": [
+        "status: built from follow_up_needed, follow_up_scheduled, and status.\n- if follow_up_needed is true AND follow_up_scheduled is false AND the visit is marked 'completed', set status to 'pending_rebooking'",
+        "rebooking_incentive: built from visit_fee and status.\n- if status is 'pending_rebooking', set rebooking_incentive to `visit_fee * 0.20`",
+        "eligible_for_testimonial: built from minutes_duration and patient_satisfaction_score.\n- if minutes_duration is 30 or more AND patient_satisfaction_score is 4 or higher, set eligible_for_testimonial to true"
+      ],
+      "edge_cases": [
+        "If follow_up_needed is false, status remains unchanged by rule 1.",
+        "If follow_up_scheduled is true, status remains unchanged by rule 1.",
+        "If status is NULL before rule 1, it remains NULL unless the row meets rule 1's criteria.",
+        "If visit_fee is NULL, rebooking_incentive becomes NULL when rule 2 fires.",
+        "If patient_satisfaction_score is NULL, eligible_for_testimonial remains false."
+      ],
+      "filter_note": "All rows in the visits table after the three UPDATE statements have run.",
+      "order_by_note": "Rows are ordered by visit_id ascending.",
+      "answer_shape": "Write a DO block containing three UPDATE statements, followed by SELECT * FROM visits ORDER BY visit_id; that returns the final state of the table.",
+      "test_call": "SELECT * FROM visits ORDER BY visit_id;"
+    },
+    "schema_ddl": "CREATE TABLE visits (visit_id INT PRIMARY KEY, patient_name VARCHAR(100), provider_name VARCHAR(100), visit_fee DECIMAL(10,2), minutes_duration INT, follow_up_needed BOOLEAN, follow_up_scheduled BOOLEAN, patient_satisfaction_score INT, status VARCHAR(50), rebooking_incentive DECIMAL(10,2), eligible_for_testimonial BOOLEAN DEFAULT FALSE);",
+    "example_input_data": "INSERT INTO visits (visit_id, patient_name, provider_name, visit_fee, minutes_duration, follow_up_needed, follow_up_scheduled, patient_satisfaction_score, status, rebooking_incentive, eligible_for_testimonial) VALUES (1, 'Alice Johnson', 'Dr. Smith', 150.00, 45, TRUE, FALSE, 5, 'completed', NULL, FALSE), (2, 'Bob Lee', 'Dr. Patel', 120.00, 20, TRUE, TRUE, 3, 'completed', NULL, FALSE), (3, 'Carol Kim', 'Dr. Williams', 180.00, 60, FALSE, FALSE, 4, 'completed', NULL, FALSE), (4, 'Dan Roberts', 'Dr. Brown', 100.00, 30, TRUE, FALSE, 4, 'completed', NULL, FALSE);",
+    "example_output_columns": [
+      "visit_id",
+      "patient_name",
+      "provider_name",
+      "visit_fee",
+      "minutes_duration",
+      "follow_up_needed",
+      "follow_up_scheduled",
+      "patient_satisfaction_score",
+      "status",
+      "rebooking_incentive",
+      "eligible_for_testimonial"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "Alice Johnson",
+        "Dr. Smith",
+        "150.00",
+        45,
+        true,
+        false,
+        5,
+        "pending_rebooking",
+        "30.00",
+        true
+      ],
+      [
+        2,
+        "Bob Lee",
+        "Dr. Patel",
+        "120.00",
+        20,
+        true,
+        true,
+        3,
+        "completed",
+        null,
+        false
+      ],
+      [
+        3,
+        "Carol Kim",
+        "Dr. Williams",
+        "180.00",
+        60,
+        false,
+        false,
+        4,
+        "completed",
+        null,
+        true
+      ],
+      [
+        4,
+        "Dan Roberts",
+        "Dr. Brown",
+        "100.00",
+        30,
+        true,
+        false,
+        4,
+        "pending_rebooking",
+        "20.00",
+        true
+      ]
+    ],
+    "test_data": "INSERT INTO visits (visit_id, patient_name, provider_name, visit_fee, minutes_duration, follow_up_needed, follow_up_scheduled, patient_satisfaction_score, status, rebooking_incentive, eligible_for_testimonial) VALUES (101, 'Emily Chen', 'Dr. Adams', 200.00, 50, TRUE, FALSE, 5, 'completed', NULL, FALSE), (102, 'Frank Moore', 'Dr. Clark', 90.00, 15, TRUE, FALSE, 2, 'completed', NULL, FALSE), (103, 'Grace Liu', 'Dr. Davis', 110.00, 25, FALSE, FALSE, 5, 'completed', NULL, FALSE), (104, 'Henry Park', 'Dr. Evans', 160.00, 40, TRUE, TRUE, 4, 'completed', NULL, FALSE), (105, 'Iris Gupta', 'Dr. Foster', 130.00, 35, TRUE, FALSE, 4, 'completed', NULL, FALSE), (106, 'Jack Wilson', 'Dr. Green', 140.00, 30, TRUE, FALSE, 3, 'completed', NULL, FALSE), (107, 'Karen Taylor', 'Dr. Harris', 175.00, 55, FALSE, FALSE, 5, 'completed', NULL, FALSE), (108, 'Leo Martinez', 'Dr. Jackson', 95.00, 20, TRUE, TRUE, 5, 'completed', NULL, FALSE), (109, 'Maya Singh', 'Dr. King', 185.00, 60, TRUE, FALSE, 5, 'completed', NULL, FALSE), (110, 'Nina Patel', 'Dr. Lewis', 105.00, 28, TRUE, FALSE, 4, 'completed', NULL, FALSE), (111, 'Oscar Diaz', 'Dr. Miller', 125.00, 32, FALSE, FALSE, 4, 'completed', NULL, FALSE), (112, 'Paula Zhang', 'Dr. Moore', 115.00, 18, TRUE, FALSE, 3, 'completed', NULL, FALSE), (113, 'Quinn Adams', 'Dr. Nelson', 195.00, 65, TRUE, FALSE, 5, 'completed', NULL, FALSE), (114, 'Rachel Brown', 'Dr. Owens', 88.00, 22, FALSE, FALSE, 2, 'completed', NULL, FALSE), (115, 'Sam White', 'Dr. Parker', 150.00, 45, TRUE, TRUE, 5, 'completed', NULL, FALSE), (116, 'Tina Robinson', 'Dr. Quinn', NULL, 30, TRUE, FALSE, 4, 'completed', NULL, FALSE), (117, 'Uma Scott', 'Dr. Reed', 170.00, 50, TRUE, FALSE, NULL, 'completed', NULL, FALSE), (118, 'Victor Hall', 'Dr. Scott', 135.00, 29, FALSE, FALSE, 3, 'completed', NULL, FALSE);",
+    "test_expected_columns": [
+      "visit_id",
+      "patient_name",
+      "provider_name",
+      "visit_fee",
+      "minutes_duration",
+      "follow_up_needed",
+      "follow_up_scheduled",
+      "patient_satisfaction_score",
+      "status",
+      "rebooking_incentive",
+      "eligible_for_testimonial"
+    ],
+    "test_expected_rows": [
+      [
+        101,
+        "Emily Chen",
+        "Dr. Adams",
+        "200.00",
+        50,
+        true,
+        false,
+        5.0,
+        "pending_rebooking",
+        "40.00",
+        true
+      ],
+      [
+        102,
+        "Frank Moore",
+        "Dr. Clark",
+        "90.00",
+        15,
+        true,
+        false,
+        2.0,
+        "pending_rebooking",
+        "18.00",
+        false
+      ],
+      [
+        103,
+        "Grace Liu",
+        "Dr. Davis",
+        "110.00",
+        25,
+        false,
+        false,
+        5.0,
+        "completed",
+        null,
+        false
+      ],
+      [
+        104,
+        "Henry Park",
+        "Dr. Evans",
+        "160.00",
+        40,
+        true,
+        true,
+        4.0,
+        "completed",
+        null,
+        true
+      ],
+      [
+        105,
+        "Iris Gupta",
+        "Dr. Foster",
+        "130.00",
+        35,
+        true,
+        false,
+        4.0,
+        "pending_rebooking",
+        "26.00",
+        true
+      ],
+      [
+        106,
+        "Jack Wilson",
+        "Dr. Green",
+        "140.00",
+        30,
+        true,
+        false,
+        3.0,
+        "pending_rebooking",
+        "28.00",
+        false
+      ],
+      [
+        107,
+        "Karen Taylor",
+        "Dr. Harris",
+        "175.00",
+        55,
+        false,
+        false,
+        5.0,
+        "completed",
+        null,
+        true
+      ],
+      [
+        108,
+        "Leo Martinez",
+        "Dr. Jackson",
+        "95.00",
+        20,
+        true,
+        true,
+        5.0,
+        "completed",
+        null,
+        false
+      ],
+      [
+        109,
+        "Maya Singh",
+        "Dr. King",
+        "185.00",
+        60,
+        true,
+        false,
+        5.0,
+        "pending_rebooking",
+        "37.00",
+        true
+      ],
+      [
+        110,
+        "Nina Patel",
+        "Dr. Lewis",
+        "105.00",
+        28,
+        true,
+        false,
+        4.0,
+        "pending_rebooking",
+        "21.00",
+        false
+      ],
+      [
+        111,
+        "Oscar Diaz",
+        "Dr. Miller",
+        "125.00",
+        32,
+        false,
+        false,
+        4.0,
+        "completed",
+        null,
+        true
+      ],
+      [
+        112,
+        "Paula Zhang",
+        "Dr. Moore",
+        "115.00",
+        18,
+        true,
+        false,
+        3.0,
+        "pending_rebooking",
+        "23.00",
+        false
+      ],
+      [
+        113,
+        "Quinn Adams",
+        "Dr. Nelson",
+        "195.00",
+        65,
+        true,
+        false,
+        5.0,
+        "pending_rebooking",
+        "39.00",
+        true
+      ],
+      [
+        114,
+        "Rachel Brown",
+        "Dr. Owens",
+        "88.00",
+        22,
+        false,
+        false,
+        2.0,
+        "completed",
+        null,
+        false
+      ],
+      [
+        115,
+        "Sam White",
+        "Dr. Parker",
+        "150.00",
+        45,
+        true,
+        true,
+        5.0,
+        "completed",
+        null,
+        true
+      ],
+      [
+        116,
+        "Tina Robinson",
+        "Dr. Quinn",
+        null,
+        30,
+        true,
+        false,
+        4.0,
+        "pending_rebooking",
+        null,
+        true
+      ],
+      [
+        117,
+        "Uma Scott",
+        "Dr. Reed",
+        "170.00",
+        50,
+        true,
+        false,
+        null,
+        "pending_rebooking",
+        "34.00",
+        false
+      ],
+      [
+        118,
+        "Victor Hall",
+        "Dr. Scott",
+        "135.00",
+        29,
+        false,
+        false,
+        3.0,
+        "completed",
+        null,
+        false
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "state_mutation",
+      "recipe": "row-transform",
+      "composite_moves": [
+        "set-based sequential UPDATE: rule 1 changes status for rows meeting follow-up criteria",
+        "rule 2 computes rebooking_incentive as `visit_fee * 0.20` for pending_rebooking rows",
+        "rule 3 sets testimonial eligibility flag based on duration and satisfaction thresholds"
+      ]
+    },
+    "hints": [
+      "You'll need a DO block with three UPDATE statements that fire in order.",
+      "The first UPDATE changes status to 'pending_rebooking' where follow_up_needed is true, follow_up_scheduled is false, and status is 'completed'. The second UPDATE sets rebooking_incentive to 20% of visit_fee for rows where status is now 'pending_rebooking'. The third UPDATE sets eligible_for_testimonial to true where duration is at least 30 minutes and satisfaction score is at least 4.",
+      "DO $$ BEGIN UPDATE visits SET status = 'pending_rebooking' WHERE follow_up_needed = TRUE AND follow_up_scheduled = FALSE AND status = 'completed'; UPDATE visits SET rebooking_incentive = visit_fee * 0.20 WHERE status = 'pending_rebooking'; UPDATE visits SET eligible_for_testimonial = TRUE WHERE minutes_duration >= 30 AND patient_satisfaction_score >= 4; END $$; SELECT * FROM visits ORDER BY visit_id;"
+    ],
+    "answer_key": "DO $$\nBEGIN\n  UPDATE visits\n  SET status = 'pending_rebooking'\n  WHERE follow_up_needed = TRUE\n    AND follow_up_scheduled = FALSE\n    AND status = 'completed';\n\n  UPDATE visits\n  SET rebooking_incentive = visit_fee * 0.20\n  WHERE status = 'pending_rebooking';\n\n  UPDATE visits\n  SET eligible_for_testimonial = TRUE\n  WHERE minutes_duration >= 30\n    AND patient_satisfaction_score >= 4;\nEND $$;\n\nSELECT * FROM visits ORDER BY visit_id;",
+    "_meta": {
+      "question_type": "do_block",
+      "original_qtype": "do_block",
+      "dialect": "postgresql",
+      "difficulty": "easy",
+      "scenario_mode": "random",
+      "generated_at": "2026-07-06T09:22:21.515942",
+      "problem_id": "c15f0e2d6e86",
+      "validation_attempts": 1,
+      "scenario": "a telehealth platform tracking visit completion and follow-up scheduling",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": null,
+      "cleaning_required": false,
+      "cleaning_level": null,
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": false,
+      "realism": "moderate"
+    },
+    "example_output_schema": [
+      [
+        "visit_id",
+        "INTEGER"
+      ],
+      [
+        "patient_name",
+        "VARCHAR"
+      ],
+      [
+        "provider_name",
+        "VARCHAR"
+      ],
+      [
+        "visit_fee",
+        "NUMERIC"
+      ],
+      [
+        "minutes_duration",
+        "INTEGER"
+      ],
+      [
+        "follow_up_needed",
+        "BOOLEAN"
+      ],
+      [
+        "follow_up_scheduled",
+        "BOOLEAN"
+      ],
+      [
+        "patient_satisfaction_score",
+        "INTEGER"
+      ],
+      [
+        "status",
+        "VARCHAR"
+      ],
+      [
+        "rebooking_incentive",
+        "NUMERIC"
+      ],
+      [
+        "eligible_for_testimonial",
+        "BOOLEAN"
+      ]
+    ]
+  },
+  "user_solution": "/* \n1) For all completed visits where `follow_up_needed` is true and `follow_up_scheduled` is false, set `status` to 'pending_rebooking'.\n2) For all visits where `status` is 'pending_rebooking', set `rebooking_incentive` to `visit_fee * 0.20`.\n3) For all visits where `minutes_duration` is 30 or more and `patient_satisfaction_score` is 4 or higher, set `eligible_for_testimonial` to true.\n*/\n\nDO $$\nBEGIN\n\n    UPDATE visits\n    SET status = 'pending_rebooking'\n    WHERE follow_up_needed = true AND follow_up_scheduled = false;\n\n    UPDATE visits\n    SET rebooking_incentive = visit_fee * 0.20\n    WHERE status ='pending_rebooking';\n\n    UPDATE visits\n    SET eligible_for_testimonial = true\n    WHERE minutes_duration >= 30 AND patient_satisfaction_score >= 4;\n\nEND $$;\n\nSELECT * FROM visits ORDER BY visit_id;",
+  "solved_at": "2026-07-06T09:33:35.071784"
+}

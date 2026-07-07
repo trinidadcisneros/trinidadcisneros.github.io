@@ -1,0 +1,205 @@
+{
+  "title": "Videos Never Watched by Premium Users",
+  "prompt": "You are working with a short video platform tracking watch time and completion rates, modeled on publicly available social media engagement datasets (data.gov). You have two tables: `videos` holds metadata for each uploaded video, and `premium_watch_sessions` records every watch session by a premium subscriber. Write a query that returns all videos that have NEVER been watched by any premium subscriber. The output must include the video identifier, the cleaned-up creator handle, the first tag assigned to the video, the upload month in 'YYYY-MM' format, the estimated views (parsed from a text field), the boosted view count (views raised to the 1.5 power, rounded to the nearest integer), and the final view count (using the boosted count if the estimated views field is NULL, otherwise the estimated views count). Order the results by `video_id` ascending.",
+  "display": {
+    "context": "You are working with a short video platform tracking watch time and completion rates, modeled on publicly available social media engagement datasets (data.gov).",
+    "task": "Write a query that returns all videos that have NEVER been watched by any premium subscriber.",
+    "table_notes": {
+      "videos": "holds metadata for each uploaded video including creator handle, tags, and upload date",
+      "premium_watch_sessions": "records every watch session by a premium subscriber with the video they watched"
+    },
+    "output_field_notes": {
+      "video_id": "the unique identifier of the video",
+      "creator_handle": "the creator's username in lowercase without surrounding spaces",
+      "first_tag": "the first tag assigned to the video from the tags array",
+      "upload_month": "the month and year the video was uploaded, formatted as YYYY-MM",
+      "estimated_views": "the number of views parsed from the estimated_views_text field",
+      "boosted_views": "the estimated views raised to the power of 1.5, rounded to the nearest whole number",
+      "final_views": "using boosted_views when estimated_views_text is NULL, otherwise estimated_views"
+    },
+    "field_logic": [
+      "creator_handle: built from creator_handle.\n- convert to lowercase\n- remove spaces around it",
+      "first_tag: built from tags.\n- take the first element from the tags array",
+      "upload_month: built from uploaded_at.\n- extract the year and month\n- format as YYYY-MM",
+      "estimated_views: built from estimated_views_text.\n- convert the text to a number",
+      "boosted_views: built from estimated_views.\n- raise estimated_views to the power of 1.5\n- round to the nearest whole number",
+      "final_views: built from estimated_views_text, boosted_views, and estimated_views.\n- if estimated_views_text is NULL, use boosted_views\n- otherwise use estimated_views"
+    ],
+    "edge_cases": [
+      "If a video appears in premium_watch_sessions at least once, exclude it from the output.",
+      "If estimated_views_text is NULL, final_views should equal boosted_views."
+    ],
+    "filter_note": "Only videos that have zero matching rows in premium_watch_sessions are included.",
+    "order_by_note": "Results are ordered by video_id in ascending order."
+  },
+  "schema_ddl": "CREATE TABLE videos (video_id INT PRIMARY KEY, creator_handle VARCHAR(100), tags TEXT[], uploaded_at DATE, estimated_views_text VARCHAR(20)); CREATE TABLE premium_watch_sessions (session_id INT PRIMARY KEY, video_id INT, user_id INT, watch_duration_seconds INT);",
+  "example_input_data": "INSERT INTO videos (video_id, creator_handle, tags, uploaded_at, estimated_views_text) VALUES (101, '  TechGuru  ', ARRAY['tutorial', 'programming', 'beginner'], '2024-01-15', '1200'), (102, 'FitnessQueen', ARRAY['workout', 'health'], '2024-02-20', '3500'), (103, '  ComedyKing  ', ARRAY['funny', 'sketch'], '2024-03-10', NULL), (104, 'MusicLover', ARRAY['cover', 'acoustic'], '2024-01-25', '890'); INSERT INTO premium_watch_sessions (session_id, video_id, user_id, watch_duration_seconds) VALUES (1, 102, 501, 45), (2, 102, 502, 60), (3, 104, 503, 30);",
+  "example_output_columns": [
+    "video_id",
+    "creator_handle",
+    "first_tag",
+    "upload_month",
+    "estimated_views",
+    "boosted_views",
+    "final_views"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "techguru",
+      "tutorial",
+      "2024-01",
+      "1200",
+      "41569",
+      "1200"
+    ],
+    [
+      103,
+      "comedyking",
+      "funny",
+      "2024-03",
+      null,
+      null,
+      null
+    ]
+  ],
+  "test_data": "INSERT INTO videos (video_id, creator_handle, tags, uploaded_at, estimated_views_text) VALUES (201, '  DataScience  ', ARRAY['analytics', 'python'], '2024-04-05', '2200'), (202, 'TravelVlogs', ARRAY['adventure', 'travel'], '2024-05-12', '5000'), (203, '  GamingPro  ', ARRAY['gaming', 'esports'], '2024-06-18', NULL), (204, 'CookingMama', ARRAY['recipe', 'baking'], '2024-04-22', '1500'), (205, '  ArtStudio  ', ARRAY['painting', 'art'], '2024-07-01', '800'), (206, 'PetCare', ARRAY['dogs', 'training'], '2024-05-30', NULL), (207, 'LifeHacks', ARRAY['tips', 'productivity'], '2024-08-14', '4200'), (208, '  BookReviews  ', ARRAY['literature', 'reviews'], '2024-09-03', '950'), (209, 'DIYProjects', ARRAY['crafts', 'diy'], '2024-07-20', '3100'), (210, 'HistoryBuff', ARRAY['history', 'documentary'], '2024-10-11', NULL); INSERT INTO premium_watch_sessions (session_id, video_id, user_id, watch_duration_seconds) VALUES (11, 202, 601, 120), (12, 204, 602, 90), (13, 202, 603, 75), (14, 207, 604, 55), (15, 209, 605, 40), (16, 204, 606, 110), (17, 207, 607, 65);",
+  "test_expected_columns": [
+    "video_id",
+    "creator_handle",
+    "first_tag",
+    "upload_month",
+    "estimated_views",
+    "boosted_views",
+    "final_views"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "datascience",
+      "analytics",
+      "2024-04",
+      "2200",
+      "103189",
+      "2200"
+    ],
+    [
+      203,
+      "gamingpro",
+      "gaming",
+      "2024-06",
+      null,
+      null,
+      null
+    ],
+    [
+      205,
+      "artstudio",
+      "painting",
+      "2024-07",
+      "800",
+      "22627",
+      "800"
+    ],
+    [
+      206,
+      "petcare",
+      "dogs",
+      "2024-05",
+      null,
+      null,
+      null
+    ],
+    [
+      208,
+      "bookreviews",
+      "literature",
+      "2024-09",
+      "950",
+      "29281",
+      "950"
+    ],
+    [
+      210,
+      "historybuff",
+      "history",
+      "2024-10",
+      null,
+      null,
+      null
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "row-filter",
+    "composite_moves": [
+      "anti-join using NOT IN with IS NOT NULL guard",
+      "lowercase and trim creator handle",
+      "extract first array element",
+      "format date as YYYY-MM",
+      "cast text to numeric",
+      "raise to power and round",
+      "coalesce for null handling"
+    ]
+  },
+  "hints": [
+    "Think about which videos should be excluded from your result set based on their presence in another table.",
+    "Use NOT IN with a subquery that selects video_id from premium_watch_sessions, and ensure the subquery column is non-NULL to avoid the NULL trap.",
+    "Apply LOWER(TRIM(creator_handle)) to clean the handle, tags[1] for the first tag, TO_CHAR(uploaded_at, 'YYYY-MM') for the month, estimated_views_text::NUMERIC for parsing, ROUND(POWER(estimated_views_text::NUMERIC, 1.5)) for boosting, and COALESCE for the final view count."
+  ],
+  "answer_key": "SELECT video_id, LOWER(TRIM(creator_handle)) AS creator_handle, tags[1] AS first_tag, TO_CHAR(uploaded_at, 'YYYY-MM') AS upload_month, estimated_views_text::NUMERIC AS estimated_views, ROUND(POWER(estimated_views_text::NUMERIC, 1.5)) AS boosted_views, CASE WHEN estimated_views_text IS NULL THEN ROUND(POWER(estimated_views_text::NUMERIC, 1.5)) ELSE estimated_views_text::NUMERIC END AS final_views FROM videos WHERE video_id NOT IN (SELECT video_id FROM premium_watch_sessions WHERE video_id IS NOT NULL) ORDER BY video_id;",
+  "_meta": {
+    "question_type": "anti_join",
+    "original_qtype": "anti_join",
+    "dialect": "postgresql",
+    "difficulty": "easy",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-05T14:21:01.015990",
+    "problem_id": "f13bc20ca912",
+    "validation_attempts": 3,
+    "scenario": "a short video platform tracking watch time and completion rates",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "not_in",
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "high"
+  },
+  "example_output_schema": [
+    [
+      "video_id",
+      "INTEGER"
+    ],
+    [
+      "creator_handle",
+      "TEXT"
+    ],
+    [
+      "first_tag",
+      "TEXT"
+    ],
+    [
+      "upload_month",
+      "TEXT"
+    ],
+    [
+      "estimated_views",
+      "NUMERIC"
+    ],
+    [
+      "boosted_views",
+      "NUMERIC"
+    ],
+    [
+      "final_views",
+      "NUMERIC"
+    ]
+  ]
+}

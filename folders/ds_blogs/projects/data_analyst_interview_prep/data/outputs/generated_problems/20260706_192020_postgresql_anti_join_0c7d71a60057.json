@@ -1,0 +1,243 @@
+{
+  "title": "Members Who Never Logged a Workout",
+  "prompt": "You are working with a fitness app that tracks member registrations and completed workouts. The `members` table holds each member's profile, including a TEXT[] array of their fitness goals. The `workout_logs` table records every workout session a member completes. Your task is to identify members who registered but have never logged a single workout. For each such member, return their member_id, their cleaned first name (remove leading/trailing spaces, capitalize each word), the first fitness goal from their goals array, their registration date formatted as 'YYYY-MM', the registration month as an integer, their activity_score converted to a number, the activity_score rounded to one decimal place, and their subscription_tier (if NULL, use 'free'). Order the results by member_id ascending.",
+  "display": {
+    "context": "You are working with a fitness app that tracks member registrations and completed workouts.",
+    "task": "Write a query that returns members who have never logged a single workout, showing their profile details with cleaned and formatted fields.",
+    "table_notes": {
+      "members": "holds each member's profile including name, registration date, goals array, activity score, and subscription tier",
+      "workout_logs": "records every workout session a member completes"
+    },
+    "output_field_notes": {
+      "member_id": "the member's unique identifier",
+      "first_name_clean": "the member's first name with spaces removed and each word capitalized",
+      "primary_goal": "the first fitness goal from the member's goals array",
+      "registration_month_label": "the registration date formatted as year-month",
+      "registration_month_number": "the numeric month of registration",
+      "activity_score_numeric": "the activity score as a numeric value",
+      "activity_score_rounded": "the activity score rounded to one decimal place",
+      "subscription_tier_display": "the member's subscription tier, showing 'free' when NULL"
+    },
+    "field_logic": [
+      "first_name_clean: built from first_name_raw.\n- remove the pattern '\\s+' (one or more whitespace characters) globally, replacing with a single space\n- capitalize each word",
+      "primary_goal: built from goals.\n- take the first element of the goals array",
+      "registration_month_label: built from registered_at.\n- truncate registered_at to the month level\n- format as 'YYYY-MM'",
+      "registration_month_number: built from registered_at.\n- extract the month part as an integer",
+      "activity_score_numeric: built from activity_score_text.\n- convert activity_score_text to a numeric value using the format '999.99'",
+      "activity_score_rounded: built from activity_score_text.\n- convert activity_score_text to a numeric value\n- raise the numeric value to the power of 1 (identity operation to apply POWER)\n- round the result to 1 decimal place",
+      "subscription_tier_display: built from subscription_tier.\n- if subscription_tier is NULL, use 'free'\n- otherwise use subscription_tier"
+    ],
+    "edge_cases": [],
+    "filter_note": "A row is returned only when ALL of these are true:\n- the member's member_id does not appear in workout_logs.member_id",
+    "order_by_note": "member_id ascending",
+    "answer_shape": "",
+    "function_signature": "",
+    "test_call": ""
+  },
+  "schema_ddl": "CREATE TABLE members (member_id INT PRIMARY KEY, first_name_raw TEXT, goals TEXT[], registered_at DATE, activity_score_text TEXT, subscription_tier TEXT); CREATE TABLE workout_logs (log_id INT PRIMARY KEY, member_id INT, workout_date DATE, duration_minutes INT);",
+  "example_input_data": "INSERT INTO members (member_id, first_name_raw, goals, registered_at, activity_score_text, subscription_tier) VALUES (101, '  Alice  ', ARRAY['weight_loss', 'strength'], '2024-01-15', '45.30', 'premium'), (102, 'Bob   ', ARRAY['cardio', 'flexibility'], '2024-02-20', '32.00', NULL), (103, '  Carol ', ARRAY['endurance'], '2024-03-10', '28.50', 'basic'), (104, 'Dan', ARRAY['strength', 'mobility'], '2024-01-25', '50.75', NULL), (105, ' Eve  ', ARRAY['yoga', 'mindfulness'], '2024-04-05', '15.20', 'premium'); INSERT INTO workout_logs (log_id, member_id, workout_date, duration_minutes) VALUES (1, 101, '2024-01-20', 30), (2, 101, '2024-01-22', 45), (3, 103, '2024-03-12', 60), (4, 103, '2024-03-15', 40);",
+  "example_output_columns": [
+    "member_id",
+    "first_name_clean",
+    "primary_goal",
+    "registration_month_label",
+    "registration_month_number",
+    "activity_score_numeric",
+    "activity_score_rounded",
+    "subscription_tier_display"
+  ],
+  "example_output_rows": [
+    [
+      102,
+      "Bob ",
+      "cardio",
+      "2024-02",
+      2,
+      "32.00",
+      "32.0",
+      "free"
+    ],
+    [
+      104,
+      "Dan",
+      "strength",
+      "2024-01",
+      1,
+      "50.75",
+      "50.8",
+      "free"
+    ],
+    [
+      105,
+      " Eve ",
+      "yoga",
+      "2024-04",
+      4,
+      "15.20",
+      "15.2",
+      "premium"
+    ]
+  ],
+  "test_data": "INSERT INTO members (member_id, first_name_raw, goals, registered_at, activity_score_text, subscription_tier) VALUES (201, '  Frank  ', ARRAY['running', 'cycling'], '2024-05-01', '60.00', 'premium'), (202, 'Grace   ', ARRAY['swimming'], '2024-06-15', '42.33', 'basic'), (203, '  Henry ', ARRAY['hiking', 'climbing'], '2024-07-20', '38.90', NULL), (204, 'Ivy', ARRAY['pilates'], '2024-05-10', '25.00', NULL), (205, ' Jack  ', ARRAY['boxing', 'kickboxing'], '2024-08-01', '55.67', 'premium'), (206, 'Karen   ', ARRAY['dance'], '2024-06-05', '48.12', 'basic'), (207, '  Leo ', ARRAY['crossfit', 'weightlifting'], '2024-07-12', '70.45', 'premium'), (208, 'Mia', ARRAY['stretching'], '2024-05-25', '20.80', NULL), (209, ' Nina  ', ARRAY['meditation'], '2024-08-15', '10.50', 'basic'), (210, 'Oscar   ', ARRAY['rowing'], '2024-09-01', '65.25', NULL), (211, '  Paula ', ARRAY['spinning'], '2024-06-20', '52.90', 'premium'), (212, 'Quinn', ARRAY['zumba'], '2024-07-30', '35.15', 'basic'); INSERT INTO workout_logs (log_id, member_id, workout_date, duration_minutes) VALUES (11, 201, '2024-05-05', 45), (12, 201, '2024-05-08', 50), (13, 202, '2024-06-18', 35), (14, 205, '2024-08-03', 60), (15, 205, '2024-08-05', 55), (16, 207, '2024-07-15', 70), (17, 207, '2024-07-18', 65), (18, 211, '2024-06-22', 40), (19, 211, '2024-06-25', 45);",
+  "test_expected_columns": [
+    "member_id",
+    "first_name_clean",
+    "primary_goal",
+    "registration_month_label",
+    "registration_month_number",
+    "activity_score_numeric",
+    "activity_score_rounded",
+    "subscription_tier_display"
+  ],
+  "test_expected_rows": [
+    [
+      203,
+      " Henry ",
+      "hiking",
+      "2024-07",
+      7,
+      "38.90",
+      "38.9",
+      "free"
+    ],
+    [
+      204,
+      "Ivy",
+      "pilates",
+      "2024-05",
+      5,
+      "25.00",
+      "25.0",
+      "free"
+    ],
+    [
+      206,
+      "Karen ",
+      "dance",
+      "2024-06",
+      6,
+      "48.12",
+      "48.1",
+      "basic"
+    ],
+    [
+      208,
+      "Mia",
+      "stretching",
+      "2024-05",
+      5,
+      "20.80",
+      "20.8",
+      "free"
+    ],
+    [
+      209,
+      " Nina ",
+      "meditation",
+      "2024-08",
+      8,
+      "10.50",
+      "10.5",
+      "basic"
+    ],
+    [
+      210,
+      "Oscar ",
+      "rowing",
+      "2024-09",
+      9,
+      "65.25",
+      "65.3",
+      "free"
+    ],
+    [
+      212,
+      "Quinn",
+      "zumba",
+      "2024-07",
+      7,
+      "35.15",
+      "35.2",
+      "basic"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "row-filter",
+    "composite_moves": [
+      "anti-join using NOT EXISTS",
+      "clean first_name_raw with REGEXP_REPLACE and INITCAP",
+      "extract first element from goals array",
+      "truncate and format registered_at with DATE_TRUNC and TO_CHAR",
+      "extract month from registered_at with EXTRACT",
+      "cast activity_score_text to numeric with TO_NUMBER",
+      "round the numeric score with ROUND and POWER"
+    ]
+  },
+  "hints": [
+    "Think about how to find members who appear in one table but not in another.",
+    "Use NOT EXISTS with a correlated subquery to check for the absence of matching rows in the workout_logs table.",
+    "For string cleaning, remove extra whitespace with REGEXP_REPLACE before capitalizing. For arrays, access the first element with [1]. For dates, DATE_TRUNC gives you a truncated timestamp that you can format. Convert text to numeric with TO_NUMBER, then apply rounding and power functions."
+  ],
+  "answer_key": "SELECT m.member_id, INITCAP(REGEXP_REPLACE(m.first_name_raw, '\\s+', ' ', 'g')) AS first_name_clean, m.goals[1] AS primary_goal, TO_CHAR(DATE_TRUNC('month', m.registered_at), 'YYYY-MM') AS registration_month_label, EXTRACT(MONTH FROM m.registered_at)::INT AS registration_month_number, TO_NUMBER(m.activity_score_text, '999.99') AS activity_score_numeric, ROUND(POWER(TO_NUMBER(m.activity_score_text, '999.99'), 1), 1) AS activity_score_rounded, COALESCE(m.subscription_tier, 'free') AS subscription_tier_display FROM members m WHERE NOT EXISTS (SELECT 1 FROM workout_logs w WHERE w.member_id = m.member_id) ORDER BY m.member_id;",
+  "_meta": {
+    "question_type": "anti_join",
+    "original_qtype": "anti_join",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-06T19:20:20.065638",
+    "problem_id": "0c7d71a60057",
+    "validation_attempts": 3,
+    "scenario": "a fitness app tracking workout completion and active days per week",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "not_exists",
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_requested": "high",
+    "cleaning_skipped_reason": null,
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "moderate"
+  },
+  "example_output_schema": [
+    [
+      "member_id",
+      "INTEGER"
+    ],
+    [
+      "first_name_clean",
+      "TEXT"
+    ],
+    [
+      "primary_goal",
+      "TEXT"
+    ],
+    [
+      "registration_month_label",
+      "TEXT"
+    ],
+    [
+      "registration_month_number",
+      "INTEGER"
+    ],
+    [
+      "activity_score_numeric",
+      "NUMERIC"
+    ],
+    [
+      "activity_score_rounded",
+      "NUMERIC"
+    ],
+    [
+      "subscription_tier_display",
+      "TEXT"
+    ]
+  ]
+}

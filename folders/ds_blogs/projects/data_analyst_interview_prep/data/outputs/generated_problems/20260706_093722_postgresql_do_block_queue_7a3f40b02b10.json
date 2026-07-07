@@ -1,0 +1,213 @@
+{
+  "title": "Subscription Box Renewal Queue Processor",
+  "prompt": "You are building a subscription box service that processes renewal and churn events in chronological order. The `subscriptions` table tracks each customer's current status and their last box shipment date. The `renewal_events` table logs requests to renew, pause, or cancel subscriptions. Write a DO block that processes the events in `event_id` order. Each event must read the subscription's current state from the `subscriptions` table, check whether the event's preconditions are met, and conditionally update the subscription. Subsequent events in the same run must see the prior event's update. After processing all events, return the final state with `SELECT * FROM subscriptions ORDER BY subscription_id;`.\n\nEvent-type rules (use the EXACT column name `event_type`):\n\n\u2022 When `event_type` = 1 ('renew') applies:\n  - Preconditions:\n    + current `status` must be 'active'.\n    + current `last_shipment_date` must be at least 28 days before the event's `requested_date`.\n  - Actions:\n    + set `status` to 'active'.\n    + set `last_shipment_date` to the event's `requested_date`.\n    + increment `boxes_shipped` by 1.\n\n\u2022 When `event_type` = 2 ('pause') applies:\n  - Preconditions:\n    + current `status` must be 'active'.\n  - Actions:\n    + set `status` to 'paused'.\n\n\u2022 When `event_type` = 3 ('cancel') applies:\n  - Preconditions:\n    + current `status` must be 'active' or 'paused'.\n  - Actions:\n    + set `status` to 'cancelled'.\n\n\u2022 Events that fail their preconditions are no-ops (the subscription row is unchanged).\n\nConstraints: A renew event only fires if the subscription is active AND the last shipment was at least 28 days ago. A pause event only fires if the subscription is active. A cancel event fires if the subscription is active or paused. Design your loop to read the current `status`, `last_shipment_date`, and `boxes_shipped` from the `subscriptions` table at the start of each iteration, then branch on `event_type` and the preconditions.",
+  "display": {
+    "context": "You are building a subscription box service that processes renewal and churn events in chronological order.",
+    "task": "Write a DO block that processes the renewal_events table in event_id order, reads each subscription's current state, checks preconditions, conditionally updates the subscription, and ends with SELECT * FROM subscriptions ORDER BY subscription_id; to show the final state.",
+    "table_notes": {
+      "subscriptions": "holds each customer subscription's current status, last shipment date, and box count",
+      "renewal_events": "logs renewal, pause, and cancel requests with a monotonically increasing event_id and the date the event was requested"
+    },
+    "output_field_notes": {
+      "subscription_id": "unique identifier for the subscription",
+      "customer_name": "name of the customer who owns the subscription",
+      "status": "current subscription state after all events are processed",
+      "last_shipment_date": "date the most recent box was shipped",
+      "boxes_shipped": "total count of boxes shipped to date"
+    },
+    "field_logic": [],
+    "edge_cases": [
+      "If a renew event arrives but last_shipment_date is fewer than 28 days before the event's requested_date, the renew is a no-op.",
+      "If a pause event arrives but the subscription is already paused or cancelled, the pause is a no-op.",
+      "If a cancel event arrives but the subscription is already cancelled, the cancel is a no-op.",
+      "If an earlier event in the queue changes status from active to paused, a later renew event for the same subscription becomes a no-op because the precondition requires active status."
+    ],
+    "filter_note": "All rows from the subscriptions table are returned after the DO block completes.",
+    "order_by_note": "Rows are ordered by subscription_id ascending.",
+    "answer_shape": "Write a DO block that declares a RECORD variable for the event row and scalar variables for the subscription's current status, last_shipment_date, and boxes_shipped. Use FOR rec IN SELECT * FROM renewal_events ORDER BY event_id LOOP to iterate the log. Inside the loop, SELECT the subscription's current state INTO your variables, then use IF / ELSIF / END IF to branch on event_type and the preconditions. Conditionally UPDATE subscriptions inside each branch. After END LOOP, end with SELECT * FROM subscriptions ORDER BY subscription_id; to return the final state.",
+    "test_call": "SELECT * FROM subscriptions ORDER BY subscription_id;"
+  },
+  "schema_ddl": "CREATE TABLE subscriptions (subscription_id INT PRIMARY KEY, customer_name VARCHAR(100), status VARCHAR(20), last_shipment_date DATE, boxes_shipped INT); CREATE TABLE renewal_events (event_id INT PRIMARY KEY, subscription_id INT, event_type INT, requested_date DATE);",
+  "example_input_data": "INSERT INTO subscriptions (subscription_id, customer_name, status, last_shipment_date, boxes_shipped) VALUES (101, 'Alice Chen', 'active', DATE '2024-01-15', 3), (102, 'Bob Martinez', 'active', DATE '2024-02-10', 5), (103, 'Carol Kim', 'active', DATE '2024-02-20', 2), (104, 'Dan Lee', 'paused', DATE '2024-01-05', 1); INSERT INTO renewal_events (event_id, subscription_id, event_type, requested_date) VALUES (1, 101, 1, DATE '2024-02-18'), (2, 102, 2, DATE '2024-02-15'), (3, 103, 1, DATE '2024-03-01'), (4, 102, 1, DATE '2024-03-01'), (5, 104, 3, DATE '2024-02-25');",
+  "example_output_columns": [
+    "subscription_id",
+    "customer_name",
+    "status",
+    "last_shipment_date",
+    "boxes_shipped"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Alice Chen",
+      "active",
+      "2024-02-18",
+      4
+    ],
+    [
+      102,
+      "Bob Martinez",
+      "paused",
+      "2024-02-10",
+      5
+    ],
+    [
+      103,
+      "Carol Kim",
+      "active",
+      "2024-02-20",
+      2
+    ],
+    [
+      104,
+      "Dan Lee",
+      "cancelled",
+      "2024-01-05",
+      1
+    ]
+  ],
+  "test_data": "INSERT INTO subscriptions (subscription_id, customer_name, status, last_shipment_date, boxes_shipped) VALUES (201, 'Emma Wilson', 'active', DATE '2024-01-10', 4), (202, 'Frank Garcia', 'active', DATE '2024-02-05', 6), (203, 'Grace Taylor', 'active', DATE '2024-02-15', 2), (204, 'Henry Brown', 'paused', DATE '2024-01-20', 3), (205, 'Iris Davis', 'active', DATE '2024-02-20', 1), (206, 'Jack Miller', 'active', DATE '2024-01-25', 5), (207, 'Karen White', 'active', DATE '2024-02-28', 7), (208, 'Leo Harris', 'paused', DATE '2024-01-15', 2), (209, 'Mia Clark', 'active', DATE '2024-02-01', 3), (210, 'Noah Lewis', 'active', DATE '2024-02-10', 4); INSERT INTO renewal_events (event_id, subscription_id, event_type, requested_date) VALUES (1, 201, 1, DATE '2024-02-12'), (2, 202, 1, DATE '2024-03-10'), (3, 203, 2, DATE '2024-02-18'), (4, 204, 3, DATE '2024-02-22'), (5, 205, 1, DATE '2024-02-25'), (6, 206, 1, DATE '2024-03-01'), (7, 207, 1, DATE '2024-03-05'), (8, 208, 1, DATE '2024-02-20'), (9, 209, 2, DATE '2024-02-25'), (10, 210, 3, DATE '2024-03-01'), (11, 203, 1, DATE '2024-03-20'), (12, 205, 2, DATE '2024-03-15'), (13, 206, 2, DATE '2024-03-10'), (14, 207, 3, DATE '2024-03-12'), (15, 209, 3, DATE '2024-03-05'), (16, 201, 2, DATE '2024-03-15'), (17, 202, 2, DATE '2024-03-20');",
+  "test_expected_columns": [
+    "subscription_id",
+    "customer_name",
+    "status",
+    "last_shipment_date",
+    "boxes_shipped"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Emma Wilson",
+      "paused",
+      "2024-02-12",
+      5
+    ],
+    [
+      202,
+      "Frank Garcia",
+      "paused",
+      "2024-03-10",
+      7
+    ],
+    [
+      203,
+      "Grace Taylor",
+      "paused",
+      "2024-02-15",
+      2
+    ],
+    [
+      204,
+      "Henry Brown",
+      "cancelled",
+      "2024-01-20",
+      3
+    ],
+    [
+      205,
+      "Iris Davis",
+      "paused",
+      "2024-02-20",
+      1
+    ],
+    [
+      206,
+      "Jack Miller",
+      "paused",
+      "2024-03-01",
+      6
+    ],
+    [
+      207,
+      "Karen White",
+      "cancelled",
+      "2024-02-28",
+      7
+    ],
+    [
+      208,
+      "Leo Harris",
+      "paused",
+      "2024-01-15",
+      2
+    ],
+    [
+      209,
+      "Mia Clark",
+      "cancelled",
+      "2024-02-01",
+      3
+    ],
+    [
+      210,
+      "Noah Lewis",
+      "cancelled",
+      "2024-02-10",
+      4
+    ]
+  ],
+  "classification": {
+    "input_arrival": "procedural",
+    "output_shape": "state_mutation",
+    "recipe": "do-block-sequential",
+    "composite_moves": [
+      "declare variables",
+      "FOR loop over event log in ID order",
+      "per-iteration SELECT current state INTO variables",
+      "IF/ELSIF branch on event_type and state preconditions",
+      "conditional UPDATE",
+      "trailing SELECT to show final state"
+    ]
+  },
+  "hints": [
+    "Start by declaring a RECORD variable for the event row and three scalar variables for the subscription's current status, last_shipment_date, and boxes_shipped.",
+    "Use a FOR loop to iterate renewal_events in event_id order. Inside the loop, read the subscription's current state with SELECT ... INTO.",
+    "Branch with IF on event_type = 1 and check that status = 'active' AND requested_date - last_shipment_date >= 28. Similarly, check status preconditions for event_type 2 and 3. Update only when preconditions pass."
+  ],
+  "answer_key": "DO $$ DECLARE rec RECORD; cur_status VARCHAR(20); cur_shipment DATE; cur_boxes INT; BEGIN FOR rec IN SELECT * FROM renewal_events ORDER BY event_id LOOP SELECT status, last_shipment_date, boxes_shipped INTO cur_status, cur_shipment, cur_boxes FROM subscriptions WHERE subscription_id = rec.subscription_id; IF rec.event_type = 1 AND cur_status = 'active' AND rec.requested_date - cur_shipment >= 28 THEN UPDATE subscriptions SET status = 'active', last_shipment_date = rec.requested_date, boxes_shipped = cur_boxes + 1 WHERE subscription_id = rec.subscription_id; ELSIF rec.event_type = 2 AND cur_status = 'active' THEN UPDATE subscriptions SET status = 'paused' WHERE subscription_id = rec.subscription_id; ELSIF rec.event_type = 3 AND (cur_status = 'active' OR cur_status = 'paused') THEN UPDATE subscriptions SET status = 'cancelled' WHERE subscription_id = rec.subscription_id; END IF; END LOOP; END $$; SELECT * FROM subscriptions ORDER BY subscription_id;",
+  "_meta": {
+    "question_type": "do_block_queue",
+    "original_qtype": "do_block_queue",
+    "dialect": "postgresql",
+    "difficulty": "easy",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-06T09:37:22.108768",
+    "problem_id": "7a3f40b02b10",
+    "validation_attempts": 2,
+    "scenario": "a D2C subscription box service tracking renewal and churn",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": null,
+    "cleaning_required": false,
+    "cleaning_level": null,
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": null,
+    "typecast_twist": false,
+    "realism": "moderate"
+  },
+  "example_output_schema": [
+    [
+      "subscription_id",
+      "INTEGER"
+    ],
+    [
+      "customer_name",
+      "VARCHAR"
+    ],
+    [
+      "status",
+      "VARCHAR"
+    ],
+    [
+      "last_shipment_date",
+      "DATE"
+    ],
+    [
+      "boxes_shipped",
+      "INTEGER"
+    ]
+  ]
+}

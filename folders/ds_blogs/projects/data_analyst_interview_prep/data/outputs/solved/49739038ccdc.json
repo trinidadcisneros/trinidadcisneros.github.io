@@ -1,0 +1,184 @@
+{
+  "problem": {
+    "title": "Find users with no mutual matches",
+    "prompt": "You are working with a dating app that tracks swipes and matches. A mutual match occurs when two users have both swiped right on each other, creating a row in the mutual_matches table. Your task is to identify users who have signed up but never achieved a mutual match with anyone. The output should include the user's ID, their cleaned display name (trimmed and title-cased), their first preferred activity tag, the month they joined (formatted as 'YYYY-MM'), their rounded match compatibility score (a percentage stored as text that needs to be converted to numeric and rounded to 1 decimal place), and a status label that shows 'active' if their account status is 'active', otherwise 'inactive'. Return results ordered by user_id ascending. Field expectations detail the cleaning and formatting for each output column.",
+    "display": {
+      "context": "You are working with a dating app that tracks user profiles and mutual matches between members.",
+      "task": "Write a query that returns all users who have never achieved a mutual match with anyone, showing their cleaned profile details.",
+      "table_notes": {
+        "users": "holds user profiles with signup dates, activity preferences, and account status",
+        "mutual_matches": "records each mutual match between two users with the date it occurred"
+      },
+      "output_field_notes": {
+        "user_id": "the unique identifier for the user",
+        "display_name": "the user's cleaned profile name",
+        "first_activity": "the first activity tag from their preferences list",
+        "join_month": "the month and year when the user signed up",
+        "compatibility_pct": "the user's match compatibility score as a percentage",
+        "account_status": "whether the account is currently active or inactive"
+      },
+      "field_logic": [
+        "display_name: built from display_name_raw.\n- remove leading and trailing spaces\n- capitalize the first letter of each word",
+        "first_activity: built from activity_tags.\n- take the first element from the activity tags array",
+        "join_month: built from signup_date.\n- format the date as year and month in YYYY-MM format",
+        "compatibility_pct: built from compatibility_score_text.\n- convert the text value to a number\n- round to 1 decimal place",
+        "account_status: built from status.\n- show 'active' when status equals 'active'\n- otherwise show 'inactive'"
+      ],
+      "edge_cases": [],
+      "filter_note": "A row qualifies when ALL of these are true:\nuser_id does not appear in mutual_matches as either user_a_id or user_b_id (the user has never had a mutual match)",
+      "order_by_note": "user_id ascending"
+    },
+    "schema_ddl": "CREATE TABLE users (user_id INT PRIMARY KEY, display_name_raw VARCHAR(100), signup_date DATE, activity_tags TEXT[], compatibility_score_text VARCHAR(20), status VARCHAR(20)); CREATE TABLE mutual_matches (match_id INT PRIMARY KEY, user_a_id INT, user_b_id INT, matched_on DATE);",
+    "example_input_data": "INSERT INTO users (user_id, display_name_raw, signup_date, activity_tags, compatibility_score_text, status) VALUES (101, '  alice Wong  ', '2024-01-15', ARRAY['hiking', 'reading', 'cooking'], '87.345', 'active'), (102, 'bob CHEN', '2024-02-10', ARRAY['gaming', 'movies'], '72.891', 'active'), (103, '  CAROL kim  ', '2024-03-05', ARRAY['yoga', 'travel'], '91.234', 'inactive'), (104, 'david LEE', '2024-01-22', ARRAY['music', 'art'], '65.678', 'active'), (105, 'emily park', '2024-04-12', ARRAY['sports', 'photography'], '78.912', 'paused'); INSERT INTO mutual_matches (match_id, user_a_id, user_b_id, matched_on) VALUES (1, 101, 102, '2024-02-15'), (2, 102, 101, '2024-02-15'), (3, 101, 104, '2024-03-01');",
+    "example_output_columns": [
+      "user_id",
+      "display_name",
+      "first_activity",
+      "join_month",
+      "compatibility_pct",
+      "account_status"
+    ],
+    "example_output_rows": [
+      [
+        103,
+        "Carol Kim",
+        "yoga",
+        "2024-03",
+        "91.2",
+        "inactive"
+      ],
+      [
+        105,
+        "Emily Park",
+        "sports",
+        "2024-04",
+        "78.9",
+        "inactive"
+      ]
+    ],
+    "test_data": "INSERT INTO users (user_id, display_name_raw, signup_date, activity_tags, compatibility_score_text, status) VALUES (201, '  frank ZHANG  ', '2024-01-05', ARRAY['running', 'cycling'], '83.456', 'active'), (202, 'grace liu', '2024-01-18', ARRAY['dancing', 'singing'], '76.234', 'active'), (203, '  helen TAN  ', '2024-02-08', ARRAY['writing', 'blogging'], '88.901', 'inactive'), (204, 'ivan wu', '2024-02-20', ARRAY['climbing', 'skiing'], '69.345', 'active'), (205, 'julia CHEN', '2024-03-12', ARRAY['drawing', 'painting'], '92.678', 'active'), (206, '  kevin ng  ', '2024-03-25', ARRAY['surfing', 'swimming'], '74.123', 'paused'), (207, 'laura YAO', '2024-04-01', ARRAY['tennis', 'badminton'], '81.567', 'active'), (208, 'mark zhou', '2024-04-15', ARRAY['coding', 'hacking'], '79.890', 'inactive'), (209, '  nina WANG  ', '2024-05-02', ARRAY['gardening', 'cooking'], '85.234', 'active'), (210, 'oscar lin', '2024-05-20', ARRAY['fishing', 'camping'], '71.456', 'active'); INSERT INTO mutual_matches (match_id, user_a_id, user_b_id, matched_on) VALUES (101, 201, 202, '2024-01-25'), (102, 202, 201, '2024-01-25'), (103, 201, 205, '2024-03-15'), (104, 205, 201, '2024-03-15'), (105, 204, 207, '2024-04-05'), (106, 207, 204, '2024-04-05'), (107, 202, 205, '2024-03-20'), (108, 205, 202, '2024-03-20');",
+    "test_expected_columns": [
+      "user_id",
+      "display_name",
+      "first_activity",
+      "join_month",
+      "compatibility_pct",
+      "account_status"
+    ],
+    "test_expected_rows": [
+      [
+        203,
+        "Helen Tan",
+        "writing",
+        "2024-02",
+        "88.9",
+        "inactive"
+      ],
+      [
+        206,
+        "Kevin Ng",
+        "surfing",
+        "2024-03",
+        "74.1",
+        "inactive"
+      ],
+      [
+        208,
+        "Mark Zhou",
+        "coding",
+        "2024-04",
+        "79.9",
+        "inactive"
+      ],
+      [
+        209,
+        "Nina Wang",
+        "gardening",
+        "2024-05",
+        "85.2",
+        "active"
+      ],
+      [
+        210,
+        "Oscar Lin",
+        "fishing",
+        "2024-05",
+        "71.5",
+        "active"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "row-filter",
+      "composite_moves": [
+        "anti-join via LEFT JOIN ... WHERE right IS NULL",
+        "string cleaning with TRIM and INITCAP",
+        "array element access with arr[1]",
+        "date formatting with TO_CHAR",
+        "text-to-numeric cast with ::numeric",
+        "numeric rounding with ROUND",
+        "conditional logic with CASE"
+      ]
+    },
+    "hints": [
+      "Think about how to find rows in one table that have no corresponding rows in another table.",
+      "A LEFT JOIN will keep all rows from the left table, and you can filter for cases where the right table produced NULLs.",
+      "Use LEFT JOIN users to mutual_matches checking both user_a_id and user_b_id, then filter WHERE the match columns are NULL, and apply the cleaning functions to each output column."
+    ],
+    "answer_key": "SELECT u.user_id, INITCAP(TRIM(u.display_name_raw)) AS display_name, u.activity_tags[1] AS first_activity, TO_CHAR(u.signup_date, 'YYYY-MM') AS join_month, ROUND(u.compatibility_score_text::NUMERIC, 1) AS compatibility_pct, CASE WHEN u.status = 'active' THEN 'active' ELSE 'inactive' END AS account_status FROM users u LEFT JOIN mutual_matches m1 ON u.user_id = m1.user_a_id LEFT JOIN mutual_matches m2 ON u.user_id = m2.user_b_id WHERE m1.user_a_id IS NULL AND m2.user_b_id IS NULL ORDER BY u.user_id;",
+    "_meta": {
+      "question_type": "anti_join",
+      "original_qtype": "anti_join",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-07-06T19:00:30.818668",
+      "problem_id": "49739038ccdc",
+      "validation_attempts": 3,
+      "scenario": "a dating app tracking mutual matches and messaging engagement",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "left_join_null",
+      "cleaning_required": true,
+      "cleaning_level": "high",
+      "cleaning_requested": "high",
+      "cleaning_skipped_reason": null,
+      "cleaning_all_six": true,
+      "cleaning_per_category": 1,
+      "cleaning_bonus": null,
+      "typecast_twist": true,
+      "realism": "moderate"
+    },
+    "example_output_schema": [
+      [
+        "user_id",
+        "INTEGER"
+      ],
+      [
+        "display_name",
+        "TEXT"
+      ],
+      [
+        "first_activity",
+        "TEXT"
+      ],
+      [
+        "join_month",
+        "TEXT"
+      ],
+      [
+        "compatibility_pct",
+        "NUMERIC"
+      ],
+      [
+        "account_status",
+        "TEXT"
+      ]
+    ]
+  },
+  "user_solution": "/* \nWrite a query that returns all users who have never achieved a mutual match with anyone, showing their cleaned profile details.\n*/\nSELECT\n    user_id,\n    INITCAP(TRIM(display_name_raw)) AS display_name,\n    activity_tags[1] AS first_activity,\n    TO_CHAR(signup_date, 'YYYY-MM') AS join_month,\n    ROUND(TRIM(compatibility_score_text)::numeric, 1) AS compatibility_pct,\n    CASE WHEN status = 'active' THEN 'active' ELSE 'inactive' END AS account_status\nFROM users AS u\nWHERE NOT EXISTS (SELECT 1 FROM mutual_matches AS m WHERE u.user_id = m.user_a_id OR u.user_id = m.user_b_id)\nORDER BY 1;\n\n",
+  "solved_at": "2026-07-06T19:12:49.345600"
+}

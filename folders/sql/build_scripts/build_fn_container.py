@@ -21,64 +21,65 @@ E = lambda s: _html.escape(str(s), quote=False)
 # ============================================================
 REF = {
  'fn-string': [
-  ("INITCAP(text)", "Title-case each word", "INITCAP('thai curry')", "Thai Curry"),
-  ("UPPER / LOWER", "Change case", "UPPER('abc')", "ABC"),
-  ("SUBSTRING(s FROM a FOR n)", "Slice from position a (1-based), length n", "SUBSTRING('abcdef' FROM 2 FOR 3)", "bcd"),
-  ("LEFT / RIGHT(s, n)", "First / last n characters", "LEFT('abcdef', 3)", "abc"),
-  ("SPLIT_PART(s, delim, n)", "The nth piece of a delimited string", "SPLIT_PART('30.11.1989', '.', 3)", "1989"),
-  ("POSITION(sub IN s)", "1-based index of sub (0 if absent)", "POSITION('@' IN 'a@b.com')", "2"),
-  ("TRIM / BTRIM(s, chars)", "Strip leading & trailing chars", "BTRIM('xxhixx','x')", "hi"),
-  ("REPLACE(s, from, to)", "Replace every occurrence", "REPLACE('555-12-99','-','')", "5551299"),
-  ("CONCAT_WS(sep, a, b, …)", "Join with a separator (skips NULLs)", "CONCAT_WS('-','2024','11','30')", "2024-11-30"),
-  ("LENGTH(s)", "Number of characters", "LENGTH('hello')", "5"),
-  ("LPAD(s, len, pad)", "Left-pad to a fixed width", "LPAD('7',3,'0')", "007"),
-  ("REGEXP_REPLACE(s, pat, r, 'g')", "Regex replace (g = all)", "REGEXP_REPLACE('a1b2c3','[0-9]','','g')", "abc"),
-  ("STRING_TO_ARRAY(s, sep)", "Split text into an array", "STRING_TO_ARRAY('a-b-c','-')", "{a,b,c}"),
+  ("INITCAP(text)", "Title-case each word", "INITCAP('thai curry')", "Thai Curry", "SELECT"),
+  ("UPPER / LOWER", "Change case", "UPPER('abc')", "ABC", "SELECT"),
+  ("SUBSTRING(s FROM a FOR n)", "Slice from position a (1-based), length n", "SUBSTRING('abcdef' FROM 2 FOR 3)", "bcd", "SELECT"),
+  ("LEFT / RIGHT(s, n)", "First / last n characters", "LEFT('abcdef', 3)", "abc", "SELECT"),
+  ("SPLIT_PART(s, delim, n)", "The nth piece of a delimited string", "SPLIT_PART('30.11.1989', '.', 3)", "1989", "SELECT"),
+  ("POSITION(sub IN s)", "1-based index of sub (0 if absent)", "POSITION('@' IN 'a@b.com')", "2", "SELECT"),
+  ("TRIM / BTRIM(s, chars)", "Strip leading & trailing chars", "BTRIM('xxhixx','x')", "hi", "SELECT"),
+  ("REPLACE(s, from, to)", "Replace every occurrence", "REPLACE('555-12-99','-','')", "5551299", "SELECT"),
+  ("CONCAT_WS(sep, a, b, …)", "Join with a separator (skips NULLs)", "CONCAT_WS('-','2024','11','30')", "2024-11-30", "SELECT"),
+  ("LENGTH(s)", "Number of characters", "LENGTH('hello')", "5", "SELECT"),
+  ("LPAD(s, len, pad)", "Left-pad to a fixed width", "LPAD('7',3,'0')", "007", "SELECT"),
+  ("REGEXP_REPLACE(s, pat, r, 'g')", "Regex EDIT &mdash; returns cleaned text (g = replace all)", "REGEXP_REPLACE('a1b2c3','[0-9]','','g')", "abc", "SELECT"),
+  ("s ~ 'regex'", "Regex TEST &mdash; TRUE if s matches the pattern (~* ignores case, !~ negates)", "'NP-123456' ~ '^NP-[0-9]{6}$'", "true", "WHERE / CASE"),
+  ("STRING_TO_ARRAY(s, sep)", "Split text into an array", "STRING_TO_ARRAY('a-b-c','-')", "{a,b,c}", "SELECT"),
  ],
  'fn-array': [
-  ("arr[n]", "Nth element (arrays are 1-based)", "(ARRAY['a','b','c'])[2]", "b"),
-  ("ARRAY_LENGTH(arr, 1)", "Length along dimension 1", "ARRAY_LENGTH(ARRAY[10,20,30],1)", "3"),
-  ("x = ANY(arr)", "Membership test", "'b' = ANY(ARRAY['a','b','c'])", "true"),
-  ("arr @> arr2", "Contains ALL of arr2", "ARRAY['a','b'] @> ARRAY['a']", "true"),
-  ("arr && arr2", "Overlaps (any in common)", "ARRAY['a','b'] && ARRAY['x','b']", "true"),
-  ("ARRAY_TO_STRING(arr, sep)", "Join array into text", "ARRAY_TO_STRING(ARRAY['a','b','c'],'-')", "a-b-c"),
-  ("STRING_TO_ARRAY(s, sep)", "Split text into an array", "STRING_TO_ARRAY('a-b-c','-')", "{a,b,c}"),
-  ("UNNEST(arr)", "Expand an array into rows", "UNNEST(ARRAY[10,20,30])", "10 / 20 / 30  (3 rows)"),
+  ("arr[n]", "Nth element (arrays are 1-based)", "(ARRAY['a','b','c'])[2]", "b", "SELECT"),
+  ("ARRAY_LENGTH(arr, 1)", "Length along dimension 1", "ARRAY_LENGTH(ARRAY[10,20,30],1)", "3", "SELECT"),
+  ("x = ANY(arr)", "Membership test", "'b' = ANY(ARRAY['a','b','c'])", "true", "WHERE / CASE"),
+  ("arr @> arr2", "Contains ALL of arr2", "ARRAY['a','b'] @> ARRAY['a']", "true", "WHERE / CASE"),
+  ("arr && arr2", "Overlaps (any in common)", "ARRAY['a','b'] && ARRAY['x','b']", "true", "WHERE / CASE"),
+  ("ARRAY_TO_STRING(arr, sep)", "Join array into text", "ARRAY_TO_STRING(ARRAY['a','b','c'],'-')", "a-b-c", "SELECT"),
+  ("STRING_TO_ARRAY(s, sep)", "Split text into an array", "STRING_TO_ARRAY('a-b-c','-')", "{a,b,c}", "SELECT"),
+  ("UNNEST(arr)", "Expand an array into rows", "UNNEST(ARRAY[10,20,30])", "10 / 20 / 30  (3 rows)", "FROM"),
  ],
  'fn-date': [
-  ("EXTRACT(part FROM ts)", "Pull a NUMBER (month, year, dow…)", "EXTRACT(MONTH FROM TIMESTAMP '2020-11-30 09:30:20')", "11"),
-  ("DATE_TRUNC(unit, ts)", "Truncated TIMESTAMP, not a number", "DATE_TRUNC('month', TIMESTAMP '2020-11-30 09:30:20')", "2020-11-01 00:00:00"),
-  ("AGE(a, b)", "Interval between two dates", "AGE(DATE '2020-04-01', DATE '2020-01-15')", "2 mons 17 days"),
-  ("date - date", "Whole days between (an integer)", "DATE '2020-04-01' - DATE '2020-03-20'", "12"),
-  ("date + INTERVAL", "Shift by an interval", "DATE '2020-01-15' + INTERVAL '1 month'", "2020-02-15 00:00:00"),
-  ("TO_CHAR(ts, fmt)", "Format a timestamp to text (month / weekday NAMES too &mdash; see the format-pattern accordion below)", "TO_CHAR(TIMESTAMP '2020-11-30','YYYY-MM')", "2020-11"),
-  ("EXTRACT(DOW FROM d)", "Day of week (0 = Sunday)", "EXTRACT(DOW FROM DATE '2020-11-30')", "1"),
-  ("TO_DATE(s, fmt)", "Parse TEXT into a date &mdash; you give the input format (no guessing)", "TO_DATE('15.03.2024','DD.MM.YYYY')", "2024-03-15"),
-  ("TO_CHAR(date, fmt)", "Format a date as TEXT (the reverse of TO_DATE)", "TO_CHAR(DATE '2024-03-15','YYYY-MM-DD')", "2024-03-15"),
+  ("EXTRACT(part FROM ts)", "Pull a NUMBER (month, year, dow…)", "EXTRACT(MONTH FROM TIMESTAMP '2020-11-30 09:30:20')", "11", "SELECT"),
+  ("DATE_TRUNC(unit, ts)", "Truncated TIMESTAMP, not a number", "DATE_TRUNC('month', TIMESTAMP '2020-11-30 09:30:20')", "2020-11-01 00:00:00", "SELECT / GROUP BY"),
+  ("AGE(a, b)", "Interval between two dates", "AGE(DATE '2020-04-01', DATE '2020-01-15')", "2 mons 17 days", "SELECT"),
+  ("date - date", "Whole days between (an integer)", "DATE '2020-04-01' - DATE '2020-03-20'", "12", "SELECT"),
+  ("date + INTERVAL", "Shift by an interval", "DATE '2020-01-15' + INTERVAL '1 month'", "2020-02-15 00:00:00", "SELECT"),
+  ("TO_CHAR(ts, fmt)", "Format a timestamp to text (month / weekday NAMES too &mdash; see the format-pattern accordion below)", "TO_CHAR(TIMESTAMP '2020-11-30','YYYY-MM')", "2020-11", "SELECT"),
+  ("EXTRACT(DOW FROM d)", "Day of week (0 = Sunday)", "EXTRACT(DOW FROM DATE '2020-11-30')", "1", "SELECT"),
+  ("TO_DATE(s, fmt)", "Parse TEXT into a date &mdash; you give the input format (no guessing)", "TO_DATE('15.03.2024','DD.MM.YYYY')", "2024-03-15", "SELECT"),
+  ("TO_CHAR(date, fmt)", "Format a date as TEXT (the reverse of TO_DATE)", "TO_CHAR(DATE '2024-03-15','YYYY-MM-DD')", "2024-03-15", "SELECT"),
  ],
  'fn-cast': [
-  ("x::type  /  CAST(x AS type)", "Convert a value's type", "'42'::int", "42"),
-  ("TO_DATE(s, fmt)", "Parse text into a date", "TO_DATE('30.11.2020','DD.MM.YYYY')", "2020-11-30"),
-  ("TO_NUMBER(s, fmt)", "Parse text (with separators) into a number", "TO_NUMBER('1,234','9G999')", "1234"),
-  ("TO_CHAR(n, fmt)", "Format a number to text", "TO_CHAR(1234.5,'FM9999.00')", "1234.50"),
-  ("NULLIF(a, b)", "NULL when a = b (blank → NULL)", "NULLIF('', '')", "(NULL)"),
-  ("COALESCE(a, b, …)", "First non-NULL value", "COALESCE(NULL, 0)", "0"),
+  ("x::type  /  CAST(x AS type)", "Convert a value's type", "'42'::int", "42", "SELECT"),
+  ("TO_DATE(s, fmt)", "Parse text into a date", "TO_DATE('30.11.2020','DD.MM.YYYY')", "2020-11-30", "SELECT"),
+  ("TO_NUMBER(s, fmt)", "Parse text (with separators) into a number", "TO_NUMBER('1,234','9G999')", "1234", "SELECT"),
+  ("TO_CHAR(n, fmt)", "Format a number to text", "TO_CHAR(1234.5,'FM9999.00')", "1234.50", "SELECT"),
+  ("NULLIF(a, b)", "NULL when a = b (blank → NULL)", "NULLIF('', '')", "(NULL)", "SELECT"),
+  ("COALESCE(a, b, …)", "First non-NULL value", "COALESCE(NULL, 0)", "0", "SELECT"),
  ],
  'fn-numeric': [
-  ("ROUND(n, d)", "Round to d decimals", "ROUND(3.14159, 2)", "3.14"),
-  ("CEIL / FLOOR(n)", "Up / down to a whole number", "CEIL(4.1)", "5"),
-  ("TRUNC(n, d)", "Cut decimals WITHOUT rounding", "TRUNC(4.78, 1)", "4.7"),
-  ("ABS(n)", "Absolute value", "ABS(-5)", "5"),
-  ("MOD(a, b)", "Remainder", "MOD(10, 3)", "1"),
-  ("POWER(a, b)", "a to the power b", "POWER(2, 3)", "8"),
-  ("a::numeric / b", "Avoid integer division (7/2 = 3!)", "ROUND(7::numeric / 2, 2)", "3.50"),
-  ("GREATEST / LEAST(…)", "Max / min of the arguments", "GREATEST(1, 5, 3)", "5"),
+  ("ROUND(n, d)", "Round to d decimals", "ROUND(3.14159, 2)", "3.14", "SELECT"),
+  ("CEIL / FLOOR(n)", "Up / down to a whole number", "CEIL(4.1)", "5", "SELECT"),
+  ("TRUNC(n, d)", "Cut decimals WITHOUT rounding", "TRUNC(4.78, 1)", "4.7", "SELECT"),
+  ("ABS(n)", "Absolute value", "ABS(-5)", "5", "SELECT"),
+  ("MOD(a, b)", "Remainder", "MOD(10, 3)", "1", "SELECT"),
+  ("POWER(a, b)", "a to the power b", "POWER(2, 3)", "8", "SELECT"),
+  ("a::numeric / b", "Avoid integer division (7/2 = 3!)", "ROUND(7::numeric / 2, 2)", "3.50", "SELECT"),
+  ("GREATEST / LEAST(…)", "Max / min of the arguments", "GREATEST(1, 5, 3)", "5", "SELECT"),
  ],
  'fn-conditional': [
-  ("CASE WHEN … THEN … ELSE … END", "Branch by condition", "CASE WHEN 5 > 0 THEN 'pos' ELSE 'neg' END", "pos"),
-  ("COALESCE(a, b, …)", "First non-NULL (fill a default)", "COALESCE(NULL, NULL, 0)", "0"),
-  ("NULLIF(a, b)", "NULL when equal — guards divide-by-zero", "10 / NULLIF(0, 0)", "(NULL)"),
-  ("GREATEST / LEAST(…)", "Max / min, skipping NULLs", "GREATEST(1, NULL, 3)", "3"),
+  ("CASE WHEN … THEN … ELSE … END", "Branch by condition", "CASE WHEN 5 > 0 THEN 'pos' ELSE 'neg' END", "pos", "SELECT"),
+  ("COALESCE(a, b, …)", "First non-NULL (fill a default)", "COALESCE(NULL, NULL, 0)", "0", "SELECT"),
+  ("NULLIF(a, b)", "NULL when equal — guards divide-by-zero", "10 / NULLIF(0, 0)", "(NULL)", "SELECT"),
+  ("GREATEST / LEAST(…)", "Max / min, skipping NULLs", "GREATEST(1, NULL, 3)", "3", "SELECT"),
  ],
 }
 
@@ -254,16 +255,19 @@ def ref_table(rows):
             '<th style="text-align:left; padding:6px 14px 6px 0;">Function</th>'
             '<th style="text-align:left; padding:6px 14px 6px 0;">What it does</th>'
             '<th style="text-align:left; padding:6px 14px 6px 0;">Example</th>'
-            '<th style="text-align:left; padding:6px 0;">Result</th></tr></thead><tbody>')
+            '<th style="text-align:left; padding:6px 14px 6px 0;">Result</th>'
+            '<th style="text-align:left; padding:6px 0;">Goes in</th></tr></thead><tbody>')
     body = ''
-    for i, (fn, what, ex, res) in enumerate(rows):
+    for i, row in enumerate(rows):
+        fn, what, ex, res, clause = row      # 5-tuple: last field is the typical clause
         z = ' background:#f7f9fb;' if i % 2 else ''
         body += ('<tr style="border-bottom:1px solid #eef2f7;%s">'
                  '<td style="padding:6px 14px 6px 0;"><code>%s</code></td>'
                  '<td style="padding:6px 14px 6px 0; color:#475569;">%s</td>'
                  '<td style="padding:6px 14px 6px 0;"><code>%s</code></td>'
-                 '<td style="padding:6px 0;"><code>%s</code></td></tr>'
-                 % (z, E(fn), what, E(ex), E(res)))
+                 '<td style="padding:6px 14px 6px 0;"><code>%s</code></td>'
+                 '<td style="padding:6px 0; color:#475569; white-space:nowrap;">%s</td></tr>'
+                 % (z, E(fn), what, E(ex), E(res), clause))
     return head + body + '</tbody></table>'
 
 
@@ -285,7 +289,7 @@ def decide_card(tree_id, sub):
 def reference_card(fid, rows):
     return ('''<div id="%s-ref" class="problem-card collapsed qtype-group">
                   <div class="problem-card-header"><h3 class="problem-card-title" style="margin:0;">Function reference <span class="count-badge">%d functions</span></h3><span class="problem-toggle">&#9660;</span></div>
-                  <div class="problem-card-excerpt"><p style="margin:0;">Every example below is run in real PostgreSQL &mdash; the Result column is the actual output.</p></div>
+                  <div class="problem-card-excerpt"><p style="margin:0;">Every example below is run in real PostgreSQL &mdash; the Result column is the actual output. <b>Goes in</b> = the clause each one naturally lives in: a function that returns a <b>value</b> &rarr; SELECT; one that returns <b>true/false</b> &rarr; WHERE or CASE.</p></div>
                   <div class="problem-card-content">%s</div>
                 </div>''' % (fid, len(rows), ref_table(rows)))
 

@@ -1,0 +1,196 @@
+{
+  "title": "Users with No Completed Sessions",
+  "prompt": "You are working with a mental health app modeled on CDC mental health survey data and telehealth usage datasets (data.gov). The system tracks user profiles and therapy session completions. Each user has a signup date, a completion goal (stored as text), and tags describing their focus areas. Write a query that returns all users who have NEVER completed a therapy session. For each user, display their user_id, full_name (cleaned and capitalized), first tag from their focus list, signup month, numeric goal, rounded monthly target, and whether they are a recent signup. A user is considered a recent signup if their signup_date is in or after 2024-01. Order the results by user_id ascending.",
+  "display": {
+    "context": "You are working with a mental health app modeled on CDC mental health survey data and telehealth usage datasets (data.gov).",
+    "task": "Write a query that returns all users who have NEVER completed a therapy session, showing their details.",
+    "table_notes": {
+      "users": "holds user profile information including signup date, goals, and focus tags",
+      "completed_sessions": "records each therapy session that a user has completed"
+    },
+    "output_field_notes": {
+      "user_id": "the unique identifier for the user",
+      "full_name": "the user's name, cleaned and properly capitalized",
+      "primary_focus": "the first focus area tag from the user's list",
+      "signup_month": "the month when the user signed up, formatted as YYYY-MM",
+      "goal_numeric": "the user's completion goal converted to a number",
+      "monthly_target": "the absolute value of the goal divided by 12, rounded to 2 decimal places",
+      "is_recent": "whether the user signed up in or after January 2024"
+    },
+    "field_logic": [
+      "full_name: built from full_name.\n- remove any leading or trailing spaces from full_name\n- capitalize the first letter of each word",
+      "primary_focus: built from focus_tags.\n- take the first element from the focus_tags array",
+      "signup_month: built from signup_date.\n- format signup_date as YYYY-MM using the pattern 'YYYY-MM'",
+      "goal_numeric: built from goal_text.\n- convert goal_text to a numeric value",
+      "monthly_target: built from goal_text.\n- convert goal_text to a numeric value\n- take the absolute value of that number\n- divide by 12\n- round the result to 2 decimal places",
+      "is_recent: built from signup_date.\n- 'Yes' when signup_date is on or after January 1, 2024\n- 'No' otherwise"
+    ],
+    "edge_cases": [
+      "If a user appears in the users table but has zero rows in completed_sessions, include them.",
+      "If a user has one or more completed sessions, exclude them."
+    ],
+    "filter_note": "Only users who have no matching user_id in the completed_sessions table are included.",
+    "order_by_note": "Results are ordered by user_id ascending."
+  },
+  "schema_ddl": "CREATE TABLE users (user_id INT PRIMARY KEY, full_name VARCHAR(100), signup_date DATE, goal_text VARCHAR(20), focus_tags TEXT[]); CREATE TABLE completed_sessions (session_id INT PRIMARY KEY, user_id INT, session_date DATE, duration_minutes INT);",
+  "example_input_data": "INSERT INTO users (user_id, full_name, signup_date, goal_text, focus_tags) VALUES (101, '  alice wong  ', '2024-01-15', '24', ARRAY['anxiety', 'sleep']), (102, 'bob smith', '2023-11-20', '36', ARRAY['depression', 'stress']), (103, ' carol DAVIS ', '2024-02-10', '12', ARRAY['relationships']), (104, 'david lee', '2023-10-05', '48', ARRAY['work', 'burnout']); INSERT INTO completed_sessions (session_id, user_id, session_date, duration_minutes) VALUES (1, 102, '2023-12-01', 50), (2, 102, '2023-12-15', 45), (3, 104, '2023-11-10', 60);",
+  "example_output_columns": [
+    "user_id",
+    "full_name",
+    "primary_focus",
+    "signup_month",
+    "goal_numeric",
+    "monthly_target",
+    "is_recent"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Alice Wong",
+      "anxiety",
+      "2024-01",
+      "24",
+      "2.00",
+      "Yes"
+    ],
+    [
+      103,
+      "Carol Davis",
+      "relationships",
+      "2024-02",
+      "12",
+      "1.00",
+      "Yes"
+    ]
+  ],
+  "test_data": "INSERT INTO users (user_id, full_name, signup_date, goal_text, focus_tags) VALUES (201, ' EMMA johnson ', '2024-03-12', '60', ARRAY['trauma', 'ptsd', 'coping']), (202, 'frank miller  ', '2023-09-18', '24', ARRAY['anxiety']), (203, 'grace CHEN', '2024-01-01', '36', ARRAY['mindfulness', 'meditation']), (204, '  henry brown  ', '2023-12-22', '48', ARRAY['grief', 'loss']), (205, 'iris patel', '2024-02-28', '12', ARRAY['stress', 'work']), (206, 'jack wilson', '2023-08-10', '72', ARRAY['depression', 'isolation']), (207, 'karen taylor', '2024-04-05', '24', ARRAY['relationships', 'communication']), (208, 'leo garcia', '2023-11-30', '36', ARRAY['self-esteem']), (209, 'maria rodriguez', '2024-01-20', '48', ARRAY['anger', 'control']), (210, 'nathan kim', '2023-10-15', '60', ARRAY['addiction', 'recovery']); INSERT INTO completed_sessions (session_id, user_id, session_date, duration_minutes) VALUES (101, 202, '2023-10-05', 55), (102, 204, '2024-01-10', 50), (103, 204, '2024-01-24', 45), (104, 206, '2023-09-01', 60), (105, 206, '2023-09-15', 50), (106, 208, '2023-12-05', 55), (107, 210, '2023-11-01', 60), (108, 210, '2023-11-15', 50), (109, 210, '2023-12-01', 55);",
+  "test_expected_columns": [
+    "user_id",
+    "full_name",
+    "primary_focus",
+    "signup_month",
+    "goal_numeric",
+    "monthly_target",
+    "is_recent"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Emma Johnson",
+      "trauma",
+      "2024-03",
+      "60",
+      "5.00",
+      "Yes"
+    ],
+    [
+      203,
+      "Grace Chen",
+      "mindfulness",
+      "2024-01",
+      "36",
+      "3.00",
+      "Yes"
+    ],
+    [
+      205,
+      "Iris Patel",
+      "stress",
+      "2024-02",
+      "12",
+      "1.00",
+      "Yes"
+    ],
+    [
+      207,
+      "Karen Taylor",
+      "relationships",
+      "2024-04",
+      "24",
+      "2.00",
+      "Yes"
+    ],
+    [
+      209,
+      "Maria Rodriguez",
+      "anger",
+      "2024-01",
+      "48",
+      "4.00",
+      "Yes"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "row-filter",
+    "composite_moves": [
+      "anti-join using NOT IN with non-NULL subquery",
+      "clean and capitalize name",
+      "extract first array element",
+      "format date as month",
+      "cast text to numeric",
+      "compute rounded division",
+      "conditional on date threshold"
+    ]
+  },
+  "hints": [
+    "Think about how to find users who don't appear in another table.",
+    "Use NOT IN with a subquery that selects user_id from completed_sessions, ensuring the subquery column is non-NULL.",
+    "Apply INITCAP and TRIM to clean the name, use array indexing for the first tag, TO_CHAR for the date format, casting for the numeric goal, ROUND and ABS for the monthly calculation, and CASE for the date condition."
+  ],
+  "answer_key": "SELECT u.user_id, INITCAP(TRIM(u.full_name)) AS full_name, u.focus_tags[1] AS primary_focus, TO_CHAR(u.signup_date, 'YYYY-MM') AS signup_month, TO_NUMBER(u.goal_text, '999') AS goal_numeric, ROUND(ABS(TO_NUMBER(u.goal_text, '999')) / 12, 2) AS monthly_target, CASE WHEN u.signup_date >= DATE '2024-01-01' THEN 'Yes' ELSE 'No' END AS is_recent FROM users u WHERE u.user_id NOT IN (SELECT user_id FROM completed_sessions WHERE user_id IS NOT NULL) ORDER BY u.user_id;",
+  "_meta": {
+    "question_type": "anti_join",
+    "original_qtype": "anti_join",
+    "dialect": "postgresql",
+    "difficulty": "easy",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-05T15:48:58.461096",
+    "problem_id": "c3d72364c9fd",
+    "validation_attempts": 2,
+    "scenario": "a mental health app tracking session completion and journal entries",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "not_in",
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "high"
+  },
+  "example_output_schema": [
+    [
+      "user_id",
+      "INTEGER"
+    ],
+    [
+      "full_name",
+      "TEXT"
+    ],
+    [
+      "primary_focus",
+      "TEXT"
+    ],
+    [
+      "signup_month",
+      "TEXT"
+    ],
+    [
+      "goal_numeric",
+      "NUMERIC"
+    ],
+    [
+      "monthly_target",
+      "NUMERIC"
+    ],
+    [
+      "is_recent",
+      "TEXT"
+    ]
+  ]
+}

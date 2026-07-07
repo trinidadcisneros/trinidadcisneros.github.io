@@ -1,0 +1,249 @@
+{
+  "problem": {
+    "title": "Listeners Who Never Finished Any Episode",
+    "prompt": "You are working with a podcast app that tracks listening sessions. The sessions table records each time a listener plays an episode, storing the session start time as a timestamp string (e.g. '2024-03-15 08:30:00') and whether they reached the end. The listeners table holds listener profiles with a text array of preferred genres. Find every listener who has NEVER completed any episode (no session row where completed_flag = true for that listener_id). Return each listener's ID, display name (cleaned and title-cased), the first genre from their preferences array, the month name of their account creation date, their total monthly listening budget in dollars (stored as text, needs conversion), a computed field showing the remainder when dividing their total sessions count by 3, and a flag indicating whether they have any sessions at all. Exclude any listener whose account was created before March 2024. Order by listener_id ascending.",
+    "display": {
+      "context": "You are working with a podcast app that tracks listening sessions and listener profiles.",
+      "task": "Write a query that returns every listener who has never completed any episode, showing their cleaned profile details and session counts.",
+      "table_notes": {
+        "listeners": "holds listener profiles with account creation dates, display names, genre preferences as a text array, and monthly budgets stored as text",
+        "sessions": "records each listening session with a timestamp string, the listener, the episode, and whether the session reached completion"
+      },
+      "output_field_notes": {
+        "listener_id": "the listener's unique identifier",
+        "display_name_clean": "the listener's display name with whitespace trimmed and each word capitalized",
+        "first_genre": "the first item from the listener's genre preferences array",
+        "signup_month": "the month name (unpadded) of the listener's account creation date",
+        "monthly_budget_usd": "the listener's monthly listening budget in dollars, converted from text to a number with two decimal places",
+        "session_mod_3": "the remainder when the listener's total session count is divided by 3",
+        "has_sessions": "true if the listener has at least one session row (completed or not), false otherwise"
+      },
+      "field_logic": [
+        "display_name_clean: built from display_name.\n- trim leading and trailing whitespace\n- capitalize the first letter of each word",
+        "first_genre: built from genre_prefs.\n- take the first element of the genre_prefs array (index 1)",
+        "signup_month: built from account_created_at.\n- extract the month name from account_created_at, unpadded (use FMMonth format)",
+        "monthly_budget_usd: built from monthly_budget_text.\n- convert monthly_budget_text from text to a numeric type\n- round to two decimal places",
+        "session_mod_3: built from the count of sessions rows for this listener.\n- count how many session rows exist for this listener_id\n- take the remainder when that count is divided by 3",
+        "has_sessions: built from the existence of sessions rows.\n- true when the listener has one or more session rows (regardless of completed_flag)\n- false when the listener has zero session rows"
+      ],
+      "edge_cases": [],
+      "filter_note": "A listener row is returned only when ALL of these are true:\naccount_created_at is on or after 2024-03-01\nthe listener has zero session rows where completed_flag = true (never completed any episode)",
+      "order_by_note": "listener_id ascending",
+      "answer_shape": "",
+      "function_signature": "",
+      "test_call": ""
+    },
+    "schema_ddl": "CREATE TABLE listeners (listener_id INT PRIMARY KEY, display_name VARCHAR(100), account_created_at DATE, genre_prefs TEXT[], monthly_budget_text VARCHAR(20)); CREATE TABLE sessions (session_id INT PRIMARY KEY, listener_id INT, episode_id INT, session_started_at VARCHAR(30), completed_flag BOOLEAN);",
+    "example_input_data": "INSERT INTO listeners (listener_id, display_name, account_created_at, genre_prefs, monthly_budget_text) VALUES (1, '  alice wong  ', '2024-03-10', ARRAY['tech', 'business'], '12.50'), (2, 'bob smith', '2024-02-20', ARRAY['comedy', 'sports'], '20.00'), (3, ' CAROL LEE ', '2024-04-05', ARRAY['true-crime'], '15.75'), (4, 'dan kim', '2024-03-15', ARRAY['history', 'science'], '10.00'), (5, 'eve zhao', '2024-05-01', ARRAY['fiction'], '25.00'); INSERT INTO sessions (session_id, listener_id, episode_id, session_started_at, completed_flag) VALUES (101, 1, 201, '2024-03-15 08:30:00', false), (102, 1, 202, '2024-03-16 09:00:00', false), (103, 2, 203, '2024-03-01 10:00:00', true), (104, 3, 204, '2024-04-10 14:00:00', false), (105, 4, 205, '2024-03-20 11:30:00', true), (106, 4, 206, '2024-03-21 12:00:00', false);",
+    "example_output_columns": [
+      "listener_id",
+      "display_name_clean",
+      "first_genre",
+      "signup_month",
+      "monthly_budget_usd",
+      "session_mod_3",
+      "has_sessions"
+    ],
+    "example_output_rows": [
+      [
+        1,
+        "Alice Wong",
+        "tech",
+        "March",
+        "12.50",
+        2,
+        true
+      ],
+      [
+        3,
+        "Carol Lee",
+        "true-crime",
+        "April",
+        "15.75",
+        1,
+        true
+      ],
+      [
+        5,
+        "Eve Zhao",
+        "fiction",
+        "May",
+        "25.00",
+        0,
+        false
+      ]
+    ],
+    "test_data": "INSERT INTO listeners (listener_id, display_name, account_created_at, genre_prefs, monthly_budget_text) VALUES (1, '  alice wong  ', '2024-03-10', ARRAY['tech', 'business'], '12.50'), (2, 'bob smith', '2024-02-20', ARRAY['comedy', 'sports'], '20.00'), (3, ' CAROL LEE ', '2024-04-05', ARRAY['true-crime'], '15.75'), (4, 'dan kim', '2024-03-15', ARRAY['history', 'science'], '10.00'), (5, 'eve zhao', '2024-05-01', ARRAY['fiction'], '25.00'), (6, 'frank liu', '2024-03-01', ARRAY['news', 'politics'], '18.25'), (7, 'GRACE tan', '2024-06-10', ARRAY['music'], '22.00'), (8, ' henry park ', '2024-02-15', ARRAY['tech'], '30.00'), (9, 'ivy chen', '2024-03-20', ARRAY['business', 'tech'], '16.50'), (10, 'jack moore', '2024-04-15', ARRAY['comedy'], '14.00'), (11, 'karen white', '2024-05-20', ARRAY['sports', 'health'], '19.75'), (12, 'leo green', '2024-03-05', ARRAY['science'], '11.00'), (13, 'mia brown', '2024-06-01', ARRAY['history'], '13.50'), (14, 'noah black', '2024-02-10', ARRAY['fiction'], '21.00'), (15, 'olivia gray', '2024-04-01', ARRAY['true-crime', 'mystery'], '17.25'); INSERT INTO sessions (session_id, listener_id, episode_id, session_started_at, completed_flag) VALUES (101, 1, 201, '2024-03-15 08:30:00', false), (102, 1, 202, '2024-03-16 09:00:00', false), (103, 2, 203, '2024-03-01 10:00:00', true), (104, 3, 204, '2024-04-10 14:00:00', false), (105, 4, 205, '2024-03-20 11:30:00', true), (106, 4, 206, '2024-03-21 12:00:00', false), (107, 6, 207, '2024-03-05 15:00:00', false), (108, 6, 208, '2024-03-06 16:00:00', false), (109, 6, 209, '2024-03-07 17:00:00', false), (110, 6, 210, '2024-03-08 18:00:00', false), (111, 7, 211, '2024-06-15 19:00:00', false), (112, 8, 212, '2024-02-20 20:00:00', true), (113, 9, 213, '2024-03-25 09:30:00', true), (114, 10, 214, '2024-04-20 10:30:00', false), (115, 10, 215, '2024-04-21 11:30:00', false), (116, 12, 216, '2024-03-10 12:30:00', false), (117, 12, 217, '2024-03-11 13:30:00', false), (118, 12, 218, '2024-03-12 14:30:00', false), (119, 12, 219, '2024-03-13 15:30:00', false), (120, 12, 220, '2024-03-14 16:30:00', false), (121, 12, 221, '2024-03-15 17:30:00', false), (122, 15, 222, '2024-04-05 18:30:00', true), (123, 15, 223, '2024-04-06 19:30:00', false);",
+    "test_expected_columns": [
+      "listener_id",
+      "display_name_clean",
+      "first_genre",
+      "signup_month",
+      "monthly_budget_usd",
+      "session_mod_3",
+      "has_sessions"
+    ],
+    "test_expected_rows": [
+      [
+        1,
+        "Alice Wong",
+        "tech",
+        "March",
+        "12.50",
+        2,
+        true
+      ],
+      [
+        3,
+        "Carol Lee",
+        "true-crime",
+        "April",
+        "15.75",
+        1,
+        true
+      ],
+      [
+        5,
+        "Eve Zhao",
+        "fiction",
+        "May",
+        "25.00",
+        0,
+        false
+      ],
+      [
+        6,
+        "Frank Liu",
+        "news",
+        "March",
+        "18.25",
+        1,
+        true
+      ],
+      [
+        7,
+        "Grace Tan",
+        "music",
+        "June",
+        "22.00",
+        1,
+        true
+      ],
+      [
+        10,
+        "Jack Moore",
+        "comedy",
+        "April",
+        "14.00",
+        2,
+        true
+      ],
+      [
+        11,
+        "Karen White",
+        "sports",
+        "May",
+        "19.75",
+        0,
+        false
+      ],
+      [
+        12,
+        "Leo Green",
+        "science",
+        "March",
+        "11.00",
+        0,
+        true
+      ],
+      [
+        13,
+        "Mia Brown",
+        "history",
+        "June",
+        "13.50",
+        0,
+        false
+      ]
+    ],
+    "classification": {
+      "input_arrival": "join",
+      "output_shape": "fewer_rows",
+      "recipe": "row-filter",
+      "composite_moves": [
+        "anti-join via NOT EXISTS to exclude listeners with any completed session",
+        "LEFT JOIN sessions to count total sessions per listener",
+        "GROUP BY listener to aggregate session count",
+        "REGEXP_REPLACE on display_name for STRING family",
+        "STRING_TO_ARRAY already present in schema for ARRAY family",
+        "TO_CHAR on account_created_at for DATE family",
+        "::numeric cast on monthly_budget_text for CAST family",
+        "MOD on session count for NUMERIC family",
+        "COALESCE on session count for CONDITIONAL family"
+      ]
+    },
+    "hints": [
+      "You need to identify listeners who have zero completed sessions. Consider how to express 'no matching row where a condition is true' using an anti-join pattern.",
+      "Use NOT EXISTS with a subquery that looks for sessions with completed_flag = true for each listener. To count all sessions (completed or not), you'll need a separate aggregation.",
+      "LEFT JOIN the sessions table and GROUP BY listener to count total sessions, then use NOT EXISTS in the WHERE clause to filter out listeners who have any completed session. Apply INITCAP(TRIM()) to the display name, genre_prefs[1] for the first genre, TO_CHAR with FMMonth for the month name, ::numeric for the budget cast, MOD for the remainder, and COALESCE on the session count to handle listeners with zero sessions."
+    ],
+    "answer_key": "SELECT l.listener_id, INITCAP(TRIM(l.display_name)) AS display_name_clean, l.genre_prefs[1] AS first_genre, TO_CHAR(l.account_created_at, 'FMMonth') AS signup_month, ROUND(l.monthly_budget_text::numeric, 2) AS monthly_budget_usd, MOD(COALESCE(COUNT(s.session_id), 0)::int, 3) AS session_mod_3, CASE WHEN COUNT(s.session_id) > 0 THEN true ELSE false END AS has_sessions FROM listeners l LEFT JOIN sessions s ON l.listener_id = s.listener_id WHERE l.account_created_at >= '2024-03-01' AND NOT EXISTS (SELECT 1 FROM sessions s2 WHERE s2.listener_id = l.listener_id AND s2.completed_flag = true) GROUP BY l.listener_id, l.display_name, l.account_created_at, l.genre_prefs, l.monthly_budget_text ORDER BY l.listener_id;",
+    "_meta": {
+      "question_type": "anti_join",
+      "original_qtype": "anti_join",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-07-06T19:21:47.477423",
+      "problem_id": "52b28142b71c",
+      "validation_attempts": 2,
+      "scenario": "a podcast app tracking listening sessions and episode completion",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "not_exists",
+      "cleaning_required": true,
+      "cleaning_level": "high",
+      "cleaning_requested": "high",
+      "cleaning_skipped_reason": null,
+      "cleaning_all_six": true,
+      "cleaning_per_category": 1,
+      "cleaning_bonus": null,
+      "typecast_twist": true,
+      "realism": "moderate"
+    },
+    "example_output_schema": [
+      [
+        "listener_id",
+        "INTEGER"
+      ],
+      [
+        "display_name_clean",
+        "TEXT"
+      ],
+      [
+        "first_genre",
+        "TEXT"
+      ],
+      [
+        "signup_month",
+        "TEXT"
+      ],
+      [
+        "monthly_budget_usd",
+        "NUMERIC"
+      ],
+      [
+        "session_mod_3",
+        "INTEGER"
+      ],
+      [
+        "has_sessions",
+        "BOOLEAN"
+      ]
+    ]
+  },
+  "user_solution": "/*\n1 group by \n2. join and filter\n */\nWITH base AS (\n    SELECT \n        listener_id,\n        MOD(COUNT(session_id), 3) AS session_mod_3\n    FROM sessions\n    WHERE completed_flag = false\n    GROUP BY listener_id\n)\nSELECT\n    l.listener_id,\n    INITCAP(TRIM(l.display_name)) AS display_name_clean,\n    genre_prefs[1] AS first_genre,\n    TO_CHAR(account_created_at, 'FMMonth') AS signup_month,\n    ROUND(TRIM(monthly_budget_text)::numeric, 2) AS monthly_budget_usd,\n    COALESCE(b.session_mod_3, 0) AS session_mod_3,\n    (b.session_mod_3 IS NOT NULL) AS  has_sessions\nFROM listeners AS l\nLEFT JOIN base AS b\nON l.listener_id = b.listener_id\nWHERE l.account_created_at >= '2024-03-01' AND NOT EXISTS (SELECT 1 FROM sessions AS s WHERE s.listener_id = l.listener_id AND s.completed_flag = true)\nORDER BY 1;\n",
+  "solved_at": "2026-07-06T19:53:18.332953"
+}

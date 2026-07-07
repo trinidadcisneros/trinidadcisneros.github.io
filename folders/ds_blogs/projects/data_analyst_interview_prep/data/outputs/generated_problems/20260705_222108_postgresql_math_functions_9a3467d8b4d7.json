@@ -1,0 +1,403 @@
+{
+  "title": "Basket Metrics with Clamps and Cleaning",
+  "prompt": "You are working with an online grocery service tracking basket size and reorder rates. The `basket_metrics` table records each customer's monthly basket performance, including average spend deviation, basket count change, product tags, latest order timestamp, spending trend text, and a baseline target. Write a query that computes cleaned and clamped performance metrics for each customer. For each row, output `customer_id`, `customer_name` (cleaned: drop leading/trailing spaces, capitalize each word, replace any underscore with a space), `primary_category` (the first element from the `product_tags` array), `order_month` (extract the month number from `latest_order_at`), `spend_deviation` (convert `spending_trend_text` to a number), `clamped_deviation` (the spend_deviation value clamped to a minimum of -50 and maximum of +50 using the row-wise min-max functions), `deviation_magnitude` (the absolute value of spend_deviation), `deviation_sign` (the sign of spend_deviation: -1 for negative, 0 for zero, +1 for positive), `basket_change` (already numeric, use as-is), `parity` (the remainder when basket_change is divided by 2, to flag odd/even), and `performance_flag` (if clamped_deviation is at least 20, return 'strong'; otherwise return 'weak'). Filter to rows where `product_tags` is not NULL. Order the results by `customer_id` ascending.",
+  "display": {
+    "context": "You are working with an online grocery service tracking basket size and reorder rates.",
+    "task": "Write a query that computes cleaned and clamped performance metrics for each customer.",
+    "table_notes": {
+      "basket_metrics": "records each customer's monthly basket performance including spend deviation, basket count change, product tags, latest order timestamp, spending trend text, and a baseline target"
+    },
+    "output_field_notes": {
+      "customer_id": "the unique identifier for the customer",
+      "customer_name": "the cleaned customer name with proper formatting",
+      "primary_category": "the first product category from the customer's tags",
+      "order_month": "the month number of the latest order",
+      "spend_deviation": "the spending trend as a numeric value",
+      "clamped_deviation": "the spending deviation constrained within bounds",
+      "deviation_magnitude": "the size of the deviation without regard to direction",
+      "deviation_sign": "indicates whether the deviation is negative, zero, or positive",
+      "basket_change": "the change in basket count",
+      "parity": "indicates whether the basket change is odd or even",
+      "performance_flag": "categorizes performance based on the clamped deviation"
+    },
+    "field_logic": [
+      "customer_name: built from customer_name. Drop leading and trailing spaces. Capitalize the first letter of each word. Replace any underscore character with a space.",
+      "primary_category: built from product_tags. Take the first element from the product_tags array.",
+      "order_month: built from latest_order_at. Extract the month number from the latest_order_at timestamp.",
+      "spend_deviation: built from spending_trend_text. Convert spending_trend_text to a numeric value.",
+      "clamped_deviation: built from spend_deviation. If spend_deviation is less than -50, use -50. If spend_deviation is greater than 50, use 50. Otherwise use spend_deviation. Use the row-wise min-max functions to pick the appropriate value.",
+      "deviation_magnitude: built from spend_deviation. Take the absolute value of spend_deviation.",
+      "deviation_sign: built from spend_deviation. Return -1 if spend_deviation is negative, 0 if zero, +1 if positive.",
+      "basket_change: use the basket_change column as-is.",
+      "parity: built from basket_change. Compute the remainder when basket_change is divided by 2.",
+      "performance_flag: built from clamped_deviation. If clamped_deviation is at least 20, return 'strong'. Otherwise return 'weak'."
+    ],
+    "edge_cases": [
+      "If spending_trend_text contains a negative number, spend_deviation will be negative and affect the sign and magnitude.",
+      "If spend_deviation exceeds 50 or falls below -50, clamped_deviation will constrain it to those bounds.",
+      "If basket_change is odd, parity will be 1; if even, parity will be 0."
+    ],
+    "filter_note": "Only rows where product_tags is not NULL are included.",
+    "order_by_note": "Results are ordered by customer_id ascending."
+  },
+  "schema_ddl": "CREATE TABLE basket_metrics (customer_id INT, customer_name TEXT, product_tags TEXT[], latest_order_at TIMESTAMP, spending_trend_text TEXT, basket_change INT, baseline_target NUMERIC);",
+  "example_input_data": "INSERT INTO basket_metrics (customer_id, customer_name, product_tags, latest_order_at, spending_trend_text, basket_change, baseline_target) VALUES (101, '  alice_jones  ', ARRAY['dairy', 'bakery'], '2024-03-15 10:30:00', '-65.4', 7, 100.0), (102, 'bob_smith', ARRAY['produce', 'snacks'], '2024-04-22 14:45:00', '23.8', 10, 120.0), (103, '  charlie_brown  ', ARRAY['meat', 'seafood'], '2024-02-10 08:20:00', '48.2', 5, 90.0), (104, 'diana_lee', ARRAY['frozen', 'canned'], '2024-05-05 16:00:00', '0', 8, 110.0), (105, 'eve_martin', NULL, '2024-01-18 12:00:00', '12.5', 3, 80.0);",
+  "example_output_columns": [
+    "customer_id",
+    "customer_name",
+    "primary_category",
+    "order_month",
+    "spend_deviation",
+    "clamped_deviation",
+    "deviation_magnitude",
+    "deviation_sign",
+    "basket_change",
+    "parity",
+    "performance_flag"
+  ],
+  "example_output_rows": [
+    [
+      101,
+      "Alice Jones",
+      "dairy",
+      3,
+      "-65.4",
+      "-50",
+      "65.4",
+      "-1",
+      7,
+      1,
+      "weak"
+    ],
+    [
+      102,
+      "Bob Smith",
+      "produce",
+      4,
+      "23.8",
+      "23.8",
+      "23.8",
+      "1",
+      10,
+      0,
+      "strong"
+    ],
+    [
+      103,
+      "Charlie Brown",
+      "meat",
+      2,
+      "48.2",
+      "48.2",
+      "48.2",
+      "1",
+      5,
+      1,
+      "strong"
+    ],
+    [
+      104,
+      "Diana Lee",
+      "frozen",
+      5,
+      "0",
+      "0",
+      "0",
+      "0",
+      8,
+      0,
+      "weak"
+    ]
+  ],
+  "test_data": "INSERT INTO basket_metrics (customer_id, customer_name, product_tags, latest_order_at, spending_trend_text, basket_change, baseline_target) VALUES (201, '  frank_west  ', ARRAY['beverages', 'candy'], '2024-06-12 09:15:00', '-120.5', 15, 150.0), (202, 'grace_hill', ARRAY['cereal', 'pasta'], '2024-07-08 11:30:00', '55.0', 12, 130.0), (203, '  henry_ford  ', ARRAY['spices', 'oils'], '2024-08-20 13:45:00', '-30.2', 9, 105.0), (204, 'iris_chen', ARRAY['bread', 'eggs'], '2024-09-15 15:00:00', '0', 6, 95.0), (205, 'jack_ryan', ARRAY['fruit', 'vegetables'], '2024-10-05 17:20:00', '19.8', 11, 115.0), (206, '  karen_white  ', ARRAY['chips', 'dips'], '2024-11-22 19:30:00', '-75.3', 14, 140.0), (207, 'leo_brown', ARRAY['yogurt', 'cheese'], '2024-12-10 21:00:00', '100.4', 13, 125.0), (208, 'maria_garcia', NULL, '2024-01-25 07:45:00', '8.5', 4, 85.0), (209, '  nina_patel  ', ARRAY['juice', 'soda'], '2024-02-14 10:00:00', '-10.0', 7, 100.0), (210, 'oscar_kim', ARRAY['rice', 'beans'], '2024-03-30 12:15:00', '25.6', 16, 135.0), (211, '  paul_jones  ', ARRAY['soup', 'noodles'], '2024-04-18 14:30:00', '-45.0', 10, 120.0), (212, 'quinn_adams', ARRAY['crackers', 'cookies'], '2024-05-27 16:45:00', '0', 8, 110.0), (213, 'rachel_scott', ARRAY['tea', 'coffee'], '2024-06-09 18:00:00', '62.1', 5, 90.0), (214, '  sam_miller  ', ARRAY['water', 'energy_drinks'], '2024-07-21 20:15:00', '-55.8', 9, 105.0), (215, 'tina_lopez', ARRAY['salsa', 'guacamole'], '2024-08-13 22:30:00', '15.0', 12, 130.0);",
+  "test_expected_columns": [
+    "customer_id",
+    "customer_name",
+    "primary_category",
+    "order_month",
+    "spend_deviation",
+    "clamped_deviation",
+    "deviation_magnitude",
+    "deviation_sign",
+    "basket_change",
+    "parity",
+    "performance_flag"
+  ],
+  "test_expected_rows": [
+    [
+      201,
+      "Frank West",
+      "beverages",
+      6,
+      "-120.5",
+      "-50",
+      "120.5",
+      "-1",
+      15,
+      1,
+      "weak"
+    ],
+    [
+      202,
+      "Grace Hill",
+      "cereal",
+      7,
+      "55.0",
+      "50",
+      "55.0",
+      "1",
+      12,
+      0,
+      "strong"
+    ],
+    [
+      203,
+      "Henry Ford",
+      "spices",
+      8,
+      "-30.2",
+      "-30.2",
+      "30.2",
+      "-1",
+      9,
+      1,
+      "weak"
+    ],
+    [
+      204,
+      "Iris Chen",
+      "bread",
+      9,
+      "0",
+      "0",
+      "0",
+      "0",
+      6,
+      0,
+      "weak"
+    ],
+    [
+      205,
+      "Jack Ryan",
+      "fruit",
+      10,
+      "19.8",
+      "19.8",
+      "19.8",
+      "1",
+      11,
+      1,
+      "weak"
+    ],
+    [
+      206,
+      "Karen White",
+      "chips",
+      11,
+      "-75.3",
+      "-50",
+      "75.3",
+      "-1",
+      14,
+      0,
+      "weak"
+    ],
+    [
+      207,
+      "Leo Brown",
+      "yogurt",
+      12,
+      "100.4",
+      "50",
+      "100.4",
+      "1",
+      13,
+      1,
+      "strong"
+    ],
+    [
+      209,
+      "Nina Patel",
+      "juice",
+      2,
+      "-10.0",
+      "-10.0",
+      "10.0",
+      "-1",
+      7,
+      1,
+      "weak"
+    ],
+    [
+      210,
+      "Oscar Kim",
+      "rice",
+      3,
+      "25.6",
+      "25.6",
+      "25.6",
+      "1",
+      16,
+      0,
+      "strong"
+    ],
+    [
+      211,
+      "Paul Jones",
+      "soup",
+      4,
+      "-45.0",
+      "-45.0",
+      "45.0",
+      "-1",
+      10,
+      0,
+      "weak"
+    ],
+    [
+      212,
+      "Quinn Adams",
+      "crackers",
+      5,
+      "0",
+      "0",
+      "0",
+      "0",
+      8,
+      0,
+      "weak"
+    ],
+    [
+      213,
+      "Rachel Scott",
+      "tea",
+      6,
+      "62.1",
+      "50",
+      "62.1",
+      "1",
+      5,
+      1,
+      "strong"
+    ],
+    [
+      214,
+      "Sam Miller",
+      "water",
+      7,
+      "-55.8",
+      "-50",
+      "55.8",
+      "-1",
+      9,
+      1,
+      "weak"
+    ],
+    [
+      215,
+      "Tina Lopez",
+      "salsa",
+      8,
+      "15.0",
+      "15.0",
+      "15.0",
+      "1",
+      12,
+      0,
+      "weak"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "row-transform",
+    "composite_moves": [
+      "filter rows where product_tags is not NULL",
+      "clean customer_name with REGEXP_REPLACE and INITCAP",
+      "extract primary_category from product_tags array",
+      "extract order_month from latest_order_at timestamp",
+      "cast spending_trend_text to numeric for spend_deviation",
+      "clamp spend_deviation using GREATEST and LEAST",
+      "compute deviation_magnitude using ABS",
+      "compute deviation_sign using SIGN",
+      "compute parity using MOD",
+      "assign performance_flag using CASE",
+      "order by customer_id"
+    ]
+  },
+  "hints": [
+    "Start by filtering rows where the product tags are present, then focus on cleaning the customer name using string functions.",
+    "Use row-wise minimum and maximum functions to constrain the spend_deviation between -50 and 50, and remember to extract the month from the timestamp.",
+    "Apply ABS to get the magnitude, SIGN to get the direction indicator, and MOD to determine parity; use CASE to assign the performance flag based on the clamped deviation threshold of 20."
+  ],
+  "answer_key": "SELECT customer_id, INITCAP(REGEXP_REPLACE(TRIM(customer_name), '_', ' ', 'g')) AS customer_name, product_tags[1] AS primary_category, EXTRACT(MONTH FROM latest_order_at)::INT AS order_month, spending_trend_text::NUMERIC AS spend_deviation, LEAST(GREATEST(spending_trend_text::NUMERIC, -50), 50) AS clamped_deviation, ABS(spending_trend_text::NUMERIC) AS deviation_magnitude, SIGN(spending_trend_text::NUMERIC) AS deviation_sign, basket_change, MOD(basket_change, 2) AS parity, CASE WHEN LEAST(GREATEST(spending_trend_text::NUMERIC, -50), 50) >= 20 THEN 'strong' ELSE 'weak' END AS performance_flag FROM basket_metrics WHERE product_tags IS NOT NULL ORDER BY customer_id;",
+  "_meta": {
+    "question_type": "math_functions",
+    "original_qtype": "random_any",
+    "dialect": "postgresql",
+    "difficulty": "easy",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-05T22:21:08.104132",
+    "problem_id": "9a3467d8b4d7",
+    "validation_attempts": 3,
+    "scenario": "an online grocery service tracking basket size and reorder rates",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "abs_sign_extremes",
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "moderate"
+  },
+  "example_output_schema": [
+    [
+      "customer_id",
+      "INTEGER"
+    ],
+    [
+      "customer_name",
+      "TEXT"
+    ],
+    [
+      "primary_category",
+      "TEXT"
+    ],
+    [
+      "order_month",
+      "INTEGER"
+    ],
+    [
+      "spend_deviation",
+      "NUMERIC"
+    ],
+    [
+      "clamped_deviation",
+      "NUMERIC"
+    ],
+    [
+      "deviation_magnitude",
+      "NUMERIC"
+    ],
+    [
+      "deviation_sign",
+      "NUMERIC"
+    ],
+    [
+      "basket_change",
+      "INTEGER"
+    ],
+    [
+      "parity",
+      "INTEGER"
+    ],
+    [
+      "performance_flag",
+      "TEXT"
+    ]
+  ]
+}

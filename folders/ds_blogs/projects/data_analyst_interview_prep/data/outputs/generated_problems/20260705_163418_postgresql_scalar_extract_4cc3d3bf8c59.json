@@ -1,0 +1,121 @@
+{
+  "title": "Highest Single-Day Deposit Amount",
+  "prompt": "You are analyzing a neobank's deposit funnel. The `deposits` table tracks every deposit attempt, including the raw deposit amount stored as text, the deposit date, an array of processing flags, and the deposit source. Find the single highest deposit amount that occurred on any day. Clean the amount text by removing commas and convert it to a number. Display the cleaned amount rounded to 2 decimal places, the month number when it occurred, the first processing flag from the array, and a status label. The status label should be 'verified' if the source is not NULL, otherwise 'unverified'. If the deposits table is empty, return NULL for all columns.",
+  "display": {
+    "context": "You are working with a neobank's deposit funnel tracking system.",
+    "task": "Write a query that returns the single highest deposit amount along with its month, first processing flag, and verification status.",
+    "table_notes": {
+      "deposits": "tracks every deposit attempt with amount, date, processing flags, and source"
+    },
+    "output_field_notes": {
+      "max_amount": "the highest deposit amount across all deposits, cleaned and rounded",
+      "deposit_month": "the month number when the highest deposit occurred",
+      "first_flag": "the first processing flag from the array for the highest deposit",
+      "verification_status": "indicates whether the deposit source was verified"
+    },
+    "field_logic": [
+      "max_amount: built from amount_text.\n- remove any commas from amount_text\n- convert the cleaned text to a numeric value\n- round the result to 2 decimal places",
+      "deposit_month: built from deposit_date.\n- extract the month number from deposit_date",
+      "first_flag: built from processing_flags.\n- take the first element from the processing_flags array",
+      "verification_status: built from deposit_source.\n- 'verified' when deposit_source is not NULL\n- 'unverified' when deposit_source is NULL"
+    ],
+    "edge_cases": [
+      "If the deposits table is empty, return NULL for all columns.",
+      "If multiple deposits have the same highest amount, pick the one with the earliest deposit_date."
+    ],
+    "filter_note": "All rows are considered to find the maximum.",
+    "order_by_note": "Not applicable; output is a single row with the maximum deposit."
+  },
+  "schema_ddl": "CREATE TABLE deposits (deposit_id INT PRIMARY KEY, customer_name VARCHAR(100), amount_text VARCHAR(50), deposit_date DATE, processing_flags TEXT[], deposit_source VARCHAR(50));",
+  "example_input_data": "INSERT INTO deposits (deposit_id, customer_name, amount_text, deposit_date, processing_flags, deposit_source) VALUES (1, 'Alice Chen', '1,250.00', '2024-03-15', ARRAY['auto', 'cleared'], 'wire'), (2, 'Bob Martinez', '3,400.50', '2024-02-20', ARRAY['manual', 'pending', 'reviewed'], 'check'), (3, 'Carol Davis', '850.00', '2024-01-10', ARRAY['auto'], NULL), (4, 'David Lee', '2,100.75', '2024-03-22', ARRAY['manual', 'cleared'], 'ach'), (5, 'Eve Johnson', '3,400.50', '2024-02-25', ARRAY['auto', 'fraud_check'], 'wire');",
+  "example_output_columns": [
+    "max_amount",
+    "deposit_month",
+    "first_flag",
+    "verification_status"
+  ],
+  "example_output_rows": [
+    [
+      "3400.50",
+      2,
+      "manual",
+      "verified"
+    ]
+  ],
+  "test_data": "INSERT INTO deposits (deposit_id, customer_name, amount_text, deposit_date, processing_flags, deposit_source) VALUES (101, 'Frank Moore', '5,678.90', '2024-04-10', ARRAY['auto', 'cleared'], 'wire'), (102, 'Grace Taylor', '4,321.00', '2024-05-15', ARRAY['manual'], NULL), (103, 'Henry White', '6,789.12', '2024-06-20', ARRAY['auto', 'pending', 'reviewed'], 'check'), (104, 'Iris Brown', '3,210.45', '2024-07-05', ARRAY['manual', 'cleared'], 'ach'), (105, 'Jack Wilson', '7,890.50', '2024-08-12', ARRAY['auto'], 'wire'), (106, 'Karen Green', '2,345.67', '2024-09-18', ARRAY['manual', 'fraud_check'], NULL), (107, 'Leo King', '8,765.43', '2024-10-22', ARRAY['auto', 'cleared'], 'check'), (108, 'Mia Scott', '4,567.89', '2024-11-30', ARRAY['manual'], 'ach'), (109, 'Noah Adams', '9,123.00', '2024-12-05', ARRAY['auto', 'pending'], 'wire'), (110, 'Olivia Baker', '3,890.12', '2024-01-15', ARRAY['manual', 'cleared'], NULL), (111, 'Paul Clark', '6,543.21', '2024-02-20', ARRAY['auto'], 'check'), (112, 'Quinn Hall', '5,432.10', '2024-03-25', ARRAY['manual', 'reviewed'], 'ach'), (113, 'Rose Allen', '7,654.32', '2024-04-30', ARRAY['auto', 'cleared'], 'wire'), (114, 'Sam Young', '4,321.09', '2024-05-10', ARRAY['manual'], NULL), (115, 'Tina Harris', '8,901.23', '2024-06-15', ARRAY['auto', 'pending'], 'check');",
+  "test_expected_columns": [
+    "max_amount",
+    "deposit_month",
+    "first_flag",
+    "verification_status"
+  ],
+  "test_expected_rows": [
+    [
+      "9123.00",
+      12,
+      "auto",
+      "verified"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "single_value",
+    "recipe": "scalar-extract",
+    "composite_moves": [
+      "scalar-extract: MAX aggregate with ORDER BY tiebreak",
+      "string cleaning: remove commas",
+      "type cast: text to numeric",
+      "numeric rounding: TRUNC to 2 decimals",
+      "date extraction: EXTRACT month",
+      "array access: first element",
+      "conditional: CASE for verification status"
+    ]
+  },
+  "hints": [
+    "You need to find the row with the highest deposit amount after cleaning the text field.",
+    "Use REPLACE to remove commas from the amount text, then cast it to numeric. Use TRUNC to round the result.",
+    "For the tiebreak, use ORDER BY on the numeric amount DESC, then deposit_date ASC, and LIMIT 1. Extract the month with EXTRACT(MONTH FROM deposit_date), get the first flag with processing_flags[1], and use CASE WHEN deposit_source IS NOT NULL for the status."
+  ],
+  "answer_key": "SELECT TRUNC(REPLACE(amount_text, ',', '')::NUMERIC, 2) AS max_amount, EXTRACT(MONTH FROM deposit_date)::INT AS deposit_month, processing_flags[1] AS first_flag, CASE WHEN deposit_source IS NOT NULL THEN 'verified' ELSE 'unverified' END AS verification_status FROM deposits ORDER BY REPLACE(amount_text, ',', '')::NUMERIC DESC, deposit_date ASC LIMIT 1;",
+  "_meta": {
+    "question_type": "scalar_extract",
+    "original_qtype": "random_any",
+    "dialect": "postgresql",
+    "difficulty": "easy",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-05T16:34:18.329931",
+    "problem_id": "4cc3d3bf8c59",
+    "validation_attempts": 4,
+    "scenario": "a neobank tracking debit card swipes and deposit funnel",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "single_aggregate",
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "moderate"
+  },
+  "example_output_schema": [
+    [
+      "max_amount",
+      "NUMERIC"
+    ],
+    [
+      "deposit_month",
+      "INTEGER"
+    ],
+    [
+      "first_flag",
+      "TEXT"
+    ],
+    [
+      "verification_status",
+      "TEXT"
+    ]
+  ]
+}

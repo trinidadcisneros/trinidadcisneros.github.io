@@ -1,0 +1,219 @@
+{
+  "problem": {
+    "title": "Remove Duplicate Match Acceptances by Player",
+    "prompt": "You are working with a console online service tracking multiplayer match acceptance. The `match_responses` table records when a player accepts a match invitation, but a bug has caused duplicate acceptances for the same player in the same match. Each row has a unique `response_id`, but the combination of `match_id` and `player_gamertag` should be unique. When duplicates exist, keep the row with the earliest `accepted_at` timestamp (the first acceptance) and delete the later duplicates. After removing duplicates, return all surviving rows ordered by `response_id`. Write a solution that deletes the duplicate rows and then selects the final table state.",
+    "display": {
+      "context": "You are working with a console online service tracking multiplayer match acceptance.",
+      "task": "Write a query that deletes duplicate match acceptances for the same player in the same match, keeping only the earliest acceptance, then returns the surviving rows.",
+      "table_notes": {
+        "match_responses": "records each time a player accepts a match invitation, including duplicates caused by a bug"
+      },
+      "output_field_notes": {
+        "response_id": "unique identifier for each acceptance record",
+        "match_id": "identifier of the match the player accepted",
+        "player_gamertag": "the player's gamertag",
+        "accepted_at": "timestamp when the player accepted the match",
+        "region_code": "geographic region of the player"
+      },
+      "field_logic": [],
+      "edge_cases": [
+        "If a player has only one acceptance for a match, that row is kept unchanged.",
+        "If a player has multiple acceptances for the same match, keep the row with the earliest `accepted_at` and delete all others.",
+        "If two acceptances have identical `accepted_at` timestamps, keep the one with the lower `response_id`."
+      ],
+      "filter_note": "After deletion, all rows remain in the output (the survivors).",
+      "order_by_note": "The output rows are ordered by `response_id` in ascending order.",
+      "answer_shape": "Write a DELETE statement that removes duplicate acceptances, then a trailing SELECT to show the survivors.\n- Declare a CTE\n  - name it numbered_responses\n  - SELECT response_id and compute a row number partitioned by match_id and player_gamertag, ordered by accepted_at ASC then response_id ASC\n- Delete duplicates\n  - DELETE FROM match_responses WHERE response_id IN (SELECT response_id FROM numbered_responses WHERE row number > 1)\n- Return survivors\n  - SELECT * FROM match_responses ORDER BY response_id",
+      "test_call": "SELECT * FROM match_responses ORDER BY response_id;"
+    },
+    "schema_ddl": "CREATE TABLE match_responses (response_id INT PRIMARY KEY, match_id INT NOT NULL, player_gamertag VARCHAR(50) NOT NULL, accepted_at TIMESTAMP NOT NULL, region_code VARCHAR(10) NOT NULL);",
+    "example_input_data": "INSERT INTO match_responses (response_id, match_id, player_gamertag, accepted_at, region_code) VALUES (101, 5001, 'ShadowKnight', '2024-03-15 14:30:00', 'NA-WEST'), (102, 5001, 'ShadowKnight', '2024-03-15 14:30:05', 'NA-WEST'), (103, 5002, 'DragonSlayer', '2024-03-15 14:32:00', 'EU-NORTH'), (104, 5001, 'PhoenixRider', '2024-03-15 14:33:00', 'NA-EAST'), (105, 5002, 'DragonSlayer', '2024-03-15 14:32:10', 'EU-NORTH'), (106, 5003, 'ShadowKnight', '2024-03-15 14:35:00', 'NA-WEST');",
+    "example_output_columns": [
+      "response_id",
+      "match_id",
+      "player_gamertag",
+      "accepted_at",
+      "region_code"
+    ],
+    "example_output_rows": [
+      [
+        101,
+        5001,
+        "ShadowKnight",
+        "2024-03-15 14:30:00",
+        "NA-WEST"
+      ],
+      [
+        103,
+        5002,
+        "DragonSlayer",
+        "2024-03-15 14:32:00",
+        "EU-NORTH"
+      ],
+      [
+        104,
+        5001,
+        "PhoenixRider",
+        "2024-03-15 14:33:00",
+        "NA-EAST"
+      ],
+      [
+        106,
+        5003,
+        "ShadowKnight",
+        "2024-03-15 14:35:00",
+        "NA-WEST"
+      ]
+    ],
+    "test_data": "INSERT INTO match_responses (response_id, match_id, player_gamertag, accepted_at, region_code) VALUES (201, 6001, 'NightWolf', '2024-03-16 10:00:00', 'NA-WEST'), (202, 6001, 'NightWolf', '2024-03-16 10:00:00', 'NA-WEST'), (203, 6001, 'NightWolf', '2024-03-16 10:00:05', 'NA-WEST'), (204, 6002, 'StormBringer', '2024-03-16 10:05:00', 'EU-SOUTH'), (205, 6003, 'IronFist', '2024-03-16 10:10:00', 'ASIA-EAST'), (206, 6003, 'IronFist', '2024-03-16 10:10:01', 'ASIA-EAST'), (207, 6003, 'IronFist', '2024-03-16 10:10:02', 'ASIA-EAST'), (208, 6004, 'ThunderStrike', '2024-03-16 10:15:00', 'NA-EAST'), (209, 6004, 'ThunderStrike', '2024-03-16 10:14:55', 'NA-EAST'), (210, 6005, 'CrystalMage', '2024-03-16 10:20:00', 'EU-NORTH'), (211, 6001, 'FrostBite', '2024-03-16 10:01:00', 'NA-WEST'), (212, 6002, 'StormBringer', '2024-03-16 10:05:30', 'EU-SOUTH'), (213, 6006, 'SilverArrow', '2024-03-16 10:25:00', 'ASIA-WEST'), (214, 6007, 'GoldenShield', '2024-03-16 10:30:00', 'NA-EAST'), (215, 6007, 'GoldenShield', '2024-03-16 10:30:00', 'NA-EAST'), (216, 6008, 'BlazeFury', '2024-03-16 10:35:00', 'EU-WEST'), (217, 6009, 'VoidWalker', '2024-03-16 10:40:00', 'ASIA-EAST'), (218, 6009, 'VoidWalker', '2024-03-16 10:40:10', 'ASIA-EAST'), (219, 6009, 'VoidWalker', '2024-03-16 10:40:20', 'ASIA-EAST'), (220, 6010, 'SkyHunter', '2024-03-16 10:45:00', 'NA-WEST');",
+    "test_expected_columns": [
+      "response_id",
+      "match_id",
+      "player_gamertag",
+      "accepted_at",
+      "region_code"
+    ],
+    "test_expected_rows": [
+      [
+        201,
+        6001,
+        "NightWolf",
+        "2024-03-16 10:00:00",
+        "NA-WEST"
+      ],
+      [
+        204,
+        6002,
+        "StormBringer",
+        "2024-03-16 10:05:00",
+        "EU-SOUTH"
+      ],
+      [
+        205,
+        6003,
+        "IronFist",
+        "2024-03-16 10:10:00",
+        "ASIA-EAST"
+      ],
+      [
+        209,
+        6004,
+        "ThunderStrike",
+        "2024-03-16 10:14:55",
+        "NA-EAST"
+      ],
+      [
+        210,
+        6005,
+        "CrystalMage",
+        "2024-03-16 10:20:00",
+        "EU-NORTH"
+      ],
+      [
+        211,
+        6001,
+        "FrostBite",
+        "2024-03-16 10:01:00",
+        "NA-WEST"
+      ],
+      [
+        213,
+        6006,
+        "SilverArrow",
+        "2024-03-16 10:25:00",
+        "ASIA-WEST"
+      ],
+      [
+        214,
+        6007,
+        "GoldenShield",
+        "2024-03-16 10:30:00",
+        "NA-EAST"
+      ],
+      [
+        216,
+        6008,
+        "BlazeFury",
+        "2024-03-16 10:35:00",
+        "EU-WEST"
+      ],
+      [
+        217,
+        6009,
+        "VoidWalker",
+        "2024-03-16 10:40:00",
+        "ASIA-EAST"
+      ],
+      [
+        220,
+        6010,
+        "SkyHunter",
+        "2024-03-16 10:45:00",
+        "NA-WEST"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "state_mutation",
+      "recipe": "delete-duplicates",
+      "composite_moves": [
+        "delete-duplicates: window function ROW_NUMBER partitioned by duplicate key, delete rows with row number greater than 1"
+      ]
+    },
+    "hints": [
+      "You need to identify which rows are duplicates based on a combination of two columns.",
+      "Use a window function to number the rows within each duplicate group, ordering by the timestamp.",
+      "Delete all rows except the one with row number 1 in each group, then return the remaining rows."
+    ],
+    "answer_key": "WITH numbered_responses AS (SELECT response_id, ROW_NUMBER() OVER (PARTITION BY match_id, player_gamertag ORDER BY accepted_at ASC, response_id ASC) AS rn FROM match_responses) DELETE FROM match_responses WHERE response_id IN (SELECT response_id FROM numbered_responses WHERE rn > 1); SELECT * FROM match_responses ORDER BY response_id;",
+    "_meta": {
+      "question_type": "delete_duplicates",
+      "original_qtype": "delete_duplicates",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-07-06T16:04:50.485161",
+      "problem_id": "90a14b8d40cb",
+      "validation_attempts": 1,
+      "scenario": "a console online service tracking multiplayer match acceptance",
+      "dml_op": "DELETE",
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "row_number",
+      "cleaning_required": false,
+      "cleaning_level": null,
+      "cleaning_requested": "moderate",
+      "cleaning_skipped_reason": "cleaning does not apply to this problem type (delete_duplicates) \u2014 procedural / mutation / parse types drill control flow and state, not text or number cleanup",
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": false,
+      "realism": "moderate"
+    },
+    "example_output_schema": [
+      [
+        "response_id",
+        "INTEGER"
+      ],
+      [
+        "match_id",
+        "INTEGER"
+      ],
+      [
+        "player_gamertag",
+        "VARCHAR"
+      ],
+      [
+        "accepted_at",
+        "TIMESTAMP"
+      ],
+      [
+        "region_code",
+        "VARCHAR"
+      ]
+    ]
+  },
+  "user_solution": "/*\n\n */\nWITH dups AS (\n    SELECT *,\n        ROW_NUMBER() OVER (PARTITION BY match_id, player_gamertag, region_code ORDER BY accepted_at, response_id) AS rn\n    FROM match_responses\n)\nDELETE FROM match_responses\nWHERE response_id IN (\n        SELECT response_id\n        FROM dups\n        WHERE rn > 1);\n\nSELECT * FROM match_responses ORDER BY response_id;\n\n",
+  "solved_at": "2026-07-06T16:20:55.706190"
+}

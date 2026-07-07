@@ -1,0 +1,154 @@
+{
+  "title": "Alert Acknowledge Streaks per Responder",
+  "prompt": "You are working with an observability platform tracking alert acknowledge time and MTTR. The schema has two tables: `responders` (id, name, on_call_days\u2014a TEXT[] column listing weekdays they are scheduled, and created_date) and `alert_acks` (responder_id, ack_date, response_time_minutes\u2014stored as TEXT). The `alert_acks` table may contain duplicate rows for the same (responder_id, ack_date) because a responder can acknowledge multiple alerts in the same day. Write a query that returns the id and name of every responder who has at least 5 consecutive days of alert activity, along with a cleaned display name, their first scheduled weekday, the month they were created (as a number), their average response time (rounded to 2 decimals), and a priority flag. The output columns are: responder_id, responder_name (trimmed and title-cased), first_on_call_day (the first element of the on_call_days array), created_month (the numeric month from created_date), avg_response_minutes (the average of response_time_minutes cast to numeric then rounded to 2 decimals), and priority_flag ('high' if avg_response_minutes is NULL or >= 60, otherwise 'normal'). A consecutive day streak means the responder acknowledged at least one alert on N days in a row with no gaps; duplicate same-day acknowledgments should be de-duplicated before counting consecutive days. Order the output by responder_id ascending.",
+  "display": {
+    "context": "You are working with an observability platform tracking alert acknowledge time and MTTR modeled on incident response workflows.",
+    "task": "Write a query that returns the id and name of every responder who has at least 5 consecutive days of alert activity, along with a cleaned display name, their first scheduled weekday, the month they were created, their average response time, and a priority flag, ordered by responder_id ascending.",
+    "table_notes": {
+      "responders": "one row per on-call engineer with their id, name, scheduled weekdays, and creation date",
+      "alert_acks": "one row per alert acknowledgment with the responder id, acknowledgment date, and response time in minutes stored as text; may contain duplicate (responder_id, ack_date) rows because a responder can acknowledge multiple alerts in the same day"
+    },
+    "output_field_notes": {
+      "responder_id": "the responder's unique identifier",
+      "responder_name": "the responder's display name, trimmed of surrounding spaces and with each word capitalized",
+      "first_on_call_day": "the first weekday from the responder's scheduled on-call days array",
+      "created_month": "the numeric month (1-12) the responder was created",
+      "avg_response_minutes": "the average response time in minutes across all the responder's acknowledgments, rounded to 2 decimal places",
+      "priority_flag": "high if the average response time is NULL or 60 or more, otherwise normal"
+    },
+    "field_logic": [
+      "responder_name: built from name.\n- trim surrounding spaces\n- capitalize each word",
+      "first_on_call_day: built from on_call_days.\n- take the first element of the array",
+      "created_month: built from created_date.\n- extract the numeric month (1-12)",
+      "avg_response_minutes: built from response_time_minutes.\n- cast each response_time_minutes text value to numeric\n- compute the average\n- round to 2 decimal places",
+      "priority_flag: built from avg_response_minutes.\n- 'high' when avg_response_minutes is NULL or >= 60\n- otherwise 'normal'"
+    ],
+    "edge_cases": [],
+    "filter_note": "A responder is returned only when ALL of these are true:\n- the responder has at least one streak of 5 or more consecutive days where they acknowledged at least one alert each day\n- duplicate (responder_id, ack_date) rows in alert_acks are de-duplicated before detecting consecutive days",
+    "order_by_note": "responder_id ascending"
+  },
+  "schema_ddl": "CREATE TABLE responders (id INT PRIMARY KEY, name VARCHAR(100), on_call_days TEXT[], created_date DATE); CREATE TABLE alert_acks (responder_id INT, ack_date DATE, response_time_minutes TEXT);",
+  "example_input_data": "INSERT INTO responders (id, name, on_call_days, created_date) VALUES (1, '  alice cooper  ', ARRAY['Monday', 'Tuesday', 'Wednesday'], '2024-03-15'), (2, 'bob jones', ARRAY['Thursday', 'Friday'], '2024-04-20'), (3, 'carol white', ARRAY['Saturday', 'Sunday'], '2024-05-10'); INSERT INTO alert_acks (responder_id, ack_date, response_time_minutes) VALUES (1, '2024-06-01', '45'), (1, '2024-06-02', '50'), (1, '2024-06-03', '55'), (1, '2024-06-04', '60'), (1, '2024-06-05', '65'), (2, '2024-06-10', '30'), (2, '2024-06-11', '35');",
+  "example_output_columns": [
+    "responder_id",
+    "responder_name",
+    "first_on_call_day",
+    "created_month",
+    "avg_response_minutes",
+    "priority_flag"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Alice Cooper",
+      "Monday",
+      3,
+      "55.00",
+      "normal"
+    ]
+  ],
+  "test_data": "INSERT INTO responders (id, name, on_call_days, created_date) VALUES (1, '  alice cooper  ', ARRAY['Monday', 'Tuesday', 'Wednesday'], '2024-03-15'), (2, 'bob jones', ARRAY['Thursday', 'Friday'], '2024-04-20'), (3, 'carol white', ARRAY['Saturday', 'Sunday'], '2024-05-10'), (4, 'david green', ARRAY['Monday', 'Wednesday', 'Friday'], '2024-06-01'), (5, 'eve black', ARRAY['Tuesday', 'Thursday'], '2024-07-10'); INSERT INTO alert_acks (responder_id, ack_date, response_time_minutes) VALUES (1, '2024-06-01', '45'), (1, '2024-06-01', '47'), (1, '2024-06-02', '50'), (1, '2024-06-03', '55'), (1, '2024-06-04', '60'), (1, '2024-06-05', '65'), (1, '2024-06-15', '70'), (1, '2024-06-16', '75'), (1, '2024-06-17', '80'), (1, '2024-06-18', '85'), (1, '2024-06-19', '90'), (2, '2024-06-10', '30'), (2, '2024-06-11', '35'), (2, '2024-06-12', '40'), (2, '2024-06-13', '45'), (3, '2024-06-20', '20'), (3, '2024-06-21', '25'), (3, '2024-06-22', '30'), (4, '2024-07-01', '100'), (4, '2024-07-02', '110'), (4, '2024-07-03', '120'), (4, '2024-07-04', '130'), (4, '2024-07-05', '140'), (4, '2024-07-06', '150'), (4, '2024-07-07', '160'), (4, '2024-07-20', '170'), (4, '2024-07-21', '180'), (4, '2024-07-22', '190'), (4, '2024-07-23', '200'), (4, '2024-07-24', '210'), (5, '2024-08-01', NULL), (5, '2024-08-02', NULL), (5, '2024-08-03', NULL), (5, '2024-08-04', NULL), (5, '2024-08-05', NULL);",
+  "test_expected_columns": [
+    "responder_id",
+    "responder_name",
+    "first_on_call_day",
+    "created_month",
+    "avg_response_minutes",
+    "priority_flag"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "Alice Cooper",
+      "Monday",
+      3,
+      "65.64",
+      "high"
+    ],
+    [
+      4,
+      "David Green",
+      "Monday",
+      6,
+      "155.00",
+      "high"
+    ],
+    [
+      5,
+      "Eve Black",
+      "Tuesday",
+      7,
+      null,
+      "high"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "gaps-and-islands",
+    "composite_moves": [
+      "dedupe same-day events with SELECT DISTINCT",
+      "apply row-number trick partitioned by entity: date - rn grp",
+      "group by entity and grp, HAVING COUNT >= N to find qualifying streaks",
+      "join dim table to streak entities using EXISTS or IN membership semantics",
+      "clean output columns with INITCAP, TRIM, array subscript, EXTRACT, cast, ROUND, COALESCE, CASE"
+    ]
+  },
+  "hints": [
+    "Start by de-duplicating the (responder_id, ack_date) pairs in alert_acks since one responder can acknowledge multiple alerts in the same day.",
+    "Use the row-number trick to group consecutive dates: subtract ROW_NUMBER() (partitioned by responder_id, ordered by ack_date) from ack_date to create a constant group identifier for each streak.",
+    "Group by responder_id and the streak group, filter with HAVING to keep only groups of 5 or more days, then join back to the responders table to pull the name and other attributes; use the array subscript operator for the first on-call day, EXTRACT for the month, and cast response_time_minutes to numeric before averaging."
+  ],
+  "answer_key": "WITH base AS (SELECT DISTINCT responder_id, ack_date FROM alert_acks), date_groups AS (SELECT responder_id, ack_date, ack_date - ROW_NUMBER() OVER (PARTITION BY responder_id ORDER BY ack_date)::int AS grp FROM base), streaks AS (SELECT responder_id FROM date_groups GROUP BY responder_id, grp HAVING COUNT(*) >= 5), responder_stats AS (SELECT a.responder_id, ROUND(AVG(a.response_time_minutes::numeric), 2) AS avg_response_minutes FROM alert_acks a GROUP BY a.responder_id) SELECT r.id AS responder_id, INITCAP(TRIM(r.name)) AS responder_name, r.on_call_days[1] AS first_on_call_day, EXTRACT(MONTH FROM r.created_date)::int AS created_month, rs.avg_response_minutes, CASE WHEN COALESCE(rs.avg_response_minutes, 60) >= 60 THEN 'high' ELSE 'normal' END AS priority_flag FROM responders r JOIN responder_stats rs ON rs.responder_id = r.id WHERE EXISTS (SELECT 1 FROM streaks s WHERE s.responder_id = r.id) ORDER BY r.id;",
+  "_meta": {
+    "question_type": "union_islands",
+    "original_qtype": "union_islands",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-06T20:41:58.662294",
+    "problem_id": "2ae9a52331ae",
+    "validation_attempts": 2,
+    "scenario": "an observability platform tracking alert acknowledge time and MTTR",
+    "dml_op": null,
+    "islands_flavor": "consecutive_day_streak_per_entity",
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": null,
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_requested": "high",
+    "cleaning_skipped_reason": null,
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "moderate"
+  },
+  "example_output_schema": [
+    [
+      "responder_id",
+      "INTEGER"
+    ],
+    [
+      "responder_name",
+      "TEXT"
+    ],
+    [
+      "first_on_call_day",
+      "TEXT"
+    ],
+    [
+      "created_month",
+      "INTEGER"
+    ],
+    [
+      "avg_response_minutes",
+      "NUMERIC"
+    ],
+    [
+      "priority_flag",
+      "TEXT"
+    ]
+  ]
+}

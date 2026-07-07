@@ -1,0 +1,393 @@
+{
+  "title": "Clean Ride Request Metrics for Reporting",
+  "prompt": "You are working with a ride-share app that tracks match rates from passenger requests to driver acceptances. The `ride_requests` table contains one row per request, with several fields that need cleaning before they can be used in analytics. The `acceptance_time_seconds` column sometimes contains NULL when a request was never accepted, and `estimated_wait_minutes` is NULL when the system could not compute an estimate. The `surge_multiplier` column is stored as text and may be blank (empty string) or NULL. Your task is to write a query that transforms these messy columns into usable values: convert the surge multiplier text into a numeric value (treating blank/NULL as 1.0), compute a 'fallback wait' that uses the estimated wait when available or defaults to 15 minutes, and calculate an 'effective acceptance time' that uses the actual acceptance time if present or a pessimistic 180 seconds if the request was never accepted. Additionally, display the longest of acceptance_time_seconds and 60 (so very fast acceptances still show at least 60 seconds). Return all original columns plus the four computed columns, ordered by request_id.",
+  "display": {
+    "context": "You are working with a ride-share app that tracks match rates from passenger requests to driver acceptances.",
+    "task": "Write a query that cleans the surge multiplier, estimated wait, and acceptance time fields and computes fallback and max values for reporting.",
+    "table_notes": {
+      "ride_requests": "Holds one row per ride request with acceptance time, estimated wait, and surge pricing data."
+    },
+    "output_field_notes": {
+      "request_id": "The unique identifier for each ride request.",
+      "passenger_name": "The name of the passenger who made the request.",
+      "acceptance_time_seconds": "The number of seconds it took for a driver to accept the request (NULL if never accepted).",
+      "estimated_wait_minutes": "The system's estimated wait time in minutes (NULL if unavailable).",
+      "surge_multiplier": "The surge pricing multiplier stored as text (may be blank or NULL).",
+      "surge_numeric": "The surge multiplier as a number; blank or NULL entries become 1.0.",
+      "fallback_wait_minutes": "The estimated wait if available, otherwise 15 minutes.",
+      "effective_acceptance_seconds": "The actual acceptance time if present, otherwise 180 seconds.",
+      "min_acceptance_display_seconds": "The longer of the actual acceptance time and 60 seconds, ensuring fast acceptances show at least 60."
+    },
+    "field_logic": [
+      "surge_numeric: built from `surge_multiplier`.\n- turn blank strings into NULL using NULLIF\n- turn the resulting text (or NULL) into a number\n- if NULL, use 1.0 as the default",
+      "fallback_wait_minutes: built from `estimated_wait_minutes`.\n- if `estimated_wait_minutes` is NULL, use 15\n- otherwise use `estimated_wait_minutes`",
+      "effective_acceptance_seconds: built from `acceptance_time_seconds`.\n- if `acceptance_time_seconds` is NULL, use 180\n- otherwise use `acceptance_time_seconds`",
+      "min_acceptance_display_seconds: built from `acceptance_time_seconds`.\n- take the greater of `acceptance_time_seconds` and 60\n- if `acceptance_time_seconds` is NULL, GREATEST treats it as NULL and the result is NULL; handle that by coalescing the GREATEST result with 60"
+    ],
+    "edge_cases": [
+      "If `surge_multiplier` is blank (empty string), treat it as NULL before converting to a number.",
+      "If `surge_multiplier` is NULL, the numeric value defaults to 1.0.",
+      "If `estimated_wait_minutes` is NULL, the fallback wait is 15.",
+      "If `acceptance_time_seconds` is NULL, the effective acceptance is 180 and the display minimum is 60."
+    ],
+    "filter_note": "All rows from ride_requests are included.",
+    "order_by_note": "Rows are ordered by request_id ascending."
+  },
+  "schema_ddl": "CREATE TABLE ride_requests (\n  request_id INT PRIMARY KEY,\n  passenger_name VARCHAR(100),\n  acceptance_time_seconds INT,\n  estimated_wait_minutes INT,\n  surge_multiplier VARCHAR(10)\n);",
+  "example_input_data": "INSERT INTO ride_requests (request_id, passenger_name, acceptance_time_seconds, estimated_wait_minutes, surge_multiplier) VALUES\n(1, 'Alice Chen', 45, 8, '1.5'),\n(2, 'Bob Martinez', NULL, NULL, ''),\n(3, 'Carol White', 90, 12, NULL),\n(4, 'Dan Kim', 30, 5, '2.0'),\n(5, 'Eva Brown', NULL, 20, '1.8');",
+  "example_output_columns": [
+    "request_id",
+    "passenger_name",
+    "acceptance_time_seconds",
+    "estimated_wait_minutes",
+    "surge_multiplier",
+    "surge_numeric",
+    "fallback_wait_minutes",
+    "effective_acceptance_seconds",
+    "min_acceptance_display_seconds"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Alice Chen",
+      45.0,
+      8.0,
+      "1.5",
+      "1.5",
+      8,
+      45,
+      60
+    ],
+    [
+      2,
+      "Bob Martinez",
+      null,
+      null,
+      "",
+      "1.0",
+      15,
+      180,
+      60
+    ],
+    [
+      3,
+      "Carol White",
+      90.0,
+      12.0,
+      null,
+      "1.0",
+      12,
+      90,
+      90
+    ],
+    [
+      4,
+      "Dan Kim",
+      30.0,
+      5.0,
+      "2.0",
+      "2.0",
+      5,
+      30,
+      60
+    ],
+    [
+      5,
+      "Eva Brown",
+      null,
+      20.0,
+      "1.8",
+      "1.8",
+      20,
+      180,
+      60
+    ]
+  ],
+  "test_data": "INSERT INTO ride_requests (request_id, passenger_name, acceptance_time_seconds, estimated_wait_minutes, surge_multiplier) VALUES\n(101, 'Frank Lopez', 55, 9, '1.2'),\n(102, 'Grace Lee', NULL, NULL, ''),\n(103, 'Henry Davis', 120, 18, NULL),\n(104, 'Iris Wang', 25, 4, '3.5'),\n(105, 'Jack Smith', NULL, 22, '2.1'),\n(106, 'Karen Jones', 75, NULL, '1.9'),\n(107, 'Leo Zhang', 40, 7, ''),\n(108, 'Mia Taylor', NULL, NULL, NULL),\n(109, 'Noah Green', 10, 2, '1.0'),\n(110, 'Olivia Hall', 65, 11, '2.8'),\n(111, 'Paul Scott', NULL, 15, ''),\n(112, 'Quinn Adams', 85, NULL, '1.7'),\n(113, 'Rita Clark', 50, 10, NULL),\n(114, 'Sam Hill', NULL, NULL, '4.0'),\n(115, 'Tina Young', 15, 3, '1.3'),\n(116, 'Uma Patel', 95, 14, ''),\n(117, 'Victor King', NULL, 25, NULL),\n(118, 'Wendy Ross', 35, 6, '2.5');",
+  "test_expected_columns": [
+    "request_id",
+    "passenger_name",
+    "acceptance_time_seconds",
+    "estimated_wait_minutes",
+    "surge_multiplier",
+    "surge_numeric",
+    "fallback_wait_minutes",
+    "effective_acceptance_seconds",
+    "min_acceptance_display_seconds"
+  ],
+  "test_expected_rows": [
+    [
+      101,
+      "Frank Lopez",
+      55.0,
+      9.0,
+      "1.2",
+      "1.2",
+      9,
+      55,
+      60
+    ],
+    [
+      102,
+      "Grace Lee",
+      null,
+      null,
+      "",
+      "1.0",
+      15,
+      180,
+      60
+    ],
+    [
+      103,
+      "Henry Davis",
+      120.0,
+      18.0,
+      null,
+      "1.0",
+      18,
+      120,
+      120
+    ],
+    [
+      104,
+      "Iris Wang",
+      25.0,
+      4.0,
+      "3.5",
+      "3.5",
+      4,
+      25,
+      60
+    ],
+    [
+      105,
+      "Jack Smith",
+      null,
+      22.0,
+      "2.1",
+      "2.1",
+      22,
+      180,
+      60
+    ],
+    [
+      106,
+      "Karen Jones",
+      75.0,
+      null,
+      "1.9",
+      "1.9",
+      15,
+      75,
+      75
+    ],
+    [
+      107,
+      "Leo Zhang",
+      40.0,
+      7.0,
+      "",
+      "1.0",
+      7,
+      40,
+      60
+    ],
+    [
+      108,
+      "Mia Taylor",
+      null,
+      null,
+      null,
+      "1.0",
+      15,
+      180,
+      60
+    ],
+    [
+      109,
+      "Noah Green",
+      10.0,
+      2.0,
+      "1.0",
+      "1.0",
+      2,
+      10,
+      60
+    ],
+    [
+      110,
+      "Olivia Hall",
+      65.0,
+      11.0,
+      "2.8",
+      "2.8",
+      11,
+      65,
+      65
+    ],
+    [
+      111,
+      "Paul Scott",
+      null,
+      15.0,
+      "",
+      "1.0",
+      15,
+      180,
+      60
+    ],
+    [
+      112,
+      "Quinn Adams",
+      85.0,
+      null,
+      "1.7",
+      "1.7",
+      15,
+      85,
+      85
+    ],
+    [
+      113,
+      "Rita Clark",
+      50.0,
+      10.0,
+      null,
+      "1.0",
+      10,
+      50,
+      60
+    ],
+    [
+      114,
+      "Sam Hill",
+      null,
+      null,
+      "4.0",
+      "4.0",
+      15,
+      180,
+      60
+    ],
+    [
+      115,
+      "Tina Young",
+      15.0,
+      3.0,
+      "1.3",
+      "1.3",
+      3,
+      15,
+      60
+    ],
+    [
+      116,
+      "Uma Patel",
+      95.0,
+      14.0,
+      "",
+      "1.0",
+      14,
+      95,
+      95
+    ],
+    [
+      117,
+      "Victor King",
+      null,
+      25.0,
+      null,
+      "1.0",
+      25,
+      180,
+      60
+    ],
+    [
+      118,
+      "Wendy Ross",
+      35.0,
+      6.0,
+      "2.5",
+      "2.5",
+      6,
+      35,
+      60
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "same_rows",
+    "recipe": "row-transform",
+    "composite_moves": [
+      "row-transform: NULLIF to blank-to-NULL, COALESCE for NULL-to-default, GREATEST for max of two values"
+    ]
+  },
+  "hints": [
+    "You'll need to convert the surge_multiplier text into a number, but first handle the blank strings.",
+    "Use NULLIF to turn blank strings into NULL, then use COALESCE to provide a default value when converting to numeric.",
+    "For the minimum display seconds, GREATEST will give you the larger of acceptance_time_seconds and 60, but remember to handle the case when acceptance_time_seconds is NULL."
+  ],
+  "answer_key": "SELECT\n  request_id,\n  passenger_name,\n  acceptance_time_seconds,\n  estimated_wait_minutes,\n  surge_multiplier,\n  COALESCE((NULLIF(surge_multiplier, ''))::NUMERIC, 1.0) AS surge_numeric,\n  COALESCE(estimated_wait_minutes, 15) AS fallback_wait_minutes,\n  COALESCE(acceptance_time_seconds, 180) AS effective_acceptance_seconds,\n  COALESCE(GREATEST(acceptance_time_seconds, 60), 60) AS min_acceptance_display_seconds\nFROM ride_requests\nORDER BY request_id;",
+  "_meta": {
+    "question_type": "parse_clean",
+    "original_qtype": "random_any",
+    "dialect": "postgresql",
+    "difficulty": "easy",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-05T16:44:09.190406",
+    "problem_id": "f82ef39fb66d",
+    "validation_attempts": 1,
+    "scenario": "a ride share app tracking match rate from request to driver acceptance",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "conditional_null",
+    "cleaning_required": false,
+    "cleaning_level": null,
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": null,
+    "typecast_twist": false,
+    "realism": "moderate"
+  },
+  "example_output_schema": [
+    [
+      "request_id",
+      "INTEGER"
+    ],
+    [
+      "passenger_name",
+      "VARCHAR"
+    ],
+    [
+      "acceptance_time_seconds",
+      "INTEGER"
+    ],
+    [
+      "estimated_wait_minutes",
+      "INTEGER"
+    ],
+    [
+      "surge_multiplier",
+      "VARCHAR"
+    ],
+    [
+      "surge_numeric",
+      "NUMERIC"
+    ],
+    [
+      "fallback_wait_minutes",
+      "INTEGER"
+    ],
+    [
+      "effective_acceptance_seconds",
+      "INTEGER"
+    ],
+    [
+      "min_acceptance_display_seconds",
+      "INTEGER"
+    ]
+  ]
+}
