@@ -4091,7 +4091,9 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml
             "array_access": (
                 "\nSUBTYPE PIN - ARRAY (1-based). Schema MUST have an array column (e.g. tags TEXT[]). "
                 "Use arr[n], ARRAY_LENGTH(arr,1), x = ANY(arr), and optionally UNNEST. Prompt: first tag, "
-                "tag count, and a membership flag."
+                "tag count, and a membership flag. Subscript a real TEXT[] COLUMN (tags[1]); do NOT subscript "
+                "a function result — STRING_TO_ARRAY(...)[1] is a Postgres syntax error, wrap it as "
+                "(STRING_TO_ARRAY(...))[1] or use SPLIT_PART(s, delim, 1) instead."
             ),
             "date_extract": (
                 "\nSUBTYPE PIN - DATE. Use EXTRACT(part FROM ts) (returns a NUMBER), DATE_TRUNC(unit, ts) "
@@ -5262,6 +5264,53 @@ def _topic_specific_guidance(qtype: str, dialect: str, scenario: str = None, dml
     return base
 
 
+def _wrap_func_array_subscripts(sql: str) -> str:
+    """Postgres rejects subscripting a function RESULT directly:
+        STRING_TO_ARRAY(x, ',')[1]   -> ERROR: syntax error at or near "["
+    The fix is to parenthesize the call:  (STRING_TO_ARRAY(x, ','))[1].
+    This normalizes an answer_key so that pattern runs, WITHOUT touching a
+    plain/qualified column subscript (col[1], t.tags[1]) or an already
+    parenthesized expression ((expr)[1]). Idempotent."""
+    import re as _re
+    s = sql or ""
+    guard = 0
+    while guard < 200:
+        guard += 1
+        found = None
+        for cand in _re.finditer(r'\)\s*\[', s):
+            close = cand.start()                     # index of the ')'
+            depth = 0
+            openpos = None
+            for j in range(close, -1, -1):
+                c = s[j]
+                if c == ')':
+                    depth += 1
+                elif c == '(':
+                    depth -= 1
+                    if depth == 0:
+                        openpos = j
+                        break
+            if openpos is None:
+                continue
+            # A function call has its name DIRECTLY before '(' (no space). If '(' is
+            # preceded by a space or non-identifier, it's (expr)[i] or a keyword like
+            # "SELECT (...)" -> leave alone (this also stops re-wrapping our own output).
+            k = openpos - 1
+            if k < 0 or not (s[k].isalnum() or s[k] == '_'):
+                continue
+            start = k
+            while start >= 0 and (s[start].isalnum() or s[start] == '_'):
+                start -= 1
+            start += 1
+            found = (start, close)
+            break
+        if not found:
+            break
+        st, cl = found
+        s = s[:st] + '(' + s[st:cl + 1] + ')' + s[cl + 1:]
+    return s
+
+
 def _validate_problem(problem: Dict[str, Any]) -> tuple:
     """
     Validate by RUNNING the answer_key and using its actual output as the
@@ -5286,6 +5335,14 @@ def _validate_problem(problem: Dict[str, Any]) -> tuple:
         return False, "Missing schema_ddl."
     if not answer.strip():
         return False, "Missing answer_key."
+
+    # Postgres can't subscript a function RESULT: STRING_TO_ARRAY(...)[1] is a
+    # "syntax error at or near [". Auto-parenthesize so the answer_key runs, and
+    # persist the fix so the saved problem is runnable.
+    _fixed_ans = _wrap_func_array_subscripts(answer)
+    if _fixed_ans != answer:
+        answer = _fixed_ans
+        problem["answer_key"] = answer
 
     # Reject clock-relative date functions: the example data is static, so these make
     # the expected output empty and non-reproducible across runs.
@@ -5375,7 +5432,10 @@ def _validate_problem(problem: Dict[str, Any]) -> tuple:
                 + ". KEEP every family it already has AND add the missing one(s) — do NOT drop a family "
                 "while fixing another (that whack-a-mole is why this keeps failing). Reliable recipe: add "
                 "one derived OUTPUT column per family so all six coexist regardless of the core task — "
-                "INITCAP(TRIM(name)) [STRING]; tags[1] or ARRAY_LENGTH(tags) on a TEXT[] column [ARRAY]; "
+                "INITCAP(TRIM(name)) [STRING]; tags[1] or ARRAY_LENGTH(tags) on a TEXT[] column [ARRAY] "
+                "(subscript a real TEXT[] COLUMN as col[1]; NEVER subscript a function result like "
+                "STRING_TO_ARRAY(...)[1] — Postgres throws 'syntax error at or near [': wrap it as "
+                "(STRING_TO_ARRAY(...))[1] or use SPLIT_PART(s, delim, 1) for a delimited string); "
                 "EXTRACT(MONTH FROM d) or TO_CHAR(d,'YYYY-MM') [DATE]; amount_text::numeric [CAST]; "
                 "ROUND(x, 2) or MOD(n, 2) [NUMERIC]; COALESCE(x, 0) or CASE WHEN ... END [CONDITIONAL]. "
                 "Add whatever TEXT[] / wrong-typed-text / NULL columns are needed so each function is "

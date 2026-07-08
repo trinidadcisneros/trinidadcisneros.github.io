@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Tableau Thinks: LODs, Table Calcs, and Parameters Explained Through SQL and pandas | Bitter Scientist</title>
+
+    <!-- Bootstrap 4.3.1 -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+
+    <!-- Site framework CSS -->
+    <link rel="stylesheet" type="text/css" href="../../static/css/navbar.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/footer.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/theme.css">
+
+    <style>
+        :root {
+            --navy: #1E2761;
+            --green: #2CA58D;
+            --red: #E15554;
+            --ice: #CADCFC;
+        }
+        * { box-sizing: border-box; }
+
+        /* ============ TYPE HIERARCHY (one font, five sizes) ============
+           h1 page title      1.6rem  bold
+           subtitle           1.05rem regular grey
+           section summary    1.15rem semibold navy
+           body + tables      1rem
+           code + captions    0.875rem monospace / italic grey           */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; color: #333; line-height: 1.6; }
+        .main-container { max-width: 1200px; margin: 0 auto; padding: 20px; background-color: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); font-size: 0.875rem; }
+        .page-header { text-align: center; margin-bottom: 26px; padding-bottom: 18px; border-bottom: 2px solid var(--navy); }
+        .page-header h1 { color: var(--navy); font-weight: 700; font-size: 1.5rem; }
+        .page-header .subtitle { color: #666; font-size: 0.95rem; margin-top: 8px; }
+        .page-header .meta { color: #999; font-size: 0.8rem; margin-top: 6px; }
+
+        .tab-navigation { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 2px solid #e0e0e0; margin-bottom: 22px; position: sticky; top: 0; background: white; z-index: 50; padding-top: 6px; }
+        .nav-tab { border: none; background: none; padding: 10px 14px; font-size: 0.95rem; font-weight: 500; color: #555; cursor: pointer; border-bottom: 3px solid transparent; font-family: inherit; }
+        .nav-tab:hover { color: var(--navy); }
+        .nav-tab.active { color: var(--navy); border-bottom-color: var(--navy); font-weight: 600; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Collapsible sections */
+        details.sec { border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 14px; background: white; }
+        details.sec > summary { cursor: pointer; padding: 12px 16px; font-size: 1rem; font-weight: 600; color: var(--navy); list-style: none; }
+        details.sec > summary::-webkit-details-marker { display: none; }
+        details.sec > summary::before { content: "\25B8"; margin-right: 10px; font-size: 0.9em; }
+        details.sec[open] > summary::before { content: "\25BE"; }
+        details.sec[open] > summary { border-bottom: 1px solid #eee; }
+        .sec-body { padding: 14px 16px; }
+
+        .question-box { background: var(--ice); border-left: 5px solid var(--navy); padding: 14px 18px; border-radius: 0 6px 6px 0; margin-bottom: 18px; font-size: 0.875rem; }
+        .question-box strong { color: var(--navy); }
+        .intro-box { padding: 4px 2px 10px 2px; margin-bottom: 18px; font-size: 0.875rem; border-bottom: 1px solid #ddd; }
+        .intro-box strong { color: var(--navy); }
+        .subhead { font-size: 1rem; font-weight: 600; color: var(--navy); margin: 16px 0 2px 0; }
+        hr.light { border: 0; border-top: 1px solid #e4e4e4; margin: 20px 0; }
+        .section-controls { text-align: right; margin-bottom: 10px; }
+        .section-controls button { background: none; border: 1px solid #c9cede; border-radius: 5px; color: var(--navy); font-size: 0.8rem; padding: 4px 12px; margin-left: 6px; cursor: pointer; font-family: inherit; }
+        .section-controls button:hover { background: #eef0f6; }
+        .lod-spectrum { margin: 26px 0 10px 0; }
+        .lod-spectrum .spec-bar { display: flex; align-items: stretch; text-align: center; border: 1px solid #c9cede; border-radius: 8px; overflow: hidden; }
+        .lod-spectrum .spec-cell { flex: 1; padding: 10px 8px; font-size: 0.8rem; }
+        .lod-spectrum .spec-cell + .spec-cell { border-left: 1px solid #c9cede; }
+        .lod-spectrum .spec-name { font-weight: 700; color: var(--navy); font-size: 0.85rem; }
+        .lod-spectrum .spec-chart { background: #eef0f6; }
+        .lod-spectrum .spec-ends { display: flex; justify-content: space-between; font-size: 0.75rem; color: #888; margin-top: 6px; margin-bottom: 18px; }
+        .lod-spectrum .spec-code { font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 0.72rem; color: #555; margin-top: 4px; }
+        .before-after { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 12px 0 6px 0; }
+        .before-after .ba-table { flex: 1 1 300px; }
+        .before-after .ba-arrow { flex: 0 0 auto; font-size: 1.8rem; color: var(--navy); text-align: center; }
+        .before-after .ba-label { font-size: 0.8rem; font-weight: 600; color: #555; margin-bottom: 4px; }
+
+        .calc-formula { background: #f4f4f8; border: 1px solid #ddd; border-radius: 6px; padding: 10px 14px; font-family: 'SF Mono', Menlo, Consolas, Monaco, 'Courier New', monospace; font-size: 0.8rem; margin: 10px 0; white-space: pre-wrap; }
+        .click-path { font-size: 0.85rem; color: #555; }
+        .click-path li { margin-bottom: 4px; }
+
+        .code-block { background-color: #1a1a2e; color: #e8e8e8; border-radius: 6px; padding: 14px 16px; font-family: 'SF Mono', Menlo, Consolas, Monaco, 'Courier New', monospace; font-size: 0.8rem; overflow-x: auto; white-space: pre; line-height: 1.5; margin: 0; }
+        .code-block .kw { color: #c792ea; }
+        .code-block .cm { color: #7a7a94; font-style: italic; }
+        .code-block .st { color: #c3e88d; }
+        code { font-family: 'SF Mono', Menlo, Consolas, Monaco, 'Courier New', monospace; font-size: 0.8rem; color: #e8e8e8; background: #1a1a2e; padding: 2px 7px; border-radius: 4px; white-space: pre-wrap; }
+        table.blog-table code { display: inline-block; padding: 4px 8px; line-height: 1.45; margin: 1px 0; }
+
+        table.blog-table { width: 100%; border-collapse: collapse; margin: 12px 0 6px 0; font-size: 0.8rem; font-family: inherit; }
+        table.blog-table th { background: #eef0f6; color: #333; font-weight: 600; padding: 7px 12px; text-align: left; font-size: 0.8rem; border-bottom: 2px solid #c9cede; }
+        table.blog-table td { padding: 7px 12px; border-bottom: 1px solid #e8e8e8; vertical-align: top; font-family: inherit; font-size: 0.8rem; }
+        table.blog-table tr:nth-child(even) { background: #f7f8fc; }
+        table.blog-table .match { color: var(--green); font-weight: 700; }
+        .caption { font-size: 0.75rem; color: #888; font-style: italic; margin: 4px 0 14px 0; }
+
+        .gotcha-box { background: #fdf3f3; border-left: 5px solid var(--red); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 16px 0; font-size: 0.875rem; }
+        .gotcha-box strong { color: var(--red); }
+        .insight-box { background: #f0faf7; border-left: 5px solid var(--green); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 16px 0; font-size: 0.875rem; }
+        .insight-box strong { color: var(--green); }
+
+        .main-container p, .main-container li { font-size: inherit; }
+        @media (max-width: 768px) { .nav-tab { font-size: 0.875rem; padding: 8px 8px; } }
+    </style>
+</head>
+<body>
+  <div id="page-container">
+    <div id="content-wrap">
+      <div w3-include-html="/folders/navbar_footer/navbar_pages.html"></div>
+      <div class="blog-container">
+    <div class="main-container">
+        <div class="page-header">
+            <h1>How Tableau Thinks: LODs, Table Calcs, and Parameters Explained Through SQL and pandas</h1>
+            <div class="subtitle">Using SQL and pandas as the reference point to show what Tableau actually does to your data, verified on 19 years of California Medi-Cal enrollment data</div>
+            <div class="meta">6 sections &middot; 6 verified parity checks &middot; Live Tableau Public dashboard &middot; July 2026</div>
+        </div>
+
+        <div class="tab-navigation" id="tabNav">
+            <button class="nav-tab active" onclick="switchTab(event, 'tab-data')">Overview</button>
+            <button class="nav-tab" onclick="switchTab(event, 'tab-agg')">Row Level vs Aggregate</button>
+            <button class="nav-tab" onclick="switchTab(event, 'tab-lod')">Level of Detail (LODs)</button>
+            <button class="nav-tab" onclick="switchTab(event, 'tab-tablecalc')">Table Calculations</button>
+            <button class="nav-tab" onclick="switchTab(event, 'tab-params')">Parameters</button>
+            <button class="nav-tab" onclick="switchTab(event, 'tab-dashboard')">The Dashboard</button>
+        </div>
+
+        <!-- TAB 1: OVERVIEW -->
+        <div id="tab-data" class="tab-content active">
+            <div class="section-controls"><button onclick="setAllSections('tab-data', true)">Expand All</button><button onclick="setAllSections('tab-data', false)">Collapse All</button></div>
+            <details class="sec" open><summary>Introduction</summary><div class="sec-body">
+                <p style="margin-bottom:10px;">If you have used Tableau or another visualization tool, you may have wondered what data preparation and transformation are actually occurring under the hood when you build a chart, table, or dashboard.</p>
+                <p style="margin-bottom:10px;"><strong>The purpose of this post</strong> is to demystify how Tableau converts your actions into queries through its internal engine, VizQL, using a select set of query concepts as the lens, and to show that what happens is no different from everyday SQL and pandas.</p>
+                <strong>Specifically, this post covers:</strong>
+                <ul style="margin: 6px 0 10px 0;">
+                    <li><strong>Row level vs aggregate calculations</strong>, how the grain of a question decides the right aggregation, and the trap when it does not</li>
+                    <li><strong>Level of Detail expressions (FIXED, INCLUDE, EXCLUDE)</strong>, group level calculations whose answers attach back to every row</li>
+                    <li><strong>Table calculations</strong>, running totals and year over year change, computed on the view's results rather than the raw data</li>
+                    <li><strong>Parameters</strong>, viewer controlled variables that drive Top N filters and metric swaps</li>
+                    <li><strong>A published interactive dashboard</strong> and a one page Tableau to SQL to pandas cheat sheet</li>
+                </ul>
+                <p style="margin-bottom:6px;">Finally, this post uses the <strong>Medi-Cal Managed Care Enrollment Report</strong>, monthly enrollment for every Medi-Cal managed care plan, by county, January 2007 through June 2026, for every comparison, and the accompanying dashboard answers:</p>
+                <ul style="margin: 0;">
+                    <li>How has Medi-Cal enrollment trended, statewide and in any county you click?</li>
+                    <li>Which plans dominate each county, and what share of the market do they hold?</li>
+                    <li>How is enrollment distributed geographically across California's 58 counties?</li>
+                    <li>Who are the top N plans, ranked by total enrollment or by county share?</li>
+                </ul>
+            </div></details>
+
+            <details class="sec" open><summary>Background</summary><div class="sec-body">
+
+                <details class="sec"><summary>The vocabulary</summary><div class="sec-body">
+                <table class="blog-table">
+                    <tr><th style="width:16%">Term</th><th style="width:40%">Plain definition</th><th style="width:23%">SQL</th><th style="width:21%">pandas</th></tr>
+                    <tr><td>Grain</td><td>What one row represents. Here: one plan, in one county, in one month, NOT one month</td><td>the table's level before grouping</td><td>the DataFrame's level before grouping</td></tr>
+                    <tr><td>Aggregation</td><td>Collapsing many rows into one number (SUM, AVG, COUNTD); the dimensions in the view decide the groups</td><td><code>GROUP BY</code></td><td><code>.groupby().agg()</code></td></tr>
+                    <tr><td>Level of Detail (LOD)</td><td>A calculation done for a group of your choosing, with the group's answer attached back to every row</td><td><code>OVER (PARTITION BY g)</code></td><td><code>groupby(g).transform()</code></td></tr>
+                    <tr><td>Table calculation</td><td>A transformation of the numbers ALREADY in the view, applied after the query returns</td><td>window over the result set</td><td><code>.cumsum()</code>, <code>.pct_change()</code></td></tr>
+                    <tr><td>Parameter</td><td>A viewer controlled variable; inert until a calculation or filter references it</td><td>a query variable</td><td>a Python variable</td></tr>
+                    <tr><td>Context filter</td><td>A filter promoted to run BEFORE LODs and Top N filters, Tableau's only lever over filter order</td><td><code>WHERE</code> (always first)</td><td>mask before groupby</td></tr>
+                </table>
+                </div></details>
+
+                <details class="sec"><summary>From clicks to queries</summary><div class="sec-body">
+                <p>Every drag writes a piece of a query: Tableau's internal language, VizQL, converts the state of your shelves into queries that run against the data engine, and the view renders whatever comes back. At a high level:</p>
+                <table class="blog-table">
+                    <tr><th style="width:20%"></th><th style="width:27%">VizQL (Tableau)</th><th style="width:27%">SQL</th><th style="width:26%">pandas</th></tr>
+                    <tr><td>What it is</td><td>A visual specification language, generated from your shelves, never typed</td><td>A declarative query language you write</td><td>An imperative Python library you script</td></tr>
+                    <tr><td>How you express intent</td><td>Dragging pills onto shelves</td><td>Writing SELECT statements</td><td>Chaining DataFrame methods</td></tr>
+                    <tr><td>Who decides the grouping</td><td>Inferred from the dimensions in the view</td><td>You, explicitly, in GROUP BY</td><td>You, explicitly, in groupby()</td></tr>
+                </table>
+                <p style="margin-top:14px;">And row by row, each GUI action with its complete code equivalents (VizQL itself is not user visible, so the SQL and pandas columns show what the generated query does):</p>
+                <table class="blog-table">
+                    <tr><th style="width:24%">What you do in the GUI</th><th style="width:24%">What Tableau does</th><th style="width:27%">SQL equivalent</th><th style="width:25%">pandas equivalent</th></tr>
+                    <tr><td>Drag Plan to Rows, SUM(Enrollees) to Columns</td><td>Groups rows by every dimension in the view, aggregates the measure</td><td><code>SELECT Plan, SUM(Enrollees) FROM enrollment GROUP BY Plan</code></td><td><code>df.groupby('Plan')['Enrollees'].sum()</code></td></tr>
+                    <tr><td>Drag County to Filters, keep Los Angeles</td><td>Removes rows before aggregating</td><td><code>WHERE County = 'Los Angeles'</code></td><td><code>df[df.County == 'Los Angeles']</code></td></tr>
+                    <tr><td>Write <code>{ FIXED [County] : SUM([Enrollees]) }</code></td><td>Runs a second aggregation at a different grain, joins it back to every row</td><td><code>SUM(Enrollees) OVER (PARTITION BY County)</code></td><td><code>df.groupby('County')['Enrollees'] .transform('sum')</code></td></tr>
+                    <tr><td>Quick Table Calculation &rarr; Running Total</td><td>Post processes the result table after the query returns</td><td><code>SUM(members) OVER (ORDER BY Month)</code></td><td><code>monthly.Enrollees.cumsum()</code></td></tr>
+                    <tr><td>Set a Top N parameter to 10</td><td>Substitutes the value into every calculation and filter that references it, reruns them</td><td><code>ORDER BY members DESC LIMIT 10</code></td><td><code>.sort_values(ascending=False) .head(10)</code></td></tr>
+                </table>
+                <ul style="margin-top:12px;">
+                    <li><strong>See it yourself:</strong> Help &gt; Settings and Performance &gt; Start Performance Recording shows the actual queries Tableau generates for a view.</li>
+                </ul>
+                </div></details>
+
+            </div></details>
+
+            <details class="sec"><summary>Methods</summary><div class="sec-body">
+                <p><strong>Data source</strong></p>
+                <ul>
+                    <li><a href="https://data.chhs.ca.gov/dataset/medi-cal-managed-care-enrollment-report" target="_blank">Medi-Cal Managed Care Enrollment Report</a>, California Department of Health Care Services, via the CalHHS Open Data Portal (accessed July 2026)</li>
+                    <li>Monthly enrollee counts for every Medi-Cal managed care plan, by county, Medi-Cal is California's Medicaid program, covering roughly 13 million people</li>
+                    <li>Timeframe: January 2007 through June 2026, monthly; 30,431 rows &times; 8 columns after cleaning; one row = plan &times; county &times; month</li>
+                    <li>Obtained programmatically through the portal's CKAN API so the pipeline survives the state's monthly file renames</li>
+                </ul>
+                <p><strong>Preparation</strong></p>
+                <ul>
+                    <li>Comma formatted text counts converted to numbers; months parsed to dates</li>
+                    <li>Plan names harmonized across a 2022 renaming convention change (477 raw names to 184), keeping the raw name as an audit column</li>
+                    <li>One double reported transition month removed; two SCAN product lines merged after the source stopped distinguishing them in 2019; suppressed small cells flagged</li>
+                    <li>Quality checks: no duplicate plan/county/month rows, unbroken 234 month series for major plans, yearly totals unchanged by the merges</li>
+                </ul>
+                <p><strong>Verification</strong></p>
+                <ul>
+                    <li>Tableau, DuckDB SQL, and pandas all read the same cleaned CSV, every number in this post was verified identical in all three, to the digit</li>
+                </ul>
+            </div></details>
+
+            <details class="sec"><summary>Cheat sheet: the full translation table</summary><div class="sec-body">
+            <div class="question-box"><strong>The translation table:</strong> every method in this post, side by side. If you know the middle or right column, the left column is not new, it is the same operation with the grain inferred from the view.</div>
+
+            <table class="blog-table">
+                <tr><th style="width:18%">Concept</th><th style="width:27%">Tableau</th><th style="width:29%">SQL</th><th style="width:26%">pandas</th></tr>
+                <tr><td>Row level calc</td><td><code>[A] / [B]</code></td><td>expression in SELECT</td><td><code>df['a'] / df['b']</code></td></tr>
+                <tr><td>Aggregate</td><td>SUM / AVG / COUNTD in view</td><td>aggregate + GROUP BY (from the view's dims)</td><td><code>df.groupby(dims).agg(...)</code></td></tr>
+                <tr><td>Weighted ratio</td><td><code>SUM([x]) / COUNTD([key])</code></td><td><code>SUM(x) / COUNT(DISTINCT key)</code></td><td><code>x.sum() / key.nunique()</code></td></tr>
+                <tr><td>FIXED</td><td><code>{ FIXED [d] : SUM([x]) }</code></td><td><code>SUM(x) OVER (PARTITION BY d)</code></td><td><code>groupby(d)['x'].transform('sum')</code></td></tr>
+                <tr><td>INCLUDE</td><td><code>{ INCLUDE [d] : SUM([x]) }</code> + AVG</td><td>two step: grouped CTE, then AVG</td><td>fine groupby, then coarse mean</td></tr>
+                <tr><td>EXCLUDE</td><td><code>{ EXCLUDE [d] : SUM([x]) }</code> wrapped in MIN</td><td><code>SUM(SUM(x)) OVER ()</code></td><td><code>x / x.sum()</code></td></tr>
+                <tr><td>Running total</td><td>Quick Table Calc &rarr; Running Total</td><td><code>SUM(x) OVER (ORDER BY t)</code></td><td><code>x.cumsum()</code></td></tr>
+                <tr><td>Year over year</td><td>Quick Table Calc &rarr; YoY Growth (needs discrete YEAR+MONTH)</td><td><code>LAG(x, 12) OVER (ORDER BY t)</code></td><td><code>x.pct_change(12)</code></td></tr>
+                <tr><td>Partition / address</td><td>Compute Using</td><td><code>PARTITION BY</code> / <code>ORDER BY</code></td><td>groupby keys / sort order</td></tr>
+                <tr><td>Top N</td><td>Filter &rarr; Top tab, parameter driven</td><td><code>ORDER BY ... LIMIT n</code></td><td><code>.sort_values().head(n)</code></td></tr>
+                <tr><td>Parameter</td><td>Parameter + CASE bridge field</td><td>query variable</td><td>Python variable</td></tr>
+                <tr><td>Filter order control</td><td>Add to Context</td><td><code>WHERE</code> (always first)</td><td>mask before groupby</td></tr>
+            </table>
+
+            
+        </div></details>
+
+        </div>
+
+        <!-- TAB 2: ROW LEVEL VS AGGREGATE -->
+        <div id="tab-agg" class="tab-content">
+            <div class="section-controls"><button onclick="setAllSections('tab-agg', true)">Expand All</button><button onclick="setAllSections('tab-agg', false)">Collapse All</button></div>
+            <details class="sec" open><summary>Introduction &amp; The Question</summary><div class="sec-body">
+                <ul>
+                    <li>Every calculation, in Tableau or any analytics tool (SQL, pandas, Excel, R), is one of two kinds: <strong>row level</strong> or <strong>aggregate</strong></li>
+                    <li>Knowing which one you are writing is the difference between a right number and a plausible but wrong one</li>
+                    <li><strong>Why it matters:</strong> aggregates power every KPI, summary table, and chart; row level calculations build the derived fields that feed them</li>
+                    <li>Mixing them up fails silently: the wrong choice still returns a clean looking number, with no error to warn you</li>
+                    <li>Below we demonstrate how row level and aggregate calculations operate, the common pitfall, and how to tell which one a question needs</li>
+                    <li>We then use the Medi-Cal plan data to answer the project question:</li>
+                </ul>
+                <div class="question-box"><strong>The project question:</strong> what is LA County's average monthly Medical enrollment?</div>
+                <p style="margin-bottom:4px;"><strong>Roadmap for this tab:</strong></p>
+                <ul style="margin-bottom:4px;">
+                    <li><strong>Row level</strong>: what happens to the table when a calculation runs on every row</li>
+                    <li><strong>Aggregate</strong>: what happens when many rows roll up into one number</li>
+                    <li><strong>When to use which</strong>: first check the data's grain with sample rows, then the decision table, then the correct and incorrect answers to the project question in Tableau, SQL, and pandas, ending with the verified parity check</li>
+                </ul>
+            </div></details>
+
+            <details class="sec" open><summary>Row level</summary><div class="sec-body">
+                <p>First, the kind that leaves your table untouched:</p>
+                <ul style="margin-bottom:4px;">
+                    <li>Computed separately on each row, like a spreadsheet formula filled down a column</li>
+                    <li>No rows are combined; the table keeps its shape</li>
+                </ul>
+                <div class="before-after">
+                    <div class="ba-table">
+                        <div class="ba-label">Before: 3 rows (June 2026, LA County)</div>
+                        <table class="blog-table" style="margin:0;">
+                            <tr><th>Plan</th><th>Enrollees</th></tr>
+                            <tr><td>L.A. Care Health Plan</td><td>2,102,545</td></tr>
+                            <tr><td>Health Net Community Solutions</td><td>1,079,978</td></tr>
+                            <tr><td>SCAN Health Plan</td><td>14,680</td></tr>
+                        </table>
+                    </div>
+                    <div class="ba-arrow">&rarr;<div style="font-size:0.7rem; font-family: 'SF Mono', Menlo, Consolas, monospace; color:#555;">[Enrollees] / 1000</div></div>
+                    <div class="ba-table">
+                        <div class="ba-label">After: still 3 rows, one new column</div>
+                        <table class="blog-table" style="margin:0;">
+                            <tr><th>Plan</th><th>Enrollees per 1,000</th></tr>
+                            <tr><td>L.A. Care Health Plan</td><td>2,102.5</td></tr>
+                            <tr><td>Health Net Community Solutions</td><td>1,080.0</td></tr>
+                            <tr><td>SCAN Health Plan</td><td>14.7</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <p class="caption">A new value appears on every row; the table keeps its shape.</p>
+            </div></details>
+
+            <details class="sec" open><summary>Aggregate</summary><div class="sec-body">
+                <p>Row level kept all three rows; the second kind does the opposite and collapses them:</p>
+                <ul style="margin-bottom:4px;">
+                    <li>Combines many rows into one number (SUM, AVG, COUNTD)</li>
+                    <li>The dimensions in the view decide the groups</li>
+                </ul>
+                <div class="before-after">
+                    <div class="ba-table">
+                        <div class="ba-label">Before: 3 rows (June 2026, LA County)</div>
+                        <table class="blog-table" style="margin:0;">
+                            <tr><th>Plan</th><th>Enrollees</th></tr>
+                            <tr><td>L.A. Care Health Plan</td><td>2,102,545</td></tr>
+                            <tr><td>Health Net Community Solutions</td><td>1,079,978</td></tr>
+                            <tr><td>SCAN Health Plan</td><td>14,680</td></tr>
+                        </table>
+                    </div>
+                    <div class="ba-arrow">&rarr;<div style="font-size:0.7rem; font-family: 'SF Mono', Menlo, Consolas, monospace; color:#555;">SUM([Enrollees])<br>by County</div></div>
+                    <div class="ba-table">
+                        <div class="ba-label">After: 1 row</div>
+                        <table class="blog-table" style="margin:0;">
+                            <tr><th>County</th><th>SUM(Enrollees)</th></tr>
+                            <tr><td>Los Angeles</td><td><strong>3,197,203</strong></td></tr>
+                        </table>
+                    </div>
+                </div>
+                <p class="caption">The plan rows collapse into one county row (sum of the three rows shown; the full county total includes all seven plans).</p>
+            </div></details>
+
+            
+
+            <details class="sec" open><summary>When to use which: the correct and the incorrect approach</summary><div class="sec-body">
+                <p class="subhead" style="margin-top:2px;">Step 1: check the grain of the data</p>
+                <p>The choice of aggregation starts with the data itself. A sample of the cleaned data:</p>
+                
+                <table class="blog-table">
+                    <tr><th>Month</th><th>County</th><th>Plan Type</th><th>Plan Category</th><th>Plan</th><th>Enrollees</th></tr>
+                    <tr><td>2026-06-01</td><td>Los Angeles</td><td>Local Initiative (2 Plan)</td><td>Medical</td><td>L.A. Care Health Plan</td><td>2,102,545</td></tr>
+                    <tr><td>2026-06-01</td><td>Los Angeles</td><td>Commercial Plan (2 Plan)</td><td>Medical</td><td>Health Net Community Solutions</td><td>1,079,978</td></tr>
+                    <tr><td>2026-06-01</td><td>Los Angeles</td><td>SCAN</td><td>Medical</td><td>SCAN Health Plan</td><td>14,680</td></tr>
+                </table>
+                <p style="margin-top:10px;"><strong>Look at the grain:</strong> one row is one plan's enrollment, in one county, in one month. June 2026 in LA County is spread across seven rows, one per plan. "A month of LA County enrollment" does not exist as a row; it has to be assembled by summing the plan rows. That is exactly where the trap lives.</p>
+            
+                <hr class="light">
+                <p class="subhead">Step 2: choose the calculation kind</p>
+                <p>Knowing the grain, here is how to choose, and what happens to the project question when you choose right and when you choose wrong:</p>
+                <table class="blog-table">
+                    <tr><th style="width:28%">Situation</th><th style="width:36%">Right choice</th><th style="width:36%">How it goes wrong</th></tr>
+                    <tr><td>The answer lives inside one row (a rate from two columns on the same row)</td><td>Row level: <code>[A] / [B]</code></td><td>Aggregating first when the question was per row</td></tr>
+                    <tr><td>The answer spans rows (a total, a count, an average)</td><td>Aggregate: <code>SUM([A]) / SUM([B])</code></td><td>Averaging a row level ratio, every row counts equally no matter its size</td></tr>
+                    <tr><td>The rows are slices of the thing you care about (months split across plans, sales split across items)</td><td>Reassemble first: <code>SUM(x) / COUNTD(unit)</code></td><td><strong>The classic trap:</strong> AVG(x) quietly averages the slices, not the thing</td></tr>
+                </table>
+                <p style="margin-top:10px;">The rule in one line: <strong>match the aggregation to the grain of the question</strong>, never average something that is already a slice of what you actually care about.</p>
+
+                <hr class="light">
+
+                <p class="subhead">Applied to the project question, in Tableau</p>
+                <div class="calc-formula">// INCORRECT: averages plan rows, not months
+AVG([Enrollees])                              &rarr; 437,233
+
+// CORRECT: reassemble the months, then divide by how many there are
+SUM([Enrollees]) / COUNTD([Month])            &rarr; 2,546,791</div>
+                <p><strong>Why they differ by 6x:</strong> both formulas are valid Tableau; they answer different questions. <code>AVG([Enrollees])</code> treats every plan row as an equal unit, so it answers "how big is a typical plan's month?" (437K). The question asked about a typical <em>month</em>, and a month is seven plan rows glued together, so the total must be reassembled first, then divided by the number of distinct months (2.5M).</p>
+                <ul class="click-path">
+                    <li>Build: Filters shelf: County = Los Angeles, Plan Category = Medical; both calculated fields on Text via one Measure Values pill, Measure Names on Rows</li>
+                </ul>
+
+                <hr class="light">
+
+                <p class="subhead">The same thing in SQL and pandas</p>
+<pre class="code-block"><span class="cm">-- SQL (DuckDB)</span>
+<span class="kw">SELECT</span> <span class="kw">AVG</span>(Enrollees)                          <span class="kw">AS</span> incorrect_avg,   <span class="cm">-- 437,233</span>
+       <span class="kw">SUM</span>(Enrollees) / <span class="kw">COUNT</span>(<span class="kw">DISTINCT</span> Month)  <span class="kw">AS</span> correct_avg      <span class="cm">-- 2,546,791</span>
+<span class="kw">FROM</span> enr
+<span class="kw">WHERE</span> County = <span class="st">'Los Angeles'</span> <span class="kw">AND</span> "Plan Category" = <span class="st">'Medical'</span>;</pre>
+<pre class="code-block" style="margin-top:12px;"><span class="cm"># pandas</span>
+la = df[(df.County == <span class="st">'Los Angeles'</span>) &amp; (df[<span class="st">'Plan Category'</span>] == <span class="st">'Medical'</span>)]
+
+incorrect = la.Enrollees.mean()                          <span class="cm"># 437,233</span>
+correct   = la.Enrollees.sum() / la.Month.nunique()      <span class="cm"># 2,546,791</span></pre>
+                <p style="margin-top:10px;">Notice the code makes the choice visible: <code>mean()</code> vs <code>sum() / nunique()</code> are obviously different operations. In Tableau both hide behind the innocent word "average", which is why the grain check matters more in a GUI.</p>
+
+                <hr class="light">
+
+                <table class="blog-table">
+                    <tr><th>Measure</th><th>Tableau</th><th>SQL</th><th>pandas</th></tr>
+                    <tr><td>Correct average</td><td>2,546,791</td><td>2,546,791</td><td>2,546,791 <span class="match">&#10004;</span></td></tr>
+                    <tr><td>Naive average</td><td>437,233</td><td>437,233</td><td>437,233 <span class="match">&#10004;</span></td></tr>
+                </table>
+                <p class="caption">Parity verified in notebooks/nb02, section 1</p>
+            </div></details>
+        </div>
+
+        <!-- TAB 3: LEVEL OF DETAIL -->
+        <div id="tab-lod" class="tab-content">
+            <div class="section-controls"><button onclick="setAllSections('tab-lod', true)">Expand All</button><button onclick="setAllSections('tab-lod', false)">Collapse All</button></div>
+            <details class="sec" open><summary>Introduction &amp; The Questions</summary><div class="sec-body">
+                <ul>
+                    <li><strong>Level of Detail (LOD), in lay language:</strong> a calculation done for a <em>group</em> (a county's total, a plan's total) whose answer gets attached back to every row inside that group, so you can use it in row math like a share or a benchmark</li>
+                    <li><strong>You already know this idea by other names:</strong>
+                        <ul style="margin-top:4px;">
+                            <li>in SQL it is a window function, <code>SUM(x) OVER (PARTITION BY g)</code>, or a grouped subquery joined back</li>
+                            <li>in pandas it is <code>groupby(g)['x'].transform('sum')</code></li>
+                            <li>out loud it is "the group total, broadcast back to the rows" or "GROUP BY without collapsing"</li>
+                        </ul>
+                    </li>
+                    <li><strong>Why it matters:</strong> shares, benchmarks, and cohort math all need a denominator computed at a different grain than the view, and a row cannot see other rows in any tool; LODs are Tableau's only way to reach across rows</li>
+                    <li>There are three types, and they differ only in which grouping the calculation uses: <strong>FIXED</strong> = the grouping written inside the formula, ignoring whatever the chart shows &middot; <strong>INCLUDE</strong> = the chart's grouping plus a finer one added for the math &middot; <strong>EXCLUDE</strong> = the chart's grouping with one level removed</li>
+                </ul>
+                <div class="lod-spectrum">
+                    <p style="margin-bottom:14px;"><strong>The three types sit on a spectrum of grouping detail, relative to how the data is currently grouped:</strong></p>
+                    <div class="spec-bar">
+                        <div class="spec-cell">
+                            <div class="spec-name">&larr; INCLUDE</div>
+                            <div>moves the math one step toward MORE detail</div>
+                            <div class="spec-code">chart shows Plan Type,<br>math runs per Plan</div>
+                        </div>
+                        <div class="spec-cell spec-chart">
+                            <div class="spec-name">THE CURRENT GROUPING</div>
+                            <div>the level your data is summarized to (the GROUP BY your shelves created)</div>
+                            <div class="spec-code">County, Plan Type, ...</div>
+                        </div>
+                        <div class="spec-cell">
+                            <div class="spec-name">EXCLUDE &rarr;</div>
+                            <div>moves the math one step toward LESS detail</div>
+                            <div class="spec-code">chart shows County,<br>math runs statewide</div>
+                        </div>
+                    </div>
+                    <div class="spec-ends"><span>more detailed (Plan)</span><span>less detailed (State)</span></div>
+                    <p style="margin-top:10px; margin-bottom:0;"><strong>FIXED is the exception: it does not slide.</strong> You pin the grouping in the formula (<span class="spec-code" style="font-size:0.75rem;">{ FIXED [County] : ... }</span>), and the math stays at that spot no matter how the chart is grouped, filtered, or sliced. Inside all three, any aggregate works: SUM, AVG, MIN, MAX, COUNTD, MEDIAN.</p>
+                </div>
+
+                <p style="margin-bottom:4px;"><strong>Roadmap for this tab</strong>, one type per section, each answering its own project question:</p>
+                <ul style="margin-bottom:4px;">
+                    <li><strong>FIXED</strong>: what share of LA County's enrollment does each plan hold?</li>
+                    <li><strong>INCLUDE</strong>: what is the typical plan size within each plan type?</li>
+                    <li><strong>EXCLUDE</strong>: what share of statewide enrollment does each county contribute?</li>
+                </ul>
+            </div></details>
+
+            <details class="sec" open><summary>FIXED: creates a group&#39;s aggregate once and keeps it on every row, no matter how you filter or slice the chart</summary><div class="sec-body">
+                <p>FIXED locks a calculation to the grouping written inside the curly braces. Whatever the chart is broken down by, the calculation ignores it and computes one answer per county (or per whatever grouping you write):</p>
+                <div class="question-box"><strong>Question:</strong> what share of LA County's Medi-Cal enrollment does each plan hold (June 2026)?</div>
+                <p><strong>FIXED in one sentence:</strong> compute one total per grouping written in the formula, and give that same total to every row of that group.</p>
+                <div class="before-after">
+                    <div class="ba-table">
+                        <div class="ba-label">Before: 3 plan rows (June 2026, LA County)</div>
+                        <table class="blog-table" style="margin:0;">
+                            <tr><th>Plan</th><th>Enrollees</th></tr>
+                            <tr><td>L.A. Care Health Plan</td><td>2,102,545</td></tr>
+                            <tr><td>Health Net Community Solutions</td><td>1,079,978</td></tr>
+                            <tr><td>SCAN Health Plan</td><td>14,680</td></tr>
+                        </table>
+                    </div>
+                    <div class="ba-arrow">&rarr;<div style="font-size:0.7rem; font-family: 'SF Mono', Menlo, Consolas, monospace; color:#555;">{ FIXED [County] :<br>SUM([Enrollees]) }</div></div>
+                    <div class="ba-table">
+                        <div class="ba-label">After: still 3 rows, the county total lands on every row</div>
+                        <table class="blog-table" style="margin:0;">
+                            <tr><th>Plan</th><th>Enrollees</th><th>County Total</th><th>% of County</th></tr>
+                            <tr><td>L.A. Care Health Plan</td><td>2,102,545</td><td>3,197,203</td><td>65.8%</td></tr>
+                            <tr><td>Health Net Community Solutions</td><td>1,079,978</td><td>3,197,203</td><td>33.8%</td></tr>
+                            <tr><td>SCAN Health Plan</td><td>14,680</td><td>3,197,203</td><td>0.5%</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <p class="caption">The rows survive, the group total repeats on each one, and dividing gives each plan's share (totals from the three rows shown for illustration).</p>
+
+                <p class="subhead">In Tableau</p>
+                <div class="calc-formula">// County Total FIXED
+{ FIXED [County] : SUM([Enrollees]) }
+
+// % of County
+SUM([Enrollees]) / SUM([County Total FIXED])</div>
+                <ul class="click-path">
+                    <li>Filters: Month = June 2026 (Add to Context), Plan Category = Medical (Add to Context), County = Los Angeles</li>
+                    <li>Plan on Rows, % of County on Columns, sort descending</li>
+                </ul>
+
+                <hr class="light">
+                <p class="subhead">The same thing in SQL and pandas</p>
+<pre class="code-block"><span class="cm">-- SQL: the window function IS the FIXED</span>
+<span class="kw">WITH</span> la <span class="kw">AS</span> (
+    <span class="kw">SELECT</span> "Plan", <span class="kw">SUM</span>(Enrollees) <span class="kw">AS</span> members,
+           <span class="kw">SUM</span>(<span class="kw">SUM</span>(Enrollees)) <span class="kw">OVER</span> ()  <span class="kw">AS</span> county_total   <span class="cm">-- the FIXED denominator</span>
+    <span class="kw">FROM</span> enr
+    <span class="kw">WHERE</span> County = <span class="st">'Los Angeles'</span> <span class="kw">AND</span> "Plan Category" = <span class="st">'Medical'</span>
+      <span class="kw">AND</span> Month = <span class="kw">DATE</span> <span class="st">'2026-06-01'</span>             <span class="cm">-- WHERE runs first = Add to Context</span>
+    <span class="kw">GROUP BY</span> 1
+)
+<span class="kw">SELECT</span> "Plan", <span class="kw">ROUND</span>(100.0 * members / county_total, 1) <span class="kw">AS</span> pct
+<span class="kw">FROM</span> la <span class="kw">ORDER BY</span> members <span class="kw">DESC</span>;</pre>
+<pre class="code-block" style="margin-top:12px;"><span class="cm"># pandas: filter first, then share of the group sum</span>
+la6 = df[(df.County == <span class="st">'Los Angeles'</span>) &amp; (df[<span class="st">'Plan Category'</span>] == <span class="st">'Medical'</span>)
+         &amp; (df.Month == <span class="st">'2026-06-01'</span>)]
+
+p = la6.groupby(<span class="st">'Plan'</span>, as_index=False)[<span class="st">'Enrollees'</span>].sum()
+p[<span class="st">'pct'</span>] = (100 * p.Enrollees / p.Enrollees.sum()).round(1)</pre>
+
+                <hr class="light">
+                <table class="blog-table">
+                    <tr><th>Plan</th><th>Tableau</th><th>SQL</th><th>pandas</th></tr>
+                    <tr><td>L.A. Care Health Plan</td><td>59.4%</td><td>59.4%</td><td>59.4% <span class="match">&#10004;</span></td></tr>
+                    <tr><td>Health Net Community Solutions</td><td>30.5%</td><td>30.5%</td><td>30.5% <span class="match">&#10004;</span></td></tr>
+                    <tr><td>Kaiser Permanente</td><td>9.6%</td><td>9.6%</td><td>9.6% <span class="match">&#10004;</span></td></tr>
+                </table>
+                <p class="caption">All seven plans sum to exactly 100.0% in all three tools; nb02, section 2</p>
+                <div class="gotcha-box"><strong>Pitfall example: the same chart with filters left normal.</strong> FIXED computes before normal filters, so a filter that should shrink the denominator quietly does not. Here is the actual output of this exact chart, right and wrong:</div>
+                <table class="blog-table">
+                    <tr><th>Plan</th><th>Correct: filters added to context</th><th>Wrong: Plan Category filter left normal</th></tr>
+                    <tr><td>L.A. Care Health Plan</td><td>59.4%</td><td>54.7%</td></tr>
+                    <tr><td>Health Net Community Solutions</td><td>30.5%</td><td>28.1%</td></tr>
+                    <tr><td>Kaiser Permanente</td><td>9.6%</td><td>8.8%</td></tr>
+                    <tr><td><strong>All plans sum to</strong></td><td><strong>100.0% <span class="match">&#10004;</span></strong></td><td><strong>92.2%</strong></td></tr>
+                </table>
+                <p class="caption">In the wrong version the FIXED denominator still counts Dental and PACE members, because the Medical filter never reached it. Every number looks plausible; only the sum gives it away. Any filter that should shrink a FIXED denominator must be added to context. SQL and pandas cannot make this mistake: the WHERE clause and the boolean mask always run before the aggregation.</p>
+            </div></details>
+
+            <details class="sec"><summary>INCLUDE: prepares an intermediate aggregate for each group, so those results can be reaggregated downstream</summary><div class="sec-body">
+                <ul>
+                    <li>FIXED (above) completely ignored how the chart groups things</li>
+                    <li>INCLUDE is gentler, it works with the chart's grouping:
+                        <ul style="margin-top:4px;">
+                            <li>the chart's rows stay exactly as they are (plan types)</li>
+                            <li>behind the scenes, each row is split into smaller pieces (the individual plans inside each type)</li>
+                            <li>each piece gets totaled first</li>
+                            <li>then those totals are averaged to give one number back per row of the chart</li>
+                        </ul>
+                    </li>
+                </ul>
+                <div class="question-box"><strong>Question:</strong> what is the typical plan size within each plan type (June 2026, statewide)?</div>
+                <p><strong>INCLUDE in one sentence:</strong> total the smaller pieces first, then average those totals into one fair number per group.</p>
+                <p>How the machinery works, demonstrated on the three LA rows from earlier (pretend the chart shows one row per county):</p>
+                <div class="before-after">
+                    <div class="ba-table">
+                        <div class="ba-label">Step 1, the formula: each plan gets its total</div>
+                        <table class="blog-table" style="margin:0;">
+                            <tr><th>Plan</th><th>Plan total</th></tr>
+                            <tr><td>L.A. Care Health Plan</td><td>2,102,545</td></tr>
+                            <tr><td>Health Net Community Solutions</td><td>1,079,978</td></tr>
+                            <tr><td>SCAN Health Plan</td><td>14,680</td></tr>
+                        </table>
+                    </div>
+                    <div class="ba-arrow">&rarr;<div style="font-size:0.7rem; font-family: 'SF Mono', Menlo, Consolas, monospace; color:#555;">Step 2, the pill:<br>AVG of the totals</div></div>
+                    <div class="ba-table">
+                        <div class="ba-label">The chart shows one fair number per county</div>
+                        <table class="blog-table" style="margin:0;">
+                            <tr><th>County</th><th>Typical plan size</th></tr>
+                            <tr><td>Los Angeles</td><td><strong>1,065,734</strong></td></tr>
+                        </table>
+                    </div>
+                </div>
+                <p class="caption">The project example below runs the same two steps statewide with Plan Type as the chart's grouping, where plans are split across many county rows: averaging the raw rows gives a misleading 434,740 while INCLUDE gives the honest 652,110.</p>
+
+                <p class="subhead">In Tableau</p>
+                <div class="calc-formula">// Step 1, the formula: total each plan (this is ALL the LOD does)
+{ INCLUDE [Plan] : SUM([Enrollees]) }
+
+// Step 2, the pill: when the field is dropped in the view, set its
+// aggregation to Average, so the view computes
+AVG( [Avg per Plan INCLUDE] )</div>
+                <p><strong>The part that trips everyone:</strong> the formula only writes the SUM. The AVG never appears in the formula; it comes from the pill's aggregation in the view. Two operations, one visible.</p>
+                <ul class="click-path">
+                    <li>Plan Type on Rows (the coarse level); the LOD quietly totals per plan inside each type, then AVG rolls up</li>
+                    <li>Side by side with plain AVG(Enrollees) to expose the difference</li>
+                </ul>
+
+                <hr class="light">
+                <p class="subhead">The same thing in SQL and pandas</p>
+<pre class="code-block"><span class="cm">-- SQL: two step aggregate</span>
+<span class="kw">WITH</span> per_plan <span class="kw">AS</span> (                                   <span class="cm">-- step 1: total each plan</span>
+    <span class="kw">SELECT</span> "Plan Type", "Plan", <span class="kw">SUM</span>(Enrollees) <span class="kw">AS</span> plan_total
+    <span class="kw">FROM</span> enr
+    <span class="kw">WHERE</span> "Plan Category" = <span class="st">'Medical'</span> <span class="kw">AND</span> Month = <span class="kw">DATE</span> <span class="st">'2026-06-01'</span>
+    <span class="kw">GROUP BY</span> 1, 2
+)
+<span class="kw">SELECT</span> "Plan Type", <span class="kw">ROUND</span>(<span class="kw">AVG</span>(plan_total)) <span class="kw">AS</span> include_avg   <span class="cm">-- step 2: average the totals</span>
+<span class="kw">FROM</span> per_plan <span class="kw">GROUP BY</span> 1 <span class="kw">ORDER BY</span> 2 <span class="kw">DESC</span>;</pre>
+<pre class="code-block" style="margin-top:12px;"><span class="cm"># pandas: chained groupby, fine first, then coarse</span>
+include_avg = (m6.groupby([<span class="st">'Plan Type'</span>, <span class="st">'Plan'</span>])[<span class="st">'Enrollees'</span>].sum()   <span class="cm"># step 1</span>
+                 .groupby(<span class="st">'Plan Type'</span>).mean())                          <span class="cm"># step 2</span>
+
+naive_avg = m6.groupby(<span class="st">'Plan Type'</span>)[<span class="st">'Enrollees'</span>].mean()               <span class="cm"># the trap again</span></pre>
+
+                <hr class="light">
+                <table class="blog-table">
+                    <tr><th>Plan Type</th><th>INCLUDE (all three tools)</th><th>Naive AVG (all three tools)</th></tr>
+                    <tr><td>Local Initiative (2 Plan)</td><td>652,110 <span class="match">&#10004;</span></td><td>434,740</td></tr>
+                    <tr><td>Commercial Plan (2 Plan)</td><td>421,397 <span class="match">&#10004;</span></td><td>87,186</td></tr>
+                    <tr><td>County Organized Health Systems</td><td>316,089 <span class="match">&#10004;</span></td><td>61,844</td></tr>
+                </table>
+                <p class="caption">nb02, section 3</p>
+                <div class="insight-box"><strong>Reading it:</strong> INCLUDE is larger in every plan type because a plan operating in many counties gets reassembled into one whole before averaging. Commercial plans show the biggest gap (421K vs 87K); they are spread across the most counties, so the naive row average punishes them most.</div>
+            </div></details>
+
+            <details class="sec"><summary>EXCLUDE: assigns each row an aggregate from the larger group it belongs to, so the row can be compared against it</summary><div class="sec-body">
+                <p>INCLUDE added a finer grouping; EXCLUDE does the opposite, it removes one of the chart's groupings from the math so a bigger total lands on every row:</p>
+                <div class="question-box"><strong>Question:</strong> what share of statewide enrollment does each county contribute (June 2026)?</div>
+                <p><strong>EXCLUDE in one sentence:</strong> compute the total as if one of the chart's groupings did not exist, and put that bigger total on every row (perfect for benchmarks and % of total).</p>
+                <div class="before-after">
+                    <div class="ba-table">
+                        <div class="ba-label">Before: chart grouped by Plan (3 rows)</div>
+                        <table class="blog-table" style="margin:0;">
+                            <tr><th>Plan</th><th>Enrollees</th></tr>
+                            <tr><td>L.A. Care Health Plan</td><td>2,102,545</td></tr>
+                            <tr><td>Health Net Community Solutions</td><td>1,079,978</td></tr>
+                            <tr><td>SCAN Health Plan</td><td>14,680</td></tr>
+                        </table>
+                    </div>
+                    <div class="ba-arrow">&rarr;<div style="font-size:0.7rem; font-family: 'SF Mono', Menlo, Consolas, monospace; color:#555;">{ EXCLUDE [Plan] :<br>SUM([Enrollees]) }</div></div>
+                    <div class="ba-table">
+                        <div class="ba-label">After: the Plan grouping is ignored for the math</div>
+                        <table class="blog-table" style="margin:0;">
+                            <tr><th>Plan</th><th>Total ignoring Plan</th></tr>
+                            <tr><td>L.A. Care Health Plan</td><td>3,197,203</td></tr>
+                            <tr><td>Health Net Community Solutions</td><td>3,197,203</td></tr>
+                            <tr><td>SCAN Health Plan</td><td>3,197,203</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <p class="caption">Every plan row carries the total computed WITHOUT the plan breakdown, ready to be a benchmark or a denominator.</p>
+
+                <p class="subhead">In Tableau</p>
+                <div class="calc-formula">// Statewide EXCLUDE
+{ EXCLUDE [County] : SUM([Enrollees]) }
+
+// County % of State, note the MIN
+SUM([Enrollees]) / MIN([Statewide EXCLUDE])</div>
+                <ul class="click-path">
+                    <li>Both filters (Month, Plan Category) in context, County on Rows, sorted</li>
+                </ul>
+
+                <hr class="light">
+                <p class="subhead">The same thing in SQL and pandas</p>
+<pre class="code-block"><span class="cm">-- SQL: the empty window is the EXCLUDE</span>
+<span class="kw">SELECT</span> County,
+       <span class="kw">ROUND</span>(100.0 * <span class="kw">SUM</span>(Enrollees) / <span class="kw">SUM</span>(<span class="kw">SUM</span>(Enrollees)) <span class="kw">OVER</span> (), 1) <span class="kw">AS</span> pct_of_state
+<span class="kw">FROM</span> enr
+<span class="kw">WHERE</span> "Plan Category" = <span class="st">'Medical'</span> <span class="kw">AND</span> Month = <span class="kw">DATE</span> <span class="st">'2026-06-01'</span>
+<span class="kw">GROUP BY</span> 1 <span class="kw">ORDER BY</span> 2 <span class="kw">DESC</span>;</pre>
+<pre class="code-block" style="margin-top:12px;"><span class="cm"># pandas: divide by the overall sum</span>
+c = m6.groupby(<span class="st">'County'</span>, as_index=False)[<span class="st">'Enrollees'</span>].sum()
+c[<span class="st">'pct_of_state'</span>] = (100 * c.Enrollees / c.Enrollees.sum()).round(1)</pre>
+
+                <hr class="light">
+                <table class="blog-table">
+                    <tr><th>County</th><th>Tableau</th><th>SQL</th><th>pandas</th></tr>
+                    <tr><td>Los Angeles</td><td>27.5%</td><td>27.5%</td><td>27.5% <span class="match">&#10004;</span></td></tr>
+                    <tr><td>San Bernardino</td><td>6.8%</td><td>6.8%</td><td>6.8% <span class="match">&#10004;</span></td></tr>
+                    <tr><td>Riverside</td><td>6.7%</td><td>6.7%</td><td>6.7% <span class="match">&#10004;</span></td></tr>
+                </table>
+                <p class="caption">All 58 counties sum to 100.0%; nb02, section 4</p>
+                <div class="gotcha-box"><strong>Pitfall example: wrapping the EXCLUDE in SUM instead of MIN.</strong> The LOD's answer repeats on every underlying row, and SUM adds the repeated copy once per row. With just the three LA rows:</div>
+                <table class="blog-table">
+                    <tr><th>Plan</th><th>Correct: <code>SUM(x) / MIN([EXCLUDE])</code></th><th>Wrong: <code>SUM(x) / SUM([EXCLUDE])</code></th></tr>
+                    <tr><td>L.A. Care Health Plan</td><td>65.8%</td><td>21.9%</td></tr>
+                    <tr><td>Health Net Community Solutions</td><td>33.8%</td><td>11.3%</td></tr>
+                    <tr><td>SCAN Health Plan</td><td>0.5%</td><td>0.2%</td></tr>
+                    <tr><td><strong>Denominator used</strong></td><td><strong>3,197,203</strong></td><td><strong>9,591,609 (3 copies added)</strong></td></tr>
+                </table>
+                <p class="caption">MIN (or AVG, or ATTR) picks the repeated value once; SUM triples it here, and on real data multiplies it by thousands of underlying rows. SQL and pandas have no equivalent trap: the window value is used directly.</p>
+            </div></details>
+        </div>
+
+        <!-- TAB 4: TABLE CALCS -->
+        <div id="tab-tablecalc" class="tab-content">
+            <div class="section-controls"><button onclick="setAllSections('tab-tablecalc', true)">Expand All</button><button onclick="setAllSections('tab-tablecalc', false)">Collapse All</button></div>
+            <details class="sec" open><summary>Introduction &amp; The Question</summary><div class="sec-body">
+                <ul>
+                    <li><strong>Table calculations perform some operation on values ALREADY in the view</strong>
+                        <ul style="margin-top:4px;">
+                            <li>each cell compared to its neighbors:
+                                <ul style="margin-top:4px;">
+                                    <li>running totals</li>
+                                    <li>differences</li>
+                                    <li>ranks</li>
+                                    <li>moving averages</li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                    <li><strong>The key distinction from LODs:</strong> an LOD reaches into the raw data but a table calc transforms the small result table AFTER the query returns</li>
+                    <li><strong>You already know this idea:</strong>
+                        <ul style="margin-top:4px;">
+                            <li>in SQL it is a window function over an ordered result set, <code>SUM(x) OVER (ORDER BY t)</code> or <code>LAG(x, 12)</code></li>
+                            <li>in pandas it is <code>.cumsum()</code> and <code>.pct_change(12)</code> on an ordered frame</li>
+                        </ul>
+                    </li>
+                    <li><strong>Why it matters:</strong> every growth story, every "compared to last year," every cumulative chart is a table calc; and Tableau's Compute Using menu is just choosing the PARTITION BY and ORDER BY</li>
+                    <li><strong>Scope note:</strong> this tab demonstrates only two of the methods; Tableau's Quick Table Calculation menu also offers difference, percent difference, percent of total, rank, percentile, moving average, YTD total, compound growth rate, and YTD growth, all built from the same window logic shown here</li>
+                </ul>
+                <div class="question-box"><strong>The project question:</strong> how fast is statewide enrollment growing, cumulatively and year over year?</div>
+                <p style="margin-bottom:4px;"><strong>Roadmap for this tab:</strong> one section builds the running total and year over year change in all three tools and checks the parity at June 2026.</p>
+            </div></details>
+
+            <details class="sec" open><summary>Example: building a running total and year over year growth in all three tools</summary><div class="sec-body">
+                <p class="subhead" style="margin-top:2px;">In Tableau</p>
+                <ul class="click-path">
+                    <li>Columns: discrete YEAR(Month) + discrete MONTH(Month); the year hierarchy is REQUIRED (see the gotcha below)</li>
+                    <li>Rows: SUM(Enrollees) &rarr; right click &rarr; Quick Table Calculation &rarr; Running Total</li>
+                    <li>Second SUM(Enrollees) &rarr; Quick Table Calculation &rarr; Year over Year Growth</li>
+                </ul>
+
+                <hr class="light">
+                <p class="subhead">The same thing in SQL and pandas</p>
+<pre class="code-block"><span class="cm">-- SQL: window functions over the ordered result</span>
+<span class="kw">WITH</span> monthly <span class="kw">AS</span> (
+    <span class="kw">SELECT</span> Month, <span class="kw">SUM</span>(Enrollees) <span class="kw">AS</span> members
+    <span class="kw">FROM</span> enr <span class="kw">WHERE</span> "Plan Category" = <span class="st">'Medical'</span> <span class="kw">GROUP BY</span> 1
+)
+<span class="kw">SELECT</span> Month, members,
+       <span class="kw">SUM</span>(members) <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> Month)                 <span class="kw">AS</span> running_total,
+       100.0 * (members - <span class="kw">LAG</span>(members, 12) <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> Month))
+             / <span class="kw">LAG</span>(members, 12) <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> Month)    <span class="kw">AS</span> yoy_pct
+<span class="kw">FROM</span> monthly <span class="kw">ORDER BY</span> Month;</pre>
+<pre class="code-block" style="margin-top:12px;"><span class="cm"># pandas: cumsum and pct_change on the ordered frame</span>
+mo = df[df[<span class="st">'Plan Category'</span>] == <span class="st">'Medical'</span>].groupby(<span class="st">'Month'</span>, as_index=False)[<span class="st">'Enrollees'</span>].sum()
+mo[<span class="st">'running_total'</span>] = mo.Enrollees.cumsum()
+mo[<span class="st">'yoy_pct'</span>] = 100 * mo.Enrollees.pct_change(12)</pre>
+
+                <hr class="light">
+                <table class="blog-table">
+                    <tr><th>June 2026 checkpoint</th><th>Tableau</th><th>SQL</th><th>pandas</th></tr>
+                    <tr><td>Members</td><td>12,888,522</td><td>12,888,522</td><td>12,888,522 <span class="match">&#10004;</span></td></tr>
+                    <tr><td>Year over year</td><td>-8.2%</td><td>-8.2%</td><td>-8.2% <span class="match">&#10004;</span></td></tr>
+                </table>
+                <p class="caption">Partitioning = PARTITION BY; addressing = ORDER BY. The Tableau menu choices map one to one onto the OVER() clause; nb02, section 5</p>
+                <div class="gotcha-box"><strong>Pitfall example: the greyed out menu.</strong> Build this chart with a continuous month axis and Year over Year Growth appears disabled in the Quick Table Calculation menu, with no explanation. Tableau needs the discrete YEAR + MONTH hierarchy on the shelf to know what "same month last year" means. <code>LAG(members, 12)</code> needs no such hint because the offset is stated explicitly. The first 12 months are null in all three tools: there is no prior year to compare.</div>
+            </div></details>
+        </div>
+
+        <!-- TAB 5: PARAMETERS -->
+        <div id="tab-params" class="tab-content">
+            <div class="section-controls"><button onclick="setAllSections('tab-params', true)">Expand All</button><button onclick="setAllSections('tab-params', false)">Collapse All</button></div>
+            <details class="sec" open><summary>Introduction &amp; The Question</summary><div class="sec-body">
+                <ul>
+                    <li><strong>Parameters are variables a viewer can set from the published dashboard</strong>
+                        <ul style="margin-top:4px;">
+                            <li>a number</li>
+                            <li>a word</li>
+                            <li>a date</li>
+                        </ul>
+                    </li>
+                    <li><strong>The rule everyone forgets:</strong> a parameter does NOTHING until a calculation or filter references it; it is a knob wired to nothing until you connect it</li>
+                    <li><strong>You already know this idea:</strong>
+                        <ul style="margin-top:4px;">
+                            <li>in SQL it is a query variable (<code>:top_n</code>)</li>
+                            <li>in Python it is just a variable at the top of the script</li>
+                        </ul>
+                    </li>
+                    <li><strong>Why it matters:</strong> parameters are how one chart serves many questions:
+                        <ul style="margin-top:4px;">
+                            <li>Top N sliders</li>
+                            <li>metric swappers</li>
+                            <li>threshold lines</li>
+                            <li>what if inputs</li>
+                        </ul>
+                    </li>
+                </ul>
+                <div class="question-box"><strong>The project question:</strong> show the top N plans, where the viewer picks N and the ranking metric.</div>
+                <p style="margin-bottom:4px;"><strong>Roadmap for this tab:</strong> one section builds the Top N filter and the metric swap in all three tools, checks parity, and covers the Top N order of operations trap.</p>
+            </div></details>
+
+            <details class="sec" open><summary>Example: building a Top N filter and metric swap in all three tools</summary><div class="sec-body">
+                <p class="subhead" style="margin-top:2px;">In Tableau</p>
+                <div class="calc-formula">// Selected Metric, the bridge between parameter and data
+CASE [Metric Selector]
+    WHEN 'Total Enrollees' THEN SUM([Enrollees])
+    WHEN 'Share of County' THEN [% of County]
+END</div>
+                <ul class="click-path">
+                    <li>Integer parameter Top N (range 5 to 20) wired into Filter &rarr; Plan &rarr; Top tab &rarr; By Field</li>
+                    <li>String parameter Metric Selector; its values only have to match the CASE's WHEN strings, not any field name</li>
+                </ul>
+
+                <hr class="light">
+                <p class="subhead">The same thing in SQL and pandas</p>
+<pre class="code-block"><span class="cm">-- SQL: TOP_N and COUNTY are query variables</span>
+<span class="kw">SELECT</span> "Plan", <span class="kw">SUM</span>(Enrollees) <span class="kw">AS</span> members
+<span class="kw">FROM</span> enr
+<span class="kw">WHERE</span> "Plan Category" = <span class="st">'Medical'</span> <span class="kw">AND</span> Month = <span class="kw">DATE</span> <span class="st">'2026-06-01'</span>
+  <span class="kw">AND</span> County = :county                <span class="cm">-- filter FIRST, then rank</span>
+<span class="kw">GROUP BY</span> 1 <span class="kw">ORDER BY</span> members <span class="kw">DESC</span> <span class="kw">LIMIT</span> :top_n;</pre>
+<pre class="code-block" style="margin-top:12px;"><span class="cm"># pandas: plain variables + head()</span>
+TOP_N, COUNTY = 10, <span class="st">'Los Angeles'</span>
+
+topn = (m6[m6.County == COUNTY]
+        .groupby(<span class="st">'Plan'</span>, as_index=False)[<span class="st">'Enrollees'</span>].sum()
+        .sort_values(<span class="st">'Enrollees'</span>, ascending=False).head(TOP_N))</pre>
+
+                <hr class="light">
+                <table class="blog-table">
+                    <tr><th>LA County top plans (June 2026)</th><th>Tableau</th><th>SQL</th><th>pandas</th></tr>
+                    <tr><td>Plans returned</td><td>7</td><td>7</td><td>7 <span class="match">&#10004;</span></td></tr>
+                    <tr><td>L.A. Care Health Plan</td><td>2,102,545</td><td>2,102,545</td><td>2,102,545 <span class="match">&#10004;</span></td></tr>
+                </table>
+                <p class="caption">nb02, section 6</p>
+                <div class="gotcha-box"><strong>Pitfall example: Top N ranked before the county filter.</strong> Tableau computes a Top N filter independently of other filters, so clicking LA County on a dashboard produced this actual output:</div>
+                <table class="blog-table">
+                    <tr><th></th><th>Wrong: county filter left normal</th><th>Correct: county filter added to context</th></tr>
+                    <tr><td>What the chart answers</td><td>"Which of California's 10 biggest plans operate in LA?"</td><td>"Who are LA's top plans?"</td></tr>
+                    <tr><td>Bars shown</td><td>3 (L.A. Care, Health Net, Kaiser)</td><td>7 (all LA plans) <span class="match">&#10004;</span></td></tr>
+                </table>
+                <p class="caption">The KPI next to it counted 7 active plans while the chart showed 3, a visible inconsistency. The fix is the same move as the LOD fix: add the county filter to context so it runs before the ranking. SQL makes the intended order visible; WHERE always runs before ORDER BY ... LIMIT.</p>
+            </div></details>
+        </div>
+
+        <!-- TAB 6: DASHBOARD -->
+        <div id="tab-dashboard" class="tab-content">
+            <div class="section-controls"><button onclick="setAllSections('tab-dashboard', true)">Expand All</button><button onclick="setAllSections('tab-dashboard', false)">Collapse All</button></div>
+
+            <details class="sec" open><summary>Abstract</summary><div class="sec-body">
+                <p style="margin-bottom:4px;"><strong>Purpose</strong></p>
+                <ul>
+                    <li>Build one interactive dashboard where any viewer can explore California Medi-Cal managed care enrollment by county and plan</li>
+                    <li>Serve as the capstone that puts every calculation method in this post to work on one screen</li>
+                </ul>
+                <p style="margin-bottom:4px;"><strong>Methods</strong></p>
+                <ul>
+                    <li>CalHHS enrollment data (January 2007 to June 2026), cleaned in pandas (see the Overview tab's Methods)</li>
+                    <li>Sheets built with the FIXED and EXCLUDE LODs, table calculations, and parameters covered in the other tabs</li>
+                    <li>Assembled with a KPI strip, county responsive trend, county map, and Top N chart, wired by one county click filter action; published to Tableau Public</li>
+                    <li>Every displayed number verified identical in DuckDB SQL and pandas</li>
+                </ul>
+                <p style="margin-bottom:4px;"><strong>The questions we asked, and the answers</strong></p>
+                <ul>
+                    <li><strong>How has enrollment trended?</strong> Statewide Medical enrollment roughly quadrupled from about 3.2M in 2007 to a peak near 14M in 2023, then declined to 12.9M members by June 2026 (about 8% down year over year). The decline is real policy, not a data artifact:
+                        <ul style="margin-top:4px;">
+                            <li><strong>2023 to 2025:</strong> the post pandemic "unwinding": states resumed eligibility redeterminations after COVID era continuous coverage ended (<a href="https://www.dhcs.ca.gov/tracking-federal-impact-medi-cal-eligibility/" target="_blank">DHCS</a>)</li>
+                            <li><strong>July 2025:</strong> H.R. 1 cut roughly 1 trillion dollars from federal Medicaid over ten years, the largest change since the ACA (<a href="https://www.chcf.org/resource/how-massive-federal-cuts-will-create-unprecedented-challenges-medi-cal-patients-providers/" target="_blank">CHCF</a>)</li>
+                            <li><strong>January 2026:</strong> California froze new comprehensive Medi-Cal enrollment for undocumented adults, with work requirements arriving late 2026 and six month redeterminations in January 2027 (<a href="https://lao.ca.gov/Publications/Report/5083" target="_blank">LAO</a>, <a href="https://www.kff.org/medicaid/a-closer-look-at-californias-plans-to-implement-work-requirements-while-facing-major-budget-shortfalls-amid-cuts-in-federal-medicaid-funding/" target="_blank">KFF</a>)</li>
+                        </ul>
+                    </li>
+                    <li><strong>Which plans dominate each county, and by how much?</strong> In LA County: L.A. Care 59.4%, Health Net 30.5%, Kaiser 9.6% (June 2026); clicking any county re ranks its own top plans</li>
+                    <li><strong>How is enrollment distributed geographically?</strong> LA County alone holds 27.5% of the state, and the five biggest Southern California counties together hold about 54%</li>
+                    <li><strong>Who are the top N plans?</strong> Statewide, L.A. Care leads at 2.1M members, followed by Health Net (1.4M), Inland Empire Health Plan (1.4M), and Kaiser Permanente (1.2M)</li>
+                </ul>
+                <p style="margin-bottom:4px;"><strong>Takeaway</strong></p>
+                <ul>
+                    <li>A public plan built for a single county, L.A. Care, is the largest Medi-Cal plan in the state, and enrollment geography is heavily Southern Californian</li>
+                    <li>Every interactive element on the dashboard is one of the calculation methods from this post doing its job in public</li>
+                </ul>
+                
+            </div></details>
+
+            <div class="question-box"><strong>Putting it together:</strong> KPI strip, county responsive trend, choropleth, and the parameterized Top N chart, wired with one filter action, click any county.</div>
+
+            <div class='tableauPlaceholder' id='viz1783461059953' style='position: relative'><noscript><a href='#'><img alt='California Medi-Cal Managed Care Enrollment Explorer' src='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;Ca&#47;CaliforniaMedi-CalManagedCareEnrollmentExplorer&#47;EnrollmentExplorer&#47;1_rss.png' style='border: none' /></a></noscript><object class='tableauViz' style='display:none;'><param name='host_url' value='https%3A%2F%2Fpublic.tableau.com%2F' /> <param name='embed_code_version' value='3' /> <param name='site_root' value='' /><param name='name' value='CaliforniaMedi-CalManagedCareEnrollmentExplorer&#47;EnrollmentExplorer' /><param name='tabs' value='no' /><param name='toolbar' value='yes' /><param name='static_image' value='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;Ca&#47;CaliforniaMedi-CalManagedCareEnrollmentExplorer&#47;EnrollmentExplorer&#47;1.png' /> <param name='animate_transition' value='yes' /><param name='display_static_image' value='yes' /><param name='display_spinner' value='yes' /><param name='display_overlay' value='yes' /><param name='display_count' value='yes' /><param name='language' value='en-US' /></object></div>
+
+            <details class="sec"><summary>Design decisions worth stealing</summary><div class="sec-body">
+            <ul>
+                <li><strong>One visual hierarchy:</strong> the dashboard title carries the shared context (Medical, June 2026, how to interact); sheet titles are short labels, context is stated once, not four times</li>
+                <li><strong>Actions are configured at the dashboard level:</strong> the filter action's source and target dropdowns must point at the dashboard, with sheets checked in the list below</li>
+                <li><strong>The county click was deliberately added to context on the Top N sheet</strong> so a click answers "who leads in this county" rather than "which statewide giants operate here"</li>
+                <li><strong>The KPI strip stays an action target on purpose:</strong> numbers update with the selection, layout never moves</li>
+            </ul>
+            <p>Open the full version on <a href="https://public.tableau.com/views/CaliforniaMedi-CalManagedCareEnrollmentExplorer/EnrollmentExplorer" target="_blank">Tableau Public</a>.</p>
+            </div></details>
+        </div>
+
+        </div><!-- /.main-container -->
+      </div><!-- /.blog-container -->
+    </div><!-- /#content-wrap -->
+    <div w3-include-html="/folders/navbar_footer/footer.html"></div>
+  </div><!-- /#page-container -->
+
+  <script type="text/javascript" src="../../static/js/include.js"></script>
+  <script type='text/javascript'>
+      function setAllSections(tabId, open) {
+          document.getElementById(tabId).querySelectorAll('details.sec').forEach(d => d.open = open);
+      }
+      function switchTab(event, tabId) {
+          document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+          document.getElementById(tabId).classList.add('active');
+          event.currentTarget.classList.add('active');
+          window.scrollTo({ top: 0 });
+      }
+      var divElement = document.getElementById('viz1783461059953');
+      if (divElement) {
+          var vizElement = divElement.getElementsByTagName('object')[0];
+          if (divElement.offsetWidth > 800) { vizElement.style.width='100%'; vizElement.style.height=(divElement.offsetWidth*0.75)+'px'; }
+          else { vizElement.style.width='100%'; vizElement.style.height='1327px'; }
+          var scriptElement = document.createElement('script');
+          scriptElement.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';
+          vizElement.parentNode.insertBefore(scriptElement, vizElement);
+      }
+  </script>
+</body>
+</html>
