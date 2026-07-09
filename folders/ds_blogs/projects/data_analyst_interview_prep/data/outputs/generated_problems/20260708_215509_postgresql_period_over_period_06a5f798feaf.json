@@ -1,0 +1,216 @@
+{
+  "title": "BNPL Category Share & Growth",
+  "prompt": "You are analyzing installment payment data from a buy-now-pay-later service. The `installments` table logs every payment attempt with columns for `installment_id`, `merchant_category` (product category as text, may have extra spaces or mixed case), `payment_date` (stored as text in YYYY-MM-DD format), and `payment_amount` (stored as text, the dollar amount paid). Write a query that computes each category's total monthly payment volume, its share of that month's total payments across all categories, and its month-over-month dollar change. Output columns `month` (the first day of each calendar month), `category` (cleaned), `monthly_volume` (sum of payment amounts for that category in that month, rounded to 2 decimals), `share_of_month_pct` (the category's percentage of the month's total volume across all categories, rounded to 1 decimal), `mom_change` (the dollar difference from the prior month for the same category, rounded to 2 decimals; NULL for the first month a category appears). Order by month ascending, then category ascending.",
+  "display": {
+    "context": "You are analyzing installment payment data from a buy-now-pay-later service.",
+    "task": "Write a query that computes each category's total monthly payment volume, its share of that month's total payments, and its month-over-month dollar change.",
+    "table_notes": {
+      "installments": "logs every payment attempt with merchant category, payment date (text), and payment amount (text)"
+    },
+    "output_field_notes": {
+      "month": "the first day of the calendar month",
+      "category": "the cleaned merchant category name",
+      "monthly_volume": "the sum of payment amounts for the category in the month, in dollars",
+      "share_of_month_pct": "the category's percentage of the total payment volume across all categories in that same month",
+      "mom_change": "the dollar difference between the category's volume this month and its volume in the prior month"
+    },
+    "field_logic": [
+      "month: built from payment_date.\n- cast payment_date to a date\n- truncate to the first day of the month",
+      "category: built from merchant_category.\n- remove leading and trailing spaces\n- convert to title case with the first letter of each word capitalized",
+      "monthly_volume: built from payment_amount.\n- cast payment_amount to a number\n- sum all payment amounts for the category in the month\n- round the sum to 2 decimal places",
+      "share_of_month_pct: built from monthly_volume.\n- divide the category's monthly_volume by the sum of monthly_volume for all categories in the same month\n- multiply by 100 to convert to a percentage\n- round to 1 decimal place",
+      "mom_change: built from monthly_volume.\n- for each category, subtract the prior month's monthly_volume from the current month's monthly_volume (ordered by month)\n- round to 2 decimal places\n- NULL when there is no prior month for the category"
+    ],
+    "edge_cases": [],
+    "filter_note": "",
+    "order_by_note": "month ascending, then category ascending"
+  },
+  "schema_ddl": "CREATE TABLE installments (installment_id INT PRIMARY KEY, merchant_category VARCHAR(50), payment_date VARCHAR(10), payment_amount VARCHAR(10));",
+  "example_input_data": "INSERT INTO installments (installment_id, merchant_category, payment_date, payment_amount) VALUES (1, ' Electronics', '2024-01-15', '120.00'), (2, 'home goods ', '2024-01-20', '85.50'), (3, ' Electronics', '2024-01-25', '200.00'), (4, 'home goods ', '2024-02-10', '95.00'), (5, ' Electronics', '2024-02-12', '150.00'), (6, 'home goods ', '2024-02-18', '110.00'), (7, ' Electronics', '2024-02-22', '180.00'), (8, 'Apparel  ', '2024-02-25', '65.00');",
+  "example_output_columns": [
+    "month",
+    "category",
+    "monthly_volume",
+    "share_of_month_pct",
+    "mom_change"
+  ],
+  "example_output_rows": [
+    [
+      "2024-01-01",
+      "Electronics",
+      "320.00",
+      "78.9",
+      null
+    ],
+    [
+      "2024-01-01",
+      "Home Goods",
+      "85.50",
+      "21.1",
+      null
+    ],
+    [
+      "2024-02-01",
+      "Apparel",
+      "65.00",
+      "10.8",
+      null
+    ],
+    [
+      "2024-02-01",
+      "Electronics",
+      "330.00",
+      "55.0",
+      "10.00"
+    ],
+    [
+      "2024-02-01",
+      "Home Goods",
+      "205.00",
+      "34.2",
+      "119.50"
+    ]
+  ],
+  "test_data": "INSERT INTO installments (installment_id, merchant_category, payment_date, payment_amount) VALUES (101, ' Electronics', '2024-01-05', '95.00'), (102, 'home goods ', '2024-01-08', '110.00'), (103, ' Electronics', '2024-01-12', '140.00'), (104, 'Apparel  ', '2024-01-18', '75.00'), (105, 'home goods ', '2024-01-22', '88.00'), (106, ' Electronics', '2024-01-28', '125.00'), (107, 'Apparel  ', '2024-02-03', '92.00'), (108, 'home goods ', '2024-02-07', '105.00'), (109, ' Electronics', '2024-02-11', '160.00'), (110, 'Apparel  ', '2024-02-14', '88.00'), (111, 'home goods ', '2024-02-19', '120.00'), (112, ' Electronics', '2024-02-23', '145.00'), (113, 'Apparel  ', '2024-02-27', '70.00'), (114, ' Electronics', '2024-03-02', '135.00'), (115, 'home goods ', '2024-03-06', '115.00'), (116, 'Apparel  ', '2024-03-10', '95.00'), (117, ' Electronics', '2024-03-15', '170.00'), (118, 'home goods ', '2024-03-20', '130.00'), (119, 'Apparel  ', '2024-03-24', '85.00'), (120, ' Electronics', '2024-03-28', '155.00');",
+  "test_expected_columns": [
+    "month",
+    "category",
+    "monthly_volume",
+    "share_of_month_pct",
+    "mom_change"
+  ],
+  "test_expected_rows": [
+    [
+      "2024-01-01",
+      "Apparel",
+      "75.00",
+      "11.8",
+      null
+    ],
+    [
+      "2024-01-01",
+      "Electronics",
+      "360.00",
+      "56.9",
+      null
+    ],
+    [
+      "2024-01-01",
+      "Home Goods",
+      "198.00",
+      "31.3",
+      null
+    ],
+    [
+      "2024-02-01",
+      "Apparel",
+      "250.00",
+      "32.1",
+      "175.00"
+    ],
+    [
+      "2024-02-01",
+      "Electronics",
+      "305.00",
+      "39.1",
+      "-55.00"
+    ],
+    [
+      "2024-02-01",
+      "Home Goods",
+      "225.00",
+      "28.8",
+      "27.00"
+    ],
+    [
+      "2024-03-01",
+      "Apparel",
+      "180.00",
+      "20.3",
+      "-70.00"
+    ],
+    [
+      "2024-03-01",
+      "Electronics",
+      "460.00",
+      "52.0",
+      "155.00"
+    ],
+    [
+      "2024-03-01",
+      "Home Goods",
+      "245.00",
+      "27.7",
+      "20.00"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "cast payment_date text to date",
+      "date_trunc to month",
+      "cast payment_amount text to numeric",
+      "trim and initcap merchant_category",
+      "group by month and category",
+      "sum payment amounts per group",
+      "window sum over partition by month for share",
+      "lag monthly_volume over partition by category order by month",
+      "round to specified decimals"
+    ]
+  },
+  "hints": [
+    "Start by cleaning the text columns and converting the date and amount to their proper types before aggregating.",
+    "Use DATE_TRUNC to bucket payments into months, then GROUP BY the month and cleaned category to get each category's monthly total.",
+    "Calculate the share by dividing each category's monthly total by the sum of all categories' totals in that same month using a window function, then use LAG partitioned by category to find the prior month's value for the month-over-month change."
+  ],
+  "answer_key": "WITH cleaned AS (\n  SELECT\n    DATE_TRUNC('month', payment_date::DATE)::DATE AS month,\n    INITCAP(TRIM(merchant_category)) AS category,\n    payment_amount::NUMERIC AS amount\n  FROM installments\n),\nmonthly AS (\n  SELECT\n    month,\n    category,\n    ROUND(SUM(amount), 2) AS monthly_volume\n  FROM cleaned\n  GROUP BY month, category\n),\nwith_share_and_lag AS (\n  SELECT\n    month,\n    category,\n    monthly_volume,\n    ROUND(100.0 * monthly_volume / SUM(monthly_volume) OVER (PARTITION BY month), 1) AS share_of_month_pct,\n    LAG(monthly_volume) OVER (PARTITION BY category ORDER BY month) AS prev_volume\n  FROM monthly\n)\nSELECT\n  month,\n  category,\n  monthly_volume,\n  share_of_month_pct,\n  ROUND(monthly_volume - prev_volume, 2) AS mom_change\nFROM with_share_and_lag\nORDER BY month, category;",
+  "_meta": {
+    "question_type": "period_over_period",
+    "original_qtype": "period_over_period",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-08T21:55:09.810454",
+    "problem_id": "06a5f798feaf",
+    "validation_attempts": 1,
+    "scenario": "a buy-now-pay-later service tracking installment payment compliance",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "pct_of_total_pop",
+    "cleaning_required": true,
+    "cleaning_level": "moderate",
+    "cleaning_requested": "moderate",
+    "cleaning_skipped_reason": null,
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": "numeric",
+    "typecast_twist": true,
+    "realism": "moderate"
+  },
+  "example_output_schema": [
+    [
+      "month",
+      "DATE"
+    ],
+    [
+      "category",
+      "TEXT"
+    ],
+    [
+      "monthly_volume",
+      "NUMERIC"
+    ],
+    [
+      "share_of_month_pct",
+      "NUMERIC"
+    ],
+    [
+      "mom_change",
+      "NUMERIC"
+    ]
+  ]
+}

@@ -1,0 +1,185 @@
+{
+  "problem": {
+    "title": "Month-over-month renewal revenue growth with retention rate",
+    "prompt": "You work for a subscription box company tracking monthly renewal revenue. The `renewals` table records every successful recurring charge. Each row has a `renewal_id`, a `renewal_date` (stored as text in YYYY-MM-DD format), a `subscription_tier` (which may arrive with leading or trailing spaces), and a `charge_amount` (stored as text). Write a query that reports each calendar month's total renewal revenue, the prior month's revenue, the absolute change, and the percent change from month to month. Output columns: `month` (date, first day of the month), `revenue` (numeric, two decimals), `prev_revenue` (numeric, two decimals, NULL for the first month), `mom_change` (numeric, two decimals, NULL for the first month), `mom_pct` (numeric, one decimal, NULL for the first month). Order by `month` ascending. The first month in the output will have NULL values for `prev_revenue`, `mom_change`, and `mom_pct` because it has no prior period to compare against.",
+    "display": {
+      "context": "You work for a subscription box company tracking monthly renewal revenue from recurring charges.",
+      "task": "Write a query that computes each calendar month's total renewal revenue, the prior month's revenue, the absolute change, and the percent change month-over-month.",
+      "table_notes": {
+        "renewals": "Each row is one successful recurring charge with its date, subscription tier, and charge amount."
+      },
+      "output_field_notes": {
+        "month": "the first day of the calendar month",
+        "revenue": "the sum of all charge amounts in that calendar month, rounded to two decimal places",
+        "prev_revenue": "the revenue from the immediately preceding calendar month, rounded to two decimal places; NULL for the first month",
+        "mom_change": "the absolute difference between revenue and prev_revenue, rounded to two decimal places; NULL for the first month",
+        "mom_pct": "the percent change from prev_revenue to revenue, rounded to one decimal place; NULL for the first month"
+      },
+      "field_logic": [
+        "month: built from renewal_date.\n- cast renewal_date to date\n- truncate to the first day of the calendar month",
+        "revenue: built from charge_amount.\n- cast charge_amount to numeric\n- sum all charge amounts within the same month\n- round the result to two decimal places",
+        "prev_revenue: built from revenue.\n- take the revenue value from the immediately preceding month in chronological order\n- NULL when there is no preceding month\n- round to two decimal places",
+        "mom_change: built from revenue and prev_revenue.\n- compute revenue minus prev_revenue\n- NULL when prev_revenue is NULL\n- round to two decimal places",
+        "mom_pct: built from revenue and prev_revenue.\n- compute 100 times the ratio of mom_change to prev_revenue\n- guard against division by zero by treating a zero prev_revenue as NULL\n- NULL when prev_revenue is NULL\n- round to one decimal place"
+      ],
+      "edge_cases": [],
+      "filter_note": "",
+      "order_by_note": "month ascending",
+      "answer_shape": "",
+      "function_signature": "",
+      "test_call": ""
+    },
+    "schema_ddl": "CREATE TABLE renewals (renewal_id INT PRIMARY KEY, renewal_date VARCHAR(10), subscription_tier VARCHAR(20), charge_amount VARCHAR(10));",
+    "example_input_data": "INSERT INTO renewals (renewal_id, renewal_date, subscription_tier, charge_amount) VALUES (1, '2024-01-05', ' Premium ', '49.99'), (2, '2024-01-12', 'basic', '19.99'), (3, '2024-01-28', 'Premium', '49.99'), (4, '2024-02-03', 'BASIC', '19.99'), (5, '2024-02-15', 'premium ', '49.99'), (6, '2024-02-22', 'Basic', '19.99'), (7, '2024-03-01', 'Premium', '49.99'), (8, '2024-03-18', 'basic', '19.99');",
+    "example_output_columns": [
+      "month",
+      "revenue",
+      "prev_revenue",
+      "mom_change",
+      "mom_pct"
+    ],
+    "example_output_rows": [
+      [
+        "2024-01-01",
+        "119.97",
+        null,
+        null,
+        null
+      ],
+      [
+        "2024-02-01",
+        "89.97",
+        "119.97",
+        "-30.00",
+        "-25.0"
+      ],
+      [
+        "2024-03-01",
+        "69.98",
+        "89.97",
+        "-19.99",
+        "-22.2"
+      ]
+    ],
+    "test_data": "INSERT INTO renewals (renewal_id, renewal_date, subscription_tier, charge_amount) VALUES (101, '2023-10-02', 'premium', '49.99'), (102, '2023-10-08', ' Basic ', '19.99'), (103, '2023-10-15', 'PREMIUM', '49.99'), (104, '2023-10-22', 'basic', '19.99'), (105, '2023-10-29', 'Premium ', '49.99'), (106, '2023-11-05', 'basic', '19.99'), (107, '2023-11-12', 'Premium', '49.99'), (108, '2023-11-19', 'BASIC', '19.99'), (109, '2023-11-26', 'premium', '49.99'), (110, '2023-12-01', 'Basic ', '19.99'), (111, '2023-12-10', 'PREMIUM', '49.99'), (112, '2023-12-17', 'basic', '19.99'), (113, '2023-12-24', 'Premium', '49.99'), (114, '2023-12-31', 'BASIC', '19.99'), (115, '2024-01-07', 'premium', '49.99'), (116, '2024-01-14', ' basic ', '19.99'), (117, '2024-01-21', 'Premium', '49.99'), (118, '2024-01-28', 'Basic', '19.99'), (119, '2024-02-04', 'PREMIUM', '49.99'), (120, '2024-02-11', 'basic', '19.99'), (121, '2024-02-18', 'Premium ', '49.99'), (122, '2024-02-25', 'BASIC', '19.99'), (123, '2024-03-03', 'premium', '49.99'), (124, '2024-03-10', 'Basic', '19.99'), (125, '2024-03-17', 'PREMIUM', '49.99'), (126, '2024-03-24', 'basic', '19.99'), (127, '2024-03-31', 'Premium', '49.99');",
+    "test_expected_columns": [
+      "month",
+      "revenue",
+      "prev_revenue",
+      "mom_change",
+      "mom_pct"
+    ],
+    "test_expected_rows": [
+      [
+        "2023-10-01",
+        "189.95",
+        null,
+        null,
+        null
+      ],
+      [
+        "2023-11-01",
+        "139.96",
+        "189.95",
+        "-49.99",
+        "-26.3"
+      ],
+      [
+        "2023-12-01",
+        "159.95",
+        "139.96",
+        "19.99",
+        "14.3"
+      ],
+      [
+        "2024-01-01",
+        "139.96",
+        "159.95",
+        "-19.99",
+        "-12.5"
+      ],
+      [
+        "2024-02-01",
+        "139.96",
+        "139.96",
+        "0.00",
+        "0.0"
+      ],
+      [
+        "2024-03-01",
+        "189.95",
+        "139.96",
+        "49.99",
+        "35.7"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "cast renewal_date from text to date",
+        "cast charge_amount from text to numeric",
+        "DATE_TRUNC to calendar month",
+        "SUM charge_amount per month",
+        "LAG revenue over months",
+        "compute absolute and percent change"
+      ]
+    },
+    "hints": [
+      "Start by converting the date and amount columns to their correct types, then group the charges into calendar months.",
+      "Use DATE_TRUNC to bucket each renewal_date into its calendar month, sum the charge amounts per month, then use LAG to retrieve the prior month's sum.",
+      "Write a CTE that computes WITH monthly AS (SELECT DATE_TRUNC('month', renewal_date::date)::date AS month, SUM(charge_amount::numeric) AS revenue FROM renewals GROUP BY 1), then in the outer query use LAG(revenue) OVER (ORDER BY month) AS prev_revenue and calculate mom_change and mom_pct with ROUND and NULLIF on the denominator."
+    ],
+    "answer_key": "WITH monthly AS (\n  SELECT\n    DATE_TRUNC('month', renewal_date::date)::date AS month,\n    ROUND(SUM(charge_amount::numeric), 2) AS revenue\n  FROM renewals\n  GROUP BY 1\n)\nSELECT\n  month,\n  revenue,\n  LAG(revenue) OVER (ORDER BY month) AS prev_revenue,\n  ROUND(revenue - LAG(revenue) OVER (ORDER BY month), 2) AS mom_change,\n  ROUND(100.0 * (revenue - LAG(revenue) OVER (ORDER BY month)) / NULLIF(LAG(revenue) OVER (ORDER BY month), 0), 1) AS mom_pct\nFROM monthly\nORDER BY month;",
+    "_meta": {
+      "question_type": "period_over_period",
+      "original_qtype": "period_over_period",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-07-08T20:05:04.249730",
+      "problem_id": "9db620e1a7bf",
+      "validation_attempts": 1,
+      "scenario": "a D2C subscription box service tracking renewal and churn",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "prior_period",
+      "cleaning_required": true,
+      "cleaning_level": "moderate",
+      "cleaning_requested": "moderate",
+      "cleaning_skipped_reason": null,
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": true,
+      "realism": "moderate"
+    },
+    "example_output_schema": [
+      [
+        "month",
+        "DATE"
+      ],
+      [
+        "revenue",
+        "NUMERIC"
+      ],
+      [
+        "prev_revenue",
+        "NUMERIC"
+      ],
+      [
+        "mom_change",
+        "NUMERIC"
+      ],
+      [
+        "mom_pct",
+        "NUMERIC"
+      ]
+    ]
+  },
+  "user_solution": "/* notes */\nWITH base AS (\n    SELECT\n        DATE_TRUNC('month', TRIM(renewal_date)::date)::date AS month,\n        TRIM(charge_amount)::numeric AS revenue\n    FROM renewals\n\n),\nagg AS (\n    SELECT\n        month,\n        SUM(revenue) AS revenue\n    FROM base\n    GROUP BY 1\n\n)\nSELECT\n    month,\n    revenue,\n    LAG(revenue) OVER (ORDER BY month) AS prev_revenue,\n    revenue -  LAG(revenue) OVER (ORDER BY month) AS mom_change,\n    ROUND(100 * (revenue -  LAG(revenue) OVER (ORDER BY month)) / NULLIF(LAG(revenue) OVER (ORDER BY month), 0), 1) AS mom_pct\nFROM agg\nORDER BY 1;\n",
+  "solved_at": "2026-07-08T20:53:47.377406"
+}

@@ -1,0 +1,182 @@
+{
+  "title": "Prescription Volume Month-over-Month Growth",
+  "prompt": "You are working with a digital pharmacy that tracks prescription submissions through PBM (pharmacy benefit manager) adjudication. The `prescription_claims` table records each prescription claim submitted to a PBM, with columns for the claim identifier, the date the claim was adjudicated, the copay amount collected from the patient, and the reimbursement amount paid by the insurance plan. Write a query that calculates the total monthly reimbursement volume and reports the month-over-month change. For each calendar month that has at least one adjudicated claim, output the month start date, the total reimbursement for that month, the total reimbursement for the immediately preceding month, the absolute dollar change from the prior month, and the percentage change from the prior month. The first month in the result will have no prior month, so its prior-month columns should be NULL. Order the output by month in ascending order. Field expectations: `month` is the first day of the calendar month. `total_reimbursement` is the sum of the reimbursement amounts for all claims adjudicated in that month. `prev_month_reimbursement` is the total reimbursement from the immediately preceding calendar month. `mom_change` is the absolute dollar difference between the current month and the prior month. `mom_pct` is the percentage change from the prior month to the current month, rounded to one decimal place; when the prior month total is zero, this percentage is NULL.",
+  "display": {
+    "context": "You are working with a digital pharmacy that tracks prescription claims through PBM adjudication.",
+    "task": "Write a query that calculates the total monthly reimbursement volume and reports the month-over-month change in both absolute dollars and percentage.",
+    "table_notes": {
+      "prescription_claims": "records each prescription claim submitted to a PBM, with the adjudication date and reimbursement amount"
+    },
+    "output_field_notes": {
+      "month": "the first day of the calendar month",
+      "total_reimbursement": "the sum of reimbursement amounts for all claims adjudicated in that month",
+      "prev_month_reimbursement": "the total reimbursement from the immediately preceding calendar month",
+      "mom_change": "the absolute dollar difference between the current month and the prior month",
+      "mom_pct": "the percentage change from the prior month to the current month, rounded to one decimal place"
+    },
+    "field_logic": [
+      "month: built from adjudication_date.\n- truncate adjudication_date to the first day of its calendar month\n- cast the adjudication_date text column to a date before truncating",
+      "total_reimbursement: built from reimbursement_amount.\n- cast the reimbursement_amount text column to a number\n- sum the reimbursement amounts for all claims in that calendar month",
+      "prev_month_reimbursement: built from total_reimbursement.\n- take the total_reimbursement value from the immediately preceding month in the ordered sequence of months",
+      "mom_change: built from total_reimbursement and prev_month_reimbursement.\n- subtract prev_month_reimbursement from total_reimbursement",
+      "mom_pct: built from total_reimbursement and prev_month_reimbursement.\n- compute 100 times the ratio of mom_change to prev_month_reimbursement\n- round to one decimal place\n- when prev_month_reimbursement is zero, the percentage is NULL"
+    ],
+    "edge_cases": [],
+    "filter_note": "",
+    "order_by_note": "month ascending",
+    "answer_shape": "",
+    "function_signature": "",
+    "test_call": ""
+  },
+  "schema_ddl": "CREATE TABLE prescription_claims (claim_id INT PRIMARY KEY, adjudication_date VARCHAR(20), patient_copay NUMERIC(8,2), reimbursement_amount VARCHAR(20));",
+  "example_input_data": "INSERT INTO prescription_claims (claim_id, adjudication_date, patient_copay, reimbursement_amount) VALUES (101, '2024-01-12', 15.00, '142.50'), (102, '2024-01-18', 10.00, '  98.75'), (103, ' 2024-02-05', 20.00, '215.00'), (104, '2024-02-22', 15.00, '132.25'), (105, '2024-03-03', 25.00, '189.50'), (106, '2024-03-14', 10.00, '  76.00'), (107, '2024-03-29', 30.00, '310.75');",
+  "example_output_columns": [
+    "month",
+    "total_reimbursement",
+    "prev_month_reimbursement",
+    "mom_change",
+    "mom_pct"
+  ],
+  "example_output_rows": [
+    [
+      "2024-01-01",
+      "241.25",
+      null,
+      null,
+      null
+    ],
+    [
+      "2024-02-01",
+      "347.25",
+      "241.25",
+      "106.00",
+      "43.9"
+    ],
+    [
+      "2024-03-01",
+      "576.25",
+      "347.25",
+      "229.00",
+      "65.9"
+    ]
+  ],
+  "test_data": "INSERT INTO prescription_claims (claim_id, adjudication_date, patient_copay, reimbursement_amount) VALUES (201, '2023-10-05', 20.00, '125.00'), (202, ' 2023-10-18', 15.00, '  87.50'), (203, '2023-10-29', 10.00, '105.25'), (204, '2023-11-02', 25.00, '198.00'), (205, '2023-11-14', 30.00, '245.75'), (206, '2023-11-21', 20.00, '  162.50'), (207, ' 2023-12-01', 15.00, '  89.00'), (208, '2023-12-09', 10.00, '120.00'), (209, '2023-12-15', 20.00, '175.50'), (210, '2023-12-28', 35.00, '310.25'), (211, '2024-01-06', 25.00, '205.00'), (212, ' 2024-01-11', 15.00, '  95.75'), (213, '2024-01-19', 30.00, '287.50'), (214, '2024-01-27', 20.00, '142.00'), (215, '2024-02-03', 10.00, '  78.25'), (216, '2024-02-10', 15.00, '135.00'), (217, '2024-02-18', 25.00, '210.50'), (218, '2024-02-25', 20.00, '168.75'), (219, ' 2024-03-04', 30.00, '  299.00'), (220, '2024-03-12', 15.00, '115.50'), (221, '2024-03-20', 25.00, '245.75'), (222, '2024-03-28', 20.00, '189.25');",
+  "test_expected_columns": [
+    "month",
+    "total_reimbursement",
+    "prev_month_reimbursement",
+    "mom_change",
+    "mom_pct"
+  ],
+  "test_expected_rows": [
+    [
+      "2023-10-01",
+      "317.75",
+      null,
+      null,
+      null
+    ],
+    [
+      "2023-11-01",
+      "606.25",
+      "317.75",
+      "288.50",
+      "90.8"
+    ],
+    [
+      "2023-12-01",
+      "694.75",
+      "606.25",
+      "88.50",
+      "14.6"
+    ],
+    [
+      "2024-01-01",
+      "730.25",
+      "694.75",
+      "35.50",
+      "5.1"
+    ],
+    [
+      "2024-02-01",
+      "592.50",
+      "730.25",
+      "-137.75",
+      "-18.9"
+    ],
+    [
+      "2024-03-01",
+      "849.50",
+      "592.50",
+      "257.00",
+      "43.4"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "cast adjudication_date from text to date",
+      "cast reimbursement_amount from text to numeric",
+      "trim and cast adjudication_date",
+      "date_trunc adjudication_date to month",
+      "group by month and sum reimbursement_amount",
+      "lag total_reimbursement over order by month",
+      "compute absolute and percentage change with nullif guard"
+    ]
+  },
+  "hints": [
+    "You will need to group claims by calendar month and aggregate the reimbursement amounts within each month before comparing months.",
+    "Use DATE_TRUNC to bucket the adjudication dates into months, then a window function to access the prior month's total.",
+    "Write a CTE that truncates adjudication_date to the month start, sums reimbursement_amount per month, then in the outer query use LAG to get the previous month's sum and compute the absolute and percentage changes. Guard the percentage calculation with NULLIF on the denominator to handle a zero prior month."
+  ],
+  "answer_key": "WITH monthly AS (\n  SELECT\n    DATE_TRUNC('month', TRIM(adjudication_date)::DATE)::DATE AS month,\n    SUM(reimbursement_amount::NUMERIC) AS total_reimbursement\n  FROM prescription_claims\n  GROUP BY 1\n)\nSELECT\n  month,\n  total_reimbursement,\n  LAG(total_reimbursement) OVER (ORDER BY month) AS prev_month_reimbursement,\n  total_reimbursement - LAG(total_reimbursement) OVER (ORDER BY month) AS mom_change,\n  ROUND(100.0 * (total_reimbursement - LAG(total_reimbursement) OVER (ORDER BY month)) / NULLIF(LAG(total_reimbursement) OVER (ORDER BY month), 0), 1) AS mom_pct\nFROM monthly\nORDER BY month;",
+  "_meta": {
+    "question_type": "period_over_period",
+    "original_qtype": "period_over_period",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-08T20:54:29.744393",
+    "problem_id": "330035239a0a",
+    "validation_attempts": 1,
+    "scenario": "a digital pharmacy tracking prescription submissions through PBM adjudication",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "prior_period",
+    "cleaning_required": true,
+    "cleaning_level": "moderate",
+    "cleaning_requested": "moderate",
+    "cleaning_skipped_reason": null,
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "moderate"
+  },
+  "example_output_schema": [
+    [
+      "month",
+      "DATE"
+    ],
+    [
+      "total_reimbursement",
+      "NUMERIC"
+    ],
+    [
+      "prev_month_reimbursement",
+      "NUMERIC"
+    ],
+    [
+      "mom_change",
+      "NUMERIC"
+    ],
+    [
+      "mom_pct",
+      "NUMERIC"
+    ]
+  ]
+}

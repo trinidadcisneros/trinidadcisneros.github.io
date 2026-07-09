@@ -1,0 +1,252 @@
+{
+  "problem": {
+    "title": "Basket mix shift and category growth",
+    "prompt": "You are analyzing order baskets for an online grocery service. The `basket_items` table records every item added to a customer's order, with columns for order_id, order_date (stored as text in YYYY-MM-DD format), category (the product category, which may have leading or trailing spaces), and item_price (stored as text). Write a query that calculates each category's share of total monthly basket value and its absolute month-over-month growth. Group orders into calendar months. For each (category, month) pair, compute the category's total basket value and report it as a percentage of that month's overall basket value across all categories. Also compute the category's absolute dollar change from the prior month. Output columns: month (first day of the calendar month), category (cleaned, with each word capitalized), monthly_basket_value (the category's total for that month, rounded to 2 decimals), share_of_month_pct (the category's percentage of that month's total basket value, rounded to 1 decimal), mom_change (the absolute dollar change from the prior month for this category, rounded to 2 decimals, NULL for the first month). Order by category ascending, then month ascending.",
+    "display": {
+      "context": "You are analyzing order baskets for an online grocery service.",
+      "task": "Write a query that calculates each category's share of total monthly basket value and its absolute month-over-month growth.",
+      "table_notes": {
+        "basket_items": "records every item added to a customer's order, with the order date, product category, and item price"
+      },
+      "output_field_notes": {
+        "month": "the first day of the calendar month the order was placed in",
+        "category": "the product category with spaces removed and each word capitalized",
+        "monthly_basket_value": "the total dollar value of all items in this category during this month",
+        "share_of_month_pct": "this category's percentage of the month's total basket value across all categories",
+        "mom_change": "the absolute dollar change in this category's monthly basket value compared to the prior month"
+      },
+      "field_logic": [
+        "month: built from order_date.\n- cast order_date from text to date\n- truncate to the first day of the calendar month",
+        "category: built from category.\n- remove leading and trailing spaces\n- capitalize the first letter of each word",
+        "monthly_basket_value: built from item_price.\n- cast item_price from text to numeric\n- sum all item prices for this (category, month) pair\n- round to 2 decimal places",
+        "share_of_month_pct: built from monthly_basket_value.\n- divide monthly_basket_value by the sum of monthly_basket_value across all categories for the same month\n- multiply by 100\n- round to 1 decimal place",
+        "mom_change: built from monthly_basket_value.\n- for this category, subtract the prior month's monthly_basket_value from the current month's monthly_basket_value (the prior month is the one immediately before in calendar order for this same category)\n- round to 2 decimal places\n- the first month for each category has no prior month, so it is NULL"
+      ],
+      "edge_cases": [],
+      "filter_note": "",
+      "order_by_note": "category ascending, then month ascending",
+      "answer_shape": "",
+      "function_signature": "",
+      "test_call": ""
+    },
+    "schema_ddl": "CREATE TABLE basket_items (order_id INT, order_date VARCHAR(20), category VARCHAR(50), item_price VARCHAR(20));",
+    "example_input_data": "INSERT INTO basket_items (order_id, order_date, category, item_price) VALUES (101, '2024-01-05', ' Produce ', '12.50'), (102, '2024-01-12', 'dairy', '8.00'), (103, '2024-01-20', ' Produce ', '15.00'), (104, '2024-02-03', 'dairy', '10.00'), (105, '2024-02-10', ' Produce ', '18.00'), (106, '2024-02-15', 'dairy', '9.50'), (107, '2024-03-02', ' Produce ', '20.00'), (108, '2024-03-08', 'dairy', '12.00');",
+    "example_output_columns": [
+      "month",
+      "category",
+      "monthly_basket_value",
+      "share_of_month_pct",
+      "mom_change"
+    ],
+    "example_output_rows": [
+      [
+        "2024-01-01",
+        "Dairy",
+        "8.00",
+        "22.5",
+        null
+      ],
+      [
+        "2024-02-01",
+        "Dairy",
+        "19.50",
+        "52.0",
+        "11.50"
+      ],
+      [
+        "2024-03-01",
+        "Dairy",
+        "12.00",
+        "37.5",
+        "-7.50"
+      ],
+      [
+        "2024-01-01",
+        "Produce",
+        "27.50",
+        "77.5",
+        null
+      ],
+      [
+        "2024-02-01",
+        "Produce",
+        "18.00",
+        "48.0",
+        "-9.50"
+      ],
+      [
+        "2024-03-01",
+        "Produce",
+        "20.00",
+        "62.5",
+        "2.00"
+      ]
+    ],
+    "test_data": "INSERT INTO basket_items (order_id, order_date, category, item_price) VALUES (201, '2024-01-03', ' bakery', '6.00'), (202, '2024-01-07', ' Produce ', '14.00'), (203, '2024-01-10', 'dairy', '9.00'), (204, '2024-01-15', ' bakery', '7.50'), (205, '2024-01-22', ' Produce ', '11.00'), (206, '2024-01-25', 'dairy', '8.50'), (207, '2024-02-02', ' Produce ', '16.00'), (208, '2024-02-05', ' bakery', '8.00'), (209, '2024-02-12', 'dairy', '10.50'), (210, '2024-02-18', ' Produce ', '13.50'), (211, '2024-02-22', ' bakery', '9.00'), (212, '2024-02-28', 'dairy', '7.00'), (213, '2024-03-03', ' Produce ', '19.00'), (214, '2024-03-08', 'dairy', '11.00'), (215, '2024-03-12', ' bakery', '10.50'), (216, '2024-03-18', ' Produce ', '15.00'), (217, '2024-03-22', 'dairy', '9.50'), (218, '2024-03-28', ' bakery', '8.50'), (219, '2024-04-02', ' Produce ', '21.00'), (220, '2024-04-10', 'dairy', '12.00'), (221, '2024-04-15', ' bakery', '11.00'), (222, '2024-04-20', ' Produce ', '17.50'), (223, '2024-04-25', 'dairy', '10.00');",
+    "test_expected_columns": [
+      "month",
+      "category",
+      "monthly_basket_value",
+      "share_of_month_pct",
+      "mom_change"
+    ],
+    "test_expected_rows": [
+      [
+        "2024-01-01",
+        "Bakery",
+        "13.50",
+        "24.1",
+        null
+      ],
+      [
+        "2024-02-01",
+        "Bakery",
+        "17.00",
+        "26.6",
+        "3.50"
+      ],
+      [
+        "2024-03-01",
+        "Bakery",
+        "19.00",
+        "25.9",
+        "2.00"
+      ],
+      [
+        "2024-04-01",
+        "Bakery",
+        "11.00",
+        "15.4",
+        "-8.00"
+      ],
+      [
+        "2024-01-01",
+        "Dairy",
+        "17.50",
+        "31.3",
+        null
+      ],
+      [
+        "2024-02-01",
+        "Dairy",
+        "17.50",
+        "27.3",
+        "0.00"
+      ],
+      [
+        "2024-03-01",
+        "Dairy",
+        "20.50",
+        "27.9",
+        "3.00"
+      ],
+      [
+        "2024-04-01",
+        "Dairy",
+        "22.00",
+        "30.8",
+        "1.50"
+      ],
+      [
+        "2024-01-01",
+        "Produce",
+        "25.00",
+        "44.6",
+        null
+      ],
+      [
+        "2024-02-01",
+        "Produce",
+        "29.50",
+        "46.1",
+        "4.50"
+      ],
+      [
+        "2024-03-01",
+        "Produce",
+        "34.00",
+        "46.3",
+        "4.50"
+      ],
+      [
+        "2024-04-01",
+        "Produce",
+        "38.50",
+        "53.8",
+        "4.50"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "cast order_date from text to date",
+        "DATE_TRUNC order_date to month",
+        "TRIM and INITCAP category",
+        "cast item_price from text to numeric",
+        "GROUP BY (category, month) and SUM item_price",
+        "window SUM(monthly_basket_value) OVER (PARTITION BY month) for denominator",
+        "compute share as 100.0 * monthly_basket_value / SUM(...) OVER (...)",
+        "window LAG(monthly_basket_value) OVER (PARTITION BY category ORDER BY month) for prior month",
+        "compute mom_change as monthly_basket_value - LAG(...)",
+        "ORDER BY category ASC, month ASC"
+      ]
+    },
+    "hints": [
+      "Start by grouping the items into calendar months and categories, summing their prices.",
+      "Use a window function partitioned by month to find each month's total basket value across all categories, then divide each category's value by that total.",
+      "Use LAG partitioned by category and ordered by month to retrieve each category's prior month value, subtract it from the current month, and handle the first month as NULL."
+    ],
+    "answer_key": "WITH monthly_agg AS (\n  SELECT\n    DATE_TRUNC('month', order_date::date)::date AS month,\n    INITCAP(TRIM(category)) AS category,\n    ROUND(SUM(item_price::numeric), 2) AS monthly_basket_value\n  FROM basket_items\n  GROUP BY 1, 2\n),\nenriched AS (\n  SELECT\n    month,\n    category,\n    monthly_basket_value,\n    ROUND(100.0 * monthly_basket_value / SUM(monthly_basket_value) OVER (PARTITION BY month), 1) AS share_of_month_pct,\n    ROUND(monthly_basket_value - LAG(monthly_basket_value) OVER (PARTITION BY category ORDER BY month), 2) AS mom_change\n  FROM monthly_agg\n)\nSELECT\n  month,\n  category,\n  monthly_basket_value,\n  share_of_month_pct,\n  mom_change\nFROM enriched\nORDER BY category ASC, month ASC;",
+    "_meta": {
+      "question_type": "period_over_period",
+      "original_qtype": "period_over_period",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-07-08T21:09:44.456316",
+      "problem_id": "36a3d95235cc",
+      "validation_attempts": 1,
+      "scenario": "an online grocery service tracking basket size and reorder rates",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "pct_of_total_pop",
+      "cleaning_required": true,
+      "cleaning_level": "moderate",
+      "cleaning_requested": "moderate",
+      "cleaning_skipped_reason": null,
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": true,
+      "realism": "moderate"
+    },
+    "example_output_schema": [
+      [
+        "month",
+        "DATE"
+      ],
+      [
+        "category",
+        "TEXT"
+      ],
+      [
+        "monthly_basket_value",
+        "NUMERIC"
+      ],
+      [
+        "share_of_month_pct",
+        "NUMERIC"
+      ],
+      [
+        "mom_change",
+        "NUMERIC"
+      ]
+    ]
+  },
+  "user_solution": "/* notes */\nWITH base AS (\n    SELECT\n        DATE_TRUNC('month', TRIM(order_date)::date)::date AS month,\n        INITCAP(TRIM(category)) AS category,\n        TRIM(item_price)::numeric AS monthly_basket_value\n    FROM basket_items\n),\nagg AS (\n    SELECT\n        month,\n        category,\n        SUM(monthly_basket_value) AS monthly_basket_value\n    FROM base\n    GROUP BY 1, 2\n)\nSELECT\n    month,\n    category,\n    monthly_basket_value,\n    ROUND(100.0 *\n            monthly_basket_value /\n            NULLIF(SUM(monthly_basket_value) OVER (PARTITION BY month), 0)\n        ,1) AS share_of_month_pct,\n    monthly_basket_value - LAG(monthly_basket_value) OVER (PARTITION BY category ORDER BY month) AS mom_change\nFROM agg\nORDER BY 2, 1;\n\n",
+  "solved_at": "2026-07-08T21:43:08.362298"
+}

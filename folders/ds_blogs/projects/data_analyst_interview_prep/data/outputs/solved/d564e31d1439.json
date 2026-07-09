@@ -1,0 +1,179 @@
+{
+  "problem": {
+    "title": "Month-over-month lesson completion growth",
+    "prompt": "You are working with a language learning app that tracks lesson completions. The `completions` table records every lesson a learner finishes, including the `completed_at` timestamp (stored as text) and the `xp_earned` (also stored as text). Write a query that calculates total XP earned per month, then compares each month to the immediately preceding month with both the absolute change and the percentage change. Output columns are `month` (the first day of each month), `total_xp`, `prev_month_xp`, `xp_change`, and `pct_change` (rounded to one decimal place). Rows with no prior month will show NULL for the comparison columns. Order by month ascending.",
+    "display": {
+      "context": "You are working with a language learning app that tracks lesson completions.",
+      "task": "Write a query that calculates total XP earned per month and compares each month to the immediately preceding month with both the absolute change and the percentage change.",
+      "table_notes": {
+        "completions": "records every lesson finished by a learner"
+      },
+      "output_field_notes": {
+        "month": "the first day of each calendar month",
+        "total_xp": "the sum of experience points earned in that month",
+        "prev_month_xp": "the sum of experience points earned in the month immediately before this one",
+        "xp_change": "the absolute difference in total XP between this month and the previous month",
+        "pct_change": "the percentage change in total XP from the previous month to this month"
+      },
+      "field_logic": [
+        "month: built from completed_at.\n- turn completed_at into a proper timestamp\n- round down to the first day of the month",
+        "total_xp: built from xp_earned.\n- turn xp_earned into a number\n- sum all the XP values for that month",
+        "prev_month_xp: built from total_xp.\n- take the total_xp value from the month immediately before this one in chronological order\n- the first month has no prior month, so this is NULL",
+        "xp_change: built from total_xp and prev_month_xp.\n- subtract prev_month_xp from total_xp\n- when prev_month_xp is NULL, the result is NULL",
+        "pct_change: built from total_xp and prev_month_xp.\n- compute 100 times the ratio of xp_change to prev_month_xp\n- if prev_month_xp is zero or NULL, the result is NULL\n- round to one decimal place"
+      ],
+      "edge_cases": [],
+      "filter_note": "",
+      "order_by_note": "month ascending",
+      "answer_shape": "",
+      "function_signature": "",
+      "test_call": ""
+    },
+    "schema_ddl": "CREATE TABLE completions (completion_id INT PRIMARY KEY, learner_id INT, lesson_id INT, completed_at VARCHAR, xp_earned VARCHAR);",
+    "example_input_data": "INSERT INTO completions (completion_id, learner_id, lesson_id, completed_at, xp_earned) VALUES (1, 101, 1, '2024-01-15 10:00:00', '50'), (2, 102, 2, '2024-01-20 14:30:00', ' 30 '), (3, 101, 3, '2024-02-05 09:15:00', '40'), (4, 103, 1, '2024-02-10 11:00:00', '50'), (5, 102, 4, '2024-03-01 16:45:00', '60'), (6, 101, 5, '2024-03-12 08:20:00', ' 70 '), (7, 103, 6, '2024-03-25 13:10:00', '80');",
+    "example_output_columns": [
+      "month",
+      "total_xp",
+      "prev_month_xp",
+      "xp_change",
+      "pct_change"
+    ],
+    "example_output_rows": [
+      [
+        "2024-01-01",
+        "80",
+        null,
+        null,
+        null
+      ],
+      [
+        "2024-02-01",
+        "90",
+        "80",
+        "10",
+        "12.5"
+      ],
+      [
+        "2024-03-01",
+        "210",
+        "90",
+        "120",
+        "133.3"
+      ]
+    ],
+    "test_data": "INSERT INTO completions (completion_id, learner_id, lesson_id, completed_at, xp_earned) VALUES (101, 201, 10, '2024-01-03 08:00:00', '100'), (102, 202, 11, '2024-01-05 09:30:00', '  50'), (103, 203, 12, '2024-01-18 10:15:00', '75'), (104, 204, 13, '2024-01-22 11:45:00', ' 25 '), (105, 201, 14, '2024-02-02 12:00:00', '80'), (106, 202, 15, '2024-02-10 13:20:00', '60'), (107, 203, 16, '2024-02-15 14:40:00', '90'), (108, 204, 17, '2024-02-28 15:50:00', '70'), (109, 201, 18, '2024-03-05 07:30:00', '110'), (110, 202, 19, '2024-03-08 08:45:00', ' 55 '), (111, 203, 20, '2024-03-12 09:00:00', '95'), (112, 204, 21, '2024-03-20 10:30:00', '40'), (113, 201, 22, '2024-04-01 11:15:00', '120'), (114, 202, 23, '2024-04-07 12:30:00', '65'), (115, 203, 24, '2024-04-14 13:45:00', '85'), (116, 204, 25, '2024-04-21 14:00:00', '  30'), (117, 201, 26, '2024-05-03 15:20:00', '100'), (118, 202, 27, '2024-05-10 16:40:00', '50'), (119, 203, 28, '2024-05-18 17:50:00', '75'), (120, 204, 29, '2024-05-25 18:10:00', '25');",
+    "test_expected_columns": [
+      "month",
+      "total_xp",
+      "prev_month_xp",
+      "xp_change",
+      "pct_change"
+    ],
+    "test_expected_rows": [
+      [
+        "2024-01-01",
+        "250",
+        null,
+        null,
+        null
+      ],
+      [
+        "2024-02-01",
+        "300",
+        "250",
+        "50",
+        "20.0"
+      ],
+      [
+        "2024-03-01",
+        "300",
+        "300",
+        "0",
+        "0.0"
+      ],
+      [
+        "2024-04-01",
+        "300",
+        "300",
+        "0",
+        "0.0"
+      ],
+      [
+        "2024-05-01",
+        "250",
+        "300",
+        "-50",
+        "-16.7"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "cast completed_at from text to timestamp",
+        "cast xp_earned from text to numeric",
+        "trim xp_earned to remove leading and trailing spaces",
+        "date_trunc to month",
+        "group by month and sum xp_earned",
+        "lag total_xp over order by month",
+        "compute absolute change and percentage change with nullif guard"
+      ]
+    },
+    "hints": [
+      "Start by converting the text columns into usable types and grouping completions into monthly buckets.",
+      "After aggregating XP per month, use a window function to bring the previous month's total alongside each row.",
+      "When computing percentage change, protect against division by zero by wrapping the denominator in NULLIF."
+    ],
+    "answer_key": "WITH monthly AS (\n  SELECT\n    DATE_TRUNC('month', completed_at::TIMESTAMP)::DATE AS month,\n    SUM(TRIM(xp_earned)::NUMERIC) AS total_xp\n  FROM completions\n  GROUP BY 1\n)\nSELECT\n  month,\n  total_xp,\n  LAG(total_xp) OVER (ORDER BY month) AS prev_month_xp,\n  total_xp - LAG(total_xp) OVER (ORDER BY month) AS xp_change,\n  ROUND(100.0 * (total_xp - LAG(total_xp) OVER (ORDER BY month)) / NULLIF(LAG(total_xp) OVER (ORDER BY month), 0), 1) AS pct_change\nFROM monthly\nORDER BY month;",
+    "_meta": {
+      "question_type": "period_over_period",
+      "original_qtype": "period_over_period",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-07-08T21:43:47.335477",
+      "problem_id": "d564e31d1439",
+      "validation_attempts": 1,
+      "scenario": "a language learning app tracking daily streaks and lesson completion",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "prior_period",
+      "cleaning_required": true,
+      "cleaning_level": "moderate",
+      "cleaning_requested": "moderate",
+      "cleaning_skipped_reason": null,
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": true,
+      "realism": "moderate"
+    },
+    "example_output_schema": [
+      [
+        "month",
+        "DATE"
+      ],
+      [
+        "total_xp",
+        "NUMERIC"
+      ],
+      [
+        "prev_month_xp",
+        "NUMERIC"
+      ],
+      [
+        "xp_change",
+        "NUMERIC"
+      ],
+      [
+        "pct_change",
+        "NUMERIC"
+      ]
+    ]
+  },
+  "user_solution": "/* notes */\nWITH base AS (\n    SELECT\n        DATE_TRUNC('month', TRIM(completed_at)::date)::date AS month,\n        TRIM(xp_earned)::int AS xp_earned\n    FROM completions\n),\nagg AS (\n    SELECT\n        month,\n        SUM(xp_earned) AS total_xp\n    FROM base\n    GROUP BY 1\n)\nSELECT\n    month,\n    total_xp,\n    lag(total_xp) OVER (ORDER BY month) AS prev_month_xp,\n    (total_xp - lag(total_xp) OVER (ORDER BY month))::int AS xp_change,\n    ROUND(100.0 * (total_xp - lag(total_xp) OVER (ORDER BY month))::int / NULLIF(lag(total_xp) OVER (ORDER BY month), 0), 1) AS pct_change\nFROM agg\nORDER BY 1;",
+  "solved_at": "2026-07-08T21:54:09.100494"
+}
