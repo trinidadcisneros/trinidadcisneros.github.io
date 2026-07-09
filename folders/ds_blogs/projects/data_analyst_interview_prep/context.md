@@ -163,6 +163,10 @@ Every code cell starts with a JS-injected blue toggle button (`▲ Hide code` / 
 
 ## What to avoid (gotchas we've already paid for)
 
+### Postgres array subscript on a function result (generator syntax error)
+- The LLM sometimes writes `STRING_TO_ARRAY(x, ',')[1]` — Postgres rejects subscripting a *function result* with `syntax error at or near "["`. Only a column (`col[1]`, `t.tags[1]`) or a parenthesized expression (`(expr)[1]`) can be subscripted.
+- **Engine guard (2026-07-07):** `_wrap_func_array_subscripts()` in `sql_practice_utils.py` auto-rewrites `func(...)[i]` → `(func(...))[i]` at the top of `_validate_problem` (persisted to `answer_key`, idempotent). Generator guidance also added: use `(STRING_TO_ARRAY(...))[1]` or `SPLIT_PART(s, delim, 1)`; subscript a real `TEXT[]` column, never a function call.
+
 ### Build script syntax — string quoting
 - `build_nb02.py` wraps each cell source in `code('''...''')` (triple-single-quotes). **Inside that, escape sequences in strings are interpreted by Python when reading the file.** `\"` collapses to `"` before it reaches the notebook, breaking f-strings whose own delimiters are `"..."`.
 - **Rule:** when you need a double quote inside an f-string inside a `code('''...''')` cell, use single quotes for HTML attributes (`style='...'`). Don't try to escape with `\"`.

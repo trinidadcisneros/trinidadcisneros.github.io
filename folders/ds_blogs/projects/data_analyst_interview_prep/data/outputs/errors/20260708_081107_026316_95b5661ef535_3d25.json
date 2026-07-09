@@ -1,0 +1,118 @@
+{
+  "logged_at": "2026-07-08T08:11:07.026316",
+  "failure_kind": "wrong_answer",
+  "problem_id": "95b5661ef535",
+  "question_type": "union_islands",
+  "original_qtype": "union_islands",
+  "subtype": "integer_seq",
+  "scenario": "a buy-now-pay-later service tracking installment payment compliance",
+  "difficulty": "moderate",
+  "dialect": "postgresql",
+  "recipe": "gaps-and-islands",
+  "title": "Consecutive Installment ID Ranges by Status",
+  "prompt": "You are working with a buy-now-pay-later service that assigns sequential installment IDs to payment obligations. Each installment has a status field (a pipe-delimited text value) and a metadata text array. Management wants to identify consecutive installment ID ranges grouped by the first status value in the pipe-delimited field, along with the month when each range started and summary statistics. Write a query that outputs each range's first status value (cleaned and capitalized), start and end installment IDs, the month name when the range started (from the creation timestamp), the count of unique tag categories (from the first element of each row's tag array), and a risk flag. A row qualifies when its cleaned status is not blank. Order the output by start_id ascending. The output columns are: status_label, start_id, end_id, start_month, unique_tags_count, risk_flag.",
+  "schema_ddl": "CREATE TABLE installments (installment_id INT PRIMARY KEY, status_raw TEXT, created_at TIMESTAMP, tags TEXT[]);",
+  "answer_key": "WITH cleaned AS (SELECT installment_id, INITCAP(TRIM(REPLACE(SPLIT_PART(status_raw, '|', 1), '  ', ' '))) AS status_label, created_at, tags FROM installments WHERE status_raw LIKE '%|%' AND NULLIF(TRIM(SPLIT_PART(status_raw, '|', 1)), '') IS NOT NULL), grouped AS (SELECT installment_id, status_label, created_at, tags, installment_id - ROW_NUMBER() OVER (PARTITION BY status_label ORDER BY installment_id) AS grp FROM cleaned) SELECT status_label, MIN(installment_id) AS start_id, MAX(installment_id) AS end_id, TO_CHAR((ARRAY_AGG(created_at ORDER BY installment_id))[1], 'FMMonth') AS start_month, COUNT(DISTINCT tags[1]) AS unique_tags_count, CASE WHEN MOD(COUNT(*)::NUMERIC, 2) = 1 THEN 1 ELSE 0 END AS risk_flag FROM grouped GROUP BY status_label, grp ORDER BY start_id;",
+  "test_expected_columns": [
+    "status_label",
+    "start_id",
+    "end_id",
+    "start_month",
+    "unique_tags_count",
+    "risk_flag"
+  ],
+  "test_expected_rows": [
+    [
+      "Active",
+      201,
+      204,
+      "January",
+      2,
+      0
+    ],
+    [
+      "Overdue",
+      206,
+      208,
+      "February",
+      2,
+      1
+    ],
+    [
+      "Settled",
+      210,
+      210,
+      "February",
+      1,
+      1
+    ],
+    [
+      "Active",
+      212,
+      216,
+      "March",
+      2,
+      1
+    ],
+    [
+      "Overdue",
+      218,
+      219,
+      "April",
+      1,
+      0
+    ]
+  ],
+  "user_solution": "WITH base AS (\n    SELECT\n        installment_id,\n        INITCAP(TRIM(SPLIT_PART(status_raw, ' | ', 1))) AS status_label,\n        TO_CHAR(created_at::date, 'FMMonth') AS start_month,\n        tags[1] AS tag,\n        installment_id - ROW_NUMBER() OVER (ORDER BY installment_id) AS grp\n    FROM installments\n)\nSELECT\n    status_label,\n    MIN(installment_id) AS start_id,\n    MAX(installment_id) AS end_id,\n    MIN(start_month) AS start_month,\n    COUNT(DISTINCT tag) AS unique_tags_count,\n    CASE WHEN MAX(installment_id) - MIN(installment_id) = 1 THEN 0 ELSE 1 END AS risk_flag\nFROM base\nGROUP BY status_label, grp\nORDER BY MIN(installment_id);",
+  "error_message": null,
+  "your_columns": [
+    "status_label",
+    "start_id",
+    "end_id",
+    "start_month",
+    "unique_tags_count",
+    "risk_flag"
+  ],
+  "your_rows": [
+    [
+      "Active",
+      201,
+      204,
+      "January",
+      2,
+      1
+    ],
+    [
+      "Overdue",
+      206,
+      208,
+      "February",
+      2,
+      1
+    ],
+    [
+      "Settled",
+      210,
+      210,
+      "February",
+      1,
+      1
+    ],
+    [
+      "Active",
+      212,
+      216,
+      "March",
+      2,
+      1
+    ],
+    [
+      "Overdue",
+      218,
+      219,
+      "April",
+      1,
+      0
+    ]
+  ]
+}

@@ -1,0 +1,193 @@
+{
+  "problem": {
+    "title": "Consecutive Installment ID Ranges by Status",
+    "prompt": "You are working with a buy-now-pay-later service that assigns sequential installment IDs to payment obligations. Each installment has a status field (a pipe-delimited text value) and a metadata text array. Management wants to identify consecutive installment ID ranges grouped by the first status value in the pipe-delimited field, along with the month when each range started and summary statistics. Write a query that outputs each range's first status value (cleaned and capitalized), start and end installment IDs, the month name when the range started (from the creation timestamp), the count of unique tag categories (from the first element of each row's tag array), and a risk flag. A row qualifies when its cleaned status is not blank. Order the output by start_id ascending. The output columns are: status_label, start_id, end_id, start_month, unique_tags_count, risk_flag.",
+    "display": {
+      "context": "You are working with a buy-now-pay-later service that assigns sequential installment IDs to payment obligations.",
+      "task": "Write a query that identifies consecutive installment ID ranges grouped by payment status, along with the month each range started and summary statistics.",
+      "table_notes": {
+        "installments": "holds each payment installment with its ID, status (pipe-delimited text), creation timestamp, and metadata tags (text array)"
+      },
+      "output_field_notes": {
+        "status_label": "the first status value from the pipe-delimited status field, cleaned of leading/trailing spaces and with each word capitalized",
+        "start_id": "the lowest installment_id in a consecutive run of IDs sharing the same status",
+        "end_id": "the highest installment_id in that consecutive run",
+        "start_month": "the month name (unpadded, like 'March') when the first installment in that range was created",
+        "unique_tags_count": "the count of distinct first tag elements across all installments in that range",
+        "risk_flag": "1 when the count of installments in the range is odd, otherwise 0"
+      },
+      "field_logic": [
+        "status_label: built from status_raw.\n- take the substring before the first '|' in status_raw\n- remove leading and trailing spaces\n- convert blank results to NULL\n- capitalize the first letter of each word",
+        "start_id: the minimum installment_id within each group of consecutive IDs sharing the same cleaned status",
+        "end_id: the maximum installment_id within each group of consecutive IDs sharing the same cleaned status",
+        "start_month: built from created_at.\n- extract the month from the created_at timestamp of the row with the minimum installment_id in each consecutive range\n- format as the full month name without padding",
+        "unique_tags_count: built from tags.\n- for each installment in the range, extract the first element of its tags array\n- count how many distinct first-tag values appear across the range",
+        "risk_flag: built from the count of installments in each range.\n- compute the count of installment_ids in the range\n- cast that count to numeric\n- take the remainder when divided by 2\n- if the remainder equals 1, return 1; otherwise return 0"
+      ],
+      "edge_cases": [],
+      "filter_note": "status_raw contains at least one '|' character\nthe substring before the first '|' in status_raw, after trimming spaces, is not blank",
+      "order_by_note": "start_id ascending"
+    },
+    "schema_ddl": "CREATE TABLE installments (installment_id INT PRIMARY KEY, status_raw TEXT, created_at TIMESTAMP, tags TEXT[]);",
+    "example_input_data": "INSERT INTO installments (installment_id, status_raw, created_at, tags) VALUES (101, 'active | scheduled', '2024-03-15 10:00:00', ARRAY['auto', 'retail']), (102, 'active | scheduled', '2024-03-16 11:00:00', ARRAY['manual', 'retail']), (103, 'active | scheduled', '2024-03-17 12:00:00', ARRAY['auto', 'retail']), (105, 'overdue | pending', '2024-04-01 09:00:00', ARRAY['auto', 'wholesale']), (106, 'overdue | pending', '2024-04-02 10:00:00', ARRAY['auto', 'wholesale']), (108, 'active | scheduled', '2024-05-10 08:00:00', ARRAY['manual', 'retail']), (109, 'active | scheduled', '2024-05-11 09:00:00', ARRAY['auto', 'retail']);",
+    "example_output_columns": [
+      "status_label",
+      "start_id",
+      "end_id",
+      "start_month",
+      "unique_tags_count",
+      "risk_flag"
+    ],
+    "example_output_rows": [
+      [
+        "Active",
+        101,
+        103,
+        "March",
+        2,
+        1
+      ],
+      [
+        "Overdue",
+        105,
+        106,
+        "April",
+        1,
+        0
+      ],
+      [
+        "Active",
+        108,
+        109,
+        "May",
+        2,
+        0
+      ]
+    ],
+    "test_data": "INSERT INTO installments (installment_id, status_raw, created_at, tags) VALUES (201, 'active | scheduled', '2024-01-05 10:00:00', ARRAY['auto', 'retail']), (202, 'active | scheduled', '2024-01-06 11:00:00', ARRAY['manual', 'retail']), (203, 'active | scheduled', '2024-01-07 12:00:00', ARRAY['auto', 'wholesale']), (204, 'active | scheduled', '2024-01-08 13:00:00', ARRAY['manual', 'retail']), (206, 'overdue | pending', '2024-02-01 09:00:00', ARRAY['auto', 'wholesale']), (207, 'overdue | pending', '2024-02-02 10:00:00', ARRAY['auto', 'wholesale']), (208, 'overdue | pending', '2024-02-03 11:00:00', ARRAY['manual', 'wholesale']), (210, 'settled | closed', '2024-02-10 08:00:00', ARRAY['auto', 'retail']), (212, 'active | scheduled', '2024-03-01 07:00:00', ARRAY['manual', 'retail']), (213, 'active | scheduled', '2024-03-02 08:00:00', ARRAY['auto', 'retail']), (214, 'active | scheduled', '2024-03-03 09:00:00', ARRAY['manual', 'wholesale']), (215, 'active | scheduled', '2024-03-04 10:00:00', ARRAY['auto', 'retail']), (216, 'active | scheduled', '2024-03-05 11:00:00', ARRAY['manual', 'retail']), (218, 'overdue | pending', '2024-04-01 09:00:00', ARRAY['auto', 'wholesale']), (219, 'overdue | pending', '2024-04-02 10:00:00', ARRAY['auto', 'wholesale']);",
+    "test_expected_columns": [
+      "status_label",
+      "start_id",
+      "end_id",
+      "start_month",
+      "unique_tags_count",
+      "risk_flag"
+    ],
+    "test_expected_rows": [
+      [
+        "Active",
+        201,
+        204,
+        "January",
+        2,
+        0
+      ],
+      [
+        "Overdue",
+        206,
+        208,
+        "February",
+        2,
+        1
+      ],
+      [
+        "Settled",
+        210,
+        210,
+        "February",
+        1,
+        1
+      ],
+      [
+        "Active",
+        212,
+        216,
+        "March",
+        2,
+        1
+      ],
+      [
+        "Overdue",
+        218,
+        219,
+        "April",
+        1,
+        0
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "gaps-and-islands",
+      "composite_moves": [
+        "parse status_raw to extract first status value",
+        "clean and capitalize the status",
+        "apply id - ROW_NUMBER() OVER (PARTITION BY status ORDER BY id) to form groups",
+        "GROUP BY status and group number",
+        "MIN/MAX for start/end ids",
+        "extract month name from MIN created_at",
+        "count distinct first array elements",
+        "compute odd/even flag via MOD"
+      ]
+    },
+    "hints": [
+      "Think about how to group consecutive IDs that share the same status value.",
+      "Use the row-number trick: subtract ROW_NUMBER() from the installment_id within each status partition to form a group identifier.",
+      "Group by the cleaned status and the computed group number, then take MIN and MAX of installment_id for each range, extract the month from the earliest created_at, count distinct first array elements, and compute the odd/even flag using MOD."
+    ],
+    "answer_key": "WITH cleaned AS (SELECT installment_id, INITCAP(TRIM(REPLACE(SPLIT_PART(status_raw, '|', 1), '  ', ' '))) AS status_label, created_at, tags FROM installments WHERE status_raw LIKE '%|%' AND NULLIF(TRIM(SPLIT_PART(status_raw, '|', 1)), '') IS NOT NULL), grouped AS (SELECT installment_id, status_label, created_at, tags, installment_id - ROW_NUMBER() OVER (PARTITION BY status_label ORDER BY installment_id) AS grp FROM cleaned) SELECT status_label, MIN(installment_id) AS start_id, MAX(installment_id) AS end_id, TO_CHAR((ARRAY_AGG(created_at ORDER BY installment_id))[1], 'FMMonth') AS start_month, COUNT(DISTINCT tags[1]) AS unique_tags_count, CASE WHEN MOD(COUNT(*)::NUMERIC, 2) = 1 THEN 1 ELSE 0 END AS risk_flag FROM grouped GROUP BY status_label, grp ORDER BY start_id;",
+    "_meta": {
+      "question_type": "union_islands",
+      "original_qtype": "union_islands",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-07-07T21:28:16.841860",
+      "problem_id": "95b5661ef535",
+      "validation_attempts": 2,
+      "scenario": "a buy-now-pay-later service tracking installment payment compliance",
+      "dml_op": null,
+      "islands_flavor": "integer_seq",
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": null,
+      "cleaning_required": true,
+      "cleaning_level": "high",
+      "cleaning_requested": "high",
+      "cleaning_skipped_reason": null,
+      "cleaning_all_six": true,
+      "cleaning_per_category": 1,
+      "cleaning_bonus": null,
+      "typecast_twist": true,
+      "realism": "moderate"
+    },
+    "example_output_schema": [
+      [
+        "status_label",
+        "TEXT"
+      ],
+      [
+        "start_id",
+        "INTEGER"
+      ],
+      [
+        "end_id",
+        "INTEGER"
+      ],
+      [
+        "start_month",
+        "TEXT"
+      ],
+      [
+        "unique_tags_count",
+        "BIGINT"
+      ],
+      [
+        "risk_flag",
+        "INTEGER"
+      ]
+    ]
+  },
+  "user_solution": "WITH base AS (\n    SELECT\n        installment_id,\n        INITCAP(TRIM(SPLIT_PART(status_raw, ' | ', 1))) AS status_label,\n        TO_CHAR(created_at::date, 'FMMonth') AS start_month,\n        tags[1] AS tag,\n        installment_id - ROW_NUMBER() OVER (PARTITION BY INITCAP(TRIM(SPLIT_PART(status_raw, ' | ', 1))) ORDER BY installment_id) AS grp\n    FROM installments\n)\nSELECT\n    status_label,\n    MIN(installment_id) AS start_id,\n    MAX(installment_id) AS end_id,\n    MIN(start_month) AS start_month,\n    COUNT(DISTINCT tag) AS unique_tags_count,\n    CASE WHEN MOD(MAX(installment_id) - MIN(installment_id), 2) = 0 THEN 1 ELSE 0 END AS risk_flag\nFROM base\nGROUP BY status_label, grp\nORDER BY MIN(installment_id);",
+  "solved_at": "2026-07-08T08:14:20.299253"
+}

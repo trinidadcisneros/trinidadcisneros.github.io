@@ -1,0 +1,159 @@
+{
+  "title": "Find Tutors With Active 5-Day Streaks",
+  "prompt": "You are working with a tutoring marketplace that tracks session bookings. The `tutors` table holds tutor profiles (id and name), and the `sessions` table records each completed session with the tutor_id and session_date. A tutor may complete multiple sessions on the same day, so duplicate (tutor_id, session_date) rows can appear in the sessions table. Your task is to find all tutors who have at least one streak of 5 or more consecutive calendar days with at least one session. A consecutive streak means each day in the sequence is exactly one calendar day after the previous day, with no gaps. Output the tutor_id and tutor_name of qualifying tutors, ordered by tutor_id ascending. The sessions table also includes a tags column (an array of session labels) and a fee_text column (the session fee stored as text); you will clean these in your output. Additionally, each tutor has a joined_date, and you will extract the join month from that date. For first_tag and sample_fee, use the tutor's earliest session: the lowest session_date, and if several sessions share that date, the one with the lowest session_id.",
+  "display": {
+    "context": "You are working with a tutoring marketplace that tracks session bookings and tutor profiles.",
+    "task": "Write a query that returns tutors (id and name) who have at least one streak of 5 or more consecutive calendar days with at least one session, along with cleaned session metadata.",
+    "table_notes": {
+      "tutors": "holds tutor profiles with id, name, and joined_date",
+      "sessions": "records each completed session with tutor_id, session_date, tags (array of labels), and fee_text (fee stored as text); may contain duplicate (tutor_id, session_date) rows because a tutor can complete multiple sessions on the same day"
+    },
+    "output_field_notes": {
+      "tutor_id": "the tutor's unique identifier",
+      "tutor_name": "the tutor's name, cleaned",
+      "first_tag": "the first label from the tags array of the tutor's earliest session",
+      "join_month": "the numeric month (1-12) when the tutor joined the platform",
+      "sample_fee": "the fee_text from the tutor's earliest session, converted to a number and rounded",
+      "active_flag": "1 if the tutor has any qualifying streak, 0 otherwise (derived for display)"
+    },
+    "field_logic": [
+      "tutor_name: built from name in tutors. - drop leading and trailing spaces from name - capitalize the first letter of each word",
+      "first_tag: built from tags in sessions. - use the tutor's earliest session: the lowest session_date, and if several sessions share that date, the one with the lowest session_id - take the first element (position 1) from the tags array of that session",
+      "join_month: built from joined_date in tutors. - extract the month number (1-12) from joined_date",
+      "sample_fee: built from fee_text in sessions. - use the tutor's earliest session: the lowest session_date, and if several sessions share that date, the one with the lowest session_id - convert fee_text of that session to a numeric value using the '$999.99' format - round the result to the nearest whole number - apply the modulo operation with 100 to produce a two-digit representation",
+      "active_flag: built from the tutor's qualifying streak status. - if the tutor has at least one streak of 5 or more consecutive days, return 1 - if the tutor has no qualifying streak or has NULL session data, return 0"
+    ],
+    "edge_cases": [],
+    "filter_note": "tutor_id appears in the streaks CTE (tutors who have at least one 5-day consecutive streak after deduping same-day sessions)",
+    "order_by_note": "tutor_id ascending"
+  },
+  "schema_ddl": "CREATE TABLE tutors (tutor_id INT PRIMARY KEY, tutor_name VARCHAR(100), joined_date DATE); CREATE TABLE sessions (session_id SERIAL PRIMARY KEY, tutor_id INT, session_date DATE, tags TEXT[], fee_text VARCHAR(20));",
+  "example_input_data": "INSERT INTO tutors (tutor_id, tutor_name, joined_date) VALUES (1, ' alice chen ', '2024-01-15'), (2, ' bob smith ', '2024-02-20'), (3, ' carol li ', '2024-03-10'); INSERT INTO sessions (tutor_id, session_date, tags, fee_text) VALUES (1, '2024-06-01', ARRAY['math','beginner'], '$45.00'), (1, '2024-06-01', ARRAY['science','advanced'], '$50.00'), (1, '2024-06-02', ARRAY['math','intermediate'], '$45.00'), (1, '2024-06-03', ARRAY['english','beginner'], '$40.00'), (1, '2024-06-04', ARRAY['math','advanced'], '$50.00'), (1, '2024-06-05', ARRAY['science','beginner'], '$45.00'), (2, '2024-06-01', ARRAY['history','beginner'], '$35.00'), (2, '2024-06-03', ARRAY['geography','intermediate'], '$38.00');",
+  "example_output_columns": [
+    "tutor_id",
+    "tutor_name",
+    "first_tag",
+    "join_month",
+    "sample_fee",
+    "active_flag"
+  ],
+  "example_output_rows": [
+    [
+      1,
+      "Alice Chen",
+      "math",
+      1,
+      45,
+      1
+    ]
+  ],
+  "test_data": "INSERT INTO tutors (tutor_id, tutor_name, joined_date) VALUES (1, ' alice chen ', '2024-01-15'), (2, ' bob smith ', '2024-02-20'), (3, ' carol li ', '2024-03-10'), (4, ' david ng ', '2024-04-05'), (5, ' emma wong ', '2024-05-12'); INSERT INTO sessions (tutor_id, session_date, tags, fee_text) VALUES (1, '2024-06-01', ARRAY['math','beginner'], '$45.00'), (1, '2024-06-01', ARRAY['science','advanced'], '$50.00'), (1, '2024-06-02', ARRAY['math','intermediate'], '$45.00'), (1, '2024-06-03', ARRAY['english','beginner'], '$40.00'), (1, '2024-06-04', ARRAY['math','advanced'], '$50.00'), (1, '2024-06-05', ARRAY['science','beginner'], '$45.00'), (1, '2024-06-15', ARRAY['physics','intermediate'], '$52.00'), (1, '2024-06-16', ARRAY['chemistry','advanced'], '$55.00'), (1, '2024-06-17', ARRAY['biology','beginner'], '$48.00'), (1, '2024-06-18', ARRAY['math','expert'], '$60.00'), (1, '2024-06-19', ARRAY['science','expert'], '$62.00'), (1, '2024-06-20', ARRAY['english','advanced'], '$58.00'), (2, '2024-06-01', ARRAY['history','beginner'], '$35.00'), (2, '2024-06-03', ARRAY['geography','intermediate'], '$38.00'), (2, '2024-06-05', ARRAY['civics','beginner'], '$36.00'), (3, '2024-06-10', ARRAY['art','beginner'], '$30.00'), (3, '2024-06-11', ARRAY['music','intermediate'], '$33.00'), (3, '2024-06-12', ARRAY['drama','beginner'], '$32.00'), (3, '2024-06-13', ARRAY['dance','intermediate'], '$35.00'), (3, '2024-06-14', ARRAY['art','advanced'], '$38.00'), (4, '2024-06-01', ARRAY['coding','beginner'], '$50.00'), (4, '2024-06-02', ARRAY['web','intermediate'], '$55.00'), (4, '2024-06-03', ARRAY['app','advanced'], '$60.00'), (4, '2024-06-04', ARRAY['database','beginner'], '$52.00'), (4, '2024-06-05', ARRAY['coding','expert'], '$65.00'), (4, '2024-06-06', ARRAY['security','intermediate'], '$58.00'), (4, '2024-06-20', ARRAY['ai','beginner'], '$70.00'), (4, '2024-06-21', ARRAY['ml','intermediate'], '$72.00'), (4, '2024-06-22', ARRAY['data','advanced'], '$75.00'), (4, '2024-06-23', ARRAY['stats','beginner'], '$68.00'), (4, '2024-06-24', ARRAY['coding','advanced'], '$70.00'), (5, '2024-06-01', ARRAY['language','beginner'], '$40.00'), (5, '2024-06-05', ARRAY['grammar','intermediate'], '$42.00');",
+  "test_expected_columns": [
+    "tutor_id",
+    "tutor_name",
+    "first_tag",
+    "join_month",
+    "sample_fee",
+    "active_flag"
+  ],
+  "test_expected_rows": [
+    [
+      1,
+      "Alice Chen",
+      "math",
+      1,
+      45,
+      1
+    ],
+    [
+      3,
+      "Carol Li",
+      "art",
+      3,
+      30,
+      1
+    ],
+    [
+      4,
+      "David Ng",
+      "coding",
+      4,
+      50,
+      1
+    ]
+  ],
+  "classification": {
+    "input_arrival": "join",
+    "output_shape": "fewer_rows",
+    "recipe": "gaps-and-islands",
+    "composite_moves": [
+      "dedupe same-day sessions per tutor with SELECT DISTINCT tutor_id, session_date",
+      "assign row numbers partitioned by tutor_id ordered by session_date",
+      "compute grp = session_date - row_number to collapse consecutive days",
+      "group by tutor_id and grp, filter with HAVING COUNT(*) >= 5",
+      "join tutors to streaks with EXISTS or IN membership",
+      "clean tutor_name with TRIM and INITCAP",
+      "extract first element from tags array",
+      "extract month from joined_date",
+      "cast fee_text to numeric and apply ROUND and MOD",
+      "compute active_flag with COALESCE and CASE for streak presence"
+    ]
+  },
+  "hints": [
+    "Consecutive-day streaks can be detected by subtracting a row number from the date \u2014 if the days are consecutive, that difference stays constant within a streak.",
+    "Remember that the sessions table may have duplicate rows for the same tutor and date; you need to deduplicate those before computing row numbers, or your streak math will break.",
+    "After grouping by tutor and the computed streak identifier, use HAVING to keep only the streaks that meet the minimum length threshold, then use membership semantics (EXISTS or IN) to find which tutors have at least one qualifying streak."
+  ],
+  "answer_key": "WITH base AS (SELECT DISTINCT tutor_id, session_date FROM sessions), date_groups AS (SELECT tutor_id, session_date, session_date - ROW_NUMBER() OVER (PARTITION BY tutor_id ORDER BY session_date)::int AS grp FROM base), streaks AS (SELECT tutor_id FROM date_groups GROUP BY tutor_id, grp HAVING COUNT(*) >= 5), sample_sessions AS (SELECT DISTINCT ON (tutor_id) tutor_id, tags, fee_text FROM sessions ORDER BY tutor_id, session_date, session_id) SELECT t.tutor_id, INITCAP(TRIM(t.tutor_name)) AS tutor_name, ss.tags[1] AS first_tag, EXTRACT(MONTH FROM t.joined_date)::int AS join_month, MOD(ROUND(TO_NUMBER(ss.fee_text, '$999.99')), 100)::int AS sample_fee, COALESCE((CASE WHEN EXISTS (SELECT 1 FROM streaks s WHERE s.tutor_id = t.tutor_id) THEN 1 ELSE 0 END), 0) AS active_flag FROM tutors t JOIN sample_sessions ss ON ss.tutor_id = t.tutor_id WHERE EXISTS (SELECT 1 FROM streaks s WHERE s.tutor_id = t.tutor_id) ORDER BY t.tutor_id;",
+  "_meta": {
+    "question_type": "union_islands",
+    "original_qtype": "union_islands",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-07T19:31:08.724072",
+    "problem_id": "ee64cc3eb4e7",
+    "validation_attempts": 2,
+    "scenario": "a tutoring marketplace tracking session booking and tutor ratings",
+    "dml_op": null,
+    "islands_flavor": "consecutive_day_streak_per_entity",
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": null,
+    "cleaning_required": true,
+    "cleaning_level": "high",
+    "cleaning_requested": "high",
+    "cleaning_skipped_reason": null,
+    "cleaning_all_six": true,
+    "cleaning_per_category": 1,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "moderate"
+  },
+  "example_output_schema": [
+    [
+      "tutor_id",
+      "INTEGER"
+    ],
+    [
+      "tutor_name",
+      "TEXT"
+    ],
+    [
+      "first_tag",
+      "TEXT"
+    ],
+    [
+      "join_month",
+      "INTEGER"
+    ],
+    [
+      "sample_fee",
+      "INTEGER"
+    ],
+    [
+      "active_flag",
+      "INTEGER"
+    ]
+  ]
+}

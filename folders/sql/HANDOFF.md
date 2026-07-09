@@ -1,8 +1,66 @@
 # Handoff: Trinidad's SQL Practice & Playbook
 
-Updated 2026-07-06. Pick up here for the next cowork session. This file is canonical for the playbook `sql_problem_patterns.html` and the nb01 engine `sql_practice_utils.py`.
+Updated 2026-07-08. Pick up here for the next cowork session. This file is canonical for the playbook `sql_problem_patterns.html` and the nb01 engine `sql_practice_utils.py`.
 
 **PATHS (current).** The project folder was renamed `sql_practice_generator` → `data_analyst_interview_prep`. nb01 and its engine now live at `folders/ds_blogs/projects/data_analyst_interview_prep/notebooks/` (`nb01_sql_practice.ipynb`, engine `sql_practice_utils.py` next to it). Playbook unchanged at `folders/sql/sql_problem_patterns.html`. After the notebook renumbering the interview-drills notebook is `nb04_analyst_interview_drills.ipynb` (engine `nb04_drill_utils.py`); nb02 = Python practice, nb03 = data cleaning/modeling, nb05 = statistics, nb06 = SQL error review.
+
+## SESSION 2026-07-08 — vague row picker fix (spec + validator); SERIAL columns shown in example data; idiom tips gated on evidence; new gi-leaf-int worked card (BNPL status islands); all-six retry audit → 4 generation fixes
+
+**Engine fix 1 — vague "representative row" instructions (bug Trinidad hit on a union_islands problem).**
+- A generated problem said first_tag/sample_fee come from "a representative session for the tutor" — no selection rule, and the answer_key's `DISTINCT ON (tutor_id) ... ORDER BY tutor_id, session_date` had NO unique tiebreak (tutor 1 had two same-day sessions; the pick was insert order luck).
+- Fixed the saved problem JSON (`20260707_193108_postgresql_union_islands_ee64cc3eb4e7.json`): exact rule everywhere (earliest session by session_date, tie → lowest session_id), answer_key got the session_id tiebreak; pg-verified both outputs unchanged.
+- Engine: new FIELD-INSTRUCTION CLARITY rule (e) — any "pick one row per entity" column must state the deciding column AND a unique tiebreak; answer_key DISTINCT ON / ROW_NUMBER must ORDER BY the deciding column + the primary key. New validator check in `_validate_problem` rejects vague pickers in field_logic ("a representative X", "any row", "one of the rows", "an arbitrary X") with a fix-it message. Regex tested, 0 false positives on exact-rule wording.
+
+**Engine fix 2 — SERIAL columns invisible in example data tables.**
+- Example data tables are parsed from INSERTs, and INSERTs omit SERIAL/IDENTITY/AUTO_INCREMENT columns, so session_id showed in the schema but not the data (both "1. Pick a problem" and "3. Write your SQL"; both render via `render_problem_card`).
+- New `_fill_auto_columns(schema_cols, dcols, drows)` (next to `parse_inserts`): auto-filled columns get values 1..N in insert order and columns render in schema order. Verified on the live problem (session_id 1-34 shown; tables without auto columns untouched).
+
+**Engine fix 3 — "Idiomatic tip" fired on almost every HIGH-cleaning PASS.**
+- The post-PASS tip suggested a built-in whenever the answer_key used it and the learner did not — token presence only. HIGH cleaning forces CONDITIONAL functions into nearly every answer_key (often a redundant COALESCE around a CASE that can never be NULL), so solving without typing COALESCE always triggered the tip.
+- `IDIOM_TIPS` entries are now (tip, evidence_regex): the tip fires only when the learner's SQL shows the hand-rolled pattern the built-in replaces (COALESCE needs `CASE WHEN ... IS NULL`; ABS needs `CASE WHEN ... < 0`; INITCAP needs `UPPER(`; MOD unchanged). Verified: CASE-style passing solutions → no tips; genuine hand-rolls → correct tip.
+
+**Playbook — new worked card in gi-leaf-int (badge 6 → 7): "Consecutive Installment ID Ranges by Status" (Medium).**
+- Trinidad's solved BNPL problem: status-partitioned `id − rn` islands where the partition key is a CLEANED expression (INITCAP/TRIM/SPLIT_PART), plus island-level aggregates. Solution card uses the corrected form, pg-verified: `(ARRAY_AGG(row_month ORDER BY installment_id))[1]` for start_month (MIN on month NAMES sorts alphabetically — proved a range extended into August still reports May), `MOD(COUNT(*), 2)` risk_flag (MAX−MIN parity works only because islands are gapless), bare `'|'` + TRIM, plus the pipe-presence filter.
+- Annotated comment teaches the GROUP BY splitter trap (per row values become aggregates, never GROUP BY keys — the bug Trinidad hit) and the `(func(...))[1]` outer-parens rule.
+- Balance after edit: div 7644/7644, details 81/81, renderITree once, COWORK_ITREES valid JSON (34 trees), no unescaped `<` in the new card. (A naive `id="..."` grep false-flags CSS attribute selectors as duplicate ids — real duplicates are 0.)
+
+**Generation retry audit (`gen_failures/generation_attempts.jsonl`, 45 records) → 4 fixes for the all-six whack-a-mole.**
+- Findings: 21 of 25 failures were cleaning_all_six; attempt 1 failed the family check in EVERY logged HIGH generation; one union_islands run burned all 8 attempts oscillating (fix DATE, drop ARRAY, fix ARRAY, drop DATE...).
+- Root causes: (a) `_cleaning_all_six` names rotated functions the validator could not SEE — 6 of 13 STRING picks, 3 of 8 ARRAY, 3 of 6 CAST, 1 NUMERIC, 1 DATE were invisible to `_cleaning_families_missing` (model obeys, validator rejects; joint attempt-1 pass ≈ 13%); (b) the rotation re-rolled EVERY attempt (random.sample inside the retry loop) so each retry chased a different required set; (c) retries never saw the previous answer_key, making "KEEP every family it already HAS" unfollowable; (d) the reliable one-derived-column-per-family recipe only existed in the retry error, never in the initial prompt.
+- Fixes: (1) validator regexes now cover every _FN_DRILL pick (added LEFT/RIGHT/POSITION/STRPOS/LENGTH/CHAR_LENGTH/CONCAT_WS/REGEXP_REPLACE/STRING_TO_ARRAY; ARRAY_TO_STRING/STRING_TO_ARRAY/ARRAY_AGG/ARRAY_POSITION + `@>`/`&&`; bare INTERVAL; TO_CHAR as CAST; SIGN/LN/LOG/EXP + spaced `a % b` as NUMERIC — spaces required so LIKE '%x%' never matches) with a LOCKSTEP comment both sides: a pool entry must be visible to its own family regex; (2) pool hygiene — NULLIF/COALESCE out of cast pool, GREATEST/LEAST out of numeric pool (both stay in conditional), regex-invisible "date - date" dropped; (3) rotation rolled ONCE per generation (`_all_six_block` hoisted before the loop); (4) retries echo the previous answer_key with "fix it forward" instructions, and the initial drill block now contains the RELIABLE RECIPE + a self-check line ("check the answer_key against the six numbered lines before returning"). Retro-test on the log: 2 of 20 logged rejections would now pass outright; the rest should converge monotonically instead of oscillating.
+- Expectation: HIGH generations passing on attempt 1-2 instead of 2-8. If union_islands still burns retries after this, THEN consider easing the six-family rule for heavy qtypes (the earlier pending item) — do not ease it first.
+
+**PENDING for next session:** (1) uncollapse/expand-all button in the nb01 problem card — toggle exists in `render_problem_card` (~line 7100s, single "Collapse all"⇄"Expand all" button); decide toggle vs two explicit side-by-side buttons. (2) Watch the next few HIGH generations in `generation_attempts.jsonl` to confirm the attempt-1 pass rate improved.
+
+## SESSION 2026-07-07 — anti-join consolidated to Multi-Table; mt-otherfilter tree Step 1/2 rewrite (base/check-against + ⓘ popups); Function reference "Goes in" column + regex-match row; HIGH-cleaning imputation nudge; nb01 field-lineage auto-fill; engine array-subscript auto-fix; root cleanup
+
+**Anti-join now lives ONLY in Multi-Table (was duplicated in Single-Table too).**
+- Single-Table `rf-leaf-antijoin` (method-picker tree + 12 worked problems) replaced by a small pointer stub (id kept) linking to Multi-Table `mt-of-antijoin`. The rf decision-tree "never/did not" leaf now reads "Anti-join → Multi-Table" (anchor still `rf-leaf-antijoin` → the stub). Removed the orphaned `aj-method-itree` from COWORK_ITREES.
+- The 12 worked problems MOVED into the matching Multi-Table cards: `mt-of-notexists` (6), `mt-of-antinull` (3), `mt-of-notin` (3); badges updated. Multi-Table was the light copy before; now it is the full canonical one. Rationale in memory [[feedback_tree_leaves_can_share_result]] (an anti-join needs two tables → Multi-Table only).
+
+**`mt-otherfilter` "How to pick" tree reworked (Step 1 + Step 2).**
+- Terminology standardized: **base table** (the one filtered) + **check against table** (was "the other table" — benchmarked; "reference table" is taken by enrich-join). Swapped in the tree AND the mt-of card excerpts.
+- Step 1 output-first: "How did each row in the output table earn its spot from the base table?" → 3 options (has a match → semi-join; no match → anti-join; enough matches to clear a count threshold → count/HAVING). semi-join / anti-join carry an **ⓘ popup** (closeable with ✕).
+- Step 2 collapsed to the one decision that matters: "could the id of the check against table be missing (NULL/empty)?" → (1) could be missing/unsure → NOT EXISTS (or LEFT JOIN…IS NULL if already joining it) (2) never missing/prompt says so → NOT IN. ⓘ popups for NOT EXISTS / NOT IN / LEFT JOIN…IS NULL. Dropped the old "need columns from table 2" option (wrong for a pure anti-join). Before/after tables kept on both options.
+- Hybrid signpost added to the mt-otherfilter excerpt: "also need a count/column from the check against table? → separate LEFT JOIN + aggregate" with a jump link to `enrich-aggregate`.
+- NEW itree infra (inline in the HTML `<script>`): optional `lead` field (innerHTML line under `sub`), `ITREE_DEFS` map + `itreeDef()` closeable popup, `.itree-info/.itree-lead/.itree-def-pop` CSS. To add a popup term: add to `ITREE_DEFS` and put `<span class='itree-info' data-term='X' onclick='event.stopPropagation(); itreeDef(event, this.dataset.term);'>&#9432;</span>` in an option label (labels render as innerHTML).
+
+**Function reference (`ref_table` in `build_scripts/build_fn_container.py`) gained a "Goes in" column.**
+- 5th column = the clause each function lives in (value → SELECT; true/false test → WHERE/CASE; UNNEST → FROM; DATE_TRUNC → SELECT/GROUP BY). Every REF row is now a 5-tuple; excerpt documents the rule.
+- Added String-family row `s ~ 'regex'` (regex MATCH test, WHERE/CASE) right under `REGEXP_REPLACE` (regex EDIT, SELECT) to teach the contrast; example `'NP-123456' ~ '^NP-[0-9]{6}$'` (pg-verified). fn-string badge 13→14.
+- NEW re-runnable sync `build_scripts/sync_fn_ref.py` regenerates all 6 family reference tables + the Date-Ops copy in place (build_fn_container.main() only INSERTS once, so REF edits never reached the HTML before). Re-run after any REF change.
+
+**Engine (`sql_practice_utils.py`).**
+- **Array-subscript auto-fix (NEW):** `_wrap_func_array_subscripts()` rewrites `func(...)[i]` → `(func(...))[i]` (Postgres: "syntax error at or near [" when subscripting a function result). Applied at the top of `_validate_problem` and persisted to `answer_key`; leaves `col[1]`/`t.tags[1]`/`(expr)[i]` alone; idempotent (function name must be DIRECTLY before `(`, no space, so it never re-wraps its own output or a `SELECT (...)`). Guidance added to the ARRAY subtype pin + all-six recipe (use `(STRING_TO_ARRAY(...))[1]` or SPLIT_PART; never `func(...)[1]`). pg-verified.
+- HIGH cleaning: `_FN_DRILL['conditional']` expanded 4→9 with imputation methods (COALESCE default/mean, `NULLIF(TRIM(col),'')` blank→NULL, `x/NULLIF(denom,0)`) so the CONDITIONAL/NULL family drills the `missing_values` subtype toolbox.
+
+**nb01.** Generate now auto-fills the field-lineage planner (`_plan_seed()` added to `on_generate`, guarded like `refresh_reminder`) — no more empty planner after generating. Subtype dropdown confirmed defaults to Random.
+
+**Housekeeping.** Removed a duplicate element id (2nd `rc-leaf-fixed-run` div lost its id; jump target kept on the 1st) — 0 duplicate element ids now. Archived 4 unlinked stale root exports (`folders/sql_{combined_strategy_patterns,master_decision_tree,multi_table_query_strategies,single_table_query_strategies}.html`) to `folders/archive/sql_root_legacy_2026-07/` (nothing linked them; site uses the `folders/sql/` copies via posts.json). `folders/` root is clean.
+
+Balance after all playbook edits: div 7632/7632, details 81/81, renderITree once, COWORK_ITREES valid JSON (34 trees).
+
+**PENDING for next session:** (1) uncollapse/expand-all button in the nb01 problem card — a toggle ALREADY exists in `render_problem_card` (single "Collapse all"⇄"Expand all" button, ~lines 7063 of `sql_practice_utils.py`); decide toggle vs two explicit side-by-side buttons. (2) all-six-families whack-a-mole still fails on heavy qtypes (`union_islands`) even after the subscript fix — consider bumping retries or easing the six-family rule for the heaviest question types. (3) Trinidad has a problem needing advice (TBD).
 
 ## SESSION 2026-07-06 — math-functions reference (+SIGN); function-toolbox nudge (engine + nb01); nb01 root_cause visible + field-lineage Clear/reset + collapsible table; gaps-and-islands audit
 

@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comparing Medi-Cal Health Plan Quality in Tableau, Explained Through SQL and pandas | Bitter Scientist</title>
+
+    <!-- Bootstrap 4.3.1 -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+
+    <!-- Site framework CSS -->
+    <link rel="stylesheet" type="text/css" href="../../static/css/navbar.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/footer.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/theme.css">
+
+    <style>
+        :root {
+            --navy: #1E2761;
+            --green: #2CA58D;
+            --red: #E15554;
+            --ice: #CADCFC;
+        }
+        * { box-sizing: border-box; }
+
+        /* ============ TYPE HIERARCHY (one font, five sizes) ============
+           h1 page title      1.6rem  bold
+           subtitle           1.05rem regular grey
+           section summary    1.15rem semibold navy
+           body + tables      1rem
+           code + captions    0.875rem monospace / italic grey           */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; color: #333; line-height: 1.6; }
+        .main-container { max-width: 1200px; margin: 0 auto; padding: 20px; background-color: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); font-size: 0.875rem; }
+        .page-header { text-align: center; margin-bottom: 26px; padding-bottom: 18px; border-bottom: 2px solid var(--navy); }
+        .page-header h1 { color: var(--navy); font-weight: 700; font-size: 1.5rem; }
+        .page-header .subtitle { color: #666; font-size: 0.95rem; margin-top: 8px; }
+        .page-header .meta { color: #999; font-size: 0.8rem; margin-top: 6px; }
+
+        .tab-navigation { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; border-bottom: 2px solid #e0e0e0; margin-bottom: 22px; position: sticky; top: 0; background: white; z-index: 50; padding-top: 6px; }
+        .nav-tab { border: none; background: none; padding: 10px 14px; font-size: 0.95rem; font-weight: 500; color: #555; cursor: pointer; border-bottom: 3px solid transparent; font-family: inherit; }
+        .nav-tab:hover { color: var(--navy); }
+        .nav-tab.active { color: var(--navy); border-bottom-color: var(--navy); font-weight: 600; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Collapsible sections */
+        details.sec { border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 14px; background: white; }
+        details.sec > summary { cursor: pointer; padding: 12px 16px; font-size: 1rem; font-weight: 600; color: var(--navy); list-style: none; }
+        details.sec > summary::-webkit-details-marker { display: none; }
+        details.sec > summary::before { content: "\25B8"; margin-right: 10px; font-size: 0.9em; }
+        details.sec[open] > summary::before { content: "\25BE"; }
+        details.sec[open] > summary { border-bottom: 1px solid #eee; }
+        .sec-body { padding: 14px 16px; }
+
+        .question-box { background: var(--ice); border-left: 5px solid var(--navy); padding: 14px 18px; border-radius: 0 6px 6px 0; margin-bottom: 18px; font-size: 0.875rem; }
+        .question-box strong { color: var(--navy); }
+        .intro-box { padding: 4px 2px 10px 2px; margin-bottom: 18px; font-size: 0.875rem; border-bottom: 1px solid #ddd; }
+        .intro-box strong { color: var(--navy); }
+        .subhead { font-size: 1rem; font-weight: 600; color: var(--navy); margin: 16px 0 2px 0; }
+        hr.light { border: 0; border-top: 1px solid #e4e4e4; margin: 20px 0; }
+        .section-controls { text-align: center; margin-bottom: 10px; }
+        .section-controls button { background: none; border: 1px solid #c9cede; border-radius: 5px; color: var(--navy); font-size: 0.8rem; padding: 4px 12px; margin-left: 6px; cursor: pointer; font-family: inherit; }
+        .section-controls button:hover { background: #eef0f6; }
+        .lod-spectrum { margin: 26px 0 10px 0; }
+        .lod-spectrum .spec-bar { display: flex; align-items: stretch; text-align: center; border: 1px solid #c9cede; border-radius: 8px; overflow: hidden; }
+        .lod-spectrum .spec-cell { flex: 1; padding: 10px 8px; font-size: 0.8rem; }
+        .lod-spectrum .spec-cell + .spec-cell { border-left: 1px solid #c9cede; }
+        .lod-spectrum .spec-name { font-weight: 700; color: var(--navy); font-size: 0.85rem; }
+        .lod-spectrum .spec-chart { background: #eef0f6; }
+        .lod-spectrum .spec-ends { display: flex; justify-content: space-between; font-size: 0.75rem; color: #888; margin-top: 6px; margin-bottom: 18px; }
+        .lod-spectrum .spec-code { font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 0.72rem; color: #555; margin-top: 4px; }
+        .before-after { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 12px 0 6px 0; }
+        .before-after .ba-table { flex: 1 1 300px; }
+        .before-after .ba-arrow { flex: 0 0 auto; font-size: 1.8rem; color: var(--navy); text-align: center; }
+        .before-after .ba-label { font-size: 0.8rem; font-weight: 600; color: #555; margin-bottom: 4px; }
+
+        .calc-formula { background: #f4f4f8; border: 1px solid #ddd; border-radius: 6px; padding: 10px 14px; font-family: 'SF Mono', Menlo, Consolas, Monaco, 'Courier New', monospace; font-size: 0.8rem; margin: 10px 0; white-space: pre-wrap; }
+        .click-path { font-size: 0.85rem; color: #555; }
+        .click-path li { margin-bottom: 4px; }
+
+        .code-block { background-color: #1a1a2e; color: #e8e8e8; border-radius: 6px; padding: 14px 16px; font-family: 'SF Mono', Menlo, Consolas, Monaco, 'Courier New', monospace; font-size: 0.8rem; overflow-x: auto; white-space: pre; line-height: 1.5; margin: 0; }
+        .code-block .kw { color: #c792ea; }
+        .code-block .cm { color: #7a7a94; font-style: italic; }
+        .code-block .st { color: #c3e88d; }
+        code { font-family: 'SF Mono', Menlo, Consolas, Monaco, 'Courier New', monospace; font-size: 0.8rem; color: #e8e8e8; background: #1a1a2e; padding: 2px 7px; border-radius: 4px; white-space: pre-wrap; }
+        table.blog-table code { display: inline-block; padding: 4px 8px; line-height: 1.45; margin: 1px 0; }
+
+        table.blog-table { width: 100%; border-collapse: collapse; margin: 12px 0 6px 0; font-size: 0.8rem; font-family: inherit; }
+        table.blog-table th { background: #eef0f6; color: #333; font-weight: 600; padding: 7px 12px; text-align: left; font-size: 0.8rem; border-bottom: 2px solid #c9cede; }
+        table.blog-table td { padding: 7px 12px; border-bottom: 1px solid #e8e8e8; vertical-align: top; font-family: inherit; font-size: 0.8rem; }
+        table.blog-table tr:nth-child(even) { background: #f7f8fc; }
+        table.blog-table .match { color: var(--green); font-weight: 700; }
+        .caption { font-size: 0.75rem; color: #888; font-style: italic; margin: 4px 0 14px 0; }
+
+        .gotcha-box { background: #fdf3f3; border-left: 5px solid var(--red); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 16px 0; font-size: 0.875rem; }
+        .gotcha-box strong { color: var(--red); }
+        .insight-box { background: #f0faf7; border-left: 5px solid var(--green); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 16px 0; font-size: 0.875rem; }
+        .insight-box strong { color: var(--green); }
+
+        .main-container p, .main-container li { font-size: inherit; }
+        @media (max-width: 768px) { .nav-tab { font-size: 0.875rem; padding: 8px 8px; } }
+    </style>
+</head>
+<body>
+  <div id="page-container">
+    <div id="content-wrap">
+      <div w3-include-html="/folders/navbar_footer/navbar_pages.html"></div>
+      <div class="blog-container">
+    <div class="main-container">
+        <div class="page-header">
+            <h1>Comparing Medi-Cal Health Plan Quality in Tableau, Explained Through SQL and pandas</h1>
+            <div class="subtitle">Trending, ranking, and benchmarking the AQFS composite HEDIS quality score, with every Tableau method verified in SQL and pandas.</div>
+            <div class="meta">6 tabs &middot; Parity verified in DuckDB SQL and pandas &middot; Live Tableau Public dashboard &middot; July 2026</div>
+        </div>
+
+        <div class="tab-navigation" id="tabNav">
+            <button class="nav-tab active" onclick="switchTab(event, 'tab-overview')">Overview</button>
+            <button class="nav-tab" onclick="switchTab(event, 'tab-lod')">Benchmarks &amp; LODs</button>
+            <button class="nav-tab" onclick="switchTab(event, 'tab-tablecalc')">Table Calculations</button>
+            <button class="nav-tab" onclick="switchTab(event, 'tab-difffirst')">Difference From First</button>
+            <button class="nav-tab" onclick="switchTab(event, 'tab-params')">Parameters</button>
+            <button class="nav-tab" onclick="switchTab(event, 'tab-dashboard')">The Dashboard</button>
+        </div>
+
+        <!-- TAB 1: OVERVIEW -->
+        <div id="tab-overview" class="tab-content active">
+            <div class="section-controls"><button onclick="setAllSections('tab-overview', true)">Expand All</button><button onclick="setAllSections('tab-overview', false)">Collapse All</button></div>
+
+            <details class="sec" open><summary>Introduction</summary><div class="sec-body">
+                <p style="margin-bottom:10px;">This project opens up what Tableau is actually doing to your data when you drag a pill onto a shelf. The approach: use SQL and pandas, where every step is written out, as the reference point for what Tableau does silently through its internal engine. If you can read the SQL or pandas, the Tableau is no longer a mystery.</p>
+                <p style="margin-bottom:10px;"><strong>The data is the context, not the point.</strong> The methods are demonstrated on health plan <em>quality</em> scores, and the post teaches the quality measurement system behind them, HEDIS, as it goes. Medi-Cal is California's Medicaid program; it covers roughly 13 million low income residents, most of whom are assigned to a managed care plan and cannot easily switch, so how well those plans score is not academic. (A <a href="ds_tableau_sql_pandas_medi_cal.html">companion post</a> applies the same lens to raw Medi-Cal enrollment counts.)</p>
+                <strong>Specifically, this post covers:</strong>
+                <ul style="margin: 6px 0 10px 0;">
+                    <li><strong>Benchmarks and Level of Detail expressions (FIXED)</strong>, computing a statewide average once and attaching it to every plan so each plan can be measured against it</li>
+                    <li><strong>Table calculations</strong>, how much each plan's score has moved since a baseline year, computed on the view's results rather than the raw data</li>
+                    <li><strong>Parameters</strong>, a viewer controlled year selector that re ranks every plan for whichever year is chosen</li>
+                    <li><strong>A published interactive dashboard</strong>, the plan quality scorecard, that puts all three methods on one screen</li>
+                </ul>
+                <p style="margin-bottom:6px;">The source is the <strong>DHCS Managed Care Performance Monitoring</strong> release, one composite quality score per plan, per region, per year, 2016 through 2023. The accompanying dashboard answers:</p>
+                <ul style="margin: 0;">
+                    <li>How has plan quality trended, for L.A. Care, its Los Angeles rival Health Net, and the statewide average?</li>
+                    <li>How does every plan rank in a year you choose?</li>
+                    <li>How much has each plan's score changed since 2016?</li>
+                    <li>How do plans compare on primary care access, and what do members complain about?</li>
+                </ul>
+            </div></details>
+
+            <details class="sec" open><summary>Background</summary><div class="sec-body">
+
+                <details class="sec"><summary>The vocabulary</summary><div class="sec-body">
+                <table class="blog-table">
+                    <tr><th style="width:16%">Term</th><th style="width:40%">Plain definition</th><th style="width:23%">SQL</th><th style="width:21%">pandas</th></tr>
+                    <tr><td>Grain</td><td>What one row represents. Here: one plan, in one region, in one year</td><td>the table's level before grouping</td><td>the DataFrame's level before grouping</td></tr>
+                    <tr><td>Aggregation</td><td>Collapsing many rows into one number (SUM, AVG); the dimensions in the view decide the groups</td><td><code>GROUP BY</code></td><td><code>.groupby().agg()</code></td></tr>
+                    <tr><td>Benchmark</td><td>A comparison value (a statewide average) attached to every plan so you can see who is above or below</td><td><code>AVG(x) OVER (PARTITION BY g)</code></td><td><code>groupby(g).transform('mean')</code></td></tr>
+                    <tr><td>Level of Detail (LOD)</td><td>A calculation done for a group of your choosing, with the group's answer attached back to every row</td><td><code>OVER (PARTITION BY g)</code></td><td><code>groupby(g).transform()</code></td></tr>
+                    <tr><td>Table calculation</td><td>A transformation of the numbers ALREADY in the view, applied after the query returns</td><td>window over the result set</td><td><code>x - x.iloc[0]</code>, <code>.pct_change()</code></td></tr>
+                    <tr><td>Parameter</td><td>A viewer controlled variable; inert until a calculation or filter references it</td><td>a query variable</td><td>a Python variable</td></tr>
+                </table>
+                </div></details>
+
+                <details class="sec"><summary>What HEDIS and the quality score actually are (the learning goal of this post)</summary><div class="sec-body">
+                <ul>
+                    <li><strong>HEDIS</strong> (Healthcare Effectiveness Data and Information Set) is a standardized set of quality measures maintained by NCQA, the National Committee for Quality Assurance. Most US health plans report it, which is what makes plans comparable.</li>
+                    <li><strong>A single measure is a rate</strong>, numerator over denominator. For example, Breast Cancer Screening is the share of women 50 to 74 who got a mammogram out of those who should have. Higher is better for most measures.</li>
+                    <li><strong>DHCS holds Medi-Cal plans to two bars:</strong> a Minimum Performance Level (roughly the national Medicaid 50th percentile) that triggers corrective action if missed, and a High Performance Level (the 90th percentile, the national top tier).</li>
+                </ul>
+                <p style="margin-top:10px;"><strong>This dataset does not give individual measures.</strong> It gives one composite score per plan per region per year, the Aggregated Quality Factor Score. Since acronyms mean nothing on their own, here is the plain version, the same explanation used across this project:</p>
+                <ul>
+                    <li>The score is a report card grade for a health plan, from 0 to 100</li>
+                    <li>It answers one question: how good is this plan at keeping its members healthy (did kids get checkups, did people get their shots, did sick people get the care they needed)</li>
+                    <li>Higher is better; 100 means performing at the level of the best plans in the country</li>
+                    <li>The "national top tier" is the bar only the best 10% of US plans clear on a measure. It is NOT the same as scoring 90 to 100; it is the cutoff the top decile reaches.</li>
+                </ul>
+                <p style="margin-top:10px;"><strong>How one plan's score is built, worked example on dummy data:</strong></p>
+                <table class="blog-table">
+                    <tr><th>Measure</th><th>This plan's rate</th><th>National top tier bar</th><th>Measure score = (rate &divide; bar) &times; 100</th></tr>
+                    <tr><td>Shots given</td><td>70</td><td>90</td><td>78</td></tr>
+                    <tr><td>Checkups done</td><td>80</td><td>85</td><td>94</td></tr>
+                    <tr><td>Diabetes control</td><td>60</td><td>70</td><td>86</td></tr>
+                    <tr><td><strong>Average of the measure scores</strong></td><td colspan="2"></td><td><strong>(78 + 94 + 86) &divide; 3 = 86</strong></td></tr>
+                </table>
+                <p style="margin-top:8px;"><strong>Why divide the rate by the top tier bar:</strong> the bar is the goal, so rate over goal answers "how close did we get." Hitting the goal is 100, halfway is 50, beating it is over 100. Doing this puts every measure on the same 0 to 100 scale, so shots and checkups can be averaged together fairly. A plan can score high without ever reaching a single bar, if it gets close on all of them.</p>
+                <div class="insight-box"><strong>The key point for this post:</strong> our data already contains the finished score, one per plan per region per year. We never recompute it. Everything below only averages, compares, and ranks the scores that are already there.</div>
+
+                <details class="sec"><summary>The individual HEDIS measures behind the score</summary><div class="sec-body">
+                <p>The composite score rolls up the <strong>Managed Care Accountability Set</strong>, the subset of NCQA HEDIS (and a few CMS Core Set) measures that every Medi-Cal plan must report to DHCS. The exact list shifts slightly year to year; the recent set is below, grouped by what it measures. A few things hold for all of them:</p>
+                <ul>
+                    <li><strong>Each is a rate</strong>, numerator over denominator, reported once a year on a measurement year of claims and records</li>
+                    <li><strong>Each plan's rate is compared to the national High Performance Level</strong> (the top tier), and those comparisons are what feed the composite score used in this post</li>
+                    <li><strong>Direction matters:</strong> for almost every measure higher is better; the one common exception is readmissions, where lower is better</li>
+                </ul>
+                <table class="blog-table">
+                    <tr><th style="width:15%">Category</th><th style="width:30%">Measure (HEDIS code)</th><th style="width:33%">What it captures</th><th style="width:14%">Good vs bad</th><th style="width:8%">Reported</th></tr>
+
+                    <tr><td rowspan="5">Cancer &amp; preventive screening</td><td>Breast Cancer Screening (BCS-E)</td><td>Share of women 50 to 74 who got a mammogram in the recommended window</td><td>Higher is better</td><td>Annual</td></tr>
+                    <tr><td>Cervical Cancer Screening (CCS-E)</td><td>Share of women 21 to 64 up to date on cervical cancer screening</td><td>Higher is better</td><td>Annual</td></tr>
+                    <tr><td>Colorectal Cancer Screening (COL-E)</td><td>Share of adults 45 to 75 up to date on colorectal cancer screening</td><td>Higher is better</td><td>Annual</td></tr>
+                    <tr><td>Chlamydia Screening in Women (CHL)</td><td>Share of sexually active women 16 to 24 screened for chlamydia</td><td>Higher is better</td><td>Annual</td></tr>
+                    <tr><td>Lead Screening in Children (LSC)</td><td>Share of two year olds who got at least one blood lead test</td><td>Higher is better</td><td>Annual</td></tr>
+
+                    <tr><td rowspan="3">Immunization</td><td>Childhood Immunization Status, Combo 10 (CIS-10-E)</td><td>Share of two year olds with the full recommended vaccine series</td><td>Higher is better</td><td>Annual</td></tr>
+                    <tr><td>Immunizations for Adolescents, Combo 2 (IMA-2-E)</td><td>Share of 13 year olds with the recommended adolescent vaccines</td><td>Higher is better</td><td>Annual</td></tr>
+                    <tr><td>Prenatal Immunization Status (PRS-E)</td><td>Share of pregnant members who got recommended flu and Tdap vaccines</td><td>Higher is better</td><td>Annual</td></tr>
+
+                    <tr><td rowspan="4">Child &amp; adolescent care</td><td>Well-Child Visits, First 30 Months (W30)</td><td>Whether young children get the recommended number of well child visits</td><td>Higher is better</td><td>Annual</td></tr>
+                    <tr><td>Child and Adolescent Well-Care Visits (WCV)</td><td>Share of members 3 to 21 with at least one well care visit in the year</td><td>Higher is better</td><td>Annual</td></tr>
+                    <tr><td>Developmental Screening, First 3 Years (DEV)</td><td>Share of young children screened for developmental delays on time</td><td>Higher is better</td><td>Annual</td></tr>
+                    <tr><td>Topical Fluoride for Children (TFL)</td><td>Share of children who got a topical fluoride treatment</td><td>Higher is better</td><td>Annual</td></tr>
+
+                    <tr><td rowspan="4">Maternal &amp; behavioral</td><td>Prenatal and Postpartum Care (PPC)</td><td>Timeliness of prenatal care and a postpartum visit after delivery</td><td>Higher is better</td><td>Annual</td></tr>
+                    <tr><td>Depression Screening and Follow-Up (DSF-E)</td><td>Share of adolescents and adults screened for depression with follow up</td><td>Higher is better</td><td>Annual</td></tr>
+                    <tr><td>Prenatal Depression Screening and Follow-Up (PND-E)</td><td>Depression screening and follow up during pregnancy</td><td>Higher is better</td><td>Annual</td></tr>
+                    <tr><td>Postpartum Depression Screening and Follow-Up (PDS-E)</td><td>Depression screening and follow up after delivery</td><td>Higher is better</td><td>Annual</td></tr>
+
+                    <tr><td rowspan="5">Chronic disease</td><td>Controlling High Blood Pressure (CBP)</td><td>Share of members with hypertension whose blood pressure is under control</td><td>Higher is better</td><td>Annual</td></tr>
+                    <tr><td>Glycemic Status Assessment for Diabetes (GSD)</td><td>Share of diabetics whose most recent blood sugar reading is at target</td><td>Higher is better</td><td>Annual</td></tr>
+                    <tr><td>Eye Exam for Patients with Diabetes (EED)</td><td>Share of diabetics who got a retinal eye exam</td><td>Higher is better</td><td>Annual</td></tr>
+                    <tr><td>Kidney Health Evaluation for Diabetes (KED)</td><td>Share of diabetics who got the recommended kidney function tests</td><td>Higher is better</td><td>Annual</td></tr>
+                    <tr><td>Asthma Medication Ratio (AMR)</td><td>Share of asthma members whose meds are weighted toward controllers, not just rescue inhalers</td><td>Higher is better</td><td>Annual</td></tr>
+
+                    <tr><td rowspan="3">Behavioral health &amp; substance use</td><td>Follow-Up After ED Visit for Mental Illness (FUM)</td><td>Share of mental health ED visits with a timely follow up visit</td><td>Higher is better</td><td>Annual</td></tr>
+                    <tr><td>Follow-Up After ED Visit for Substance Use (FUA)</td><td>Share of substance use ED visits with a timely follow up visit</td><td>Higher is better</td><td>Annual</td></tr>
+                    <tr><td>Pharmacotherapy for Opioid Use Disorder (POD)</td><td>Share of members with opioid use disorder receiving medication treatment</td><td>Higher is better</td><td>Annual</td></tr>
+
+                    <tr><td rowspan="2">Access &amp; utilization</td><td>Adults' Access to Preventive / Ambulatory Services (AAP)</td><td>Share of adults with at least one preventive or outpatient visit</td><td>Higher is better</td><td>Annual</td></tr>
+                    <tr><td>Plan All-Cause Readmissions (PCR)</td><td>Share of hospital stays followed by an unplanned readmission within 30 days</td><td><strong>Lower is better</strong></td><td>Annual</td></tr>
+                </table>
+                <p class="caption">Representative recent Managed Care Accountability Set; the exact measures in the composite change slightly each year. Sources: DHCS Managed Care Accountability Set and NCQA HEDIS measure definitions.</p>
+                </div></details>
+                </div></details>
+
+            </div></details>
+
+            <details class="sec"><summary>Methods</summary><div class="sec-body">
+                <p><strong>Data source</strong></p>
+                <ul>
+                    <li><a href="https://data.chhs.ca.gov/dataset/managed-care-performance-monitoring-dashboard-report" target="_blank">Managed Care Performance Monitoring Dashboard Report</a>, DHCS Managed Care Quality and Monitoring Division, via the CalHHS Open Data Portal (accessed July 2026)</li>
+                    <li>The core file is the composite quality score, one row per plan, per region, per year, 2016 through 2023 (436 rows after cleaning); companion files add primary care provider ratios and member grievances</li>
+                    <li>Obtained programmatically through the portal's CKAN API so the pipeline survives the state's file renames</li>
+                </ul>
+                <p><strong>Preparation</strong></p>
+                <ul>
+                    <li>The one text field "Reporting Unit" split into Plan and Region; scores stored as text with percent signs converted to numbers; grievance and provider counts stripped of commas</li>
+                    <li>A derived "Statewide Average" row added per year, the mean of that year's reporting unit scores, so the benchmark is a real series a chart can draw (see the Benchmarks tab)</li>
+                    <li>Quality checks: no missing scores, score range 26.0 to 98.1, and a recorded panel note that the number of reporting units grows from 53 (2016 to 2019) to 56 (2020 on)</li>
+                </ul>
+                <p><strong>Reproducibility and verification</strong></p>
+                <ul>
+                    <li>Two notebooks: one extracts the raw files and logs what was pulled; one cleans them into the CSVs used here. Re running the cleaner from the raw files reproduces the exact files byte for byte, so the pipeline is fully reproducible.</li>
+                    <li>Every number in this post was computed in Tableau, then checked in DuckDB SQL and pandas; all three agree to the digit</li>
+                </ul>
+            </div></details>
+
+            <details class="sec"><summary>Cheat sheet: the methods in this post, side by side</summary><div class="sec-body">
+            <div class="question-box"><strong>The translation table:</strong> every method in this post, in all three tools. If you know the SQL or pandas column, the Tableau column is not new, it is the same operation with the grouping inferred from the view.</div>
+            <table class="blog-table">
+                <tr><th style="width:20%">Concept</th><th style="width:28%">Tableau</th><th style="width:28%">SQL</th><th style="width:24%">pandas</th></tr>
+                <tr><td>Aggregate to a benchmark</td><td>AVG in the view, or a derived row</td><td><code>AVG(AQFS) GROUP BY Year</code></td><td><code>groupby('Year')['AQFS'].mean()</code></td></tr>
+                <tr><td>Broadcast benchmark to rows</td><td><code>{ FIXED [Year] : ... }</code></td><td><code>AVG(x) OVER (PARTITION BY Year)</code></td><td><code>groupby('Year').transform('mean')</code></td></tr>
+                <tr><td>Reference line value</td><td>FIXED LOD on the axis</td><td>the window value, used directly</td><td>the transformed column</td></tr>
+                <tr><td>Change since a baseline</td><td>Quick Table Calc &rarr; Difference From &rarr; First</td><td><code>x - FIRST_VALUE(x) OVER (ORDER BY Year)</code></td><td><code>x - x.iloc[0]</code></td></tr>
+                <tr><td>Rank</td><td>Sort descending, or RANK table calc</td><td><code>RANK() OVER (ORDER BY x DESC)</code></td><td><code>x.rank(ascending=False)</code></td></tr>
+                <tr><td>Viewer picks a value</td><td>Parameter + boolean bridge field</td><td>query variable <code>:year</code></td><td>Python variable <code>YEAR</code></td></tr>
+            </table>
+            </div></details>
+
+        </div>
+
+        <!-- TAB 2: BENCHMARKS & LODs -->
+        <div id="tab-lod" class="tab-content">
+            <div class="section-controls"><button onclick="setAllSections('tab-lod', true)">Expand All</button><button onclick="setAllSections('tab-lod', false)">Collapse All</button></div>
+            <details class="sec" open><summary>Introduction &amp; The Question</summary><div class="sec-body">
+                <ul>
+                    <li>A single plan's quality score means little on its own. 59 out of 100, is that good? The only way to answer is to put a <strong>benchmark</strong> next to it, and the natural benchmark here is the statewide average for the same year.</li>
+                    <li>A benchmark is a calculation done for a <em>group</em> (all plans in one year) whose answer gets attached back to every plan, so each plan can be compared against it. That is exactly a Level of Detail expression.</li>
+                    <li><strong>You already know this idea by other names:</strong>
+                        <ul style="margin-top:4px;">
+                            <li>in SQL it is a window function, <code>AVG(x) OVER (PARTITION BY Year)</code>, or a grouped subquery joined back</li>
+                            <li>in pandas it is <code>groupby('Year')['x'].transform('mean')</code></li>
+                            <li>out loud it is "the group average, broadcast back to the rows"</li>
+                        </ul>
+                    </li>
+                    <li><strong>Why FIXED specifically:</strong> the dashboard lets a viewer filter to one year. A plain benchmark can quietly break when that filter runs. FIXED pins the grouping in the formula so the benchmark stays correct no matter how the chart is filtered.</li>
+                </ul>
+                <div class="lod-spectrum">
+                    <p style="margin-bottom:14px;"><strong>The three LOD types sit on a spectrum of grouping detail. This post uses FIXED, the one that does not slide:</strong></p>
+                    <div class="spec-bar">
+                        <div class="spec-cell">
+                            <div class="spec-name">&larr; INCLUDE</div>
+                            <div>moves the math toward MORE detail than the chart</div>
+                            <div class="spec-code">not used here</div>
+                        </div>
+                        <div class="spec-cell spec-chart">
+                            <div class="spec-name">THE CURRENT GROUPING</div>
+                            <div>the level your shelves summarized the data to</div>
+                            <div class="spec-code">Reporting Unit, Year</div>
+                        </div>
+                        <div class="spec-cell">
+                            <div class="spec-name">EXCLUDE &rarr;</div>
+                            <div>moves the math toward LESS detail than the chart</div>
+                            <div class="spec-code">not used here</div>
+                        </div>
+                    </div>
+                    <div class="spec-ends"><span>more detailed (measure)</span><span>less detailed (state)</span></div>
+                    <p style="margin-top:10px; margin-bottom:0;"><strong>FIXED is the exception: it does not slide.</strong> You pin the grouping in the formula (<span class="spec-code" style="font-size:0.75rem;">{ FIXED [Year] : ... }</span>), and the math stays at that spot no matter how the chart is grouped or filtered. (Part 1 covers INCLUDE and EXCLUDE in full.)</p>
+                </div>
+                <div class="question-box"><strong>The question:</strong> how does each plan compare to the statewide average, and how do we keep that benchmark correct when the viewer filters to a single year?</div>
+                <p style="margin-bottom:4px;"><strong>Roadmap for this tab:</strong></p>
+                <ul style="margin-bottom:4px;">
+                    <li><strong>The benchmark</strong>: build the statewide average per year, the honest way and the naive way</li>
+                    <li><strong>FIXED for the reference line</strong>: pin that benchmark so a year filter cannot blank it</li>
+                    <li><strong>When to use which</strong>: the Tableau steps, the SQL and pandas versions, then the verified parity check</li>
+                </ul>
+            </div></details>
+
+            <details class="sec" open><summary>The benchmark: a statewide average per year, attached to every plan</summary><div class="sec-body">
+                <p>The benchmark is one number per year: the average of every reporting unit's score that year. Once computed, it lands next to every plan so the comparison is a simple subtraction.</p>
+                <div class="before-after">
+                    <div class="ba-table">
+                        <div class="ba-label">Before: plan rows for 2023 (3 of 56 shown)</div>
+                        <table class="blog-table" style="margin:0;">
+                            <tr><th>Reporting Unit</th><th>Score</th></tr>
+                            <tr><td>LA Care - Los Angeles</td><td>59.33</td></tr>
+                            <tr><td>Health Net - Los Angeles</td><td>52.00</td></tr>
+                            <tr><td>Kaiser - San Diego</td><td>85.33</td></tr>
+                        </table>
+                    </div>
+                    <div class="ba-arrow">&rarr;<div style="font-size:0.7rem; font-family: 'SF Mono', Menlo, Consolas, monospace; color:#555;">AVG(Score)<br>by Year</div></div>
+                    <div class="ba-table">
+                        <div class="ba-label">After: the year's average lands on every row</div>
+                        <table class="blog-table" style="margin:0;">
+                            <tr><th>Reporting Unit</th><th>Score</th><th>2023 average</th><th>vs average</th></tr>
+                            <tr><td>LA Care - Los Angeles</td><td>59.33</td><td>57.41</td><td class="match">+1.92</td></tr>
+                            <tr><td>Health Net - Los Angeles</td><td>52.00</td><td>57.41</td><td>-5.41</td></tr>
+                            <tr><td>Kaiser - San Diego</td><td>85.33</td><td>57.41</td><td class="match">+27.92</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <p class="caption">The average is computed across all 56 units in 2023 (three shown); it repeats on every row so each plan's gap to the benchmark is one subtraction.</p>
+
+                <p class="subhead">In Tableau</p>
+                <p>Two ways, both used in this project. The dashboard's trend line uses a derived data row (built once in cleaning) so the benchmark is a drawable series; the ranking's reference line uses a FIXED LOD (next section).</p>
+                <div class="calc-formula">// The benchmark as an LOD, one average per year on every row
+{ FIXED [Year] : AVG([Aqfs]) }</div>
+
+                <hr class="light">
+                <p class="subhead">The same thing in SQL and pandas</p>
+                <ul>
+                    <li><strong>SQL approach:</strong> a window function, <code>AVG(...) OVER (PARTITION BY Year)</code>, computes each year's average and attaches it to every row without collapsing the table</li>
+                    <li><strong>pandas approach:</strong> <code>groupby('Year').transform('mean')</code> does the same, broadcasting the year's mean back onto every row so the gap to the benchmark is a single subtraction</li>
+                </ul>
+<pre class="code-block"><span class="cm">-- SQL: the window function IS the FIXED benchmark</span>
+<span class="kw">SELECT</span> "Reporting Unit", Year, Aqfs,
+       <span class="kw">AVG</span>(Aqfs) <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> Year)      <span class="kw">AS</span> statewide_avg,   <span class="cm">-- broadcast to every row</span>
+       Aqfs - <span class="kw">AVG</span>(Aqfs) <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> Year) <span class="kw">AS</span> vs_avg
+<span class="kw">FROM</span> plans
+<span class="kw">WHERE</span> Year = 2023 <span class="kw">ORDER BY</span> Aqfs <span class="kw">DESC</span>;</pre>
+<pre class="code-block" style="margin-top:12px;"><span class="cm"># pandas: transform keeps the row shape while broadcasting the group mean</span>
+plans[<span class="st">'statewide_avg'</span>] = plans.groupby(<span class="st">'Year'</span>)[<span class="st">'Aqfs'</span>].transform(<span class="st">'mean'</span>)
+plans[<span class="st">'vs_avg'</span>]        = plans.Aqfs - plans.statewide_avg</pre>
+
+                <hr class="light">
+                <table class="blog-table">
+                    <tr><th>Statewide average by year</th><th>Tableau</th><th>SQL</th><th>pandas</th></tr>
+                    <tr><td>2016</td><td>55.45</td><td>55.45</td><td>55.45 <span class="match">&#10004;</span></td></tr>
+                    <tr><td>2020</td><td>62.67</td><td>62.67</td><td>62.67 <span class="match">&#10004;</span></td></tr>
+                    <tr><td>2023</td><td>57.41</td><td>57.41</td><td>57.41 <span class="match">&#10004;</span></td></tr>
+                </table>
+                <p class="caption">All 56 units feed each year's average; all three tools agree to the digit.</p>
+                <div class="insight-box"><strong>Reading it:</strong> L.A. Care sits at 59.33 in 2023, just above the 57.41 statewide average. It has finished above the statewide average in all eight years, its widest margin coming in 2020 (+9.55).</div>
+            </div></details>
+
+            <details class="sec"><summary>FIXED for the reference line: pinning the benchmark so a year filter cannot blank it</summary><div class="sec-body">
+                <p>The ranking sheet is filtered to one year by the viewer's parameter (see the Parameters tab). We want a red dashed line at that year's statewide average. The subtlety: the benchmark must survive the year filter, and land at the right value for whichever year is showing.</p>
+                <div class="question-box"><strong>Question:</strong> draw a reference line at the selected year's statewide average, on a sheet filtered to that one year.</div>
+                <p>In this project the statewide average is stored as its own row (a "Statewide Average" reporting unit per year). The reference line reads it with a FIXED LOD keyed on Year:</p>
+                <div class="calc-formula">// Statewide value for the reference line, one per year
+{ FIXED [Year] : MAX(IF [Is Statewide] THEN [Aqfs] END) }</div>
+                <p><strong>Why FIXED [Year] and not a plain average:</strong> FIXED computes per year before the view's own sort and layout, so each year keeps its own benchmark. When the year filter narrows the sheet to 2023, every remaining row already carries 57.41, and the line lands there. Key it wrong (or leave it un pinned) and the line either blanks out or shows a value mixed across years.</p>
+                <ul class="click-path">
+                    <li>Analytics tab &rarr; Reference Line &rarr; Table; Value = the FIXED field, Aggregation = Average; format red dashed</li>
+                    <li>The one gotcha: a reference line only offers fields already in the view, so drop the FIXED field on Detail first</li>
+                </ul>
+
+                <hr class="light">
+                <p class="subhead">The same thing in SQL and pandas</p>
+                <ul>
+                    <li><strong>SQL approach:</strong> filter to the chosen year in <code>WHERE</code>, then take one <code>AVG</code>, the single benchmark value the reference line draws</li>
+                    <li><strong>pandas approach:</strong> mask to the year and call <code>.mean()</code> for that same scalar; the ranking is just a sort of those filtered rows</li>
+                </ul>
+<pre class="code-block"><span class="cm">-- SQL: filter to the chosen year, the benchmark is just that year's average</span>
+<span class="kw">SELECT</span> "Reporting Unit", Aqfs,
+       (<span class="kw">SELECT</span> <span class="kw">AVG</span>(Aqfs) <span class="kw">FROM</span> plans <span class="kw">WHERE</span> Year = 2023) <span class="kw">AS</span> ref_line
+<span class="kw">FROM</span> plans
+<span class="kw">WHERE</span> Year = 2023 <span class="kw">ORDER BY</span> Aqfs <span class="kw">DESC</span>;</pre>
+<pre class="code-block" style="margin-top:12px;"><span class="cm"># pandas: the reference value is a scalar for the filtered year</span>
+year   = 2023
+ref    = plans.loc[plans.Year == year, <span class="st">'Aqfs'</span>].mean()   <span class="cm"># 57.41</span>
+ranked = plans[plans.Year == year].sort_values(<span class="st">'Aqfs'</span>, ascending=False)</pre>
+
+                <hr class="light">
+                <table class="blog-table">
+                    <tr><th>2023 reference line value</th><th>Tableau</th><th>SQL</th><th>pandas</th></tr>
+                    <tr><td>Statewide average</td><td>57.41</td><td>57.41</td><td>57.41 <span class="match">&#10004;</span></td></tr>
+                </table>
+                <p class="caption">The same 57.41 the trend line shows for 2023; the FIXED LOD and the plain filtered average land on the identical number.</p>
+                <div class="gotcha-box"><strong>Pitfall: a benchmark that ignores the year.</strong> If the reference used one average across all years instead of FIXED [Year], every year's sheet would show the same flat line (around 59.8, the eight year mean), making 2023's plans look worse and 2018's look better than they are. Pinning to <code>[Year]</code> is what makes the line move with the selection. SQL and pandas cannot make this mistake silently: the year is written into the WHERE clause or the mask, so the benchmark is always for the year on screen.</div>
+            </div></details>
+        </div>
+
+        <!-- TAB 3: TABLE CALCS -->
+        <div id="tab-tablecalc" class="tab-content">
+            <div class="section-controls"><button onclick="setAllSections('tab-tablecalc', true)">Expand All</button><button onclick="setAllSections('tab-tablecalc', false)">Collapse All</button></div>
+            <details class="sec" open><summary>Introduction &amp; The Question</summary><div class="sec-body">
+                <ul>
+                    <li><strong>A table calculation transforms the numbers ALREADY in the view</strong>, each cell compared to its neighbors: running totals, differences, ranks, moving averages</li>
+                    <li><strong>The key distinction from a benchmark or LOD:</strong> an LOD reaches back into the raw data; a table calc only touches the small result table AFTER the query returns. Here the view already holds one score per plan per year, and the table calc subtracts each plan's 2016 score from its later years.</li>
+                    <li><strong>You already know this idea:</strong>
+                        <ul style="margin-top:4px;">
+                            <li>in SQL it is a window function over an ordered result, <code>x - FIRST_VALUE(x) OVER (ORDER BY Year)</code></li>
+                            <li>in pandas it is <code>x - x.iloc[0]</code> on an ordered frame</li>
+                        </ul>
+                    </li>
+                    <li><strong>Why it matters:</strong> "how much has this plan improved or slipped" is the question every quality team asks, and it is a table calc, not a raw number in the data</li>
+                </ul>
+                <div class="question-box"><strong>The question:</strong> how much has each plan's quality score moved since 2016, its baseline year?</div>
+                <p style="margin-bottom:4px;"><strong>Roadmap for this tab:</strong> one section builds the "change since 2016" calculation in all three tools and checks the parity for L.A. Care and its Los Angeles rival.</p>
+            </div></details>
+
+            <details class="sec" open><summary>Example: change since 2016, the Difference From First table calculation</summary><div class="sec-body">
+                <p>The view holds each plan's score for each year. The table calc walks along the years, per plan, and subtracts the first year's value from every year, so 2016 is always zero and later years read as the gain or loss since then.</p>
+                <div class="before-after">
+                    <div class="ba-table">
+                        <div class="ba-label">Before: L.A. Care's scores by year (in the view)</div>
+                        <table class="blog-table" style="margin:0;">
+                            <tr><th>Year</th><th>Score</th></tr>
+                            <tr><td>2016</td><td>60.91</td></tr>
+                            <tr><td>2020</td><td>72.22</td></tr>
+                            <tr><td>2023</td><td>59.33</td></tr>
+                        </table>
+                    </div>
+                    <div class="ba-arrow">&rarr;<div style="font-size:0.7rem; font-family: 'SF Mono', Menlo, Consolas, monospace; color:#555;">Difference From<br>&rarr; First</div></div>
+                    <div class="ba-table">
+                        <div class="ba-label">After: each year minus 2016</div>
+                        <table class="blog-table" style="margin:0;">
+                            <tr><th>Year</th><th>Change since 2016</th></tr>
+                            <tr><td>2016</td><td>0.00</td></tr>
+                            <tr><td>2020</td><td class="match">+11.31</td></tr>
+                            <tr><td>2023</td><td>-1.58</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <p class="caption">The baseline year is always zero; 2020 was L.A. Care's peak (+11.31), and by 2023 it had slipped just below its own 2016 level.</p>
+
+                <p class="subhead">In Tableau</p>
+                <ul class="click-path">
+                    <li>Columns: Year (discrete); Rows: AVG(Aqfs)</li>
+                    <li>Right click the AVG(Aqfs) pill &rarr; Quick Table Calculation &rarr; Difference From; then edit it to relative to First</li>
+                    <li>Compute Using: Year (so the walk runs along the year axis, restarting per plan)</li>
+                </ul>
+
+                <hr class="light">
+                <p class="subhead">The same thing in SQL and pandas</p>
+                <ul>
+                    <li><strong>SQL approach:</strong> an ordered window function, <code>FIRST_VALUE(...) OVER (PARTITION BY unit ORDER BY Year)</code>, grabs each plan's 2016 score and subtracts it from every year</li>
+                    <li><strong>pandas approach:</strong> <code>groupby(unit).transform(s - s.iloc[0])</code> walks each plan's year sorted scores and subtracts the first, the same baseline math</li>
+                </ul>
+<pre class="code-block"><span class="cm">-- SQL: the ordered window is the table calc; FIRST_VALUE is "relative to First"</span>
+<span class="kw">SELECT</span> "Reporting Unit", Year, Aqfs,
+       Aqfs - <span class="kw">FIRST_VALUE</span>(Aqfs) <span class="kw">OVER</span> (
+              <span class="kw">PARTITION BY</span> "Reporting Unit" <span class="kw">ORDER BY</span> Year)  <span class="kw">AS</span> change_since_2016
+<span class="kw">FROM</span> plans
+<span class="kw">ORDER BY</span> "Reporting Unit", Year;</pre>
+<pre class="code-block" style="margin-top:12px;"><span class="cm"># pandas: subtract each group's first value, on a year sorted frame</span>
+plans = plans.sort_values([<span class="st">'Reporting Unit'</span>, <span class="st">'Year'</span>])
+plans[<span class="st">'change_since_2016'</span>] = (plans.groupby(<span class="st">'Reporting Unit'</span>)[<span class="st">'Aqfs'</span>]
+                               .transform(<span class="kw">lambda</span> s: s - s.iloc[0]))</pre>
+
+                <hr class="light">
+                <table class="blog-table">
+                    <tr><th>Change since 2016</th><th>Tableau</th><th>SQL</th><th>pandas</th></tr>
+                    <tr><td>L.A. Care - Los Angeles, 2020 (peak)</td><td>+11.31</td><td>+11.31</td><td>+11.31 <span class="match">&#10004;</span></td></tr>
+                    <tr><td>L.A. Care - Los Angeles, 2023</td><td>-1.58</td><td>-1.58</td><td>-1.58 <span class="match">&#10004;</span></td></tr>
+                    <tr><td>Health Net - Los Angeles, 2023</td><td>-9.36</td><td>-9.36</td><td>-9.36 <span class="match">&#10004;</span></td></tr>
+                </table>
+                <p class="caption">All three tools agree to the digit. Statewide, the average score is up a modest +1.96 over the same span.</p>
+                <div class="gotcha-box"><strong>Pitfall: the wrong Compute Using.</strong> A table calc needs to know which direction to walk. Leave Compute Using on the default (Table across) and Tableau may subtract across plans instead of across years, or reset the baseline in the wrong place, returning plausible but meaningless numbers with no error. Setting Compute Using to Year, partitioned by Reporting Unit, is exactly the <code>PARTITION BY "Reporting Unit" ORDER BY Year</code> that SQL states out loud.</div>
+                <div class="insight-box"><strong>Reading it:</strong> both Los Angeles plans are below their 2016 selves by 2023, but Health Net fell six times further (-9.36 vs -1.58). L.A. Care gave back its pandemic era gains; Health Net slid well past its starting point.</div>
+            </div></details>
+        </div>
+
+        <!-- TAB 3B: DIFFERENCE FROM FIRST (finding) -->
+        <div id="tab-difffirst" class="tab-content">
+            <div class="section-controls"><button onclick="setAllSections('tab-difffirst', true)">Expand All</button><button onclick="setAllSections('tab-difffirst', false)">Collapse All</button></div>
+
+            <details class="sec" open><summary>Introduction &amp; The Finding</summary><div class="sec-body">
+                <p style="font-size:1.15rem; font-weight:700; color:var(--navy); margin-bottom:12px;">L.A. Care held its quality since 2016 while its county rival fell nearly 10 points.</p>
+                <ul>
+                    <li>This is the clearest single finding the change since 2016 method surfaces, so it gets its own view: the two big Los Angeles plans, L.A. Care and Health Net, head to head across all eight years, against the statewide benchmark</li>
+                    <li>It runs on the same Difference From First table calculation built in the Table Calculations tab (Tableau), the same <code>x - FIRST_VALUE(x) OVER (ORDER BY Year)</code> in SQL, and <code>x - x.iloc[0]</code> in pandas, so nothing new is introduced here, only applied and read closely</li>
+                    <li><strong>Why these two plans:</strong> they are the two largest Medi-Cal plans in Los Angeles County and the natural head to head, L.A. Care the public local plan, Health Net the commercial one</li>
+                </ul>
+                <div class="question-box"><strong>The question:</strong> since 2016, did L.A. Care hold its quality while Health Net, the other big Los Angeles plan, declined, and did either simply track the statewide trend?</div>
+            </div></details>
+
+            <details class="sec" open><summary>The chart</summary><div class="sec-body">
+                <p>The change since 2016 for both Los Angeles plans and the statewide benchmark, straight from the workbook. L.A. Care rises then returns to its 2016 level; Health Net drifts down and keeps going.</p>
+                <div class='tableauPlaceholder' id='viz1783556336281' style='position: relative'><noscript><a href='#'><img alt='LA Care Held Its Quality Since 2016 While Its County Rival Fell Nearly 10 Points' src='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;me&#47;medi_cal_hedis&#47;ChangeSince2016&#47;1_rss.png' style='border: none' /></a></noscript><object class='tableauViz'  style='display:none;'><param name='host_url' value='https%3A%2F%2Fpublic.tableau.com%2F' /> <param name='embed_code_version' value='3' /> <param name='site_root' value='' /><param name='name' value='medi_cal_hedis&#47;ChangeSince2016' /><param name='tabs' value='no' /><param name='toolbar' value='yes' /><param name='static_image' value='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;me&#47;medi_cal_hedis&#47;ChangeSince2016&#47;1.png' /> <param name='animate_transition' value='yes' /><param name='display_static_image' value='yes' /><param name='display_spinner' value='yes' /><param name='display_overlay' value='yes' /><param name='display_count' value='yes' /><param name='language' value='en-US' /><param name='filter' value='publish=yes' /></object></div>
+            </div></details>
+
+            <details class="sec" open><summary>The eight year trajectory, both plans and the statewide benchmark</summary><div class="sec-body">
+                <p>Each row is one year: the plan's score, and its change since 2016 beside it (the Difference From First output). 2016 is the baseline, so every series starts at zero.</p>
+                <table class="blog-table">
+                    <tr><th>Year</th><th>L.A. Care score</th><th>L.A. Care since 2016</th><th>Health Net score</th><th>Health Net since 2016</th><th>Statewide since 2016</th></tr>
+                    <tr><td>2016</td><td>60.91</td><td>0.00</td><td>61.36</td><td>0.00</td><td>0.00</td></tr>
+                    <tr><td>2017</td><td>66.67</td><td class="match">+5.76</td><td>63.33</td><td class="match">+1.97</td><td>+6.18</td></tr>
+                    <tr><td>2018</td><td>66.67</td><td class="match">+5.76</td><td>65.24</td><td class="match">+3.88</td><td>+8.36</td></tr>
+                    <tr><td>2019</td><td>66.84</td><td class="match">+5.93</td><td>62.63</td><td class="match">+1.27</td><td>+6.52</td></tr>
+                    <tr><td>2020</td><td>72.22</td><td class="match">+11.31</td><td>60.00</td><td>-1.36</td><td>+7.22</td></tr>
+                    <tr><td>2021</td><td>59.47</td><td>-1.44</td><td>52.63</td><td>-8.73</td><td>-0.50</td></tr>
+                    <tr><td>2022</td><td>67.33</td><td class="match">+6.42</td><td>57.33</td><td>-4.03</td><td>+5.01</td></tr>
+                    <tr><td>2023</td><td>59.33</td><td>-1.58</td><td>52.00</td><td>-9.36</td><td>+1.96</td></tr>
+                </table>
+
+                <hr class="light">
+                <p class="subhead">The same thing in SQL and pandas</p>
+                <p>The same Difference From First calc as the Table Calculations tab, read out for the two Los Angeles plans (2016 is each plan's own baseline):</p>
+                <ul>
+                    <li><strong>SQL approach:</strong> the same <code>FIRST_VALUE</code> window builds change since 2016 for every year, then <code>MAX(CASE WHEN Year = 2023 ...)</code> pulls out just each plan's 2023 net</li>
+                    <li><strong>pandas approach:</strong> the same per group subtraction builds the change column, then we read off the 2023 row for each plan</li>
+                </ul>
+<pre class="code-block"><span class="cm">-- SQL: change since each plan's first year, then pull the 2023 net</span>
+<span class="kw">WITH</span> t <span class="kw">AS</span> (
+    <span class="kw">SELECT</span> Year, "Reporting Unit" <span class="kw">AS</span> unit, Aqfs,
+           Aqfs - <span class="kw">FIRST_VALUE</span>(Aqfs) <span class="kw">OVER</span> (
+                  <span class="kw">PARTITION BY</span> "Reporting Unit" <span class="kw">ORDER BY</span> Year) <span class="kw">AS</span> change_since_2016
+    <span class="kw">FROM</span> plans
+)
+<span class="kw">SELECT</span> unit,
+       <span class="kw">ROUND</span>(<span class="kw">MAX</span>(<span class="kw">CASE WHEN</span> Year = 2023 <span class="kw">THEN</span> change_since_2016 <span class="kw">END</span>), 2) <span class="kw">AS</span> net_2016_to_2023
+<span class="kw">FROM</span> t
+<span class="kw">WHERE</span> unit <span class="kw">IN</span> (<span class="st">'LA Care - Los Angeles'</span>, <span class="st">'Health Net - Los Angeles'</span>)
+<span class="kw">GROUP BY</span> unit;</pre>
+<pre class="code-block" style="margin-top:12px;"><span class="cm"># pandas: subtract each plan's first year, then read the 2023 row</span>
+plans = plans.sort_values([<span class="st">'Reporting Unit'</span>, <span class="st">'Year'</span>])
+plans[<span class="st">'change_since_2016'</span>] = (plans.groupby(<span class="st">'Reporting Unit'</span>)[<span class="st">'Aqfs'</span>]
+                               .transform(<span class="kw">lambda</span> s: s - s.iloc[0]))
+
+net = plans[plans.Year == 2023].set_index(<span class="st">'Reporting Unit'</span>)[<span class="st">'change_since_2016'</span>].round(2)
+<span class="cm"># net['LA Care - Los Angeles']    -> -1.58</span>
+<span class="cm"># net['Health Net - Los Angeles'] -> -9.36</span></pre>
+
+                <hr class="light">
+                <table class="blog-table">
+                    <tr><th>Net change, 2016 to 2023</th><th>Tableau</th><th>SQL</th><th>pandas</th></tr>
+                    <tr><td>L.A. Care - Los Angeles</td><td>-1.58</td><td>-1.58</td><td>-1.58 <span class="match">&#10004;</span></td></tr>
+                    <tr><td>Health Net - Los Angeles</td><td>-9.36</td><td>-9.36</td><td>-9.36 <span class="match">&#10004;</span></td></tr>
+                    <tr><td>Statewide Average</td><td>+1.96</td><td>+1.96</td><td>+1.96 <span class="match">&#10004;</span></td></tr>
+                </table>
+                <p class="caption">Full eight year trajectory and parity in notebooks/nb02, section 3.</p>
+
+                <div class="insight-box"><strong>Reading it, three points:</strong>
+                    <ul style="margin:6px 0 0 0;">
+                        <li><strong>L.A. Care held.</strong> It climbed to a 2020 peak (+11.31), then gave those gains back, finishing at -1.58, essentially its 2016 level. Steady, not stagnant.</li>
+                        <li><strong>Health Net fell nearly ten points.</strong> It drifted through 2019, then dropped from 2020 on and never recovered, ending at -9.36, the widest decline of the two by far.</li>
+                        <li><strong>Neither just tracked the market.</strong> The statewide average rose +1.96 over the same span, so Health Net did not fall in a falling market, it fell in a rising one. The net change gap between the two Los Angeles plans widened to 7.78 points.</li>
+                    </ul>
+                </div>
+                <div class="gotcha-box"><strong>Why "held" is the honest word, not "flat."</strong> L.A. Care's small net change hides real movement: a climb to a 2020 peak and a full give back. The endpoints look calm; the path was not. This is the one thing a Difference From First calc cannot show on its own, it reports the net, not the route, which is exactly why the dashboard pairs it with the full trend line.</div>
+            </div></details>
+        </div>
+
+        <!-- TAB 4: PARAMETERS -->
+        <div id="tab-params" class="tab-content">
+            <div class="section-controls"><button onclick="setAllSections('tab-params', true)">Expand All</button><button onclick="setAllSections('tab-params', false)">Collapse All</button></div>
+            <details class="sec" open><summary>Introduction &amp; The Question</summary><div class="sec-body">
+                <ul>
+                    <li><strong>A parameter is a variable a viewer can set from the published dashboard</strong>, a number, a word, or a date</li>
+                    <li><strong>The rule everyone forgets:</strong> a parameter does NOTHING until a calculation or filter references it. It is a knob wired to nothing until you connect it.</li>
+                    <li><strong>You already know this idea:</strong>
+                        <ul style="margin-top:4px;">
+                            <li>in SQL it is a query variable (<code>:year</code>)</li>
+                            <li>in Python it is just a variable at the top of the script</li>
+                        </ul>
+                    </li>
+                    <li><strong>Why it matters:</strong> one ranking chart can serve all eight years. The viewer picks a year and every plan re ranks, instead of building eight near identical sheets.</li>
+                </ul>
+                <div class="question-box"><strong>The question:</strong> rank every plan for a year the viewer chooses, with the statewide benchmark line moving to match.</div>
+                <p style="margin-bottom:4px;"><strong>Roadmap for this tab:</strong> one section wires the year parameter to a boolean bridge field, filters the ranking with it, and checks parity on the 2023 ranking.</p>
+            </div></details>
+
+            <details class="sec" open><summary>Example: a year selector driving the ranking in all three tools</summary><div class="sec-body">
+                <p>The parameter holds a year. A boolean bridge field compares each row's year to it, and that boolean goes on the Filters shelf set to True. Nothing about the chart changes except which year passes the filter.</p>
+                <p class="subhead" style="margin-top:2px;">In Tableau</p>
+                <div class="calc-formula">// Select Year: integer parameter, values 2016 through 2023
+
+// Year Matches: the bridge between parameter and data
+[Year] = [Select Year]</div>
+                <ul class="click-path">
+                    <li>Create the integer parameter Select Year (list of the eight years), then Show Parameter</li>
+                    <li>Drop the boolean Year Matches on Filters, keep True; the ranking now shows only the chosen year</li>
+                    <li>The reference line reads the same year through its FIXED LOD, so the benchmark moves with the selection</li>
+                </ul>
+
+                <hr class="light">
+                <p class="subhead">The same thing in SQL and pandas</p>
+                <ul>
+                    <li><strong>SQL approach:</strong> a <code>WHERE</code> clause picks the year (the parameter), then a <code>RANK() OVER (ORDER BY Aqfs DESC)</code> window numbers the plans best to worst</li>
+                    <li><strong>pandas approach:</strong> a boolean mask picks the year, then <code>.rank(ascending=False)</code> numbers them; filter first, then rank, is the order that matters</li>
+                </ul>
+<pre class="code-block"><span class="cm">-- SQL: the parameter is a query variable; the filter runs first, then the rank</span>
+<span class="kw">SELECT</span> "Reporting Unit", Aqfs,
+       <span class="kw">RANK</span>() <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> Aqfs <span class="kw">DESC</span>) <span class="kw">AS</span> rnk
+<span class="kw">FROM</span> plans
+<span class="kw">WHERE</span> Year = :year                <span class="cm">-- :year is the parameter</span>
+<span class="kw">ORDER BY</span> Aqfs <span class="kw">DESC</span>;</pre>
+<pre class="code-block" style="margin-top:12px;"><span class="cm"># pandas: the parameter is a plain variable</span>
+YEAR = 2023
+
+ranked = (plans[plans.Year == YEAR]
+          .sort_values(<span class="st">'Aqfs'</span>, ascending=False)
+          .assign(rnk=<span class="kw">lambda</span> d: d.Aqfs.rank(ascending=False, method=<span class="st">'min'</span>)))</pre>
+
+                <hr class="light">
+                <table class="blog-table">
+                    <tr><th>2023 ranking (Select Year = 2023)</th><th>Tableau</th><th>SQL</th><th>pandas</th></tr>
+                    <tr><td>Units ranked</td><td>56</td><td>56</td><td>56 <span class="match">&#10004;</span></td></tr>
+                    <tr><td>Top unit: CCAH - Monterey/Santa Cruz</td><td>90.0</td><td>90.0</td><td>90.0 <span class="match">&#10004;</span></td></tr>
+                    <tr><td>L.A. Care - Los Angeles rank</td><td>26 of 56</td><td>26 of 56</td><td>26 of 56 <span class="match">&#10004;</span></td></tr>
+                </table>
+                <p class="caption">Change Select Year to 2020 and the same query reruns for that year; all three tools return the identical ranking.</p>
+                <div class="gotcha-box"><strong>Pitfall: the knob wired to nothing.</strong> Create the Select Year parameter, show it, and change it, and the chart does not move, because nothing references it yet. The parameter is inert until the Year Matches field uses it and that field sits on the Filters shelf. In SQL and pandas the connection is unavoidable: the variable has to appear in the WHERE clause or the mask, or it does nothing there either.</div>
+                <div class="insight-box"><strong>Reading it:</strong> L.A. Care ranks 26th of 56 in 2023 even though it is above the statewide average. The top of the table is full of small single region units (a Monterey and two Kaiser units lead), so a plan can be comfortably above average and still sit mid pack. Rank and benchmark answer different questions, which is exactly why the dashboard shows both.</div>
+            </div></details>
+        </div>
+
+        <!-- TAB 5: DASHBOARD -->
+        <div id="tab-dashboard" class="tab-content">
+            <div class="section-controls"><button onclick="setAllSections('tab-dashboard', true)">Expand All</button><button onclick="setAllSections('tab-dashboard', false)">Collapse All</button></div>
+
+            <details class="sec" open><summary>Abstract</summary><div class="sec-body">
+                <p style="margin-bottom:4px;"><strong>Purpose</strong></p>
+                <ul>
+                    <li>Build one scorecard where any viewer can see how California's Medi-Cal managed care plans compare on quality, with L.A. Care and its Los Angeles rival Health Net in focus</li>
+                    <li>Serve as the capstone that puts the benchmark, table calc, and parameter methods from this post to work on one screen</li>
+                </ul>
+                <p style="margin-bottom:4px;"><strong>Methods</strong></p>
+                <ul>
+                    <li>DHCS composite quality scores (2016 to 2023) for the trend and ranking, with primary care provider ratios and member grievances as companions</li>
+                    <li>Built with the FIXED benchmark, the Difference From First table calc, and the year parameter covered in the other tabs</li>
+                    <li>Every displayed number verified identical in DuckDB SQL and pandas</li>
+                </ul>
+                <p style="margin-bottom:4px;"><strong>The questions we asked, and the answers</strong></p>
+                <ul>
+                    <li><strong>How has plan quality trended?</strong> L.A. Care finished above the statewide average in all eight years. It peaked in 2020 (72.2), dipped in the 2021 pandemic year, and settled at 59.3 by 2023, just below its own 2016 level. Its Los Angeles rival Health Net fell much further over the same span.</li>
+                    <li><strong>How does L.A. Care rank in 2023?</strong> 26th of 56 reporting units. Above the 57.41 statewide average, but mid pack, because small single region units hold the top spots.</li>
+                    <li><strong>How much has each plan changed since 2016?</strong> L.A. Care is down 1.58, Health Net down 9.36, while the statewide average is up 1.96; L.A. Care gave back its pandemic era gains, Health Net slid well past its starting point.</li>
+                    <li><strong>How do plans compare on primary care access?</strong> Measured as primary care doctors per 2,000 members, every plan clears California's minimum of 1; L.A. Care sits at 3.75, comfortably above the floor.</li>
+                    <li><strong>What do members complain about?</strong> Grievances are published statewide only, not by plan. Across all plans in 2023, Quality of Service is the largest category (216,256 of 595,072 total grievances).</li>
+                </ul>
+                <p style="margin-bottom:4px;"><strong>Takeaway</strong></p>
+                <ul>
+                    <li>L.A. Care is a steady, above average performer that slipped from a 2020 peak rather than a top ranked plan; the quality leaders are smaller regional units</li>
+                    <li>Every interactive element on the dashboard is one of the methods from this post doing its job in public: the benchmark line, the year selector, and the change calculation</li>
+                </ul>
+                <div class="gotcha-box"><strong>One honesty note.</strong> The "Statewide Average" line is a derived benchmark we built, the mean of each year's reporting unit scores, not an official DHCS published figure. And the grievance panel is statewide, so it shows what members complain about across the whole program, not a plan by plan comparison.</div>
+            </div></details>
+
+            <div class="question-box"><strong>Putting it together:</strong> a quality trend with a statewide benchmark, a year selectable ranking with a benchmark reference line, and access and grievance companions, all on one scorecard. Use the Select Year control to re rank every plan.</div>
+
+            <div class='tableauPlaceholder' id='viz1783552365065' style='position: relative'><noscript><a href='#'><img alt='Medi-Cal Plan Quality Scorecard ' src='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;me&#47;medi_cal_hedis&#47;Medi-CalPlanQualityScorecard&#47;1_rss.png' style='border: none' /></a></noscript><object class='tableauViz'  style='display:none;'><param name='host_url' value='https%3A%2F%2Fpublic.tableau.com%2F' /> <param name='embed_code_version' value='3' /> <param name='site_root' value='' /><param name='name' value='medi_cal_hedis&#47;Medi-CalPlanQualityScorecard' /><param name='tabs' value='no' /><param name='toolbar' value='yes' /><param name='static_image' value='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;me&#47;medi_cal_hedis&#47;Medi-CalPlanQualityScorecard&#47;1.png' /> <param name='animate_transition' value='yes' /><param name='display_static_image' value='yes' /><param name='display_spinner' value='yes' /><param name='display_overlay' value='yes' /><param name='display_count' value='yes' /><param name='language' value='en-US' /><param name='filter' value='publish=yes' /></object></div>
+
+            <details class="sec"><summary>Design decisions worth stealing</summary><div class="sec-body">
+            <ul>
+                <li><strong>One color, everywhere:</strong> L.A. Care is green on every sheet, Health Net blue, the statewide average gray. A plan that changed color between sheets would quietly mislead.</li>
+                <li><strong>The benchmark appears twice, on purpose:</strong> as a gray line in the trend and as a red dashed reference line in the ranking, so "above or below average" reads instantly in both.</li>
+                <li><strong>One knob drives the ranking:</strong> the Select Year parameter sits right above the chart it controls, so the interaction is obvious.</li>
+                <li><strong>Outliers handled honestly:</strong> the access chart drops one plan with a tiny Medi-Cal membership whose ratio would otherwise flatten every other bar, and says so, rather than letting it distort the scale.</li>
+            </ul>
+            <p>Open the full version on <a href="https://public.tableau.com/views/medi_cal_hedis/Medi-CalPlanQualityScorecard" target="_blank">Tableau Public</a>.</p>
+            </div></details>
+        </div>
+
+        </div><!-- /.main-container -->
+      </div><!-- /.blog-container -->
+    </div><!-- /#content-wrap -->
+    <div w3-include-html="/folders/navbar_footer/footer.html"></div>
+  </div><!-- /#page-container -->
+
+  <script type="text/javascript" src="../../static/js/include.js"></script>
+  <script type='text/javascript'>
+      function setAllSections(tabId, open) {
+          document.getElementById(tabId).querySelectorAll('details.sec').forEach(d => d.open = open);
+      }
+      function switchTab(event, tabId) {
+          document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+          document.getElementById(tabId).classList.add('active');
+          event.currentTarget.classList.add('active');
+          window.scrollTo({ top: 0 });
+      }
+      function embedViz(id, ratio) {
+          var d = document.getElementById(id);
+          if (!d) return;
+          var v = d.getElementsByTagName('object')[0];
+          if (!v) return;
+          var w = d.offsetWidth || 1140;   // fallback width so vizzes in hidden tabs still size correctly
+          v.style.width = '100%';
+          v.style.height = (w * ratio) + 'px';
+          var s = document.createElement('script');
+          s.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';
+          v.parentNode.insertBefore(s, v);
+      }
+      embedViz('viz1783552365065', 1.30);   // the full scorecard
+      embedViz('viz1783556336281', 0.62);   // the L.A. Care vs Health Net change chart
+  </script>
+</body>
+</html>

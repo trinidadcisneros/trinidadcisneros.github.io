@@ -2116,6 +2116,7 @@ Hard rules:
   (b) Write each computed column's field_logic as a lead line "<column>: built from <source column(s)>." then ONE rule per line, each as a sub-step starting with newline + "- ". NEVER cram multiple rules into one sentence. Put a column's cleaning inside THAT column's entry, not buried in another column's entry.
   (c) Every rule must be concrete, self-contained, and use the exact column names and literal values. GOOD: "risk_tier: built from days_overdue and grace_days_allowed.\n- turn days_overdue into a number: 'never_late' (any case or spaces) becomes 0; NULL or blank becomes 0; otherwise use the number in days_overdue\n- if grace_days_allowed is NULL, use 7\n- 'high' when days_overdue >= 15 AND days_overdue <= grace_days_allowed". BAD: "determine the numeric overdue days ... assign high if 15 or more but within grace".
   (d) Apply the same exact-name rule to the prose `prompt` and `edge_cases`; the prompt may stay brief and point the learner to Field expectations for the per-column rules.
+  (e) DETERMINISTIC ROW SELECTION (HARD BAN on vague pickers): whenever an output column is taken from ONE row among several for the same entity (one session per tutor, one order per customer, etc.), the field_logic MUST state the EXACT selection rule: which column decides (e.g. "the lowest session_date") AND a unique tiebreak when that column can tie (e.g. "if several sessions share that date, the one with the lowest session_id"). NEVER write "a representative session", "any session", "one of the rows", "an arbitrary row" — the learner cannot code from that. The answer_key must implement the SAME rule fully deterministically: any DISTINCT ON / ROW_NUMBER pick must ORDER BY the deciding column AND a unique column (the primary key), never rely on insert order.
 - Schema DDL must be valid for the requested dialect (PostgreSQL or MySQL).
 - For DO block / RETURNS TABLE / RETURNS scalar / recursive CTE / DML problems, the prompt MUST specify exactly what shape the answer takes (e.g., "write a DO block that ... then a trailing SELECT ...").
 - For procedural problems, the test_expected_rows is what a SELECT * FROM target ORDER BY ... should return after the mutation runs.
@@ -5391,6 +5392,33 @@ def _validate_problem(problem: Dict[str, Any]) -> tuple:
                     f"the condition and state the field as the single expression it really is."
                 )
 
+    # Reject vague row pickers: "a representative session", "any row", "an arbitrary
+    # record" etc. never tell the learner WHICH row feeds the column, and the answer_key's
+    # pick is then only deterministic by insert order luck. Require the exact selection
+    # rule plus a unique tiebreak instead.
+    if isinstance(_fl, list):
+        import re as _re_vp
+        _vague = _re_vp.compile(
+            r"\b(?:a|an|any|some)\s+(?:representative|arbitrary)\s+\w+"
+            r"|\bany\s+(?:one\s+)?(?:row|record|session|order|entry)\b"
+            r"|\bone\s+of\s+the\s+(?:rows|records|sessions|orders|entries)\b",
+            _re_vp.I,
+        )
+        for _entry in _fl:
+            if not isinstance(_entry, str):
+                continue
+            _m = _vague.search(_entry)
+            if _m:
+                _col = _entry.split(":", 1)[0].strip()
+                return False, (
+                    f"VAGUE ROW PICKER in field '{_col}': the phrase '{_m.group(0)}' does not tell "
+                    f"the learner which row feeds this column. State the EXACT selection rule with a "
+                    f"unique tiebreak, e.g. 'use the entity's earliest row: the lowest <date_col>, and "
+                    f"if several rows share that date, the one with the lowest <primary_key>'. Use the "
+                    f"same wording in the prompt and output_field_notes, and make the answer_key ORDER "
+                    f"BY the deciding column AND the primary key so the pick never depends on insert order."
+                )
+
     # --- Run answer_key against example data, capture truth ---
     try:
         sbx.reset(dialect)
@@ -5569,18 +5597,24 @@ def _cleaning_families_missing(answer_sql: str) -> list:
     and regenerated. Heuristic regex over the answer SQL (Postgres)."""
     import re as _re
     a = (answer_sql or "").upper()
+    # LOCKSTEP RULE (2026-07-08 log audit): these regexes MUST recognize EVERY function
+    # _FN_DRILL can name. The all-six drill instructs the model to use specific rotated
+    # picks; a pick invisible to this detector is a GUARANTEED retry (the model obeys,
+    # the validator rejects). If you add a function to _FN_DRILL, add it here too.
     fam = {
-        "STRING": bool(_re.search(r'\b(TRIM|BTRIM|LTRIM|RTRIM|LOWER|UPPER|INITCAP|SPLIT_PART|REPLACE|SUBSTRING|LPAD|RPAD|CONCAT)\s*\(', a)),
-        "ARRAY": bool(_re.search(r'\b(ARRAY_LENGTH|CARDINALITY|UNNEST)\s*\(', a)
+        "STRING": bool(_re.search(r'\b(TRIM|BTRIM|LTRIM|RTRIM|LOWER|UPPER|INITCAP|SPLIT_PART|REPLACE|REGEXP_REPLACE|SUBSTRING|SUBSTR|LEFT|RIGHT|LPAD|RPAD|CONCAT_WS|CONCAT|POSITION|STRPOS|CHAR_LENGTH|LENGTH|STRING_TO_ARRAY)\s*\(', a)),
+        "ARRAY": bool(_re.search(r'\b(ARRAY_LENGTH|CARDINALITY|UNNEST|ARRAY_TO_STRING|STRING_TO_ARRAY|ARRAY_AGG|ARRAY_POSITION)\s*\(', a)
                       or _re.search(r'\bANY\s*\(', a)
                       or _re.search(r'\bARRAY\s*\[', a)
+                      or "@>" in a or "&&" in a
                       or _re.search(r'\w\s*\[\s*\d+\s*\]', a)),
-        "DATE": bool(_re.search(r'\b(EXTRACT|DATE_TRUNC|TO_CHAR|AGE|DATE_PART|TO_DATE|TO_TIMESTAMP)\s*\(', a)
-                     or "::DATE" in a or "::TIMESTAMP" in a or "INTERVAL '" in a),
+        "DATE": bool(_re.search(r'\b(EXTRACT|DATE_TRUNC|TO_CHAR|AGE|DATE_PART|TO_DATE|TO_TIMESTAMP|MAKE_DATE|MAKE_INTERVAL)\s*\(', a)
+                     or "::DATE" in a or "::TIMESTAMP" in a or _re.search(r'\bINTERVAL\b', a)),
         "CAST": bool(_re.search(r'::\s*[A-Z]', a) or _re.search(r'\bCAST\s*\(', a)
-                     or _re.search(r'\b(TO_NUMBER|TO_DATE|TO_TIMESTAMP)\s*\(', a)),
-        "NUMERIC": bool(_re.search(r'\b(ROUND|CEIL|CEILING|FLOOR|TRUNC|MOD|ABS|POWER|SQRT|DIV)\s*\(', a)
-                        or _re.search(r'::\s*(NUMERIC|DECIMAL|FLOAT|INT|BIGINT|REAL|DOUBLE)', a)),
+                     or _re.search(r'\b(TO_NUMBER|TO_DATE|TO_TIMESTAMP|TO_CHAR)\s*\(', a)),
+        "NUMERIC": bool(_re.search(r'\b(ROUND|CEIL|CEILING|FLOOR|TRUNC|MOD|ABS|POWER|SQRT|DIV|SIGN|LN|LOG|EXP)\s*\(', a)
+                        or _re.search(r'::\s*(NUMERIC|DECIMAL|FLOAT|INT|BIGINT|REAL|DOUBLE)', a)
+                        or _re.search(r'\w\s+%\s+\w', a)),   # a % b modulo; spaces required so LIKE '%x%' never matches
         "CONDITIONAL": bool(_re.search(r'\b(CASE|COALESCE|NULLIF|GREATEST|LEAST)\b', a)),
     }
     return [k for k, present in fam.items() if not present]
@@ -5634,12 +5668,13 @@ _FN_DRILL = {
     "array": ["arr[n] (1-based)", "ARRAY_LENGTH(arr, 1)", "x = ANY(arr)", "arr @> arr2 (contains all)",
               "arr && arr2 (overlaps)", "ARRAY_TO_STRING(arr, sep)", "STRING_TO_ARRAY(s, sep)",
               "UNNEST(arr)"],
-    "date": ["EXTRACT(part FROM ts)", "DATE_TRUNC(unit, ts)", "AGE(a, b)", "date - date (whole days)",
+    # LOCKSTEP RULE: every entry here must be recognizable by _cleaning_families_missing
+    # for ITS OWN family, or the drill instructs a pick the validator then rejects.
+    "date": ["EXTRACT(part FROM ts)", "DATE_TRUNC(unit, ts)", "AGE(a, b)",
              "date + INTERVAL", "TO_CHAR(ts, fmt)", "EXTRACT(DOW FROM d)"],
-    "cast": ["x::type / CAST(x AS type)", "TO_DATE(s, fmt)", "TO_NUMBER(s, fmt)", "TO_CHAR(n, fmt)",
-             "NULLIF(a, b)  (blank -> NULL)", "COALESCE(a, b, ...)"],
+    "cast": ["x::type / CAST(x AS type)", "TO_DATE(s, fmt)", "TO_NUMBER(s, fmt)", "TO_CHAR(n, fmt)"],
     "numeric": ["ROUND(n, d)", "CEIL / FLOOR(n)", "TRUNC(n, d)", "ABS(n)", "MOD(a, b)", "POWER(a, b)",
-                "a::numeric / b  (avoid integer division)", "GREATEST / LEAST(...)"],
+                "a::numeric / b  (avoid integer division)"],
     "conditional": ["CASE WHEN ... THEN ... ELSE ... END", "COALESCE(a, b, ...)", "NULLIF(a, b)",
                     "GREATEST / LEAST(...)",
                     "COALESCE(col, default)  (impute NULL with a constant)",
@@ -5676,9 +5711,18 @@ def _cleaning_all_six(per_cat: int) -> str:
         "NOT swap in the easy default, use the named ones. Add whatever TEXT / TEXT[] / wrong-typed-text "
         "/ date / NULL columns are needed so each one applies, and apply them to the OUTPUT or derived "
         "columns (never as a hidden filter):\n" + body +
+        "\nRELIABLE RECIPE (how passing attempts do it — follow it on attempt 1, not after a rejection): "
+        "give the output ONE extra derived column per family so all six coexist no matter what the core "
+        "task is: a cleaned text column [STRING], element [1] of a TEXT[] column [ARRAY], a month or "
+        "formatted value from a date [DATE], text parsed to a number [CAST], a rounded or modulo value "
+        "[NUMERIC], and a CASE or COALESCE default [CONDITIONAL] — using the SPECIFIC functions named "
+        "above. Before returning, CHECK the answer_key against the six numbered lines; if a family is "
+        "absent, add its derived column now." +
         "\nDo NOT announce the cleaning or name techniques in the prompt — describe columns by business "
         "meaning. Keep the CORE skill intact and the problem fully consistent (answer_key reproduces BOTH "
         "the example and test outputs, both NON-EMPTY). Trace it before returning."
+        "\nIf a retry reports a family MISSING, satisfy it with ANY function from that family's full "
+        "toolbox — add a derived output column; do NOT restructure the problem or drop another family."
     )
 
 
@@ -5798,6 +5842,7 @@ def generate_problem(
         return None
 
     last_error = None
+    last_answer_key = None
     scenario = _pick_scenario(qtype, industry=scenario_mode)  # pick once so retries refine the same scenario; industry-aware
     # For dml, pick which operation (UPDATE / DELETE / INSERT) once so retries stay
     # consistent. Each option has equal probability.
@@ -5931,6 +5976,10 @@ def generate_problem(
     # The all-six cleaning drill weaves 6-12 functions in one answer_key and the model often
     # whack-a-moles families across attempts, so give it more tries to converge.
     _eff_retries = max(max_retries, 8) if cleaning_all_six else max_retries
+    # Roll the all-six function rotation ONCE per generation, not per attempt: re-rolling
+    # inside the loop re-targeted the model every retry (a different required function set
+    # each attempt), which is what made the six-family whack-a-mole unwinnable.
+    _all_six_block = _cleaning_all_six(cleaning_per_cat) if cleaning_all_six else ""
     _log_meta = {
         "question_type": qtype, "original_qtype": original_qtype, "dialect": dialect,
         "difficulty": difficulty or "moderate", "subtype": subtype,
@@ -5947,7 +5996,7 @@ def generate_problem(
         user_prompt = _topic_specific_guidance(qtype_for_guidance, dialect, scenario=scenario, dml_op=dml_op, islands_flavor=islands_flavor, percentile_flavor=percentile_flavor, difficulty=difficulty, pivot_flavor=pivot_flavor, subtype=subtype)
         if cleaning_required:
             if cleaning_all_six:
-                user_prompt += _cleaning_all_six(cleaning_per_cat)
+                user_prompt += _all_six_block
             elif _clean_level == "low":
                 user_prompt += _CLEANING_LOW
             else:  # moderate
@@ -5966,6 +6015,15 @@ def generate_problem(
                 "are all internally consistent. Trace the answer_key row by row "
                 "before returning."
             )
+            if last_answer_key:
+                # Without this echo the model regenerates blind each attempt and
+                # randomly drops families it had (the whack-a-mole from the log audit).
+                user_prompt += (
+                    "\n\nYour PREVIOUS answer_key is below. FIX IT FORWARD: keep everything "
+                    "the validator did not complain about (especially every cleaning family "
+                    "it already uses), change only what the error requires, and keep the "
+                    "data + outputs consistent with the fixed query.\n" + last_answer_key
+                )
         user_prompt += "\n\nReturn the JSON object now."
 
         text = _call_claude(GENERATOR_SYSTEM, user_prompt, max_tokens=4000)
@@ -6005,6 +6063,7 @@ def generate_problem(
                                    parsed.get("answer_key"), failures_dir)
             return parsed
         last_error = err
+        last_answer_key = parsed.get("answer_key")
         log_generation_failure(_log_meta, attempt, _eff_retries, err, failures_dir,
                                answer_key=parsed.get("answer_key"))
 
@@ -6773,6 +6832,27 @@ def parse_inserts(sql: str):
     return out
 
 
+def _fill_auto_columns(schema_cols, dcols, drows):
+    """Add schema columns the INSERT omits because the DB fills them automatically
+    (SERIAL / IDENTITY / AUTO_INCREMENT), so the example data table shows every
+    schema column. Auto ids are numbered 1..N in insert order (what the DB does).
+    Returns (cols, rows) reordered to schema order. No schema info -> unchanged."""
+    if not schema_cols:
+        return dcols, drows
+    auto_pat = _re.compile(r"SERIAL|IDENTITY|AUTO_INCREMENT", _re.I)
+    have = set(dcols)
+    added = [c for c, t in schema_cols
+             if c not in have and auto_pat.search(str(t or ""))]
+    if not added:
+        return dcols, drows
+    full = dict(zip(dcols, zip(*drows))) if drows else {c: () for c in dcols}
+    for c in added:
+        full[c] = tuple(range(1, len(drows) + 1))
+    ordered = [c for c, _t in schema_cols if c in full] + [c for c in dcols if c not in {n for n, _t in schema_cols}]
+    rows = [[full[c][i] for c in ordered] for i in range(len(drows))]
+    return ordered, rows
+
+
 def _parse_value_rows(s: str):
     """Split a multi-row VALUES body into [[v1, v2, ...], ...].
 
@@ -6887,16 +6967,29 @@ TOOLBOX = {
     },
 }
 
-# Suggest a built-in ONLY when the answer_key uses it and the learner did not.
+# Suggest a built-in ONLY when (a) the answer_key uses it, (b) the learner did not,
+# AND (c) the learner's SQL shows the hand-rolled pattern the built-in replaces
+# (the evidence regex). Without (c) the tip is noise: HIGH cleaning forces functions
+# like COALESCE into nearly every answer_key (often redundantly), so mere token
+# presence fired the tip on almost every passing solution. evidence=None keeps the
+# old presence-only behavior.
 IDIOM_TIPS = {
-    "SIGN":     "SIGN(x) returns -1 / 0 / +1 directly -- no CASE needed for the sign.",
-    "LEAST":    "LEAST(hi, GREATEST(lo, x)) clamps a value to a range without nested CASE.",
-    "GREATEST": "GREATEST(lo, x), paired with LEAST, sets a floor without a CASE.",
-    "NULLIF":   "NULLIF(denominator, 0) guards divide-by-zero instead of a CASE around the division.",
-    "ABS":      "ABS(x) gives magnitude instead of CASE WHEN x < 0 THEN -x.",
-    "COALESCE": "COALESCE(x, fallback) fills a default instead of CASE WHEN x IS NULL.",
-    "INITCAP":  "INITCAP(text) capitalizes each word in one call.",
-    "MOD":      "MOD(a, b), or a % b, gives the remainder directly.",
+    "SIGN":     ("SIGN(x) returns -1 / 0 / +1 directly -- no CASE needed for the sign.",
+                 r"CASE\s+WHEN[^;]*[<>]=?\s*0"),
+    "LEAST":    ("LEAST(hi, GREATEST(lo, x)) clamps a value to a range without nested CASE.",
+                 r"CASE\s+WHEN[^;]*[<>]"),
+    "GREATEST": ("GREATEST(lo, x), paired with LEAST, sets a floor without a CASE.",
+                 r"CASE\s+WHEN[^;]*[<>]"),
+    "NULLIF":   ("NULLIF(denominator, 0) guards divide-by-zero instead of a CASE around the division.",
+                 r"CASE\s+WHEN[^;]*(?:=|<>|!=)\s*0"),
+    "ABS":      ("ABS(x) gives magnitude instead of CASE WHEN x < 0 THEN -x.",
+                 r"CASE\s+WHEN[^;]*<\s*0"),
+    "COALESCE": ("COALESCE(x, fallback) fills a default instead of CASE WHEN x IS NULL.",
+                 r"CASE\s+WHEN[^;]*IS\s+(?:NOT\s+)?NULL"),
+    "INITCAP":  ("INITCAP(text) capitalizes each word in one call.",
+                 r"UPPER\s*\("),
+    "MOD":      ("MOD(a, b), or a % b, gives the remainder directly.",
+                 None),
 }
 
 _TOOLBOX_FN_TOKENS = [
@@ -6951,11 +7044,13 @@ def idiom_notes(problem, user_sql):
     ak = (problem.get("answer_key", "") or "").upper()
     us = (user_sql or "").upper()
     tips = []
-    for tok, tip in IDIOM_TIPS.items():
+    for tok, (tip, evidence) in IDIOM_TIPS.items():
         pat = r"\b" + _re.escape(tok) + r"\s*\("
         if _re.search(pat, ak) and not _re.search(pat, us):
             if tok == "MOD" and "%" in us:
                 continue
+            if evidence and not _re.search(evidence, us):
+                continue          # learner never hand-rolled the pattern; tip would be noise
             tips.append(tip)
     return tips
 
@@ -7193,6 +7288,7 @@ def render_problem_card(problem: Dict[str, Any], collapsed: bool = False) -> str
             schema_html = _tbl(cols, ["Column", "Type"])
             if name in data_map:
                 dcols, drows = data_map[name]
+                dcols, drows = _fill_auto_columns(cols, dcols, drows)
                 data_html = _tbl(drows, dcols, klass="ex-out")
             else:
                 data_html = '<div style="color:#8b949e; font-size:12px;">no example rows</div>'
