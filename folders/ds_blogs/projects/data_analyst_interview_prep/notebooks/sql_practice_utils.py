@@ -188,6 +188,12 @@ QUESTION_TYPES = {
         "label": "Anti-join (never / did not / no match)",
         "description": "Keep rows in one set with NO matching row in another (customers who never ordered, products never sold). NOT EXISTS (NULL-safe), LEFT JOIN ... WHERE right IS NULL, or NOT IN (only when the subquery column is non-NULL).",
         "dialects": ["postgresql", "mysql"],
+        # Folded into filter_by_other_table 2026-07-08: its 3 subtypes are the same
+        # anti-join forms (the playbook made the identical call 2026-07-07 when
+        # rf-leaf-antijoin became a stub pointing at mt-otherfilter). Entry kept so old
+        # saved/solved problems and the error review still resolve labels; new
+        # generations redirect in generate_problem.
+        "hidden_in_picker": True,
     },
     "filter_by_other_table": {
         "label": "Filter one table by a condition in another table (semi / anti / count)",
@@ -5836,6 +5842,20 @@ def generate_problem(
             return None
         qtype = random.choice(pool)
         print(f"random_any resolved to: {qtype}  [{QUESTION_TYPES[qtype]['label']}]")
+
+    # anti_join folded into filter_by_other_table (2026-07-08): same anti-join forms,
+    # same templates. A direct call (old notebook state, replay-driven regeneration)
+    # still works: map the subtype and generate through the canonical qtype. With no
+    # subtype given, stay within anti-join semantics — that IS what was asked for.
+    if qtype == "anti_join":
+        _AJ_SUBTYPE_MAP = {"not_exists": "anti_not_exists",
+                           "left_join_null": "anti_left_null",
+                           "not_in": "anti_not_in"}
+        subtype = (_AJ_SUBTYPE_MAP.get(subtype, subtype) if subtype
+                   else random.choice(list(_AJ_SUBTYPE_MAP.values())))
+        qtype = "filter_by_other_table"
+        print(f"anti_join is folded into: filter_by_other_table "
+              f"[{QUESTION_TYPES[qtype]['label']}]  (subtype: {subtype})")
 
     if dialect not in QUESTION_TYPES[qtype]["dialects"]:
         print(f"Question type '{qtype}' is not supported in dialect '{dialect}'.")

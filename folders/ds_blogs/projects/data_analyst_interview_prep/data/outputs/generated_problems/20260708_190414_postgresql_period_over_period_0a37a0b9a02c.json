@@ -1,0 +1,208 @@
+{
+  "title": "Seasonal year-over-year order volume growth",
+  "prompt": "You are working with a food delivery service's order completion table that tracks when orders were placed and whether they were fulfilled. The `order_date` column is stored as text in YYYY-MM-DD format. The `order_status` column contains values like 'completed', ' completed ', 'COMPLETED', or 'cancelled', with inconsistent spacing and casing. Write a query that aggregates the number of completed orders by calendar month, then compares each month to the same month one year earlier. A completed order is any row where the cleaned `order_status` equals 'completed' (case-insensitive, spaces trimmed). Your output should show five columns: `month_period` (the first day of each calendar month as a date), `completed_orders` (count of completed orders in that month), `prev_year_orders` (count from the same month one year earlier, NULL if no such month exists), `yoy_change` (the difference `completed_orders - prev_year_orders`, NULL when the prior year is absent), and `yoy_pct` (the percent change rounded to one decimal place, NULL when the prior year is absent or zero). Order the result by `month_period` ascending. Months in the first year of data will have NULL for their prior-year metrics because no earlier year is available.",
+  "display": {
+    "context": "You are working with a food delivery service that logs every order placed, including its date and final completion status.",
+    "task": "Write a query that returns monthly completed-order counts alongside the count from the same month one year earlier, the absolute change, and the percent change.",
+    "table_notes": {
+      "delivery_orders": "records every order placed, with its date (stored as text) and final status (stored with inconsistent casing and spacing)"
+    },
+    "output_field_notes": {
+      "month_period": "the first day of the calendar month (e.g. 2023-01-01 for January 2023)",
+      "completed_orders": "the number of completed orders placed in that month",
+      "prev_year_orders": "the number of completed orders placed in the same calendar month one year earlier (NULL if no such prior-year month exists in the data)",
+      "yoy_change": "the difference between completed_orders and prev_year_orders (NULL when prev_year_orders is NULL)",
+      "yoy_pct": "the percent change from prev_year_orders to completed_orders, rounded to one decimal place (NULL when prev_year_orders is NULL or zero)"
+    },
+    "field_logic": [
+      "month_period: built from order_date.\n- cast order_date (stored as text) to a date\n- truncate that date to the first day of its calendar month",
+      "completed_orders: built from order_status.\n- trim leading and trailing spaces from order_status\n- convert order_status to lowercase\n- count rows where the cleaned value equals 'completed'",
+      "prev_year_orders: built from completed_orders in prior months.\n- for each month_period, match it to the month_period that is exactly one year earlier\n- take that earlier month's completed_orders\n- NULL if no such earlier month exists",
+      "yoy_change: built from completed_orders and prev_year_orders.\n- subtract prev_year_orders from completed_orders\n- NULL when prev_year_orders is NULL",
+      "yoy_pct: built from completed_orders and prev_year_orders.\n- calculate 100 times (completed_orders minus prev_year_orders) divided by prev_year_orders\n- guard the division so that a zero denominator yields NULL instead of an error\n- round the result to one decimal place\n- NULL when prev_year_orders is NULL"
+    ],
+    "edge_cases": [],
+    "filter_note": "A row qualifies only when ALL of these are true:\norder_status (after trimming spaces and converting to lowercase) equals 'completed'",
+    "order_by_note": "month_period ascending"
+  },
+  "schema_ddl": "CREATE TABLE delivery_orders (order_id INT PRIMARY KEY, order_date VARCHAR(10), order_status VARCHAR(20));",
+  "example_input_data": "INSERT INTO delivery_orders (order_id, order_date, order_status) VALUES (1, '2023-01-10', 'completed'), (2, '2023-01-15', 'COMPLETED'), (3, '2023-02-05', ' completed '), (4, '2023-02-20', 'cancelled'), (5, '2024-01-08', 'completed'), (6, '2024-01-22', 'completed'), (7, '2024-02-12', 'completed');",
+  "example_output_columns": [
+    "month_period",
+    "completed_orders",
+    "prev_year_orders",
+    "yoy_change",
+    "yoy_pct"
+  ],
+  "example_output_rows": [
+    [
+      "2023-01-01",
+      2,
+      null,
+      null,
+      null
+    ],
+    [
+      "2023-02-01",
+      1,
+      null,
+      null,
+      null
+    ],
+    [
+      "2024-01-01",
+      2,
+      2,
+      0,
+      "0.0"
+    ],
+    [
+      "2024-02-01",
+      1,
+      1,
+      0,
+      "0.0"
+    ]
+  ],
+  "test_data": "INSERT INTO delivery_orders (order_id, order_date, order_status) VALUES (101, '2022-03-05', 'completed'), (102, '2022-03-12', 'completed'), (103, '2022-03-18', ' COMPLETED '), (104, '2022-03-25', 'cancelled'), (105, '2022-04-02', 'completed'), (106, '2022-04-10', 'completed'), (107, '2022-04-15', 'completed'), (108, '2022-04-22', 'completed'), (109, '2022-05-03', ' completed '), (110, '2022-05-14', 'cancelled'), (111, '2023-03-07', 'completed'), (112, '2023-03-19', 'COMPLETED'), (113, '2023-03-28', 'completed'), (114, '2023-03-30', 'completed'), (115, '2023-04-05', 'completed'), (116, '2023-04-18', 'completed'), (117, '2023-05-08', ' completed '), (118, '2023-05-22', 'cancelled'), (119, '2024-03-02', 'completed'), (120, '2024-03-15', 'completed'), (121, '2024-03-20', 'completed'), (122, '2024-03-25', 'completed'), (123, '2024-03-28', 'completed'), (124, '2024-04-01', 'COMPLETED'), (125, '2024-04-10', ' completed '), (126, '2024-04-12', 'completed'), (127, '2024-04-20', 'completed'), (128, '2024-04-25', 'completed'), (129, '2024-05-05', 'completed'), (130, '2024-05-18', 'cancelled');",
+  "test_expected_columns": [
+    "month_period",
+    "completed_orders",
+    "prev_year_orders",
+    "yoy_change",
+    "yoy_pct"
+  ],
+  "test_expected_rows": [
+    [
+      "2022-03-01",
+      3,
+      null,
+      null,
+      null
+    ],
+    [
+      "2022-04-01",
+      4,
+      null,
+      null,
+      null
+    ],
+    [
+      "2022-05-01",
+      1,
+      null,
+      null,
+      null
+    ],
+    [
+      "2023-03-01",
+      4,
+      3,
+      1,
+      "33.3"
+    ],
+    [
+      "2023-04-01",
+      2,
+      4,
+      -2,
+      "-50.0"
+    ],
+    [
+      "2023-05-01",
+      1,
+      1,
+      0,
+      "0.0"
+    ],
+    [
+      "2024-03-01",
+      5,
+      4,
+      1,
+      "25.0"
+    ],
+    [
+      "2024-04-01",
+      5,
+      2,
+      3,
+      "150.0"
+    ],
+    [
+      "2024-05-01",
+      1,
+      1,
+      0,
+      "0.0"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "time-window",
+    "composite_moves": [
+      "cast order_date from text to date",
+      "trim and lowercase order_status",
+      "filter to rows where cleaned order_status = 'completed'",
+      "date_trunc order_date to month and aggregate count per month into a CTE",
+      "self-join the monthly CTE on period = prior period - 1 year to attach prev_year_orders",
+      "compute yoy_change as completed_orders - prev_year_orders",
+      "compute yoy_pct as 100*(completed_orders - prev_year_orders)/NULLIF(prev_year_orders,0), round to 1 decimal",
+      "order by month_period ascending"
+    ]
+  },
+  "hints": [
+    "Start by cleaning the status column and filtering to completed orders, then group by the month.",
+    "Use a self-join on the monthly aggregates to match each month with the same month one year earlier.",
+    "Guard your percentage calculation with NULLIF on the denominator to avoid division by zero when the prior year had zero orders."
+  ],
+  "answer_key": "WITH monthly AS (\n  SELECT\n    DATE_TRUNC('month', order_date::date)::date AS month_period,\n    COUNT(*) AS completed_orders\n  FROM delivery_orders\n  WHERE LOWER(TRIM(order_status)) = 'completed'\n  GROUP BY 1\n)\nSELECT\n  c.month_period,\n  c.completed_orders,\n  p.completed_orders AS prev_year_orders,\n  c.completed_orders - p.completed_orders AS yoy_change,\n  ROUND(100.0 * (c.completed_orders - p.completed_orders) / NULLIF(p.completed_orders, 0), 1) AS yoy_pct\nFROM monthly c\nLEFT JOIN monthly p ON p.month_period = c.month_period - INTERVAL '1 year'\nORDER BY c.month_period;",
+  "_meta": {
+    "question_type": "period_over_period",
+    "original_qtype": "period_over_period",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-08T19:04:14.243229",
+    "problem_id": "0a37a0b9a02c",
+    "validation_attempts": 1,
+    "scenario": "a food delivery service tracking order completion and delivery time",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": "same_period_last_year",
+    "cleaning_required": true,
+    "cleaning_level": "moderate",
+    "cleaning_requested": "moderate",
+    "cleaning_skipped_reason": null,
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": null,
+    "typecast_twist": true,
+    "realism": "moderate"
+  },
+  "example_output_schema": [
+    [
+      "month_period",
+      "DATE"
+    ],
+    [
+      "completed_orders",
+      "BIGINT"
+    ],
+    [
+      "prev_year_orders",
+      "BIGINT"
+    ],
+    [
+      "yoy_change",
+      "BIGINT"
+    ],
+    [
+      "yoy_pct",
+      "NUMERIC"
+    ]
+  ]
+}

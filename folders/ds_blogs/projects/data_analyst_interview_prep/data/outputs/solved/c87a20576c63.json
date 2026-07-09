@@ -1,0 +1,214 @@
+{
+  "problem": {
+    "title": "Alert Category Share and Growth",
+    "prompt": "You are working with an observability platform that tracks alerts across services. The alerts table stores each alert with a triggered_at timestamp, a category (stored as TEXT, with possible leading/trailing spaces or inconsistent casing), and time_to_ack_minutes (also stored as TEXT; some rows may be NULL). Write a query that buckets alerts into months, computes the total time-to-acknowledge (in minutes) per category per month, and for each (category, month) row outputs: the month (as a DATE, formatted as the first day of the month), the category (cleaned and title-cased), the total time-to-acknowledge for that category in that month, that total's share of the month's combined total across all categories (as a percentage rounded to one decimal place), and the absolute change in that category's total from the prior month (NULL for the category's first month). Order the result by month ascending, then by category ascending.",
+    "display": {
+      "context": "You are working with an observability platform tracking alert acknowledge time and mean-time-to-resolve metrics.",
+      "task": "Write a query that shows each category's monthly time-to-acknowledge total, its share of the month's total, and its month-over-month change.",
+      "table_notes": {
+        "alerts": "stores each triggered alert with a timestamp, category, and time to acknowledge"
+      },
+      "output_field_notes": {
+        "month": "the first day of the month the alert was triggered",
+        "category": "the cleaned and title-cased alert category",
+        "total_ack_minutes": "the sum of time_to_ack_minutes for this category in this month",
+        "share_of_month_pct": "this category's total as a percentage of the month's combined total across all categories",
+        "mom_change": "the absolute change in total_ack_minutes from the prior month for this category"
+      },
+      "field_logic": [
+        "month: built from triggered_at.\n- truncate triggered_at to the first day of the month\n- cast to DATE",
+        "category: built from category.\n- remove leading and trailing spaces\n- capitalize the first letter of each word",
+        "total_ack_minutes: built from time_to_ack_minutes.\n- cast time_to_ack_minutes to a number\n- if the cast result is NULL, treat it as 0\n- sum the numeric values for the category in the month",
+        "share_of_month_pct: built from total_ack_minutes.\n- compute 100.0 times total_ack_minutes divided by the sum of total_ack_minutes across all categories in the same month\n- round to one decimal place",
+        "mom_change: built from total_ack_minutes.\n- for each category ordered by month, subtract the total_ack_minutes of the prior month from the current month's total_ack_minutes\n- the first month for a category has no prior month, so the value is NULL"
+      ],
+      "edge_cases": [],
+      "filter_note": "",
+      "order_by_note": "month ascending, then category ascending",
+      "answer_shape": "",
+      "function_signature": "",
+      "test_call": ""
+    },
+    "schema_ddl": "CREATE TABLE alerts (alert_id INT PRIMARY KEY, triggered_at TIMESTAMP NOT NULL, category TEXT NOT NULL, time_to_ack_minutes TEXT);",
+    "example_input_data": "INSERT INTO alerts (alert_id, triggered_at, category, time_to_ack_minutes) VALUES\n(1, '2024-01-05 08:30:00', ' database ', '12'),\n(2, '2024-01-12 14:22:00', 'NETWORK', '8'),\n(3, '2024-01-20 09:15:00', ' database ', '15'),\n(4, '2024-02-03 11:45:00', 'network', '10'),\n(5, '2024-02-10 16:30:00', ' Database ', '20'),\n(6, '2024-02-18 10:05:00', 'NETWORK', NULL);",
+    "example_output_columns": [
+      "month",
+      "category",
+      "total_ack_minutes",
+      "share_of_month_pct",
+      "mom_change"
+    ],
+    "example_output_rows": [
+      [
+        "2024-01-01",
+        "Database",
+        "27",
+        "77.1",
+        null
+      ],
+      [
+        "2024-01-01",
+        "Network",
+        "8",
+        "22.9",
+        null
+      ],
+      [
+        "2024-02-01",
+        "Database",
+        "20",
+        "66.7",
+        "-7"
+      ],
+      [
+        "2024-02-01",
+        "Network",
+        "10",
+        "33.3",
+        "2"
+      ]
+    ],
+    "test_data": "INSERT INTO alerts (alert_id, triggered_at, category, time_to_ack_minutes) VALUES\n(101, '2024-01-02 07:00:00', 'database', '5'),\n(102, '2024-01-03 08:15:00', ' DATABASE ', '10'),\n(103, '2024-01-05 09:30:00', 'network', '3'),\n(104, '2024-01-08 10:45:00', '  application  ', '12'),\n(105, '2024-01-10 11:00:00', 'NETWORK', '7'),\n(106, '2024-01-15 12:30:00', 'database', '8'),\n(107, '2024-01-18 13:45:00', 'Application', '15'),\n(108, '2024-01-22 14:00:00', ' network ', NULL),\n(109, '2024-02-01 08:00:00', 'DATABASE', '6'),\n(110, '2024-02-03 09:15:00', 'application', '18'),\n(111, '2024-02-05 10:30:00', 'Network', '4'),\n(112, '2024-02-08 11:45:00', ' database ', '9'),\n(113, '2024-02-10 12:00:00', 'network', '5'),\n(114, '2024-02-15 13:30:00', 'APPLICATION', '20'),\n(115, '2024-02-20 14:45:00', 'database', NULL),\n(116, '2024-03-02 08:30:00', ' Network ', '8'),\n(117, '2024-03-05 09:45:00', 'database', '11'),\n(118, '2024-03-08 10:00:00', 'application', '22'),\n(119, '2024-03-12 11:15:00', 'NETWORK', '6'),\n(120, '2024-03-15 12:30:00', ' DATABASE ', '13'),\n(121, '2024-03-18 13:45:00', 'Application', '25'),\n(122, '2024-03-22 14:00:00', 'network', '7'),\n(123, '2024-03-25 15:15:00', 'database', NULL);",
+    "test_expected_columns": [
+      "month",
+      "category",
+      "total_ack_minutes",
+      "share_of_month_pct",
+      "mom_change"
+    ],
+    "test_expected_rows": [
+      [
+        "2024-01-01",
+        "Application",
+        "27",
+        "45.0",
+        null
+      ],
+      [
+        "2024-01-01",
+        "Database",
+        "23",
+        "38.3",
+        null
+      ],
+      [
+        "2024-01-01",
+        "Network",
+        "10",
+        "16.7",
+        null
+      ],
+      [
+        "2024-02-01",
+        "Application",
+        "38",
+        "61.3",
+        "11"
+      ],
+      [
+        "2024-02-01",
+        "Database",
+        "15",
+        "24.2",
+        "-8"
+      ],
+      [
+        "2024-02-01",
+        "Network",
+        "9",
+        "14.5",
+        "-1"
+      ],
+      [
+        "2024-03-01",
+        "Application",
+        "47",
+        "51.1",
+        "9"
+      ],
+      [
+        "2024-03-01",
+        "Database",
+        "24",
+        "26.1",
+        "9"
+      ],
+      [
+        "2024-03-01",
+        "Network",
+        "21",
+        "22.8",
+        "12"
+      ]
+    ],
+    "classification": {
+      "input_arrival": "single_table",
+      "output_shape": "fewer_rows",
+      "recipe": "time-window",
+      "composite_moves": [
+        "cast time_to_ack_minutes from TEXT to numeric, coalesce NULL to 0",
+        "clean category: TRIM and INITCAP",
+        "DATE_TRUNC triggered_at to month, cast to DATE",
+        "GROUP BY month and category, SUM the numeric time_to_ack_minutes",
+        "window function: SUM(total_ack_minutes) OVER (PARTITION BY month) for share calculation",
+        "window function: LAG(total_ack_minutes) OVER (PARTITION BY category ORDER BY month) for mom_change",
+        "ORDER BY month, category"
+      ]
+    },
+    "hints": [
+      "Start by cleaning the category column and converting time_to_ack_minutes to a number; treat NULL values as zero when summing.",
+      "Bucket the alerts into months using DATE_TRUNC, then group by both the month and the cleaned category to get each category's monthly total.",
+      "Use a window function partitioned by month to calculate each category's share of the month's total, and another window function partitioned by category (ordered by month) to get the prior month's total for the month-over-month change."
+    ],
+    "answer_key": "WITH monthly AS (\n  SELECT\n    DATE_TRUNC('month', triggered_at)::DATE AS month,\n    INITCAP(TRIM(category)) AS category,\n    SUM(COALESCE(time_to_ack_minutes::NUMERIC, 0)) AS total_ack_minutes\n  FROM alerts\n  GROUP BY 1, 2\n)\nSELECT\n  month,\n  category,\n  total_ack_minutes,\n  ROUND(100.0 * total_ack_minutes / NULLIF(SUM(total_ack_minutes) OVER (PARTITION BY month), 0), 1) AS share_of_month_pct,\n  total_ack_minutes - LAG(total_ack_minutes) OVER (PARTITION BY category ORDER BY month) AS mom_change\nFROM monthly\nORDER BY month, category;",
+    "_meta": {
+      "question_type": "period_over_period",
+      "original_qtype": "period_over_period",
+      "dialect": "postgresql",
+      "difficulty": "moderate",
+      "scenario_mode": "random",
+      "generated_at": "2026-07-08T17:45:18.489426",
+      "problem_id": "c87a20576c63",
+      "validation_attempts": 1,
+      "scenario": "an observability platform tracking alert acknowledge time and MTTR",
+      "dml_op": null,
+      "islands_flavor": null,
+      "percentile_flavor": null,
+      "pivot_flavor": null,
+      "subtype": "pct_of_total_pop",
+      "cleaning_required": true,
+      "cleaning_level": "moderate",
+      "cleaning_requested": "moderate",
+      "cleaning_skipped_reason": null,
+      "cleaning_all_six": false,
+      "cleaning_per_category": null,
+      "cleaning_bonus": null,
+      "typecast_twist": true,
+      "realism": "moderate"
+    },
+    "example_output_schema": [
+      [
+        "month",
+        "DATE"
+      ],
+      [
+        "category",
+        "TEXT"
+      ],
+      [
+        "total_ack_minutes",
+        "NUMERIC"
+      ],
+      [
+        "share_of_month_pct",
+        "NUMERIC"
+      ],
+      [
+        "mom_change",
+        "NUMERIC"
+      ]
+    ]
+  },
+  "user_solution": "/* \n    ROUND(100.0 *\n            (total_ack_minutes - SUM(total_ack_minutes) OVER (ORDER BY month)\n            / NULLIF(SUM(total_ack_minutes) OVER (ORDER BY month), 0)\n        , 1)) AS share_of_month_pct\n*/\n\n-- Step 1: Clean category (trim + title-case) and convert time_to_ack_minutes to numeric (NULL \u2192 0)\n-- Step 2: Aggregate total time-to-ack per (month, category)\n-- Step 3: Compute month total across all categories using window SUM OVER (PARTITION BY month)\n-- Step 4: Compute each category's prior month total using LAG OVER (PARTITION BY category) for month-over-month change\nWITH base AS (\n    SELECT\n        DATE_TRUNC('month', triggered_at) AS month,\n        INITCAP(TRIM(category)) AS category,\n        COALESCE(TRIM(time_to_ack_minutes)::int, 0) AS total_ack_minutes\n    FROM alerts\n),\ntotal_ack AS (\n    SELECT\n        month,\n        category,\n        SUM(total_ack_minutes) AS total_ack_minutes\n    FROM base\n    GROUP BY 1, 2\n)\nSELECT\n    month,\n    category,\n    total_ack_minutes,\n    ROUND(\n        100.0 * total_ack_minutes / NULLIF(SUM(total_ack_minutes) OVER (PARTITION BY month), 0), \n        1) AS share_of_month_pct,\n    total_ack_minutes - LAG(total_ack_minutes) OVER (PARTITION BY category ORDER BY month) AS mom_change\nFROM total_ack\nORDER BY 1, 2;\n\n\n\n",
+  "solved_at": "2026-07-08T18:49:53.839281"
+}

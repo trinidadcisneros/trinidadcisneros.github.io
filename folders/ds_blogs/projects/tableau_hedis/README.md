@@ -99,6 +99,7 @@ The Tableau build, dashboard, parity notebook, and blog page phases will be writ
 ## Phase 2 — Parity notebook and blog page (July 8, 2026)
 
 - [x] `notebooks/nb02_sql_pandas_parity.ipynb` created and run end to end: 14 parity checks, every blog number reproduced in DuckDB SQL and pandas against the Tableau value, all PASS
-- [x] Blog page `ds_blogs/ds_tableau_sql_pandas_hedis.html` built (6 tabs: Overview, Benchmarks & LODs, Table Calculations, L.A. Care vs Health Net, Parameters, Dashboard); registered in posts.json + landing
+- [x] Blog page `ds_blogs/ds_tableau_sql_pandas_hedis.html` built (6 tabs: Overview, Benchmarks & LODs, Table Calculations, Difference From First, Parameters, Dashboard); registered in posts.json + landing. Finding tab renamed from subject-based to method-based ("Difference From First"). Every SQL/pandas block now has plain-language approach bullets.
 - [x] Correctness fix: 2016 statewide average is 55.45 (recomputed mean), not 55.46
-- [ ] Publish the workbook to Tableau Public so both embeds load (dashboard view `medi_cal_hedis/Medi-CalPlanQualityScorecard`; single sheet view for the change chart, confirm the `ChangeSince2016` view name matches)
+- [x] Published to Tableau Public (workbook `medi_cal_hedis`; views `Medi-CalPlanQualityScorecard` and `ChangeSince2016`); both embeds wired into the blog page
+- [ ] Final remaining: git push post 1 and post 2 live (site deploy)
