@@ -211,7 +211,11 @@ def recommend_with_claude(pool, activity, season='Any', time='Any', n=3):
     if client is None:
         return None, "Claude client not ready - using offline ranking instead."
     cols = ['company', 'fragrance', 'category', 'score', 'season', 'time', 'top', 'middle', 'base']
-    cand = pool[[c for c in cols if c in pool.columns]].to_dict('records')[:50]
+    avail = [c for c in cols if c in pool.columns]
+    # Shuffle the pool and send Claude a random subset so each run varies
+    # (otherwise Claude keeps picking the same "objective best 3").
+    shuffled = pool[avail].sample(frac=1.0) if len(pool) else pool[avail]
+    cand = shuffled.head(30).to_dict('records')
     if not cand:
         return None, "No candidates to send."
 
@@ -241,7 +245,8 @@ def recommend_with_claude(pool, activity, season='Any', time='Any', n=3):
     user = (
         f"Occasion: {activity}\nSeason filter: {season}\nTime filter: {time}\n\n"
         f"Candidates (already filtered):\n{listing}\n\n"
-        f"Choose the {n} best. Return ONLY JSON: "
+        f"Choose the {n} best. If several fit equally well, feel free to vary your picks. "
+        f"Return ONLY JSON: "
         f'[{{"company": "...", "fragrance": "...", "reason": "one concise sentence"}}]'
     )
     try:
@@ -295,7 +300,7 @@ def used_keys(activity=None):
 def apply_usage(pool, activity, usage_mode):
     if usage_mode == 'Any' or pool.empty:
         return pool
-    uk = used_keys(activity)
+    uk = used_keys()   # global: tried in ANY activity, matches the Times Used column
     mask = pool.apply(lambda r: (r['company'], r['fragrance']) in uk, axis=1)
     return pool[~mask] if usage_mode.startswith('New') else pool[mask]
 
@@ -342,10 +347,19 @@ def _badge(score):
             f"font-size:12px;font-weight:600'>{score or '-'}</span>")
 
 
+def _times_used_html(n):
+    """Times-used indicator: integer count (0 if never used); repeats (>1) stand out in red."""
+    n = int(n or 0)
+    if n > 1:
+        return f"<span style='color:#c0392b;font-weight:700'>{n}</span>"
+    color = '#9aa0a6' if n == 0 else '#3c4149'
+    return f"<span style='color:{color}'>{n}</span>"
+
+
 def show_results(records, occasion, mode_label, activity=None):
     """Static HTML table (used for programmatic / non-widget output)."""
     from IPython.display import HTML, display
-    counts = usage_counts(activity)
+    counts = usage_counts()   # total times used across ALL activities
     th = ("text-align:left;padding:9px 12px;font-size:11px;text-transform:uppercase;"
           "letter-spacing:.04em;color:#8a8f98;border-bottom:2px solid #e6e8eb;")
     td = "padding:11px 12px;border-bottom:1px solid #eef0f2;color:#3c4149;font-size:13px;vertical-align:top;"
@@ -367,9 +381,9 @@ def show_results(records, occasion, mode_label, activity=None):
                  f"<td style='{td}'>{_badge(r.get('score',''))}</td>"
                  f"<td style='{td}'>{r.get('season','')}</td>"
                  f"<td style='{td}'>{r.get('time','')}</td>"
-                 f"<td style='{td};color:#6b7280'>{str(used)+'x' if used else '-'}</td></tr>")
+                 f"<td style='{td}'>{_times_used_html(used)}</td></tr>")
     head = ''.join(f"<th style='{th}'>{h}</th>" for h in
-                   ['Fragrance', 'Company', 'Box', 'Category', 'Size', 'Score', 'Season', 'Time', 'Used'])
+                   ['Fragrance', 'Company', 'Box', 'Category', 'Size', 'Score', 'Season', 'Time', 'Times Used'])
     html = (f"<div style='font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:920px'>"
             f"<div style='font-size:13px;color:#6b7280;margin:4px 0 10px'>{mode_label} for "
             f"<b style='color:#c0392b'>{occasion}</b></div>"
@@ -382,21 +396,25 @@ def show_results(records, occasion, mode_label, activity=None):
 # --------------------------------------------------------------------------
 # Interactive GUI
 # --------------------------------------------------------------------------
-_W = {'name': '240px', 'co': '130px', 'con': '80px', 'cat': '120px', 'sz': '50px', 'sc': '58px', 'us': '45px'}
+_W = {'name': '230px', 'co': '125px', 'con': '78px', 'cat': '115px', 'sz': '48px', 'sc': '56px', 'us': '90px'}
 
 
 def _render_interactive(records, activity, occasion, mode_label):
     import ipywidgets as widgets
     from ipywidgets import Layout
-    counts = usage_counts(activity)
+    counts = usage_counts()   # total times used across ALL activities
     thx = 'font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#8a8f98;'
     header = widgets.HTML(
         "<div style='display:flex;padding:0 0 6px 34px;border-bottom:2px solid #e6e8eb;"
         "font-family:-apple-system,Segoe UI,Roboto'>"
         + ''.join(f"<div style='width:{_W[k]};{thx}'>{lbl}</div>" for k, lbl in
                   [('name', 'Fragrance'), ('co', 'Company'), ('con', 'Box'), ('cat', 'Category'),
-                   ('sz', 'Size'), ('sc', 'Score'), ('us', 'Used')]) + "</div>")
-    rows, checks = [], []
+                   ('sz', 'Size'), ('sc', 'Score'), ('us', 'Times Used')]) + "</div>")
+    def _tu_html(n):
+        return (f"<div style='width:{_W['us']};font-family:-apple-system,Segoe UI,Roboto;"
+                f"font-size:13px'>{_times_used_html(n)}</div>")
+
+    rows, checks, tu_cells = [], [], []
     for r in records:
         used = counts.get((r.get('company', ''), r.get('fragrance', '')), 0)
         reason = r.get('reason')
@@ -410,12 +428,13 @@ def _render_interactive(records, activity, occasion, mode_label):
             f"<div style='width:{_W['con']}'>" + (f"<span style='background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;padding:1px 7px;border-radius:6px;font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:600'>{r.get('container','')}</span>" if r.get('container','') else "<span style='color:#c0c4c9'>-</span>") + "</div>"
             f"<div style='width:{_W['cat']}'>{r.get('category','')}</div>"
             f"<div style='width:{_W['sz']}'>{r.get('size','')}ml</div>"
-            f"<div style='width:{_W['sc']}'>{_badge(r.get('score',''))}</div>"
-            f"<div style='width:{_W['us']};color:#6b7280'>{str(used)+'x' if used else '-'}</div></div>")
+            f"<div style='width:{_W['sc']}'>{_badge(r.get('score',''))}</div></div>")
+        tu = widgets.HTML(_tu_html(used))       # separate cell so it can refresh in place
         cb = widgets.Checkbox(value=False, indent=False, layout=Layout(width='30px'))
-        rows.append(widgets.HBox([cb, info], layout=Layout(align_items='flex-start',
+        rows.append(widgets.HBox([cb, info, tu], layout=Layout(align_items='flex-start',
                     padding='8px 0', border_bottom='1px solid #eef0f2')))
         checks.append((cb, r))
+        tu_cells.append((tu, r))
     title = widgets.HTML(f"<div style='font-family:-apple-system,Segoe UI,Roboto;font-size:13px;"
                          f"color:#6b7280;margin:2px 0 8px'>{mode_label} for "
                          f"<b style='color:#c0392b'>{occasion}</b></div>")
@@ -431,9 +450,14 @@ def _render_interactive(records, activity, occasion, mode_label):
                 mark_used(activity, r)
                 m += 1
                 cb.value = False
-        status.value = (f"<span style='color:#2e7d32;font-size:13px'>Logged {m} as used for {activity}. "
-                        f"Re-run Recommend to see updated counts.</span>"
-                        if m else "<span style='color:#b91c1c;font-size:13px'>Tick a box first.</span>")
+        if m:
+            fresh = usage_counts()   # refresh Times Used in place, no re-run needed
+            for tu, r in tu_cells:
+                tu.value = _tu_html(fresh.get((r.get('company', ''), r.get('fragrance', '')), 0))
+            status.value = (f"<span style='color:#2e7d32;font-size:13px'>Logged {m} as used. "
+                            f"Times Used updated above.</span>")
+        else:
+            status.value = "<span style='color:#b91c1c;font-size:13px'>Tick a box first.</span>"
     mark.on_click(_do)
     return widgets.VBox([title, header] + rows +
                         [widgets.HBox([mark], layout=Layout(padding='10px 0 0 0')), status])
@@ -497,10 +521,11 @@ def launch():
     def on_fav(_):
         with fav_out:
             clear_output()
-            c = usage_counts(w_act.value)
+            c = usage_counts()   # global, matches the Times Used column
             if not c:
                 display(HTML("<i style='font-family:-apple-system,Segoe UI,Roboto;color:#6b7280;"
-                             "font-size:13px'>No usage logged yet for this activity.</i>"))
+                             "font-size:13px'>No usage logged yet - tick a fragrance and click "
+                             "'Mark selected as used' first.</i>"))
                 return
             items = sorted(c.items(), key=lambda x: -x[1])
             tr = ''.join(f"<tr><td style='padding:6px 12px;border-bottom:1px solid #eee'>{fr}</td>"
@@ -508,7 +533,7 @@ def launch():
                          f"<td style='padding:6px 12px;border-bottom:1px solid #eee'><b>{n}x</b></td></tr>"
                          for (co, fr), n in items)
             display(HTML("<div style='font-family:-apple-system,Segoe UI,Roboto;font-size:13px;margin-top:8px'>"
-                         f"<b>Most used for {w_act.value}</b>"
+                         "<b>Most used (all activities)</b>"
                          "<table style='border-collapse:collapse;margin-top:6px'>"
                          "<thead><tr>"
                          "<th style='text-align:left;padding:6px 12px;color:#8a8f98;font-size:11px;text-transform:uppercase'>Fragrance</th>"

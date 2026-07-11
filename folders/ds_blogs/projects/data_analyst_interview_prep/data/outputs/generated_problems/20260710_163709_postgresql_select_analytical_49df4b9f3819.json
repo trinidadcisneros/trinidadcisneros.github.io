@@ -1,0 +1,143 @@
+{
+  "title": "Squad Completion Stats by Tier",
+  "prompt": "You are working with a battle royale mobile game that tracks match results and squad invitations. The `matches` table records each completed match, the `squads` table holds squad metadata, and `invites` tracks who invited whom. Each match has a `match_outcome` field (text, storing values like 'Victory', 'Top 5', 'Eliminated', etc.) and a `tier` field (text, storing the squad's competitive tier with possible leading/trailing spaces or inconsistent case). Each match also has a `match_date` (stored as text in 'YYYY-MM-DD' format) and a `duration_minutes` (stored as text). Write a query that returns one row per tier, showing the tier name, the total number of matches played in that tier, the count of matches that ended in 'Victory', and the average match duration in minutes (rounded to one decimal place). Only include tiers that have at least 3 completed matches. Order the results by total matches descending, then by tier name ascending.",
+  "display": {
+    "context": "You are working with a battle royale mobile game that tracks match results and squad invitations.",
+    "task": "Write a query that returns aggregate statistics for each competitive tier: tier name, total matches, victory count, and average duration, limited to tiers with at least 3 matches.",
+    "table_notes": {
+      "matches": "records each completed match with outcome, tier, date, and duration",
+      "squads": "holds squad metadata including squad name and leader",
+      "invites": "tracks which player invited which other player into a squad"
+    },
+    "output_field_notes": {
+      "tier": "the competitive tier label for this group of matches",
+      "total_matches": "how many matches were played in this tier",
+      "victory_count": "how many of those matches ended in victory",
+      "avg_duration_minutes": "the average match duration in minutes for this tier, rounded to one decimal place"
+    },
+    "field_logic": [
+      "tier: built from the tier column in matches.\n- remove leading and trailing spaces from tier\n- convert the result to title case (first letter of each word capitalized)",
+      "total_matches: built from match_id in matches.\n- count the number of match_id values in the group",
+      "victory_count: built from match_outcome in matches.\n- count how many rows in the group have match_outcome equal to 'Victory' (case-insensitive, after trimming spaces)",
+      "avg_duration_minutes: built from duration_minutes in matches.\n- convert duration_minutes from text to a number\n- compute the average of those numbers across the group\n- round the result to one decimal place"
+    ],
+    "edge_cases": [],
+    "filter_note": "A row (tier group) is returned only when ALL of these are true:\n- the tier has at least 3 completed matches (COUNT(*) >= 3)",
+    "order_by_note": "total_matches descending, then tier ascending"
+  },
+  "schema_ddl": "CREATE TABLE squads (squad_id INT PRIMARY KEY, squad_name VARCHAR(100), leader_player_id INT); CREATE TABLE matches (match_id INT PRIMARY KEY, squad_id INT, match_outcome VARCHAR(50), tier VARCHAR(50), match_date VARCHAR(20), duration_minutes VARCHAR(10)); CREATE TABLE invites (invite_id INT PRIMARY KEY, squad_id INT, inviter_player_id INT, invitee_player_id INT, invite_date DATE);",
+  "example_input_data": "INSERT INTO squads (squad_id, squad_name, leader_player_id) VALUES (1, 'Phoenix Squad', 101), (2, 'Viper Team', 102), (3, 'Shadow Ops', 103); INSERT INTO matches (match_id, squad_id, match_outcome, tier, match_date, duration_minutes) VALUES (1, 1, 'Victory', ' gold ', '2024-03-15', '22.5'), (2, 1, 'Top 5', ' GOLD', '2024-03-16', '18.0'), (3, 1, 'Victory', 'gold ', '2024-03-17', '25.3'), (4, 2, 'Eliminated', 'Silver', '2024-03-15', '12.7'), (5, 2, 'Victory', ' silver', '2024-03-16', '20.1'), (6, 2, 'Top 5', 'SILVER ', '2024-03-17', '15.8'), (7, 3, 'Victory', 'Platinum', '2024-03-15', '28.4'), (8, 3, 'Eliminated', ' platinum', '2024-03-16', '10.2'); INSERT INTO invites (invite_id, squad_id, inviter_player_id, invitee_player_id, invite_date) VALUES (1, 1, 101, 104, '2024-03-10'), (2, 2, 102, 105, '2024-03-11');",
+  "example_output_columns": [
+    "tier",
+    "total_matches",
+    "victory_count",
+    "avg_duration_minutes"
+  ],
+  "example_output_rows": [
+    [
+      "Gold",
+      3,
+      2,
+      "21.9"
+    ],
+    [
+      "Silver",
+      3,
+      1,
+      "16.2"
+    ]
+  ],
+  "test_data": "INSERT INTO squads (squad_id, squad_name, leader_player_id) VALUES (1, 'Phoenix Squad', 101), (2, 'Viper Team', 102), (3, 'Shadow Ops', 103), (4, 'Storm Raiders', 104), (5, 'Night Wolves', 105); INSERT INTO matches (match_id, squad_id, match_outcome, tier, match_date, duration_minutes) VALUES (1, 1, 'Victory', ' gold ', '2024-03-15', '22.5'), (2, 1, 'Top 5', ' GOLD', '2024-03-16', '18.0'), (3, 1, 'Victory', 'gold ', '2024-03-17', '25.3'), (4, 1, 'Eliminated', 'GOLD ', '2024-03-18', '14.2'), (5, 1, 'Victory', ' gold', '2024-03-19', '23.8'), (6, 2, 'Eliminated', 'Silver', '2024-03-15', '12.7'), (7, 2, 'Victory', ' silver', '2024-03-16', '20.1'), (8, 2, 'Top 5', 'SILVER ', '2024-03-17', '15.8'), (9, 2, 'Victory', 'silver ', '2024-03-18', '22.3'), (10, 2, 'Eliminated', ' SILVER', '2024-03-19', '11.5'), (11, 2, 'Top 5', 'silver', '2024-03-20', '17.9'), (12, 3, 'Victory', 'Platinum', '2024-03-15', '28.4'), (13, 3, 'Eliminated', ' platinum', '2024-03-16', '10.2'), (14, 3, 'Victory', 'PLATINUM ', '2024-03-17', '26.7'), (15, 3, 'Top 5', ' Platinum', '2024-03-18', '19.5'), (16, 4, 'Victory', 'bronze ', '2024-03-15', '16.3'), (17, 4, 'Eliminated', ' BRONZE', '2024-03-16', '9.8'), (18, 4, 'Victory', 'Bronze', '2024-03-17', '18.1'), (19, 4, 'Top 5', ' bronze ', '2024-03-18', '13.7'), (20, 5, 'Victory', 'Diamond', '2024-03-15', '31.2'), (21, 5, 'Eliminated', ' diamond', '2024-03-16', '12.4'); INSERT INTO invites (invite_id, squad_id, inviter_player_id, invitee_player_id, invite_date) VALUES (1, 1, 101, 104, '2024-03-10'), (2, 2, 102, 105, '2024-03-11'), (3, 3, 103, 106, '2024-03-12'), (4, 4, 104, 107, '2024-03-13');",
+  "test_expected_columns": [
+    "tier",
+    "total_matches",
+    "victory_count",
+    "avg_duration_minutes"
+  ],
+  "test_expected_rows": [
+    [
+      "Silver",
+      6,
+      2,
+      "16.7"
+    ],
+    [
+      "Gold",
+      5,
+      3,
+      "20.8"
+    ],
+    [
+      "Bronze",
+      4,
+      2,
+      "14.5"
+    ],
+    [
+      "Platinum",
+      4,
+      2,
+      "21.2"
+    ]
+  ],
+  "classification": {
+    "input_arrival": "single_table",
+    "output_shape": "fewer_rows",
+    "recipe": "group-aggregate",
+    "composite_moves": [
+      "parse_clean tier (TRIM + INITCAP)",
+      "type-convert duration_minutes (::numeric)",
+      "group-aggregate with COUNT, conditional COUNT for victory_count, AVG + ROUND",
+      "filter groups with HAVING COUNT(*) >= 3"
+    ]
+  },
+  "hints": [
+    "You'll need to clean the tier column and convert duration_minutes to a number before aggregating.",
+    "Use a conditional aggregate (like COUNT with a CASE or filter) to count only the 'Victory' outcomes.",
+    "Apply HAVING after GROUP BY to keep only tiers with at least 3 matches, and round the average duration to one decimal place."
+  ],
+  "answer_key": "SELECT INITCAP(TRIM(tier)) AS tier, COUNT(*) AS total_matches, COUNT(*) FILTER (WHERE TRIM(UPPER(match_outcome)) = 'VICTORY') AS victory_count, ROUND(AVG(duration_minutes::numeric), 1) AS avg_duration_minutes FROM matches GROUP BY INITCAP(TRIM(tier)) HAVING COUNT(*) >= 3 ORDER BY total_matches DESC, tier ASC;",
+  "_meta": {
+    "question_type": "select_analytical",
+    "original_qtype": "select_analytical",
+    "dialect": "postgresql",
+    "difficulty": "moderate",
+    "scenario_mode": "random",
+    "generated_at": "2026-07-10T16:37:08.939878",
+    "problem_id": "49df4b9f3819",
+    "validation_attempts": 1,
+    "scenario": "a battle royale mobile game tracking match completion and squad invites",
+    "dml_op": null,
+    "islands_flavor": null,
+    "percentile_flavor": null,
+    "pivot_flavor": null,
+    "subtype": null,
+    "cleaning_required": true,
+    "cleaning_level": "moderate",
+    "cleaning_requested": "moderate",
+    "cleaning_skipped_reason": null,
+    "cleaning_all_six": false,
+    "cleaning_per_category": null,
+    "cleaning_bonus": "conditional_null",
+    "typecast_twist": true,
+    "realism": "moderate"
+  },
+  "example_output_schema": [
+    [
+      "tier",
+      "TEXT"
+    ],
+    [
+      "total_matches",
+      "BIGINT"
+    ],
+    [
+      "victory_count",
+      "BIGINT"
+    ],
+    [
+      "avg_duration_minutes",
+      "NUMERIC"
+    ]
+  ]
+}
