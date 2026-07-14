@@ -1,0 +1,1756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Medicare Rates Health Plans, and Why the Heaviest Measures Decide the Score | Bitter Scientist</title>
+
+    <!-- Bootstrap 4.3.1 -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+
+    <!-- Site framework CSS -->
+    <link rel="stylesheet" type="text/css" href="../../static/css/navbar.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/footer.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/theme.css">
+
+    <style>
+        :root {
+            --navy: #1E2761;
+            --green: #2CA58D;
+            --red: #E15554;
+            --ice: #CADCFC;
+        }
+        * { box-sizing: border-box; }
+
+        /* ============ TYPE HIERARCHY (one font, five sizes) ============
+           h1 page title      1.5rem  bold
+           subtitle           0.95rem regular grey
+           section summary    1rem    semibold navy
+           body + tables      0.875rem
+           code + captions    0.8rem monospace / 0.75rem italic grey        */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; color: #333; line-height: 1.6; }
+        .main-container { max-width: 1300px; margin: 0 auto; padding: 20px; background-color: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); font-size: 0.875rem; }
+
+        /* The scorecard is a fixed 1250 x 1927 Tableau dashboard. Letting the embed scale it to
+           fit a narrower container squashes the 41 row measure chart into an unreadable block, so
+           it is rendered at native size inside a horizontally scrollable wrapper instead. */
+        .viz-native { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; padding-bottom: 6px; }
+        .page-header { text-align: center; margin-bottom: 26px; padding-bottom: 18px; border-bottom: 2px solid var(--navy); }
+        .page-header h1 { color: var(--navy); font-weight: 700; font-size: 1.5rem; }
+        .page-header .subtitle { color: #666; font-size: 0.95rem; margin-top: 8px; }
+        .page-header .meta { color: #999; font-size: 0.8rem; margin-top: 6px; }
+
+        .tab-navigation { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; border-bottom: 2px solid #e0e0e0; margin-bottom: 22px; position: sticky; top: 0; background: white; z-index: 50; padding-top: 6px; }
+        .nav-tab { border: none; background: none; padding: 10px 14px; font-size: 0.95rem; font-weight: 500; color: #555; cursor: pointer; border-bottom: 3px solid transparent; font-family: inherit; }
+        .nav-tab:hover { color: var(--navy); }
+        .nav-tab.active { color: var(--navy); border-bottom-color: var(--navy); font-weight: 600; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Collapsible sections */
+        details.sec { border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 14px; background: white; }
+        details.sec > summary { cursor: pointer; padding: 12px 16px; font-size: 1rem; font-weight: 600; color: var(--navy); list-style: none; }
+        details.sec > summary::-webkit-details-marker { display: none; }
+        details.sec > summary::before { content: "\25B8"; margin-right: 10px; font-size: 0.9em; }
+        details.sec[open] > summary::before { content: "\25BE"; }
+        details.sec[open] > summary { border-bottom: 1px solid #eee; }
+        .sec-body { padding: 14px 16px; }
+
+        .question-box { background: var(--ice); border-left: 5px solid var(--navy); padding: 14px 18px; border-radius: 0 6px 6px 0; margin-bottom: 18px; font-size: 0.875rem; }
+        .question-box strong { color: var(--navy); }
+        .intro-box { padding: 4px 2px 10px 2px; margin-bottom: 18px; font-size: 0.875rem; border-bottom: 1px solid #ddd; }
+        .intro-box strong { color: var(--navy); }
+        .subhead { font-size: 1rem; font-weight: 600; color: var(--navy); margin: 16px 0 2px 0; }
+        hr.light { border: 0; border-top: 1px solid #e4e4e4; margin: 20px 0; }
+        .section-controls { text-align: center; margin-bottom: 10px; }
+        .section-controls button { background: none; border: 1px solid #c9cede; border-radius: 5px; color: var(--navy); font-size: 0.8rem; padding: 4px 12px; margin-left: 6px; cursor: pointer; font-family: inherit; }
+        .section-controls button:hover { background: #eef0f6; }
+
+        /* Order of operations strip */
+        .oo-strip { display: flex; align-items: stretch; text-align: center; border: 1px solid #c9cede; border-radius: 8px; overflow: hidden; margin: 14px 0 6px 0; }
+        .oo-cell { flex: 1; padding: 10px 8px; font-size: 0.78rem; }
+        .oo-cell + .oo-cell { border-left: 1px solid #c9cede; }
+        .oo-name { font-weight: 700; color: var(--navy); font-size: 0.82rem; }
+        .oo-cell.hit { background: #fdf3f3; }
+        .oo-cell.fix { background: #eef0f6; }
+        .oo-note { font-size: 0.72rem; color: #777; margin-top: 4px; }
+
+        /* Data flow strip */
+        .flow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 14px 0 6px 0; }
+        .flow-box { flex: 1 1 180px; border: 1px solid #c9cede; border-radius: 8px; padding: 10px 12px; font-size: 0.78rem; background: #fbfcff; }
+        .flow-box .fb-title { font-weight: 700; color: var(--navy); font-size: 0.82rem; margin-bottom: 4px; }
+        .flow-arrow { flex: 0 0 auto; font-size: 1.5rem; color: var(--navy); }
+        .flow-box.changed { background: #f0faf7; border-color: var(--green); }
+
+        .before-after { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 12px 0 6px 0; }
+        .before-after .ba-table { flex: 1 1 300px; }
+        .before-after .ba-arrow { flex: 0 0 auto; font-size: 1.8rem; color: var(--navy); text-align: center; }
+        .before-after .ba-label { font-size: 0.8rem; font-weight: 600; color: #555; margin-bottom: 4px; }
+
+        .calc-formula { background: #f4f4f8; border: 1px solid #ddd; border-radius: 6px; padding: 10px 14px; font-family: 'SF Mono', Menlo, Consolas, Monaco, 'Courier New', monospace; font-size: 0.8rem; margin: 10px 0; white-space: pre-wrap; }
+        .click-path { font-size: 0.85rem; color: #555; }
+        .click-path li { margin-bottom: 4px; }
+
+        .code-block { background-color: #1a1a2e; color: #e8e8e8; border-radius: 6px; padding: 14px 16px; font-family: 'SF Mono', Menlo, Consolas, Monaco, 'Courier New', monospace; font-size: 0.8rem; overflow-x: auto; white-space: pre; line-height: 1.5; margin: 0; }
+        .code-block .kw { color: #c792ea; }
+        .code-block .cm { color: #7a7a94; font-style: italic; }
+        .code-block .st { color: #c3e88d; }
+        code { font-family: 'SF Mono', Menlo, Consolas, Monaco, 'Courier New', monospace; font-size: 0.8rem; color: #e8e8e8; background: #1a1a2e; padding: 2px 7px; border-radius: 4px; white-space: pre-wrap; }
+        table.blog-table code { display: inline-block; padding: 4px 8px; line-height: 1.45; margin: 1px 0; }
+
+        table.blog-table { width: 100%; border-collapse: collapse; margin: 12px 0 6px 0; font-size: 0.8rem; font-family: inherit; }
+        table.blog-table th { background: #eef0f6; color: #333; font-weight: 600; padding: 7px 12px; text-align: left; font-size: 0.8rem; border-bottom: 2px solid #c9cede; }
+        table.blog-table td { padding: 7px 12px; border-bottom: 1px solid #e8e8e8; vertical-align: top; font-family: inherit; font-size: 0.8rem; }
+        table.blog-table tr:nth-child(even) { background: #f7f8fc; }
+        table.blog-table .match { color: var(--green); font-weight: 700; }
+        table.blog-table td.grp { background: #eef0f6; font-weight: 700; color: var(--navy); }
+        .caption { font-size: 0.75rem; color: #888; font-style: italic; margin: 4px 0 14px 0; }
+
+        .gotcha-box { background: #fdf3f3; border-left: 5px solid var(--red); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 16px 0; font-size: 0.875rem; }
+        .gotcha-box strong { color: var(--red); }
+        .insight-box { background: #f0faf7; border-left: 5px solid var(--green); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 16px 0; font-size: 0.875rem; }
+        .insight-box strong { color: var(--green); }
+
+        .main-container p, .main-container li { font-size: inherit; }
+        @media (max-width: 768px) { .nav-tab { font-size: 0.875rem; padding: 8px 8px; } }
+    </style>
+</head>
+<body>
+  <div id="page-container">
+    <div id="content-wrap">
+      <div w3-include-html="/folders/navbar_footer/navbar_pages.html"></div>
+      <div class="blog-container">
+    <div class="main-container">
+        <div class="page-header">
+            <h1>How Medicare Rates Health Plans, and Why the Heaviest Measures Decide the Score</h1>
+            <div class="subtitle">Benchmarking, ranking, and rebuilding CMS Star Ratings in Tableau, with every calculation explained in SQL and pandas.</div>
+            <div class="meta">5 tabs &middot; 75 parity checks, all passing &middot; Live Tableau Public dashboard &middot; July 2026</div>
+        </div>
+
+        <div class="tab-navigation" id="tabNav">
+            <button class="nav-tab active" onclick="switchTab(event, 'tab-overview')">Overview</button>
+            <button class="nav-tab" onclick="switchTab(event, 'tab-dashboard')">The Dashboard</button>
+            <button class="nav-tab" onclick="switchTab(event, 'tab-lod')">Level of Detail</button>
+            <button class="nav-tab" onclick="switchTab(event, 'tab-tablecalc')">Table Calculations &amp; Parameters</button>
+            <button class="nav-tab" onclick="switchTab(event, 'tab-context')">Context &amp; Data Prep</button>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- TAB 1: OVERVIEW                                              -->
+        <!-- ============================================================ -->
+        <div id="tab-overview" class="tab-content active">
+            <div class="section-controls"><button onclick="setAllSections('tab-overview', true)">Expand All</button><button onclick="setAllSections('tab-overview', false)">Collapse All</button></div>
+
+            <details class="sec" open><summary>Introduction</summary><div class="sec-body">
+                <p style="margin-bottom:8px;"><strong>What the CMS star rating is, in four lines:</strong></p>
+                <ul style="margin: 0 0 12px 0;">
+                    <li>Every year, CMS grades every Medicare Advantage plan in the country from <strong>1 to 5 stars</strong>.</li>
+                    <li>The rating is printed beside each plan on Medicare Plan Finder, where the roughly <strong>34 million people</strong> in Medicare Advantage choose their coverage.<sup><a href="#ref1" style="text-decoration:none;">1</a></sup></li>
+                    <li>It is not cosmetic: <strong>4.0 or above</strong> earns a quality bonus payment, and a contract stuck <strong>below 3.0</strong> for three straight years can be terminated.<sup><a href="#ref2" style="text-decoration:none;">2</a></sup></li>
+                    <li>A half star is worth real money and real enrollment.</li>
+                </ul>
+
+                <p style="margin-bottom:8px;"><strong>The catch: the star looks like one grade, but it is not one.</strong></p>
+                <ul style="margin: 0 0 12px 0;">
+                    <li>It rolls up roughly <strong>40 separate quality measures</strong>, drawn from six unrelated data pipelines.</li>
+                    <li>CMS does <em>not</em> average them. It <strong>weights</strong> them, from 1 to 5.<sup><a href="#ref3" style="text-decoration:none;">3</a></sup></li>
+                    <li>An outcome measure counts <strong>three times</strong> what a process measure does; an improvement measure counts <strong>five times</strong>.</li>
+                    <li>So a plan's worst measures do not all cost the same, and the heaviest ones quietly decide the score.</li>
+                </ul>
+
+                <div class="question-box"><strong>Project objective:</strong> how does CMS turn dozens of separate quality measures into one star rating, which measures move the number the most, and what does that mean for where a plan's real problems are?</div>
+
+                <p style="margin-bottom:10px;">To answer that, this project uses the public <strong>CMS Part C and Part D Star Ratings</strong> data for 2024 through 2026, and follows one contract through the scoring machinery: <strong>H1224, L.A. Care Medicare Plus</strong>, the Medicare Advantage plan run by L.A. Care Health Plan. That plan, and why it is a useful lens on the whole system, is the subject of the next section. Every chart also places it against all 516 rated plans in the country and the parent companies behind them, so the case study never sits on its own.</p>
+
+                <p style="margin-bottom:8px;"><strong>Specifically, this post answers five questions, using L.A. Care to make each one concrete:</strong></p>
+                <ul style="margin: 0 0 14px 0;">
+                    <li>How far is a plan from the national average, and is the gap closing?</li>
+                    <li>Where does it sit in the distribution of every rated plan in the country?</li>
+                    <li>Which of the 41 quality measures is it losing stars on, and is the biggest gap actually the biggest problem once the weights are applied?</li>
+                    <li>Can a plan improve underneath a rating that never moves?</li>
+                    <li>Which parent companies run the best and worst Medicare plans, and which are climbing?</li>
+                </ul>
+
+                <p style="margin-top:14px; font-size:0.8rem; color:#777;"><strong>References</strong></p>
+                <ol style="font-size:0.8rem; color:#777; margin-top:2px;">
+                    <li id="ref1">KFF, <a href="https://www.kff.org/medicare/medicare-advantage-in-2026-enrollment-update-and-key-trends/" target="_blank">Medicare Advantage Enrollment Update</a>: about 34 million people, 54% of Medicare beneficiaries, were enrolled in Medicare Advantage in 2025.</li>
+                    <li id="ref2">CMS, <a href="https://www.cms.gov/medicare/health-drug-plans/part-c-d-performance-data" target="_blank">Part C and D Performance Data</a>, and 42 CFR &sect;&sect; 422.166 and 423.186 on the calculation and consequences of Star Ratings.</li>
+                    <li id="ref3">CMS, <a href="https://www.cms.gov/files/document/2026-star-ratings-measures.pdf" target="_blank">2026 Star Ratings Measures and Weights</a> (measure list and weight per measure), and the <a href="https://www.cms.gov/files/document/2026-star-ratings-technical-notes.pdf" target="_blank">2026 Part C &amp; D Star Ratings Technical Notes</a> (data source and cut point methodology).</li>
+                    <li id="ref4">CMS 2026 Star Ratings Data Tables (contract H1224). National average is the mean Overall star across the 516 rated contracts, computed in this project.</li>
+                </ol>
+            </div></details>
+
+            <details class="sec"><summary>The case study: L.A. Care Health Plan</summary><div class="sec-body">
+
+                <p>Every finding in this post is anchored to one contract, so it is worth knowing whose contract it is. L.A. Care is not a typical Medicare Advantage insurer. It is a public agency, it exists because the State of California created it, and its Medicare plan serves the population most other plans are structured to avoid.</p>
+
+                <p style="margin-bottom:8px;"><strong>Why this plan makes a useful lens on the whole system:</strong></p>
+                <ul style="margin: 0 0 12px 0;">
+                    <li>It is the <strong>largest publicly operated health plan</strong> in the country.</li>
+                    <li>Its Medicare members are <strong>dual eligible</strong> for Medicare and Medi-Cal, the poorest and often the sickest, exactly the group CMS built its hardship adjustment for.</li>
+                    <li>It has scored a flat <strong>3.0 stars</strong> both years it has been rated, against a national average of 3.65.<sup><a href="#ref4" style="text-decoration:none;">4</a></sup></li>
+                    <li>Following one contract through the scoring machinery shows what the machinery does to every contract.</li>
+                </ul>
+
+                <details class="sec"><summary>Background and history</summary><div class="sec-body">
+                <table class="blog-table">
+                    <tr><td style="width:32%"><strong>What it is</strong></td><td>The Local Initiative Health Authority for Los Angeles County, a public agency, not a commercial insurer. The <strong>largest publicly operated health plan in the United States</strong>.<sup><a href="#ref5" style="text-decoration:none;">5</a></sup></td></tr>
+                    <tr><td><strong>Founded</strong></td><td>April 1, 1997, created by the State of California under the Medi-Cal &ldquo;Two-Plan Model,&rdquo; which set up a locally operated public plan to compete directly with a commercial plan. In Los Angeles County the commercial plan was <strong>Health Net</strong>, which is why the two turn up as rivals throughout this series.<sup><a href="#ref5" style="text-decoration:none;">5</a></sup></td></tr>
+                    <tr><td><strong>Members covered</strong></td><td>More than <strong>2.6 million</strong> Los Angeles County residents, roughly one in four Angelenos, making it the largest health plan in the county as well as the country's largest public one.<sup><a href="#ref5" style="text-decoration:none;">5</a></sup></td></tr>
+                    <tr><td style="vertical-align:top;"><strong>Coverage programs (four lines)</strong></td><td>Four lines of business, with April 2024 membership:<sup><a href="#ref6" style="text-decoration:none;">6</a></sup>
+                        <ul style="margin:6px 0 0 0;">
+                            <li><strong>Medi-Cal</strong> &mdash; California's Medicaid program. About <strong>2,349,000</strong> members, roughly 90% of the plan.</li>
+                            <li><strong>L.A. Care Covered</strong> &mdash; the ACA marketplace (Covered California) plan. About <strong>188,000</strong> members.</li>
+                            <li><strong>PASC-SEIU</strong> &mdash; coverage for Los Angeles County in-home caregivers (IHSS workers). About <strong>49,000</strong> members.</li>
+                            <li><strong>Medicare Advantage</strong> &mdash; contract H1224, the line this project is about. About <strong>19,000</strong> members, under 1% of the plan.</li>
+                        </ul>
+                    </td></tr>
+                    <tr><td><strong>Where it operates</strong></td><td>Los Angeles County only. Headquartered at 1200 W. 7th Street, downtown Los Angeles.<sup><a href="#ref5" style="text-decoration:none;">5</a></sup></td></tr>
+                    <tr><td style="vertical-align:top;"><strong>How care is delivered</strong></td><td>As a public plan it contracts care out rather than owning hospitals:<sup><a href="#ref5" style="text-decoration:none;">5</a></sup>
+                        <ul style="margin:6px 0 0 0;">
+                            <li>At launch it worked through <strong>plan partners</strong>, including Anthem Blue Cross, Kaiser Permanente, and Care1st (now Blue Shield of California Promise).</li>
+                            <li>By 2006 it had built its <strong>own direct network</strong> of contracted providers.</li>
+                            <li>That network runs through the Los Angeles County <strong>safety net</strong>: community clinics, federally qualified health centers, and public and private hospitals across the county.</li>
+                        </ul>
+                    </td></tr>
+                    <tr><td><strong>Governance</strong></td><td>A 13-member Board of Governors representing consumers, clinics, physicians, hospitals, and the L.A. County Department of Health Services. Two seats are held by enrollees elected by members, unusual for a health plan.<sup><a href="#ref5" style="text-decoration:none;">5</a></sup></td></tr>
+                </table>
+                </div></details>
+
+                <details class="sec"><summary>Why Medicare, and why this contract</summary><div class="sec-body">
+                <p>L.A. Care runs four lines of business, but this project follows only the Medicare one, contract <strong>H1224</strong> (marketed as L.A. Care Medicare Plus, an HMO Dual Eligible Special Needs Plan).</p>
+                <div class="gotcha-box"><strong>A point worth being precise about.</strong> L.A. Care's Medicare <em>history</em> goes back to 2008, when it launched its first dual eligible Special Needs Plan.<sup><a href="#ref5" style="text-decoration:none;">5</a></sup> But contract <strong>H1224 itself is recent</strong>. It is new enough that CMS declined to rate it in the 2024 Star Ratings, marking every measure &ldquo;plan too new to be measured,&rdquo; and it has a rating only for 2025 and 2026. That is why the data has three years nationally but only <strong>two rated years</strong> for L.A. Care, and why its line on every trend chart starts in 2025.</div>
+                <p style="margin-bottom:6px;">Why this line, and not one of the larger three:</p>
+                <ul>
+                    <li><strong>It is the hardest line to score well on.</strong> Dual eligible members are poorer, sicker, and more likely to be disabled than the Medicare average, which is exactly why CMS built the adjustment covered later in this post.</li>
+                    <li><strong>It is the line with a public, national scorecard.</strong> Medi-Cal quality is measured by the state; Medicare quality is the CMS star rating, published for every plan in the country, which makes L.A. Care directly comparable to all 516 rated contracts.</li>
+                    <li><strong>It is small enough to read and large enough to matter.</strong> One contract, about 19,000 members, two rated years, a flat 3.0. A single thread that the whole scoring system can be pulled through.</li>
+                </ul>
+                </div></details>
+
+                <details class="sec"><summary>How L.A. Care, its members, and CMS are actually connected</summary><div class="sec-body">
+                <p>Before any of the numbers mean anything, it helps to see the loop they sit inside. A star rating is not a report handed down from above. It is the output of a cycle that the plan is inside of, and the rating it earns this year changes who enrolls next year, which changes the rating after that.</p>
+
+                <div style="overflow-x:auto;">
+                <svg viewBox="0 0 1160 915" xmlns="http://www.w3.org/2000/svg" style="width:100%; min-width:900px; height:auto; font-family:'Segoe UI', Tahoma, sans-serif;">
+                  <defs>
+                    <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+                      <path d="M0,0 L0,6.4 L7.5,3.2 z" fill="#1E2761"/>
+                    </marker>
+                    <marker id="ahr" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+                      <path d="M0,0 L0,6.4 L7.5,3.2 z" fill="#E15554"/>
+                    </marker>
+                    <marker id="ahg" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+                      <path d="M0,0 L0,6.4 L7.5,3.2 z" fill="#2CA58D"/>
+                    </marker>
+                  </defs>
+
+                  <!-- 1. THE CONTRACT -->
+                  <text x="30" y="30" font-size="13" font-weight="700" fill="#1E2761">1 &#160;THE CONTRACT</text>
+                  <rect x="30" y="44" width="230" height="86" rx="8" fill="#eef0f6" stroke="#1E2761" stroke-width="1.5"/>
+                  <text x="145" y="70" font-size="14" font-weight="700" fill="#1E2761" text-anchor="middle">CMS</text>
+                  <text x="145" y="90" font-size="11" fill="#555" text-anchor="middle">Centers for Medicare and</text>
+                  <text x="145" y="105" font-size="11" fill="#555" text-anchor="middle">Medicaid Services</text>
+                  <text x="145" y="121" font-size="10.5" fill="#888" text-anchor="middle">the regulator and the payer</text>
+
+                  <line x1="262" y1="87" x2="368" y2="87" stroke="#1E2761" stroke-width="1.6" marker-end="url(#ah)"/>
+                  <text x="315" y="76" font-size="10.5" fill="#1E2761" text-anchor="middle" font-weight="600">contract H1224</text>
+                  <text x="315" y="103" font-size="10" fill="#888" text-anchor="middle">a fixed sum per member,</text>
+                  <text x="315" y="115" font-size="10" fill="#888" text-anchor="middle">every month</text>
+
+                  <rect x="370" y="44" width="250" height="86" rx="8" fill="#f0faf7" stroke="#2CA58D" stroke-width="1.8"/>
+                  <text x="495" y="70" font-size="14" font-weight="700" fill="#2CA58D" text-anchor="middle">L.A. Care Health Plan</text>
+                  <text x="495" y="90" font-size="11" fill="#555" text-anchor="middle">Contract H1224 &#183; Local CCP</text>
+                  <text x="495" y="106" font-size="11" fill="#555" text-anchor="middle">Dual Eligible Special Needs Plan</text>
+                  <text x="495" y="122" font-size="10.5" fill="#888" text-anchor="middle">publicly operated, Los Angeles County</text>
+
+                  <line x1="622" y1="87" x2="728" y2="87" stroke="#1E2761" stroke-width="1.6" marker-end="url(#ah)"/>
+                  <text x="675" y="76" font-size="10.5" fill="#1E2761" text-anchor="middle" font-weight="600">buys care</text>
+
+                  <rect x="730" y="44" width="230" height="86" rx="8" fill="#fbfcff" stroke="#c9cede" stroke-width="1.5"/>
+                  <text x="845" y="70" font-size="13" font-weight="700" fill="#1E2761" text-anchor="middle">Provider network</text>
+                  <text x="845" y="90" font-size="11" fill="#555" text-anchor="middle">Clinics, hospitals,</text>
+                  <text x="845" y="105" font-size="11" fill="#555" text-anchor="middle">specialists, pharmacies</text>
+                  <text x="845" y="121" font-size="10.5" fill="#888" text-anchor="middle">under contract to the plan</text>
+
+                  <!-- 2. ENROLLMENT -->
+                  <text x="30" y="185" font-size="13" font-weight="700" fill="#1E2761">2 &#160;ENROLLMENT</text>
+                  <rect x="30" y="199" width="590" height="86" rx="8" fill="#CADCFC" stroke="#1E2761" stroke-width="1.5"/>
+                  <text x="50" y="225" font-size="13" font-weight="700" fill="#1E2761">Members choose a plan</text>
+                  <text x="50" y="245" font-size="11" fill="#333">Eligible for Medicare AND Medi-Cal, so the poorest and often the sickest.</text>
+                  <text x="50" y="262" font-size="11" fill="#333">They compare plans on <tspan font-weight="700">Medicare Plan Finder</tspan>, where the star rating is printed</text>
+                  <text x="50" y="277" font-size="11" fill="#333">beside the plan name. The rating is a sales number before it is anything else.</text>
+
+                  <line x1="622" y1="242" x2="728" y2="242" stroke="#1E2761" stroke-width="1.6" marker-end="url(#ah)"/>
+                  <rect x="730" y="199" width="230" height="86" rx="8" fill="#fbfcff" stroke="#c9cede" stroke-width="1.5"/>
+                  <text x="845" y="228" font-size="13" font-weight="700" fill="#1E2761" text-anchor="middle">Members get care</text>
+                  <text x="845" y="250" font-size="11" fill="#555" text-anchor="middle">Visits, prescriptions,</text>
+                  <text x="845" y="265" font-size="11" fill="#555" text-anchor="middle">hospital stays, discharges</text>
+
+                  <!-- 3. THE DATA -->
+                  <text x="30" y="340" font-size="13" font-weight="700" fill="#1E2761">3 &#160;WHAT GETS MEASURED, AND BY WHOM</text>
+                  <text x="30" y="358" font-size="11" fill="#888">L.A. Care is graded on 41 measures. It produces the number for only 17 of them.</text>
+
+                  <rect x="30" y="372" width="290" height="142" rx="8" fill="#f0faf7" stroke="#2CA58D" stroke-width="1.5"/>
+                  <text x="45" y="394" font-size="11.5" font-weight="700" fill="#2CA58D">THE PLAN REPORTS THESE &#183; 17</text>
+                  <text x="45" y="418" font-size="11" font-weight="600" fill="#333">HEDIS &#160;<tspan font-weight="400" fill="#888">15 measures</tspan></text>
+                  <text x="45" y="433" font-size="10.5" fill="#666">Built from the plan&#8217;s own claims and medical</text>
+                  <text x="45" y="446" font-size="10.5" fill="#666">records, then independently audited.</text>
+                  <text x="45" y="472" font-size="11" font-weight="600" fill="#333">Plan submitted files &#160;<tspan font-weight="400" fill="#888">2 measures</tspan></text>
+                  <text x="45" y="487" font-size="10.5" fill="#666">Drug pricing accuracy, and medication therapy</text>
+                  <text x="45" y="500" font-size="10.5" fill="#666">management completion.</text>
+
+                  <rect x="335" y="372" width="290" height="142" rx="8" fill="#fdf3f3" stroke="#E15554" stroke-width="1.5"/>
+                  <text x="350" y="394" font-size="11.5" font-weight="700" fill="#E15554">CMS ASKS THE MEMBERS &#183; 12</text>
+                  <text x="350" y="418" font-size="11" font-weight="600" fill="#333">CAHPS survey &#160;<tspan font-weight="400" fill="#888">9 measures</tspan></text>
+                  <text x="350" y="433" font-size="10.5" fill="#666">A CMS vendor surveys a random sample of</text>
+                  <text x="350" y="446" font-size="10.5" fill="#666">members. Care coordination, service, access.</text>
+                  <text x="350" y="472" font-size="11" font-weight="600" fill="#333">HOS survey &#160;<tspan font-weight="400" fill="#888">3 measures</tspan></text>
+                  <text x="350" y="487" font-size="10.5" fill="#666">The same members, asked twice, two years</text>
+                  <text x="350" y="500" font-size="10.5" fill="#666">apart. Measures change in health, not care.</text>
+
+                  <rect x="640" y="372" width="320" height="142" rx="8" fill="#eef0f6" stroke="#1E2761" stroke-width="1.5"/>
+                  <text x="655" y="394" font-size="11.5" font-weight="700" fill="#1E2761">CMS USES ITS OWN RECORDS &#183; 12</text>
+                  <text x="655" y="415" font-size="11" font-weight="600" fill="#333">Pharmacy claims &#160;<tspan font-weight="400" fill="#888">4 measures</tspan></text>
+                  <text x="655" y="429" font-size="10.5" fill="#666">Prescription fill records, scored for adherence.</text>
+                  <text x="655" y="452" font-size="11" font-weight="600" fill="#333">Administrative records &#160;<tspan font-weight="400" fill="#888">6 measures</tspan></text>
+                  <text x="655" y="466" font-size="10.5" fill="#666">Complaints filed with Medicare, members leaving,</text>
+                  <text x="655" y="478" font-size="10.5" fill="#666">appeals overturned on review, and secret shopper</text>
+                  <text x="655" y="490" font-size="10.5" fill="#666">calls placed to the plan&#8217;s own call centre.</text>
+                  <text x="655" y="506" font-size="10.5" fill="#666"><tspan font-weight="600" fill="#333">Improvement &#183; 2</tspan> &#160;arithmetic on last year&#8217;s scores.</text>
+
+                  <path d="M175,285 L175,366" stroke="#2CA58D" stroke-width="1.6" fill="none" marker-end="url(#ahg)"/>
+                  <path d="M845,285 L845,320 L480,320 L480,366" stroke="#E15554" stroke-width="1.6" fill="none" marker-end="url(#ahr)"/>
+                  <path d="M900,285 L900,340 L800,340 L800,366" stroke="#1E2761" stroke-width="1.6" fill="none" marker-end="url(#ah)"/>
+
+                  <path d="M175,516 L175,554" stroke="#1E2761" stroke-width="1.6" fill="none"/>
+                  <path d="M480,516 L480,554" stroke="#1E2761" stroke-width="1.6" fill="none"/>
+                  <path d="M800,516 L800,554" stroke="#1E2761" stroke-width="1.6" fill="none"/>
+                  <path d="M175,554 L800,554" stroke="#1E2761" stroke-width="1.6" fill="none"/>
+                  <path d="M490,554 L490,580" stroke="#1E2761" stroke-width="1.6" fill="none" marker-end="url(#ah)"/>
+
+                  <!-- 4. CMS SCORES IT -->
+                  <text x="30" y="614" font-size="13" font-weight="700" fill="#1E2761">4 &#160;CMS TURNS IT INTO A STAR</text>
+                  <rect x="30" y="628" width="930" height="96" rx="8" fill="#fbfcff" stroke="#1E2761" stroke-width="1.5"/>
+
+                  <rect x="48" y="648" width="158" height="58" rx="6" fill="#eef0f6" stroke="#c9cede"/>
+                  <text x="127" y="670" font-size="11" font-weight="700" fill="#1E2761" text-anchor="middle">Cut points</text>
+                  <text x="127" y="686" font-size="10" fill="#666" text-anchor="middle">Each measure&#8217;s rate is</text>
+                  <text x="127" y="698" font-size="10" fill="#666" text-anchor="middle">binned into 1 to 5 stars</text>
+                  <line x1="208" y1="677" x2="228" y2="677" stroke="#1E2761" stroke-width="1.4" marker-end="url(#ah)"/>
+
+                  <rect x="232" y="648" width="158" height="58" rx="6" fill="#f0faf7" stroke="#2CA58D"/>
+                  <text x="311" y="670" font-size="11" font-weight="700" fill="#2CA58D" text-anchor="middle">Weighted mean</text>
+                  <text x="311" y="686" font-size="10" fill="#666" text-anchor="middle">Outcomes count 3x,</text>
+                  <text x="311" y="698" font-size="10" fill="#666" text-anchor="middle">process measures 1x</text>
+                  <line x1="392" y1="677" x2="412" y2="677" stroke="#1E2761" stroke-width="1.4" marker-end="url(#ah)"/>
+
+                  <rect x="416" y="648" width="158" height="58" rx="6" fill="#eef0f6" stroke="#c9cede"/>
+                  <text x="495" y="670" font-size="11" font-weight="700" fill="#1E2761" text-anchor="middle">Reward factor</text>
+                  <text x="495" y="686" font-size="10" fill="#666" text-anchor="middle">Bonus for high and</text>
+                  <text x="495" y="698" font-size="10" fill="#666" text-anchor="middle">consistent performance</text>
+                  <line x1="576" y1="677" x2="596" y2="677" stroke="#1E2761" stroke-width="1.4" marker-end="url(#ah)"/>
+
+                  <rect x="600" y="648" width="180" height="58" rx="6" fill="#fdf3f3" stroke="#E15554"/>
+                  <text x="690" y="667" font-size="11" font-weight="700" fill="#E15554" text-anchor="middle">Adjustment (CAI)</text>
+                  <text x="690" y="683" font-size="10" fill="#666" text-anchor="middle">Raised for plans serving</text>
+                  <text x="690" y="695" font-size="10" fill="#666" text-anchor="middle">low income, disabled members</text>
+                  <line x1="782" y1="677" x2="802" y2="677" stroke="#1E2761" stroke-width="1.4" marker-end="url(#ah)"/>
+
+                  <rect x="806" y="648" width="136" height="58" rx="6" fill="#eef0f6" stroke="#c9cede"/>
+                  <text x="874" y="670" font-size="11" font-weight="700" fill="#1E2761" text-anchor="middle">Round</text>
+                  <text x="874" y="686" font-size="10" fill="#666" text-anchor="middle">To the nearest</text>
+                  <text x="874" y="698" font-size="10" fill="#666" text-anchor="middle">half star</text>
+
+                  <!-- 5. THE STAR -->
+                  <path d="M495,726 L495,756" stroke="#1E2761" stroke-width="1.6" marker-end="url(#ah)"/>
+
+                  <text x="30" y="790" font-size="13" font-weight="700" fill="#1E2761">5 &#160;THE STAR, AND WHAT IT DOES</text>
+                  <rect x="30" y="804" width="290" height="86" rx="8" fill="#f0faf7" stroke="#2CA58D" stroke-width="1.8"/>
+                  <text x="175" y="836" font-size="22" font-weight="700" fill="#2CA58D" text-anchor="middle">3.0 stars</text>
+                  <text x="175" y="859" font-size="11" fill="#555" text-anchor="middle">L.A. Care, 2026. National average 3.65.</text>
+                  <text x="175" y="876" font-size="10.5" fill="#888" text-anchor="middle">Published every October, for the year ahead.</text>
+
+                  <rect x="335" y="804" width="290" height="86" rx="8" fill="#fdf3f3" stroke="#E15554" stroke-width="1.5"/>
+                  <text x="350" y="828" font-size="11.5" font-weight="700" fill="#E15554">THE MONEY</text>
+                  <text x="350" y="848" font-size="10.5" fill="#666">4.0 and above: a quality bonus payment.</text>
+                  <text x="350" y="863" font-size="10.5" fill="#666">Below 3.0 for three straight years: CMS can</text>
+                  <text x="350" y="876" font-size="10.5" fill="#666">terminate the contract.</text>
+
+                  <rect x="640" y="804" width="320" height="86" rx="8" fill="#CADCFC" stroke="#1E2761" stroke-width="1.5"/>
+                  <text x="655" y="828" font-size="11.5" font-weight="700" fill="#1E2761">THE LOOP</text>
+                  <text x="655" y="848" font-size="10.5" fill="#333">The star goes back onto Plan Finder, where it shapes</text>
+                  <text x="655" y="863" font-size="10.5" fill="#333">who enrols next year, which changes who the plan is</text>
+                  <text x="655" y="876" font-size="10.5" fill="#333">measured on the year after that.</text>
+
+                  <path d="M962,847 L1015,847 L1015,242 L962,242" stroke="#1E2761" stroke-width="1.8" fill="none" stroke-dasharray="6 4" marker-end="url(#ah)"/>
+                  <text x="1100" y="545" font-size="11" font-weight="700" fill="#1E2761" text-anchor="middle" transform="rotate(-90 1100 545)">this year&#8217;s rating shapes next year&#8217;s members</text>
+                </svg>
+                </div>
+
+                <p class="caption">How contract H1224 sits inside the Medicare Advantage system. Measure counts are L.A. Care's 41 scored 2026 measures, grouped by who produces the number.</p>
+
+                <div class="insight-box"><strong>The thing worth taking from the diagram:</strong> of the 41 measures L.A. Care is graded on, it directly reports <strong>17</strong>. The other 24 are produced by CMS asking its members, reading its pharmacy claims, or counting its complaints. A plan cannot simply decide to score better. It can decide to deliver care differently, and then wait up to two years for a survey to notice.</div>
+                </div></details>
+
+                <p style="margin-top:14px; font-size:0.8rem; color:#777;"><strong>References</strong></p>
+                <ol start="5" style="font-size:0.8rem; color:#777; margin-top:2px;">
+                    <li id="ref5">L.A. Care Health Plan, <a href="https://lacare.org/about-us" target="_blank">About Us</a> and company <a href="https://en.wikipedia.org/wiki/L.A._Care_Health_Plan" target="_blank">history</a>; contract H1224 (L.A. Care Medicare Plus, HMO D-SNP) identified in the CMS Star Ratings Data Tables, unrated in 2024 and rated in 2025 and 2026.</li>
+                    <li id="ref6">L.A. Care Health Plan Board of Governors materials, membership by product line as of April 2024 (Medi-Cal 2,349,431; L.A. Care Covered 188,106; PASC-SEIU 48,721; D-SNP 19,423; total 2,605,681).</li>
+                </ol>
+            </div></details>
+
+            <details class="sec"><summary>How CMS scores a plan</summary><div class="sec-body">
+                <p>This section is the subject of the study: what a Medicare star rating is, what goes into it, and how CMS turns dozens of measures into one number. The Methods section that follows is about how that system was analyzed.</p>
+
+                <details class="sec"><summary>What the CMS Star Ratings actually are</summary><div class="sec-body">
+                <ul>
+                    <li><strong>Medicare Advantage</strong> is the private alternative to Original Medicare. A private insurer signs a <strong>contract</strong> with CMS (identified by a code like <code>H1224</code>) and runs Medicare benefits under it. One contract can carry many individual plans.</li>
+                    <li><strong>Star Ratings are CMS's annual report card</strong> on each contract, from 1.0 to 5.0 in half star steps. They are published every October for the following plan year, so the "2026" ratings were released in October 2025.</li>
+                    <li><strong>They are not cosmetic.</strong> Contracts at 4.0 or above earn quality bonus payments, and a contract stuck below 3.0 for three consecutive years can be terminated. A half star is worth real money.</li>
+                    <li><strong>The rating is a rollup.</strong> Roughly 40 individual measures are each scored 1 to 5, grouped into domains, then rolled into a Part C summary (the health plan side), a Part D summary (the drug plan side), and an Overall star for contracts that offer both.</li>
+                </ul>
+                <div class="insight-box"><strong>The quirk worth holding onto:</strong> the Overall star is a weighted rollup that is then rounded to the nearest half star. That rounding can swallow real movement. A plan can improve on both the Part C and Part D halves of its business in the same year and still show a flat Overall report card, because both gains landed inside the same rounding band. What that looks like for a real plan is in the results section.</div>
+                </div></details>
+
+                <details class="sec"><summary>Every quality measure, its weight, and why CMS weights it that way</summary><div class="sec-body">
+                <p>The 2026 rating is built from these 45 measures: 33 on the health plan side (Part C) and 12 on the drug plan side (Part D). The weight is the number of times each measure counts toward the summary rating.<sup><a href="#ref3" style="text-decoration:none;">3</a></sup></p>
+
+                <p class="subhead">The rationale, in CMS's own logic</p>
+                <p>CMS assigns weights by <strong>category</strong>, not by measure, and the categories follow a stated principle: the rating should reward what matters most to a member's health and be hardest to game.<sup><a href="#ref3" style="text-decoration:none;">3</a></sup></p>
+                <table class="blog-table">
+                    <tr><th style="width:10%">Weight</th><th style="width:26%">Category</th><th style="width:42%">Why CMS counts it this much</th><th style="width:22%">In 2026 (of 45)</th></tr>
+                    <tr><td style="text-align:center;"><strong>5</strong></td><td>Improvement</td><td>Highest weight. Rewards a plan for getting better year over year, which is the behaviour the whole rating system exists to encourage.</td><td>2 measures</td></tr>
+                    <tr><td style="text-align:center;"><strong>3</strong></td><td>Outcome and intermediate outcome</td><td>Did the patient actually get healthier: blood pressure controlled, blood sugar in range, no readmission. The end that care is a means to.</td><td>6 measures</td></tr>
+                    <tr><td style="text-align:center;"><strong>2</strong></td><td>Patients' experience, complaints, and access</td><td>What members report and whether they can get care. Weighted down from 4 to 2 beginning in 2026, a deliberate policy change.</td><td>16 measures</td></tr>
+                    <tr><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>Did the plan do the recommended thing: send the reminder, run the screen, review the medication. Necessary, but a step removed from the outcome.</td><td>21 measures</td></tr>
+                </table>
+                <div class="gotcha-box"><strong>The 2026 change worth flagging.</strong> Patients' experience and access measures dropped from weight 4 to weight 2 this year.<sup><a href="#ref3" style="text-decoration:none;">3</a></sup> That single policy decision cut the influence of the survey based measures in half, and it is the kind of change that moves a plan's rating without the plan doing anything differently.</p></div>
+
+                <p class="subhead" style="margin-top:16px;">A worked example: what one weight does to the math</p>
+                <p>Weighting is a weighted average, nothing more exotic. Two plans, each scoring 5 stars on one measure and 1 star on another, end up in different places depending on <em>which</em> measure they aced:</p>
+                <div class="calc-formula">Plan A: 5 stars on an OUTCOME measure (weight 3), 1 star on a PROCESS measure (weight 1)
+   weighted average = (5&times;3 + 1&times;1) &divide; (3 + 1) = 16 &divide; 4 = <strong>4.00</strong>
+
+Plan B: 1 star on an OUTCOME measure (weight 3), 5 stars on a PROCESS measure (weight 1)
+   weighted average = (1&times;3 + 5&times;1) &divide; (3 + 1) =  8 &divide; 4 = <strong>2.00</strong></div>
+                <p>Same two scores, 5 and 1, on the same two measures. Two full stars apart, purely because of which one carried the weight. That is the entire mechanism this post is about, scaled up to 45 measures.</p>
+
+                <p class="subhead" style="margin-top:16px;">The full measure set, 2026</p>
+                <table class="blog-table">
+                    <tr><th style="width:8%">Code</th><th style="width:44%">Measure</th><th style="width:10%">Weight</th><th style="width:20%">Category</th><th style="width:18%">Where the number comes from</th></tr>
+                    <tr><td colspan="5" class="grp">Part C (health plan)</td></tr>
+                    <tr><td>C01</td><td>Breast Cancer Screening</td><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>HEDIS (claims and records)</td></tr>
+                    <tr><td>C02</td><td>Colorectal Cancer Screening</td><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>HEDIS (claims and records)</td></tr>
+                    <tr><td>C03</td><td>Annual Flu Vaccine</td><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>CAHPS survey</td></tr>
+                    <tr><td>C04</td><td>Improving or Maintaining Physical Health</td><td style="text-align:center;"><strong>1</strong></td><td>Outcome</td><td>HOS survey</td></tr>
+                    <tr><td>C05</td><td>Improving or Maintaining Mental Health</td><td style="text-align:center;"><strong>1</strong></td><td>Outcome</td><td>HOS survey</td></tr>
+                    <tr><td>C06</td><td>Monitoring Physical Activity</td><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>HOS survey</td></tr>
+                    <tr><td>C07</td><td>Special Needs Plan (SNP) Care Management</td><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>HEDIS (claims and records)</td></tr>
+                    <tr><td>C08</td><td>Care for Older Adults &ndash; Medication Review</td><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>HEDIS (claims and records)</td></tr>
+                    <tr><td>C09</td><td>Care for Older Adults &ndash; Pain Assessment</td><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>HEDIS (claims and records)</td></tr>
+                    <tr><td>C10</td><td>Osteoporosis Management in Women who had a Fracture</td><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>HEDIS (claims and records)</td></tr>
+                    <tr><td>C11</td><td>Diabetes Care &ndash; Eye Exam</td><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>HEDIS (claims and records)</td></tr>
+                    <tr><td>C12</td><td>Diabetes Care &ndash; Blood Sugar Controlled</td><td style="text-align:center;"><strong>3</strong></td><td>Intermediate Outcome</td><td>HEDIS (claims and records)</td></tr>
+                    <tr><td>C13</td><td>Kidney Health Evaluation for Patients with Diabetes</td><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>HEDIS (claims and records)</td></tr>
+                    <tr><td>C14</td><td>Controlling High Blood Pressure</td><td style="text-align:center;"><strong>3</strong></td><td>Intermediate Outcome</td><td>HEDIS (claims and records)</td></tr>
+                    <tr><td>C15</td><td>Reducing the Risk of Falling</td><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>HOS survey</td></tr>
+                    <tr><td>C16</td><td>Improving Bladder Control</td><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>HOS survey</td></tr>
+                    <tr><td>C17</td><td>Medication Reconciliation Post-Discharge</td><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>HEDIS (claims and records)</td></tr>
+                    <tr><td>C18</td><td>Plan All-Cause Readmissions</td><td style="text-align:center;"><strong>3</strong></td><td>Outcome</td><td>HEDIS (claims and records)</td></tr>
+                    <tr><td>C19</td><td>Statin Therapy for Patients with Cardiovascular Disease</td><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>HEDIS (claims and records)</td></tr>
+                    <tr><td>C20</td><td>Transitions of Care</td><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>HEDIS (claims and records)</td></tr>
+                    <tr><td>C21</td><td>Follow-up after Emergency Department Visit for People with Multiple High-Risk Chronic Conditions</td><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>HEDIS (claims and records)</td></tr>
+                    <tr><td>C22</td><td>Getting Needed Care</td><td style="text-align:center;"><strong>2</strong></td><td>Patients' Experience</td><td>CAHPS survey</td></tr>
+                    <tr><td>C23</td><td>Getting Appointments and Care Quickly</td><td style="text-align:center;"><strong>2</strong></td><td>Patients' Experience</td><td>CAHPS survey</td></tr>
+                    <tr><td>C24</td><td>Customer Service</td><td style="text-align:center;"><strong>2</strong></td><td>Patients' Experience</td><td>CAHPS survey</td></tr>
+                    <tr><td>C25</td><td>Rating of Health Care Quality</td><td style="text-align:center;"><strong>2</strong></td><td>Patients' Experience</td><td>CAHPS survey</td></tr>
+                    <tr><td>C26</td><td>Rating of Health Plan</td><td style="text-align:center;"><strong>2</strong></td><td>Patients' Experience</td><td>CAHPS survey</td></tr>
+                    <tr><td>C27</td><td>Care Coordination</td><td style="text-align:center;"><strong>2</strong></td><td>Patients' Experience</td><td>CAHPS survey</td></tr>
+                    <tr><td>C28</td><td>Complaints about the Health Plan</td><td style="text-align:center;"><strong>2</strong></td><td>Patients' Experience</td><td>CMS complaints database</td></tr>
+                    <tr><td>C29</td><td>Members Choosing to Leave the Plan</td><td style="text-align:center;"><strong>2</strong></td><td>Patients' Experience</td><td>CMS enrollment records</td></tr>
+                    <tr><td>C30</td><td>Health Plan Quality Improvement</td><td style="text-align:center;"><strong>5</strong></td><td>Improvement</td><td>Computed from the plan's own prior year</td></tr>
+                    <tr><td>C31</td><td>Plan Makes Timely Decisions about Appeals</td><td style="text-align:center;"><strong>2</strong></td><td>Access</td><td>CMS independent review entity</td></tr>
+                    <tr><td>C32</td><td>Reviewing Appeals Decisions</td><td style="text-align:center;"><strong>2</strong></td><td>Access</td><td>CMS independent review entity</td></tr>
+                    <tr><td>C33</td><td>Call Center &ndash; Foreign Language Interpreter and TTY Availability</td><td style="text-align:center;"><strong>2</strong></td><td>Access</td><td>CMS secret shopper calls</td></tr>
+                    <tr><td colspan="5" class="grp">Part D (drug plan)</td></tr>
+                    <tr><td>D01</td><td>Call Center &ndash; Foreign Language Interpreter and TTY Availability</td><td style="text-align:center;"><strong>2</strong></td><td>Access</td><td>CMS secret shopper calls</td></tr>
+                    <tr><td>D02</td><td>Complaints about the Drug Plan</td><td style="text-align:center;"><strong>2</strong></td><td>Patients' Experience</td><td>CMS complaints database</td></tr>
+                    <tr><td>D03</td><td>Members Choosing to Leave the Plan</td><td style="text-align:center;"><strong>2</strong></td><td>Patients' Experience</td><td>CMS enrollment records</td></tr>
+                    <tr><td>D04</td><td>Drug Plan Quality Improvement</td><td style="text-align:center;"><strong>5</strong></td><td>Improvement</td><td>Computed from the plan's own prior year</td></tr>
+                    <tr><td>D05</td><td>Rating of Drug Plan</td><td style="text-align:center;"><strong>2</strong></td><td>Patients' Experience</td><td>CAHPS survey</td></tr>
+                    <tr><td>D06</td><td>Getting Needed Prescription Drugs</td><td style="text-align:center;"><strong>2</strong></td><td>Patients' Experience</td><td>CAHPS survey</td></tr>
+                    <tr><td>D07</td><td>MPF Price Accuracy</td><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>Plan submitted pricing files</td></tr>
+                    <tr><td>D08</td><td>Medication Adherence for Diabetes Medications</td><td style="text-align:center;"><strong>3</strong></td><td>Intermediate Outcome</td><td>Pharmacy claims (PQA)</td></tr>
+                    <tr><td>D09</td><td>Medication Adherence for Hypertension (RAS antagonists)</td><td style="text-align:center;"><strong>3</strong></td><td>Intermediate Outcome</td><td>Pharmacy claims (PQA)</td></tr>
+                    <tr><td>D10</td><td>Medication Adherence for Cholesterol (Statins)</td><td style="text-align:center;"><strong>3</strong></td><td>Intermediate Outcome</td><td>Pharmacy claims (PQA)</td></tr>
+                    <tr><td>D11</td><td>MTM Program Completion Rate for CMR</td><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>Plan reported to CMS</td></tr>
+                    <tr><td>D12</td><td>Statin Use in Persons with Diabetes (SUPD)</td><td style="text-align:center;"><strong>1</strong></td><td>Process</td><td>Pharmacy claims (PQA)</td></tr>
+                </table>
+                <p class="caption">2026 measure set and weights per the CMS <a href="https://www.cms.gov/files/document/2026-star-ratings-measures.pdf" target="_blank">Star Ratings Measures and Weights</a>; data source per the <a href="https://www.cms.gov/files/document/2026-star-ratings-technical-notes.pdf" target="_blank">Technical Notes</a>. Note that Call Center and Members Choosing to Leave the Plan each appear on both the Part C and Part D side under different codes.</p>
+                </div></details>
+
+                <details class="sec"><summary>The nine domains</summary><div class="sec-body">
+                <p>Every measure belongs to a domain. Domains beginning <strong>HD</strong> are the health plan (Part C) side; domains beginning <strong>DD</strong> are the drug plan (Part D) side. The domains are how CMS groups the measures before rolling them into the two summary ratings.</p>
+                <table class="blog-table">
+                    <tr><th style="width:12%">Side</th><th style="width:40%">Domain</th><th style="width:48%">What it captures</th></tr>
+                    <tr><td rowspan="5">Part C<br>(health plan)</td><td>HD1: Staying Healthy: Screenings, Tests and Vaccines</td><td>Preventive care: cancer screenings, flu shots, physical activity</td></tr>
+                    <tr><td>HD2: Managing Chronic (Long Term) Conditions</td><td>Diabetes, blood pressure, medication reconciliation, readmissions, care for older adults</td></tr>
+                    <tr><td>HD3: Member Experience with Health Plan</td><td>Survey based: getting care quickly, care coordination, rating of the plan</td></tr>
+                    <tr><td>HD4: Member Complaints and Changes in the Health Plan's Performance</td><td>Complaint rate, members leaving the plan, year over year improvement</td></tr>
+                    <tr><td>HD5: Health Plan Customer Service</td><td>Appeals handling, call center availability</td></tr>
+                    <tr><td rowspan="4">Part D<br>(drug plan)</td><td>DD1: Drug Plan Customer Service</td><td>Call center and interpreter availability on the pharmacy side</td></tr>
+                    <tr><td>DD2: Member Complaints and Changes in the Drug Plan's Performance</td><td>Drug plan complaints, disenrollment, improvement</td></tr>
+                    <tr><td>DD3: Member Experience with the Drug Plan</td><td>Survey based: rating of the drug plan, getting needed prescriptions</td></tr>
+                    <tr><td>DD4: Drug Safety and Accuracy of Drug Pricing</td><td>Medication adherence, statin use, price accuracy, medication therapy management</td></tr>
+                </table>
+                <p class="caption">The five HD domains and the four DD domains that make up a Medicare Advantage prescription drug contract's rating. Where one plan stands within them is in the results section.</p>
+                </div></details>
+
+                <details class="sec"><summary>Where each measure's number comes from</summary><div class="sec-body">
+                <p>The other thing the weight table above does not show: <strong>a star rating is not one measurement.</strong> The 45 measures are produced by six unrelated pipelines, and a plan does not run most of them. Which pipeline a measure comes from decides how fast, if at all, a plan can move it.</p>
+
+                <p class="subhead">The six pipelines</p>
+                <table class="blog-table">
+                    <tr><th style="width:20%">Source</th><th style="width:36%">How the number is produced</th><th style="width:32%">Example measures</th><th style="width:12%">Can the plan move it quickly?</th></tr>
+                    <tr><td><strong>HEDIS</strong></td><td>Clinical measures computed from the plan's own administrative claims and medical records, to NCQA specifications, then independently audited before submission to CMS.</td><td>Breast and colorectal cancer screening, diabetes care, blood pressure control, medication reconciliation, transitions of care, readmissions</td><td>Slowly. It is a year of claims.</td></tr>
+                    <tr><td><strong>CAHPS</strong></td><td>A member satisfaction survey, administered to a random sample of the plan's members by a CMS approved vendor. The plan does not collect it and does not see it until CMS publishes.</td><td>Getting Needed Care, Getting Appointments and Care Quickly, Customer Service, Care Coordination, Rating of Health Plan, Annual Flu Vaccine</td><td>No. It is what members say.</td></tr>
+                    <tr><td><strong>HOS</strong></td><td>The Medicare Health Outcomes Survey. A longitudinal survey: the same members are asked at baseline and again two years later, so it measures <em>change</em> in self reported physical and mental health.</td><td>Reducing the Risk of Falling, Monitoring Physical Activity, Improving Bladder Control, Improving or Maintaining Physical Health</td><td>No, and the lag is two years.</td></tr>
+                    <tr><td><strong>Pharmacy claims (PQA)</strong></td><td>Computed from prescription drug event records against Pharmacy Quality Alliance specifications. Almost entirely the Part D measures.</td><td>Medication Adherence for Diabetes, Hypertension, and Cholesterol; Statin Use in Persons with Diabetes</td><td>Somewhat. Adherence outreach works.</td></tr>
+                    <tr><td><strong>CMS administrative data</strong></td><td>CMS's own records, not the plan's. Complaints filed with Medicare, disenrollment counts, and appeals overturned by an independent review entity.</td><td>Complaints about the Health Plan, Members Choosing to Leave the Plan, Reviewing Appeals Decisions, Plan Makes Timely Decisions about Appeals</td><td>Indirectly.</td></tr>
+                    <tr><td><strong>CMS direct testing</strong></td><td>CMS calls the plan's own call center posing as a member, in a foreign language and by TTY, and records whether it got through.</td><td>Call Center &ndash; Foreign Language Interpreter and TTY Availability</td><td>Yes. This one is operational.</td></tr>
+                </table>
+                <p class="caption">Two more measures (Health Plan Quality Improvement and Drug Plan Quality Improvement) are not measured at all. They are computed from how much the plan's <em>own</em> other measures moved since last year, and they carry the heaviest weight in the system.</p>
+
+                <div class="insight-box"><strong>The surprising part: a plan does not report most of what it is graded on.</strong> Only the HEDIS and plan submitted measures, roughly 17 of the 41 that a dual eligible contract is scored on, are numbers the plan produces itself. The rest come from surveys the plan does not administer, from CMS's own complaint and appeal records, or from arithmetic on the plan's prior year. A plan cannot simply decide to score better; it can change how it delivers care and then wait, sometimes two years, for a survey to notice.</div>
+
+                <p class="caption" style="margin-top:12px;">Data sourcing per the CMS <a href="https://www.cms.gov/files/document/2026-star-ratings-technical-notes.pdf" target="_blank">2026 Part C &amp; D Star Ratings Technical Notes</a>. The data source is not present in the Star Ratings data tables; it was keyed into a reference table and joined onto the measure data. How one plan's gaps split across these six pipelines, and across the weights, is in the results section.</p>
+                </div></details>
+
+                <details class="sec"><summary>Worked example: rebuilding a star from its measures, using L.A. Care (contract H1224)</summary><div class="sec-body">
+                <p>This section is an example calculation, not a result. It uses one real contract, L.A. Care, to show the scoring machinery end to end: start from the individual measure stars, apply the weights and the adjustment, and land back on the summary star CMS assigned. It doubles as a check that the hand keyed weight table is right, because if a weight were wrong the rebuilt star would drift off the assigned one.</p>
+
+                <p><strong>CMS builds a summary rating in four steps:</strong></p>
+                <ol>
+                    <li><strong>Weighted mean</strong> of the measure stars</li>
+                    <li><strong>Reward factor</strong>, a bonus for contracts that are both high scoring and consistent. CMS does not publish this per contract.</li>
+                    <li><strong>Categorical Adjustment Index (CAI)</strong>, an adjustment for the share of the contract's members who are low income subsidy or dual eligible, and the share who are disabled</li>
+                    <li><strong>Round</strong> to the nearest half star</li>
+                </ol>
+
+                <div class="insight-box"><strong>Step 3 is the one worth knowing about, and it is deliberately hard to find.</strong> The raw CMS archive does ship a CAI file, but it does not contain the adjustment. It contains only a <em>Final Adjustment Category</em>, a number from 1 to 9. The actual values live in a completely separate PDF. A plan's star rating therefore cannot be reproduced from the published data tables alone, which is a strange property for a rating that determines billions in bonus payments.</div>
+
+                <p class="subhead">L.A. Care, rebuilt from its measures</p>
+                <table class="blog-table">
+                    <tr><th style="width:14%">Rating</th><th style="width:12%">Measures</th><th style="width:16%">Weighted mean</th><th style="width:14%">Adjustment category</th><th style="width:12%">CAI added</th><th style="width:16%">Rebuilt star</th><th style="width:16%">CMS assigned</th></tr>
+                    <tr><td><strong>Part C</strong></td><td>31</td><td>2.712</td><td>6</td><td>+0.060</td><td class="match">3.0</td><td class="match">3.0</td></tr>
+                    <tr><td><strong>Part D</strong></td><td>12</td><td>3.815</td><td>5</td><td>+0.072</td><td class="match">4.0</td><td class="match">4.0</td></tr>
+                    <tr><td><strong>Overall</strong></td><td>43</td><td>3.089</td><td>8</td><td>+0.101</td><td class="match">3.0</td><td class="match">3.0</td></tr>
+                </table>
+                <p class="caption">All three rebuild exactly. Applied to the whole country, the same arithmetic reproduces the assigned Part C star for 83% of contracts and lands within half a star for 100% of them. The residual is the reward factor, which cannot be reproduced because CMS does not publish it.</p>
+
+                <div class="gotcha-box"><strong>The finding hiding in the fifth column.</strong>
+                <p style="margin:8px 0 6px 0;">L.A. Care's weighted mean on Part C is <strong>2.712</strong>. Rounded on its own, that is a <strong>2.5</strong>. The CAI adds 0.060, which pushes it to 2.772, and 2.772 rounds up to <strong>3.0</strong>.</p>
+                <p style="margin:0;"><strong>L.A. Care's 3.0 on the health plan side exists because of the adjustment.</strong> Its members are disproportionately dual eligible and disabled, CMS compensates for that, and the compensation is worth half a star. Nationally the CAI moves the rounded Part C star for 8% of contracts, and the Overall star for 12%.</p>
+                </div>
+
+                <div class="insight-box"><strong>Which means the obvious defence is already spent.</strong> The claim that a plan's members are poorer and sicker is true here, and CMS has already paid it out. The 3.0 is the score <em>after</em> the adjustment for serving that population. Whatever remains has to be explained some other way, and the gap chart is where to look.</div>
+
+                <p class="caption" style="margin-top:12px;">CAI values from the CMS <a href="https://www.cms.gov/files/document/2026-categorical-adjustment-index-measure-supplement.pdf" target="_blank">2026 Categorical Adjustment Index Measure Supplement</a>, Tables 7, 10, and 13. Final Adjustment Categories from the CAI file in the CMS Star Ratings archive. The full rebuild, for every contract, was done in Python.</p>
+                </div></details>
+
+            </div></details>
+
+            <details class="sec"><summary>Methods</summary><div class="sec-body">
+
+                <p>The objective above is answered by benchmarking, ranking, and rebuilding the CMS Medicare Advantage Star Ratings for one contract against the national field, entirely on public data. This section states where the data came from, how it was handled, and how every figure was checked; the vocabulary, the rating system, the data dictionaries, and the calculation translations are nested below.</p>
+
+                <p><strong>Data sources.</strong> Three public releases from the Centers for Medicare and Medicaid Services (CMS):</p>
+                <ul>
+                    <li><strong>Part C and Part D Star Ratings Data Tables</strong>, rating years 2024, 2025, and 2026. Published by CMS every October for the year ahead. Provides the contract level summary ratings and the measure level stars, and is the backbone of the analysis.<sup><a href="#ref2" style="text-decoration:none;">2</a></sup></li>
+                    <li><strong>Star Ratings Measures and Weights</strong> and the <strong>Technical Notes</strong>, published annually alongside the ratings. Supply the weight and the data source of each measure, neither of which appears in the data tables.<sup><a href="#ref3" style="text-decoration:none;">3</a></sup></li>
+                    <li><strong>Categorical Adjustment Index Measure Supplement</strong>, published annually. Supplies the adjustment values used to rebuild an assigned star from its measures.</li>
+                </ul>
+
+                <p><strong>How the data was used.</strong> The raw tables were cleaned and reshaped into two analysis files, one at the contract-per-year grain and one at the measure-per-contract-per-year grain, and a small reference table of measure weights was joined onto the measure data on measure code and year. All aggregation and transformation was done in <strong>Python</strong> (pandas), so every step is on the record and reproducible from the raw archives. The interactive dashboard was built in <strong>Tableau Public</strong> on the two analysis files.</p>
+
+                <p><strong>How the figures were verified.</strong> Every number on the dashboard was computed three ways, in Tableau, in DuckDB SQL, and in pandas, and asserted against what Tableau renders on screen. <strong>75 checks, all passing</strong>; if any figure failed to reconcile across the three tools, the build stops. The process caught two real errors before publication: 137 phantom rows from a mis-parsed CMS header, and a level of detail mistake in the SQL that produced 43 bars where Tableau draws 41.</p>
+
+                <details class="sec"><summary>Vocabulary used throughout</summary><div class="sec-body">
+                <table class="blog-table">
+                    <tr><th style="width:16%">Term</th><th style="width:40%">Plain definition</th><th style="width:23%">SQL</th><th style="width:21%">pandas</th></tr>
+                    <tr><td>Grain</td><td>What one row represents. Here: one contract, in one year (and in the measure file, one measure as well)</td><td>the table's level before grouping</td><td>the DataFrame's level before grouping</td></tr>
+                    <tr><td>Aggregation</td><td>Collapsing many rows into one number (SUM, AVG); the dimensions in the view decide the groups</td><td><code>GROUP BY</code></td><td><code>.groupby().agg()</code></td></tr>
+                    <tr><td>Benchmark</td><td>A comparison value (the national average star) attached to every contract so you can see who is above or below</td><td><code>AVG(x) OVER (PARTITION BY g)</code></td><td><code>groupby(g).transform('mean')</code></td></tr>
+                    <tr><td>Level of Detail (LOD)</td><td>A calculation done for a group of your choosing, with that group's answer attached back to every row, independent of what is in the view</td><td><code>OVER (PARTITION BY g)</code></td><td><code>groupby(g).transform()</code></td></tr>
+                    <tr><td>Table calculation</td><td>A transformation of the numbers ALREADY in the view, applied after the query returns</td><td>a window over the result set</td><td><code>x - x.iloc[0]</code>, <code>.pct_change()</code></td></tr>
+                    <tr><td>Parameter</td><td>A viewer controlled variable; inert until a calculation or a filter references it</td><td>a query variable</td><td>a Python variable</td></tr>
+                    <tr><td>Context filter</td><td>A filter promoted to run BEFORE the FIXED expressions instead of after them</td><td>moving the condition into the CTE</td><td>filtering the frame before the groupby</td></tr>
+                    <tr><td>Group</td><td>A Tableau field that merges members of another field into one label</td><td><code>CASE WHEN ... THEN ...</code></td><td><code>.replace({...})</code></td></tr>
+                    <tr><td>Alias</td><td>A relabel of an existing member. Display only. It never changes a number.</td><td>no equivalent</td><td>no equivalent</td></tr>
+                </table>
+                </div></details>
+                <details class="sec"><summary>The data and data dictionaries</summary><div class="sec-body">
+                <p><strong>Source.</strong> <a href="https://www.cms.gov/medicare/health-drug-plans/part-c-d-performance-data" target="_blank">CMS Part C and Part D Performance Data</a>, the annual Star Ratings Data Tables, downloaded as ZIP archives for the 2024, 2025, and 2026 rating years (accessed July 2026). Each archive contains a dozen CSVs; two are used here.</p>
+
+                <p><strong>What one row is.</strong> The raw tables were reshaped into two analysis files, at two different grains. Knowing which grain a chart sits on is the whole game, because it decides what a plain average means and what a FIXED expression has to override.</p>
+                <table class="blog-table">
+                    <tr><th style="width:24%">File</th><th style="width:26%">One row is</th><th style="width:12%">Rows</th><th style="width:38%">Used for</th></tr>
+                    <tr><td><strong>Contract level file</strong></td><td>one contract, in one year</td><td>2,415</td><td>Overall, Part C, and Part D stars; the national benchmark; the distribution; parent company rollups</td></tr>
+                    <tr><td><strong>Measure level file</strong></td><td>one contract, in one year, on one measure</td><td>110,321</td><td>The measure level gap chart, which is the only place the individual quality measures appear</td></tr>
+                </table>
+
+                <p style="margin-top:14px;"><strong>Coverage.</strong> Not every contract gets a rating. New plans, plans too small to score reliably, and plans that do not offer both drug and health benefits come back unrated, and those nulls are excluded from every figure rather than treated as zero.</p>
+                <table class="blog-table">
+                    <tr><th style="width:16%">Rating year</th><th style="width:22%">Contracts in file</th><th style="width:22%">Contracts with an Overall star</th><th style="width:20%">Measures scored</th><th style="width:20%">National average Overall star</th></tr>
+                    <tr><td>2024</td><td>857</td><td>545</td><td>42</td><td>3.68</td></tr>
+                    <tr><td>2025</td><td>789</td><td>521</td><td>42</td><td>3.65</td></tr>
+                    <tr><td>2026</td><td>769</td><td>516</td><td>45</td><td>3.65</td></tr>
+                </table>
+                <p class="caption">Roughly a third of contracts are unrated in any given year. L.A. Care itself is unrated in 2024, which is why its line on the dashboard begins in 2025.</p>
+
+
+                <details class="sec"><summary>Data dictionary: the contract level file (one contract per year)</summary><div class="sec-body">
+                <table class="blog-table">
+                    <tr><th style="width:18%">Field</th><th style="width:9%">Type</th><th style="width:38%">Meaning</th><th style="width:17%">Example</th><th style="width:18%">Nulls and why</th></tr>
+                    <tr><td><code>Year</code></td><td>integer</td><td>Rating year. The 2026 ratings were published in October 2025.</td><td>2026</td><td>none</td></tr>
+                    <tr><td><code>Contract</code></td><td>text</td><td>CMS contract id. The join key across every CMS file. L.A. Care is <code>H1224</code>.</td><td>H1224</td><td>none</td></tr>
+                    <tr><td><code>OrgType</code></td><td>text</td><td>Contract category (Local CCP, Regional PPO, PDP, Employer Direct, and five others).</td><td>Local CCP</td><td>none</td></tr>
+                    <tr><td><code>ContractName</code></td><td>text</td><td>Legal name on the CMS contract.</td><td>L.A. CARE HEALTH PLAN</td><td>none</td></tr>
+                    <tr><td><code>MarketingName</code></td><td>text</td><td>The name members actually see.</td><td>L.A. Care Health Plan</td><td>none</td></tr>
+                    <tr><td><code>ParentOrg</code></td><td>text</td><td>Parent company as CMS writes it. <strong>Truncated at 50 characters</strong> and inconsistently spelled.</td><td>Local Initiative Health Authority for LA County</td><td>none</td></tr>
+                    <tr><td><code>ParentOrgGroup</code></td><td>text</td><td>Derived. Duplicate spellings merged and the ALL CAPS entries relabelled. Matches the <code>Parent Org (group)</code> field in Tableau. <strong>Use this one for any company rollup.</strong></td><td>Molina Healthcare, Inc.</td><td>none</td></tr>
+                    <tr><td><code>SNP</code></td><td>text</td><td>Whether the contract is a Special Needs Plan (dual eligible, chronic condition, or institutional).</td><td>Yes</td><td>none</td></tr>
+                    <tr><td><code>PartC_Stars</code></td><td>float</td><td>Part C summary star, the health plan side. 1.0 to 5.0 in half steps.</td><td>3.0</td><td>813. Contract does not offer Part C, or is too new or too small to score.</td></tr>
+                    <tr><td><code>PartD_Stars</code></td><td>float</td><td>Part D summary star, the drug plan side.</td><td>4.0</td><td>502. Same reasons.</td></tr>
+                    <tr><td><code>Overall_Stars</code></td><td>float</td><td>The headline rating. Only contracts offering <em>both</em> Part C and Part D get one.</td><td>3.0</td><td>833. Standalone drug plans have no Overall star by design.</td></tr>
+                </table>
+                <div class="gotcha-box"><strong>Null is not zero.</strong> An unrated contract has not scored badly, it has not been measured. Every figure in this post filters nulls out and says so. Treating them as 0.0 would drag the national average from 3.65 down to about 2.3 and make every plan look good by comparison.</div>
+                </div></details>
+
+                <details class="sec"><summary>Data dictionary: the measure level file (one measure per contract per year)</summary><div class="sec-body">
+                <table class="blog-table">
+                    <tr><th style="width:18%">Field</th><th style="width:9%">Type</th><th style="width:38%">Meaning</th><th style="width:17%">Example</th><th style="width:18%">Nulls and why</th></tr>
+                    <tr><td><code>Year</code></td><td>integer</td><td>Rating year.</td><td>2026</td><td>none</td></tr>
+                    <tr><td><code>Contract</code></td><td>text</td><td>CMS contract id. Joins to the summary file.</td><td>H1224</td><td>none</td></tr>
+                    <tr><td><code>Domain</code></td><td>text</td><td>The domain the measure belongs to. Recovered from the upper of two header rows in the CMS file.</td><td>HD2: Managing Chronic (Long Term) Conditions</td><td>none</td></tr>
+                    <tr><td><code>MeasureCode</code></td><td>text</td><td>CMS measure code. <code>C</code> prefix is Part C, <code>D</code> prefix is Part D.</td><td>C17</td><td>6,584. A handful of unnamed spare columns in the source files.</td></tr>
+                    <tr><td><code>MeasureName</code></td><td>text</td><td>The measure's name. <strong>Two names are reused across a Part C and a Part D code</strong>, which is why the gap chart has 41 bars and not 43.</td><td>Medication Reconciliation Post-Discharge</td><td>6,584. Same spare columns.</td></tr>
+                    <tr><td><code>StarsRaw</code></td><td>text</td><td>The raw cell as CMS wrote it. Kept so the reason for a null is auditable.</td><td>Plan not required to report measure</td><td>6,584</td></tr>
+                    <tr><td><code>Stars</code></td><td>float</td><td>The numeric star, parsed out of <code>StarsRaw</code>. 1.0 to 5.0.</td><td>1.0</td><td>44,115. Not reported, not required, or too few cases to score.</td></tr>
+                    <tr><td><code>OrgType</code>, <code>MarketingName</code>, <code>ParentOrg</code>, <code>ParentOrgGroup</code></td><td>text</td><td>Carried over from the contract, so the measure file can be sliced by company without a join.</td><td>&mdash;</td><td>none</td></tr>
+                </table>
+                <p style="margin-top:8px;">Of 110,321 measure rows, 66,206 carry a numeric star. The rest are non responses of one kind or another, and <code>StarsRaw</code> records which kind.</p>
+                </div></details>
+                </div></details>
+
+                <details class="sec"><summary>The categorical fields in detail: what the values actually mean</summary><div class="sec-body">
+                <p>Six fields in these files are categorical, and each one hides a decision. Every distinct value is listed below with its 2026 counts, because a category you have not looked at is a filter you have not thought about.</p>
+
+                <p class="subhead">OrgType &mdash; the kind of Medicare contract</p>
+                <p>Eight categories exist across the three years, seven of them in 2026. This field decides whether a contract can even <em>have</em> an Overall star, which makes it the single most important categorical field in the data.</p>
+                <table class="blog-table">
+                    <tr><th style="width:22%">Value</th><th style="width:34%">What it is</th><th style="width:12%">Contracts</th><th style="width:12%">Rated</th><th style="width:10%">Avg star</th><th style="width:10%">Overall star possible?</th></tr>
+                    <tr><td><strong>Local CCP</strong></td><td>Local Coordinated Care Plan. The standard HMO style Medicare Advantage plan, serving a defined set of counties. <strong>L.A. Care is one of these.</strong></td><td>693</td><td>497</td><td>3.66</td><td>Yes</td></tr>
+                    <tr><td><strong>PDP</strong></td><td>Prescription Drug Plan. Standalone Part D, no health benefits at all.</td><td>48</td><td>0</td><td>&mdash;</td><td class="match" style="color:var(--red);">No, by design</td></tr>
+                    <tr><td><strong>Regional CCP</strong></td><td>Regional PPO, serving a whole CMS region rather than selected counties.</td><td>15</td><td>13</td><td>3.35</td><td>Yes</td></tr>
+                    <tr><td><strong>1876 Cost</strong></td><td>A legacy cost contract under section 1876 of the Social Security Act. Being phased out.</td><td>6</td><td>2</td><td>3.50</td><td>Yes</td></tr>
+                    <tr><td><strong>PFFS</strong></td><td>Private Fee for Service. A dwindling plan type with no provider network.</td><td>4</td><td>4</td><td>3.25</td><td>Yes</td></tr>
+                    <tr><td><strong>MSA</strong></td><td>Medical Savings Account. A high deductible plan paired with a savings account. Very rare.</td><td>2</td><td>0</td><td>&mdash;</td><td>Rarely</td></tr>
+                    <tr><td><strong>Employer/Union Only Direct Contract PDP</strong></td><td>A drug plan offered only to a specific employer or union group.</td><td>1</td><td>0</td><td>&mdash;</td><td class="match" style="color:var(--red);">No, by design</td></tr>
+                </table>
+                <div class="gotcha-box"><strong>This field explains most of the missing Overall stars.</strong> Of the 253 contracts with no Overall star in 2026, 51 are standalone drug plans (PDP, MSA, Employer PDP) that <em>cannot</em> have one, because an Overall star only exists for contracts offering both health and drug benefits. The rest are too new or too small to score. Filtering nulls out is therefore not just tidiness, it is the only way to compare like with like.</div>
+
+                <p class="subhead" style="margin-top:18px;">SNP &mdash; Special Needs Plan</p>
+                <p>A Special Needs Plan restricts enrollment to one of three populations: people eligible for both Medicare and Medicaid (dual eligible), people with a qualifying chronic condition, or people living in an institution. <strong>L.A. Care's Medicare contract is an SNP</strong>, a dual eligible one, which matters because the members it serves are poorer and sicker than the Medicare average.</p>
+                <table class="blog-table">
+                    <tr><th style="width:14%">Value</th><th style="width:44%">Meaning</th><th style="width:14%">Contracts</th><th style="width:14%">Rated</th><th style="width:14%">Avg overall star</th></tr>
+                    <tr><td><strong>Yes</strong></td><td>Enrollment restricted to a special needs population</td><td>457</td><td>307</td><td>3.66</td></tr>
+                    <tr><td><strong>No</strong></td><td>Open to any Medicare eligible person in the service area</td><td>312</td><td>209</td><td>3.65</td></tr>
+                </table>
+                <div class="insight-box"><strong>Worth stating because the intuition is wrong.</strong> SNP contracts average 3.66 stars and non SNP contracts average 3.65. Serving a harder population does not, on its own, produce a lower star rating. There are two reasons, and the second is the interesting one: plans that specialise in a population get good at it, and CMS <em>explicitly adjusts the rating upward</em> for the share of members who are low income or disabled. That adjustment is worth half a star to L.A. Care, and it is covered below.</div>
+
+                <p class="subhead" style="margin-top:18px;">Domain &mdash; which part of the business a measure belongs to</p>
+                <p>Nine values, and the prefix carries the meaning. <code>HD</code> is the health plan (Part C) side, <code>DD</code> is the drug plan (Part D) side. The number is the domain within that side. The full list and L.A. Care's score in each is in the Background section above.</p>
+                <ul>
+                    <li><strong>The prefix is a usable filter.</strong> <code>Domain LIKE 'HD%'</code> isolates everything on the health plan side, which is where every one of L.A. Care's deep gaps sits.</li>
+                    <li><strong>Domains are not evenly sized.</strong> HD2 (Managing Chronic Conditions) holds 15 of L.A. Care's 43 rated measures on its own. A simple average across domains would badly under weight it.</li>
+                </ul>
+
+                <p class="subhead" style="margin-top:18px;">MeasureCode and MeasureName &mdash; and why they disagree</p>
+                <ul>
+                    <li><strong>The code is the machine key</strong> (<code>C01</code> through <code>C3x</code> for Part C, <code>D01</code> onward for Part D). The name is for humans.</li>
+                    <li><strong>They are not one to one.</strong> Two names are used by two codes each (Call Center &ndash; Foreign Language Interpreter and TTY Availability, and Members Choosing to Leave the Plan), because both are measured separately on the health side and the drug side. This is why the gap chart has 41 bars and 43 rated measures.</li>
+                    <li><strong>Codes are not stable across years.</strong> <code>C04</code> meant "Monitoring Physical Activity" in 2024 and 2025, then "Improving or Maintaining Physical Health" in 2026. Joining on a measure code across years silently compares two different measures. Nothing in this post trends a measure across years, for exactly this reason.</li>
+                </ul>
+
+                <p class="subhead" style="margin-top:18px;">StarsRaw &mdash; the seven reasons a measure has no score</p>
+                <p>This field is kept precisely because "null" is not one thing. Each of these means something different, and lumping them together would be a mistake.</p>
+                <table class="blog-table">
+                    <tr><th style="width:34%">Raw value</th><th style="width:14%">Rows (2026)</th><th style="width:52%">What it actually means</th></tr>
+                    <tr><td>Plan too new to be measured</td><td>4,029</td><td>The contract has not existed long enough to generate the claims history the measure needs. <strong>This is why L.A. Care is unrated in 2024.</strong></td></tr>
+                    <tr><td>Not enough data available</td><td>2,970</td><td>The denominator is too small for the rate to be statistically meaningful. Reporting it would be noise.</td></tr>
+                    <tr><td>Plan not required to report measure</td><td>2,531</td><td>The measure does not apply to this contract type. A drug only plan is not asked about breast cancer screening.</td></tr>
+                    <tr><td>Plan too small to be measured</td><td>2,317</td><td>Same idea as "not enough data", applied at the contract level rather than the measure level.</td></tr>
+                    <tr><td>No data available</td><td>367</td><td>The plan should have reported and did not.</td></tr>
+                    <tr><td>Not required to report</td><td>22</td><td>A narrower version of the exemption above.</td></tr>
+                    <tr><td>Benefit not offered by plan</td><td>7</td><td>The plan does not offer the benefit the measure scores.</td></tr>
+                </table>
+                <div class="insight-box"><strong>None of these is a zero.</strong> A plan that was not required to report has not failed, and a plan too new to measure has not underperformed. Every figure in this post excludes them, and <code>StarsRaw</code> is kept in the clean file so that any exclusion can be audited back to the reason CMS gave.</div>
+
+                <p class="subhead" style="margin-top:18px;">Stars &mdash; the scale is not the same in both files</p>
+                <table class="blog-table">
+                    <tr><th style="width:30%">File</th><th style="width:24%">Possible values</th><th style="width:46%">Why</th></tr>
+                    <tr><td><strong>Contract level file</strong><br>(Overall, Part C, Part D)</td><td>1.0, 1.5, 2.0 ... 5.0<br><strong>half steps</strong></td><td>These are weighted rollups of many measures, then rounded to the nearest half star. The rounding is what lets a plan improve on both halves and still show a flat Overall.</td></tr>
+                    <tr><td><strong>Measure level file</strong><br>(individual measures)</td><td>1, 2, 3, 4, 5<br><strong>whole numbers only</strong></td><td>Each measure's rate is placed into one of five cut point bands. There is no half star at the measure level.</td></tr>
+                </table>
+                <p class="caption">Distribution of the 22,362 scored measure rows in 2026: 1 star 1,284 &middot; 2 stars 3,155 &middot; 3 stars 6,004 &middot; 4 stars 6,721 &middot; 5 stars 5,198. The measure level distribution leans high, which is why a plan scoring 1.0 on a measure is genuinely unusual, and L.A. Care scores 1.0 on five of them.</p>
+
+                <p class="subhead" style="margin-top:18px;">ParentOrgGroup &mdash; the long tail that breaks a leaderboard</p>
+                <table class="blog-table">
+                    <tr><th style="width:44%">Cut</th><th style="width:28%">Parent companies</th><th style="width:28%">Share</th></tr>
+                    <tr><td>At least 1 rated contract in 2026</td><td>137</td><td>100%</td></tr>
+                    <tr><td class="match" style="color:var(--red);">Exactly 1 rated contract</td><td class="match" style="color:var(--red);">69</td><td class="match" style="color:var(--red);">50%</td></tr>
+                    <tr><td>At least 5 rated contracts</td><td>17</td><td>12%</td></tr>
+                    <tr><td>At least 7 rated contracts (the dashboard default)</td><td>11</td><td>8%</td></tr>
+                    <tr><td>At least 10 rated contracts</td><td>8</td><td>6%</td></tr>
+                    <tr><td>The largest: UnitedHealth Group</td><td>51 rated contracts</td><td>10% of all rated plans</td></tr>
+                </table>
+                <div class="gotcha-box"><strong>This table is the entire reason the <code>Min Rated Contracts</code> parameter exists.</strong> Half of all parent companies have exactly one rated contract. Rank companies by average star with no minimum and the top of the leaderboard fills with single contract companies that scored 5.0 once. That is not a finding, it is a sample size artifact, and the parameter hands the reader the tool to see it happen.</div>
+                </div></details>
+                <details class="sec"><summary>The calculations: Tableau, SQL, and pandas side by side</summary><div class="sec-body">
+                <p><strong>Two tools, two jobs.</strong></p>
+                <ul>
+                    <li><strong>Tableau tells the story.</strong> Every finding is built on a published, interactive dashboard: a national benchmark, a distribution of all 516 rated plans, a measure by measure gap analysis with the CMS weights joined in, and a market view of the parent companies.</li>
+                    <li><strong>SQL and pandas explain how Tableau got there.</strong> A Tableau calculation is compact, and that compactness hides the work. Writing the same answer out longhand, once in SQL and once in pandas, makes the hidden step visible: what the grouping was, when the filter ran, what the engine sent to the database.</li>
+                </ul>
+                <p style="margin-top:10px;"><strong>The Tableau methods used, each worked through in full on its own tab:</strong></p>
+                <ul>
+                    <li><strong>Level of Detail expressions (FIXED)</strong>, computing a national benchmark once and attaching it to every contract, at two different grains.</li>
+                    <li><strong>Table calculations</strong>, how far each parent company's average star has moved since its baseline year, computed on the view's results rather than the raw data.</li>
+                    <li><strong>Parameters</strong>, a viewer controlled minimum plan count, and the boolean calculation needed to make a parameter drive a filter at all.</li>
+                    <li><strong>Context filters</strong>, the one Tableau idea with a precise SQL translation and a genuine trap: adding a filter to context silently changes what a FIXED expression can see.</li>
+                    <li><strong>Joining a reference table</strong>, because the CMS measure weights are not in the data at all.</li>
+                    <li><strong>The Tableau native cleaning layer</strong>, groups and aliases, and where those changes do and do not exist.</li>
+                </ul>
+                <div class="question-box"><strong>The translation table.</strong> Grouped by calculation type. If the SQL or pandas column is familiar, the Tableau column is not a new idea, it is the same operation with the grouping inferred from whatever is sitting in the view.</div>
+            <table class="blog-table">
+                <tr><th style="width:16%">Calculation</th><th style="width:29%">Tableau</th><th style="width:29%">SQL</th><th style="width:26%">pandas</th></tr>
+
+                <tr><td colspan="4" class="grp">Level of Detail (FIXED)</td></tr>
+                <tr>
+                    <td><strong>National benchmark</strong><br><span style="color:#888">National Avg Star</span></td>
+                    <td><code>{ FIXED [Year] :
+  AVG([Overall Stars]) }</code></td>
+                    <td><code>AVG(Overall_Stars)
+  OVER (PARTITION BY Year)</code></td>
+                    <td><code>df.groupby('Year')['Overall_Stars']
+  .transform('mean')</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Benchmark at a second grain</strong><br><span style="color:#888">National Avg by Measure</span></td>
+                    <td><code>{ FIXED [Year], [Measure Code] :
+  AVG([Stars]) }</code></td>
+                    <td><code>AVG(Stars) OVER (
+  PARTITION BY Year, MeasureCode)</code></td>
+                    <td><code>df.groupby(['Year','MeasureCode'])
+  ['Stars'].transform('mean')</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Pull one member's value onto every row</strong><br><span style="color:#888">LA Care Star</span></td>
+                    <td><code>{ FIXED [Year] : MAX(
+  IF [Contract]="H1224"
+  THEN [Overall Stars] END) }</code></td>
+                    <td><code>MAX(CASE WHEN Contract='H1224'
+  THEN Overall_Stars END)
+  OVER (PARTITION BY Year)</code></td>
+                    <td><code>s.where(s.Contract=='H1224')
+  .groupby(s.Year).transform('max')</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Count members of a group, pinned</strong><br><span style="color:#888">Big Company</span></td>
+                    <td><code>{ FIXED [Parent Org (group)] :
+  COUNTD(...) } >= [Min Rated Contracts]</code></td>
+                    <td><code>COUNT(DISTINCT Contract)
+  GROUP BY ParentOrgGroup
+HAVING COUNT(...) >= n</code></td>
+                    <td><code>g.Contract.nunique()
+  .loc[lambda x: x >= n]</code></td>
+                </tr>
+
+                <tr><td colspan="4" class="grp">Table calculations</td></tr>
+                <tr>
+                    <td><strong>Difference From, Relative to First</strong><br><span style="color:#888">Who Is Improving</span></td>
+                    <td>Quick Table Calc &rarr; Difference<br>Relative to: <strong>First</strong><br>Compute Using: <strong>Table (across)</strong></td>
+                    <td><code>avg_star - FIRST_VALUE(avg_star)
+  OVER (PARTITION BY parent_org
+        ORDER BY Year)</code></td>
+                    <td><code>g.avg_star.transform(
+  lambda v: v - v.iloc[0])</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Compute Using: Table (across)</strong></td>
+                    <td>the direction the calc walks the view</td>
+                    <td><code>PARTITION BY</code> the row dimension, <code>ORDER BY</code> the column dimension</td>
+                    <td><code>groupby(row_dim)</code>, sorted by the column dimension</td>
+                </tr>
+
+                <tr><td colspan="4" class="grp">Filters and their order</td></tr>
+                <tr>
+                    <td><strong>Dimension filter</strong></td>
+                    <td>a pill on the Filters shelf</td>
+                    <td><code>WHERE</code> <em>outside</em> the CTE, so it runs after the window</td>
+                    <td>mask the frame <em>after</em> the <code>transform</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Add to Context</strong></td>
+                    <td>right click the filter &rarr; Add to Context (it turns grey)</td>
+                    <td><code>WHERE</code> <em>inside</em> the CTE, so the window never sees the excluded rows</td>
+                    <td>mask the frame <em>before</em> the <code>transform</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Measure filter</strong></td>
+                    <td>a filter on an aggregate; runs after aggregation</td>
+                    <td><code>HAVING</code></td>
+                    <td>a mask on the aggregated frame</td>
+                </tr>
+
+                <tr><td colspan="4" class="grp">Joining a reference table</td></tr>
+                <tr>
+                    <td><strong>Relationship on two keys</strong><br><span style="color:#888">measure weights reference</span></td>
+                    <td>drag the file onto the canvas, relate on <code>Measure Code</code> AND <code>Year</code></td>
+                    <td><code>JOIN weights
+  USING (MeasureCode, Year)</code></td>
+                    <td><code>df.merge(weights,
+  on=['Year','MeasureCode'])</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Weight an aggregate</strong><br><span style="color:#888">Weighted Gap</span></td>
+                    <td><code>[Gap vs National] * AVG([Weight])</code></td>
+                    <td><code>raw_gap * AVG(Weight)</code></td>
+                    <td><code>view.raw_gap * view.weight</code></td>
+                </tr>
+
+                <tr><td colspan="4" class="grp">Parameters</td></tr>
+                <tr>
+                    <td><strong>Swap which measure a chart plots</strong><br><span style="color:#888">Rank By, Gap (Rank By)</span></td>
+                    <td><code>IF [Rank By] = "Raw gap"
+THEN [Gap vs National]
+ELSE [Weighted Gap] END</code></td>
+                    <td><code>CASE WHEN ? = 'Raw gap'
+  THEN raw_gap
+  ELSE raw_gap * weight END</code></td>
+                    <td><code>view.raw_gap if RANK_BY == 'Raw gap'
+  else view.weighted_gap</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Viewer controlled variable</strong><br><span style="color:#888">Min Rated Contracts</span></td>
+                    <td>Integer parameter, range 1 to 10</td>
+                    <td>a bind variable, <code>?</code></td>
+                    <td>a Python variable</td>
+                </tr>
+                <tr>
+                    <td><strong>Boolean bridge</strong><br><span style="color:#888">Meets Min Contracts</span></td>
+                    <td><code>[Rated Contracts] >= [Min Rated Contracts]</code><br>then filter that field to True</td>
+                    <td><code>HAVING COUNT(DISTINCT Contract) >= ?</code></td>
+                    <td><code>df[df.rated_contracts >= n]</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Parameter in a title</strong></td>
+                    <td><code>&lt;Parameters.Min Rated Contracts&gt;</code></td>
+                    <td>string interpolation</td>
+                    <td>an f-string</td>
+                </tr>
+
+                <tr><td colspan="4" class="grp">Cleaning inside Tableau</td></tr>
+                <tr>
+                    <td><strong>Group</strong><br><span style="color:#888">Parent Org (group)</span></td>
+                    <td>select members &rarr; Group. <strong>Changes numbers.</strong></td>
+                    <td><code>CASE WHEN parent='Molina Healthcare, Inc.,'
+  THEN 'Molina Healthcare, Inc.'
+  ELSE parent END</code></td>
+                    <td><code>.replace({'Molina Healthcare, Inc.,':
+  'Molina Healthcare, Inc.'})</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Alias</strong></td>
+                    <td>right click a member &rarr; Aliases. <strong>Display only.</strong></td>
+                    <td>no equivalent, this is a label</td>
+                    <td>no equivalent, this is a label</td>
+                </tr>
+                <tr>
+                    <td><strong>Count only the rated</strong><br><span style="color:#888">Rated Contracts</span></td>
+                    <td><code>COUNTD(IF NOT ISNULL([Overall Stars])
+  THEN [Contract] END)</code></td>
+                    <td><code>COUNT(DISTINCT Contract)
+  WHERE Overall_Stars IS NOT NULL</code></td>
+                    <td><code>df[df.Overall_Stars.notna()]
+  .Contract.nunique()</code></td>
+                </tr>
+            </table>
+            <p class="caption">Every row of this table is executed and asserted in the parity notebook. Seventy five checks, all passing.</p>
+                </div></details>
+
+            </div></details>
+
+            <details class="sec" open><summary>Conclusion and summary of results</summary><div class="sec-body">
+
+                <p class="subhead">Summary of results</p>
+                <ul>
+                    <li><strong>L.A. Care trails the nation by 0.7 stars.</strong> It scores 3.0 against a national average of 3.65, and it has not moved since it was first rated.</li>
+                    <li><strong>Three in four rated plans beat it.</strong> 382 of 516 rated Medicare contracts score above 3.0 in 2026. The most common rating in the country is 3.5.</li>
+                    <li><strong>The deepest gaps are care transitions and member experience.</strong> Medication Reconciliation Post-Discharge sits 2.83 stars below the national average, Care Coordination 2.50 below, Customer Service 2.47 below. Twenty six of its 41 measures are below the national average.</li>
+                    <li><strong>It is not weak everywhere.</strong> Reducing the Risk of Falling is 2.29 stars <em>above</em> the field, and the entire drug plan side is at or above average.</li>
+                    <li><strong>Its strengths are cheap and its weaknesses are expensive.</strong> Its two best measures are both weighted 1 by CMS. Care Coordination and Customer Service, where it is more than 2.4 stars behind, are weighted 2, and Plan All-Cause Readmissions is weighted 3. Rank by gap times weight and readmissions, the sixth biggest raw gap, becomes the biggest opportunity, while Medication Reconciliation, the biggest bar on the chart, leaves the top five.</li>
+                    <li><strong>Half of what it is graded on, it does not report.</strong> Of 41 scored measures, 15 come from its own audited claims, 12 come from surveys administered by CMS vendors, 5 come from CMS's own complaint and appeal records, and 2 are arithmetic on its own prior year.</li>
+                    <li><strong>Its 3.0 on the health plan side only exists because of an adjustment.</strong> The weighted mean of its Part C measures is 2.712, which rounds to 2.5. CMS adds a Categorical Adjustment Index of 0.060 for the share of its members who are dual eligible and disabled, and that pushes it to 3.0. The compensation for serving a harder population has already been paid.</li>
+                    <li><strong>The overall star hides gains in Part C and Part D.</strong> Both halves rose half a star between 2025 and 2026. The Overall star stayed at 3.0.</li>
+                    <li><strong>Scale does not buy quality.</strong> Among companies with 7 or more rated plans, Kaiser (8 plans) and Highmark (7 plans) top the list, while UnitedHealth (51 plans) sits fourth and Centene (47 plans) ninth.</li>
+                    <li><strong>L.A. Care's nearest rivals are climbing and it is not.</strong> Centene, which owns Health Net, is up 0.4 stars since 2024, and Molina is up 0.3. Both are the closest large companies to L.A. Care's score, and both are moving toward the average while L.A. Care sits still.</li>
+                </ul>
+
+                <details class="sec"><summary>L.A. Care in detail: where the 3.0 comes apart</summary><div class="sec-body">
+                <p>The dashboard tabs work through each of these with the method behind it. Collected here are the three cuts of L.A. Care's 2026 measures that explain the flat 3.0: by domain, by who produces the number, and by what CMS weights it.</p>
+
+                <p class="subhead">By domain</p>
+                <table class="blog-table">
+                    <tr><th style="width:12%">Side</th><th style="width:40%">Domain</th><th style="width:24%">L.A. Care avg star</th><th style="width:24%">Measures rated</th></tr>
+                    <tr><td rowspan="5">Part C<br>(health plan)</td><td>HD1: Staying Healthy: Screenings, Tests and Vaccines</td><td>3.50</td><td>4</td></tr>
+                    <tr><td>HD2: Managing Chronic (Long Term) Conditions</td><td class="match" style="color:var(--red);">2.53</td><td>15</td></tr>
+                    <tr><td>HD3: Member Experience with Health Plan</td><td class="match" style="color:var(--red);">2.17</td><td>6</td></tr>
+                    <tr><td>HD4: Member Complaints and Changes in the Health Plan's Performance</td><td>3.67</td><td>3</td></tr>
+                    <tr><td>HD5: Health Plan Customer Service</td><td>3.00</td><td>3</td></tr>
+                    <tr><td rowspan="4">Part D<br>(drug plan)</td><td>DD1: Drug Plan Customer Service</td><td>5.00</td><td>1</td></tr>
+                    <tr><td>DD2: Member Complaints and Changes in the Drug Plan's Performance</td><td>4.33</td><td>3</td></tr>
+                    <tr><td>DD3: Member Experience with the Drug Plan</td><td>3.00</td><td>2</td></tr>
+                    <tr><td>DD4: Drug Safety and Accuracy of Drug Pricing</td><td>3.67</td><td>6</td></tr>
+                </table>
+                <p class="caption">L.A. Care (H1224), 2026. The two weakest domains, Managing Chronic Conditions and Member Experience with Health Plan, are both on the Part C side and together hold 21 of its 43 rated measures.</p>
+                <div class="insight-box"><strong>The story in one line:</strong> the drug plan side is fine. Everything dragging L.A. Care down is on the health plan side, and specifically in chronic care management and what members say about their experience.</div>
+
+                <p class="subhead" style="margin-top:18px;">By where the number comes from</p>
+                <table class="blog-table">
+                    <tr><th style="width:32%">Source</th><th style="width:14%">Measures</th><th style="width:18%">L.A. Care avg star</th><th style="width:18%">Avg gap to national</th><th style="width:18%">Read</th></tr>
+                    <tr><td>CMS independent review entity (appeals)</td><td>2</td><td>2.50</td><td class="match" style="color:var(--red);">-1.39</td><td>Worst</td></tr>
+                    <tr><td>CMS complaints database</td><td>2</td><td>3.00</td><td class="match" style="color:var(--red);">-1.12</td><td>&nbsp;</td></tr>
+                    <tr><td>HEDIS (claims and records)</td><td>15</td><td>2.40</td><td class="match" style="color:var(--red);">-1.02</td><td>&nbsp;</td></tr>
+                    <tr><td>CAHPS survey (member experience)</td><td>9</td><td>2.56</td><td class="match" style="color:var(--red);">-0.86</td><td>&nbsp;</td></tr>
+                    <tr><td>Pharmacy claims (PQA)</td><td>4</td><td>3.25</td><td>+0.05</td><td>At the line</td></tr>
+                    <tr><td>CMS secret shopper calls</td><td>1</td><td>4.50</td><td>+0.21</td><td>&nbsp;</td></tr>
+                    <tr><td>Plan reported and plan submitted files</td><td>2</td><td>4.50</td><td>+0.33</td><td>&nbsp;</td></tr>
+                    <tr><td>Computed from its own prior year</td><td>2</td><td>4.00</td><td class="match">+0.55</td><td>&nbsp;</td></tr>
+                    <tr><td>HOS survey (health outcomes)</td><td>3</td><td>4.00</td><td class="match">+1.14</td><td>Best</td></tr>
+                    <tr><td>CMS enrollment records (disenrollment)</td><td>1</td><td>5.00</td><td class="match">+1.28</td><td>&nbsp;</td></tr>
+                </table>
+                <p class="caption">L.A. Care (H1224), 2026. The two clusters are not random. Everything L.A. Care is bad at is a measurement of <em>care delivery and its aftermath</em>. Everything it is good at is either a health outcome its members self report, or an operational number it controls directly.</p>
+
+                <p class="subhead" style="margin-top:18px;">By what CMS weights it</p>
+                <table class="blog-table">
+                    <tr><th style="width:12%">Weight</th><th style="width:32%">Weighting category</th><th style="width:14%">Measures</th><th style="width:20%">L.A. Care avg star</th><th style="width:22%">Avg gap to national</th></tr>
+                    <tr><td><strong>1</strong></td><td>Process measures (did the plan do the thing)</td><td>19</td><td>3.05</td><td>-0.35</td></tr>
+                    <tr><td><strong>2</strong></td><td>Patients' experience, complaints, and access</td><td>14</td><td>2.82</td><td class="match" style="color:var(--red);">-0.86</td></tr>
+                    <tr><td><strong>3</strong></td><td>Outcome and intermediate outcome measures (did the patient get better)</td><td>6</td><td>2.67</td><td>-0.58</td></tr>
+                    <tr><td><strong>5</strong></td><td>Improvement measures (did the plan's own scores move)</td><td>2</td><td>4.00</td><td class="match">+0.55</td></tr>
+                </table>
+                <div class="gotcha-box"><strong>The trap the raw gap chart hides.</strong>
+                <ul style="margin:8px 0 6px 0;">
+                    <li><strong>L.A. Care's strengths are cheap.</strong> Its two best measures, Reducing the Risk of Falling (+2.29) and Monitoring Physical Activity (+1.88), are both weight <strong>1</strong>.</li>
+                    <li><strong>Its weaknesses are expensive.</strong> Care Coordination (-2.50) and Customer Service (-2.47) are weight <strong>2</strong>. Plan All-Cause Readmissions (-1.95) is weight <strong>3</strong>.</li>
+                    <li><strong>Multiply the gap by the weight and the list reorders.</strong> Plan All-Cause Readmissions, only the sixth largest raw gap, becomes the largest weighted one. Medication Reconciliation, the biggest bar on the raw chart, drops out of the top five entirely.</li>
+                </ul>
+                <p style="margin-bottom:0;">This is the finding the <code>Gap Explorer</code> toggle on the dashboard is built to show.</p>
+                </div>
+                </div></details>
+
+                <p class="subhead" style="margin-top:18px;">Conclusion</p>
+                <p>Read as a single grade, a 3.0 star rating says a plan is mediocre and leaves it there. Taken apart, the number tells a more specific and more useful story, and three things stand out.</p>
+                <ul>
+                    <li><strong>The flat rating hides real movement.</strong> Both halves of L.A. Care's business gained half a star in a single year, and the rounded Overall number absorbed all of it. A plan can be improving and stalled on paper at the same time. Anyone reading the headline star alone would miss it.</li>
+                    <li><strong>The hardship defence is already spent.</strong> The 3.0 on the health plan side is not the raw score; it is the raw score after CMS has already added an adjustment for serving a poorer, sicker, more disabled population. Without it the plan would sit at 2.5. The argument that a plan's members are harder to serve is true here, and it has already been credited, so it cannot also explain what remains.</li>
+                    <li><strong>The biggest gap is not the biggest opportunity.</strong> Because CMS weights measures from 1 to 5, the measure a plan is furthest behind on is often not the one costing it the most stars. For L.A. Care the largest raw gap is Medication Reconciliation (weight 1), but the largest weighted loss is Plan All-Cause Readmissions (weight 3), only its sixth largest gap. Ranking by raw distance points at the wrong problem.</li>
+                </ul>
+
+                <p class="subhead" style="margin-top:14px;">Recommendations</p>
+                <ul>
+                    <li><strong>For reading any plan's rating:</strong> never stop at the Overall star. Split it into Part C and Part D, check whether the halves moved, and look at the measure level before concluding anything about quality.</li>
+                    <li><strong>For a plan trying to raise its rating:</strong> rank the gaps by gap times weight, not by gap alone. The <code>Gap Explorer</code> toggle on the dashboard exists for exactly this, and it moves readmissions and the triple weighted medication adherence measures to the top of the list.</li>
+                    <li><strong>For an analyst working with this data:</strong> the weights, the data sources, and the adjustment values are all published <em>outside</em> the data tables. Any honest analysis of Star Ratings has to join those reference tables in, or it will silently treat a triple weighted outcome as equal to a single weighted checkbox.</li>
+                </ul>
+
+                <div class="insight-box"><strong>The one line to keep.</strong> CMS does not average a plan's quality measures, it weights them, so a plan's rating is decided less by where it is weakest and more by whether it is weak on the measures that count the most. The single star on Plan Finder is a summary of that, and the summary hides exactly the detail a plan would need to act on.</div>
+            </div></details>
+
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- TAB 2: THE DASHBOARD                                         -->
+        <!-- ============================================================ -->
+        <div id="tab-dashboard" class="tab-content">
+            <div class="section-controls"><button onclick="setAllSections('tab-dashboard', true)">Expand All</button><button onclick="setAllSections('tab-dashboard', false)">Collapse All</button></div>
+
+            <details class="sec" open><summary>Key findings</summary><div class="sec-body">
+                <p>Each finding below comes from one panel of the dashboard, named in the middle column. The right column names the Tableau method that produces it, worked through in full on the later tabs.</p>
+                <table class="blog-table">
+                    <tr><th style="width:40%">Finding</th><th style="width:32%">Dashboard panel</th><th style="width:28%">Method shown</th></tr>
+                    <tr><td>L.A. Care sits <strong>0.7 stars below the national average</strong> (3.0 vs 3.65), and the gap has not closed across its two rated years.</td><td>L.A. Care Trails the Nation by 0.7 Stars</td><td>A FIXED LOD benchmark that survives the filter down to a single contract; without it the national average would collapse to L.A. Care's own score.</td></tr>
+                    <tr><td><strong>Three in four rated plans beat it.</strong> 382 of 516 rated contracts score above 3.0; the most common rating in the country is 3.5.</td><td>L.A. Care Sits in the Bottom Quarter of Rated Plans</td><td>A FIXED LOD that returns a scalar (L.A. Care's own star) broadcast to every row, plus a boolean field that colors each bar by whether it beats that scalar.</td></tr>
+                    <tr><td><strong>The biggest gap is not the biggest opportunity.</strong> Medication Reconciliation is the largest raw gap, but weighted, Plan All-Cause Readmissions, only the sixth largest gap, is the costliest miss.</td><td>The Biggest Gap Is Not the Biggest Opportunity <span style="color:#888">(Gap Explorer)</span></td><td>A FIXED LOD at a second grain (year and measure), a reference join for the CMS weights, and a parameter that swaps which field the bars plot.</td></tr>
+                    <tr><td><strong>The overall star hides real gains.</strong> Part C and Part D each rose half a star between 2025 and 2026, yet the Overall star never moved off 3.0.</td><td>The Overall Star Hides Gains in Part C and Part D</td><td>Measure Values and Measure Names, which is an unpivot.</td></tr>
+                    <tr><td><strong>Its nearest rivals are climbing and it is not.</strong> Centene (owner of Health Net) is up 0.4 since 2024 and Molina up 0.3, while L.A. Care's change is zero.</td><td>Among Companies With 7+ Rated Plans, L.A. Care's Rivals Are Climbing and L.A. Care Is Not</td><td>A table calculation (Difference From, Relative to First) filtered by a FIXED LOD and driven by a parameter.</td></tr>
+                    <tr><td><strong>Scale does not buy quality.</strong> Among companies with 7+ rated plans, the smallest names (Kaiser, Highmark) top the list while UnitedHealth (51 plans) and Centene (47) sit mid pack.</td><td>The Top Scorers Among Companies With 7+ Rated Plans Are the Smallest Ones</td><td>A group to merge duplicate company names, a parameter, and a boolean bridge because a measure filter will not accept a parameter directly.</td></tr>
+                </table>
+                <div class="insight-box"><strong>The one that ties it together:</strong> read as a single 3.0, the rating says nothing. Split by panel, it says L.A. Care is improving underneath a flat number, is behind mostly on the health plan side, and is losing the most stars on the measures CMS weights the heaviest.</div>
+            </div></details>
+
+            <details class="sec" open><summary>The dashboard</summary><div class="sec-body">
+                <p style="margin-bottom:12px;">Interactive. Move the <strong>Min Rated Contracts</strong> slider to change how many rated plans a company needs before it is allowed on the leaderboard, and hover a company in either bottom chart to highlight it in both. On a narrow screen, scroll the dashboard sideways.</p>
+
+                <div class="viz-native">
+                <div class='tableauPlaceholder' id='viz1783997847220' style='position: relative'><noscript><a href='#'><img alt='L.A. Care Medicare Scorecard' src='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;me&#47;medicare_star_ratings&#47;L_A_CareMedicareScorecard&#47;1_rss.png' style='border: none' /></a></noscript><object class='tableauViz' style='display:none;'><param name='host_url' value='https%3A%2F%2Fpublic.tableau.com%2F' /><param name='embed_code_version' value='3' /><param name='site_root' value='' /><param name='name' value='medicare_star_ratings&#47;L_A_CareMedicareScorecard' /><param name='tabs' value='no' /><param name='toolbar' value='yes' /><param name='device' value='desktop' /><param name='static_image' value='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;me&#47;medicare_star_ratings&#47;L_A_CareMedicareScorecard&#47;1.png' /><param name='animate_transition' value='yes' /><param name='display_static_image' value='no' /><param name='display_spinner' value='yes' /><param name='display_overlay' value='yes' /><param name='display_count' value='yes' /><param name='language' value='en-US' /><param name='filter' value='publish=yes' /></object></div>
+                </div>
+
+                <p class="caption">L.A. Care Medicare Scorecard. Source: CMS Part C and Part D Star Ratings, 2024 to 2026. Every figure verified in DuckDB SQL and pandas. <a href="https://public.tableau.com/views/medicare_star_ratings/L_A_CareMedicareScorecard" target="_blank">Open full screen on Tableau Public.</a></p>
+            </div></details>
+
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- TAB 3: LEVEL OF DETAIL                                       -->
+        <!-- ============================================================ -->
+        <div id="tab-lod" class="tab-content">
+            <div class="section-controls"><button onclick="setAllSections('tab-lod', true)">Expand All</button><button onclick="setAllSections('tab-lod', false)">Collapse All</button></div>
+
+            <details class="sec" open><summary>Introduction and the question</summary><div class="sec-body">
+                <div class="question-box"><strong>The question:</strong> the chart is filtered to one contract. How can it still show the average of all 516?</div>
+                <p><strong>The problem a FIXED expression solves.</strong> Drag <code>AVG(Overall Stars)</code> into a view that is filtered to L.A. Care and Tableau will faithfully give the average of the rows in the view: 3.0. That is L.A. Care's own score, not a benchmark. To draw a line at 3.65 the calculation has to be computed at a level of detail the view does not have, and it has to be immune to the view's filter.</p>
+                <p><strong>That is what FIXED means.</strong> It fixes the grouping in the expression itself, so the view cannot change it, and it runs <em>before</em> ordinary dimension filters, so those filters cannot shrink what it sees.</p>
+                <p><strong>Roadmap for this tab:</strong></p>
+                <ul>
+                    <li>The benchmark, one dimension: the national average star</li>
+                    <li>The scalar trick: pull one specific plan's value onto every row so every other plan can be compared to it</li>
+                    <li>The benchmark at two dimensions: a national average per measure, which is where the most useful trap in the project lives</li>
+                </ul>
+            </div></details>
+
+            <details class="sec" open><summary>The benchmark: a FIXED LOD on one dimension</summary><div class="sec-body">
+                <div class="calc-formula">National Avg Star = { FIXED [Year] : AVG([Overall Stars]) }</div>
+                <p>Read it left to right: <em>for each Year, take the average of Overall Stars, and hand that number back to every row of that year.</em> The sheet filter (<code>Contract = H1224</code>) is applied afterwards, so the line stays at 3.65 even though only one contract survives the filter.</p>
+
+                <p class="subhead">SQL</p>
+                <ul>
+                    <li><strong>The approach:</strong> a window function, <code>AVG(...) OVER (PARTITION BY Year)</code>, computed inside a CTE that has no filter on it.</li>
+                    <li><strong>Why the CTE matters:</strong> the CTE boundary is what makes the window blind to the outer <code>WHERE</code>. Move that <code>WHERE</code> inside the CTE and the benchmark collapses. That move is exactly what "Add to Context" does in Tableau, and it is covered on the last tab.</li>
+                    <li><strong>What comes back:</strong> one row per year for L.A. Care, each carrying the national average of all 516 contracts.</li>
+                </ul>
+<pre class="code-block"><span class="kw">WITH</span> benchmark <span class="kw">AS</span> (                       <span class="cm">-- runs BEFORE the contract filter, like FIXED</span>
+    <span class="kw">SELECT</span> Year, Contract, Overall_Stars,
+           <span class="kw">AVG</span>(Overall_Stars) <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> Year) <span class="kw">AS</span> national_avg_star
+    <span class="kw">FROM</span> summary
+)
+<span class="kw">SELECT</span> Year, national_avg_star
+<span class="kw">FROM</span> benchmark
+<span class="kw">WHERE</span> Contract = <span class="st">'H1224'</span>                <span class="cm">-- the sheet filter, applied AFTER the window</span>
+<span class="kw">ORDER BY</span> Year;</pre>
+
+                <p class="subhead" style="margin-top:16px;">pandas</p>
+                <ul>
+                    <li><strong>The approach:</strong> <code>groupby('Year').transform('mean')</code> broadcasts the year level average back onto every row.</li>
+                    <li><strong>Why <code>transform</code> and not <code>agg</code>:</strong> <code>agg</code> collapses the frame to one row per year. <code>transform</code> keeps the frame's shape and glues the group's answer onto each row, which is precisely the shape a FIXED LOD produces.</li>
+                    <li><strong>The filter comes last,</strong> after the broadcast, so the benchmark column already holds the national number by the time L.A. Care is selected.</li>
+                </ul>
+<pre class="code-block">s = summary.copy()
+s[<span class="st">'national_avg_star'</span>] = s.groupby(<span class="st">'Year'</span>)[<span class="st">'Overall_Stars'</span>].transform(<span class="st">'mean'</span>)
+
+<span class="cm"># filter AFTER the broadcast, exactly like Tableau's order of operations</span>
+s.loc[s.Contract == <span class="st">'H1224'</span>, [<span class="st">'Year'</span>, <span class="st">'national_avg_star'</span>]]</pre>
+
+                <table class="blog-table">
+                    <tr><th>Year</th><th>L.A. Care Overall star</th><th>National average (FIXED)</th><th>Gap</th><th>Tableau</th><th>DuckDB SQL</th><th>pandas</th></tr>
+                    <tr><td>2024</td><td>not rated</td><td>3.6817</td><td>&mdash;</td><td>3.6817</td><td>3.6817</td><td class="match">3.6817</td></tr>
+                    <tr><td>2025</td><td>3.0</td><td>3.6497</td><td>-0.65</td><td>3.6497</td><td>3.6497</td><td class="match">3.6497</td></tr>
+                    <tr><td>2026</td><td>3.0</td><td>3.6521</td><td>-0.65</td><td>3.6521</td><td>3.6521</td><td class="match">3.6521</td></tr>
+                </table>
+                <p class="caption">The dashboard axis rounds to one decimal, which is why the chart reads 3.7 / 3.6 / 3.7.</p>
+            </div></details>
+
+            <details class="sec"><summary>The scalar trick: pulling one plan's value onto every row</summary><div class="sec-body">
+                <p>The distribution chart needs to color each bar by whether that group of plans <em>beats L.A. Care</em>. To do that, every contract's row needs L.A. Care's score sitting next to its own. A FIXED LOD with a conditional inside it does that.</p>
+                <div class="calc-formula">LA Care Star    = { FIXED [Year] : MAX(IF [Contract] = "H1224" THEN [Overall Stars] END) }
+Beats L.A. Care = [Overall Stars] &gt; [LA Care Star]</div>
+                <p>The <code>IF</code> returns L.A. Care's star on L.A. Care's row and null everywhere else. <code>MAX</code> then ignores the nulls and returns the one non null value, which the FIXED broadcasts to every row of that year. The second calculation is an ordinary row level comparison, and it goes on Color.</p>
+                <div class="insight-box"><strong>The pattern worth memorising:</strong> <code>{ FIXED [dim] : MAX(IF [member condition] THEN [value] END) }</code> is how you get "the value belonging to one specific member" onto all rows. It is the LOD equivalent of a lookup.</div>
+
+                <p class="subhead">SQL</p>
+                <ul>
+                    <li><strong>The approach:</strong> a windowed <code>MAX(CASE WHEN ...)</code> broadcasts L.A. Care's star across the year's partition, then a simple comparison decides the color and a <code>COUNT(DISTINCT)</code> gives the bar heights.</li>
+                    <li><strong>The null filter is deliberate:</strong> unrated contracts are excluded from the chart entirely, so they are excluded from the count too.</li>
+                </ul>
+<pre class="code-block"><span class="kw">WITH</span> bridged <span class="kw">AS</span> (
+    <span class="kw">SELECT</span> Year, Contract, Overall_Stars,
+           <span class="kw">MAX</span>(<span class="kw">CASE WHEN</span> Contract = <span class="st">'H1224'</span> <span class="kw">THEN</span> Overall_Stars <span class="kw">END</span>)
+               <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> Year) <span class="kw">AS</span> la_care_star
+    <span class="kw">FROM</span> summary
+    <span class="kw">WHERE</span> Overall_Stars <span class="kw">IS NOT NULL</span>          <span class="cm">-- unrated contracts are not in the chart</span>
+)
+<span class="kw">SELECT</span> Overall_Stars,
+       <span class="kw">COUNT</span>(<span class="kw">DISTINCT</span> Contract)              <span class="kw">AS</span> contracts,
+       <span class="kw">BOOL_OR</span>(Overall_Stars &gt; la_care_star)  <span class="kw">AS</span> beats_la_care
+<span class="kw">FROM</span> bridged
+<span class="kw">WHERE</span> Year = 2026
+<span class="kw">GROUP BY</span> Overall_Stars
+<span class="kw">ORDER BY</span> Overall_Stars;</pre>
+
+                <p class="subhead" style="margin-top:16px;">pandas</p>
+                <ul>
+                    <li><strong>The approach:</strong> mask the star column to L.A. Care's rows only, then <code>groupby('Year').transform('max')</code> so the single surviving value spreads across the year.</li>
+                    <li><strong>Why <code>.where()</code> first:</strong> it is the direct translation of the <code>IF ... THEN ... END</code> inside the LOD. Everything that is not L.A. Care becomes null, and <code>max</code> skips nulls.</li>
+                </ul>
+<pre class="code-block">rated = summary[summary.Overall_Stars.notna()].copy()
+
+<span class="cm"># IF [Contract] = "H1224" THEN [Overall Stars] END   ->   .where(...)</span>
+rated[<span class="st">'la_care_star'</span>] = (rated.Overall_Stars.where(rated.Contract == <span class="st">'H1224'</span>)
+                            .groupby(rated.Year).transform(<span class="st">'max'</span>))
+
+r26 = rated[rated.Year == 2026]
+r26.groupby(<span class="st">'Overall_Stars'</span>).Contract.nunique()</pre>
+
+                <table class="blog-table">
+                    <tr><th>Overall star</th><th>Contracts</th><th>Beats L.A. Care</th><th>Tableau</th><th>DuckDB SQL</th><th>pandas</th></tr>
+                    <tr><td>2.0</td><td>2</td><td>no</td><td>2</td><td>2</td><td class="match">2</td></tr>
+                    <tr><td>2.5</td><td>21</td><td>no</td><td>21</td><td>21</td><td class="match">21</td></tr>
+                    <tr><td>3.0</td><td>111</td><td>no (tied)</td><td>111</td><td>111</td><td class="match">111</td></tr>
+                    <tr><td>3.5</td><td>175</td><td>yes</td><td>175</td><td>175</td><td class="match">175</td></tr>
+                    <tr><td>4.0</td><td>116</td><td>yes</td><td>116</td><td>116</td><td class="match">116</td></tr>
+                    <tr><td>4.5</td><td>73</td><td>yes</td><td>73</td><td>73</td><td class="match">73</td></tr>
+                    <tr><td>5.0</td><td>18</td><td>yes</td><td>18</td><td>18</td><td class="match">18</td></tr>
+                    <tr><td colspan="2"><strong>382 of 516 beat L.A. Care</strong></td><td colspan="4"><strong>74.0%</strong></td></tr>
+                </table>
+            </div></details>
+
+            <details class="sec"><summary>A FIXED LOD on two dimensions, and the trap inside it</summary><div class="sec-body">
+                <p>The measure gap chart needs a different benchmark for every measure: L.A. Care's Medication Reconciliation score should be compared to the national average <em>on Medication Reconciliation</em>, not to the national average overall. So the LOD pins two dimensions.</p>
+                <div class="calc-formula">National Avg by Measure = { FIXED [Year], [Measure Code] : AVG([Stars]) }
+Gap vs National        = AVG([Stars]) - AVG([National Avg by Measure])</div>
+
+                <p class="subhead">SQL</p>
+                <ul>
+                    <li><strong>The approach:</strong> the same window function, now partitioned by two columns instead of one, computed over the unfiltered measure table.</li>
+                    <li><strong>Then the view:</strong> the outer query filters to L.A. Care and groups by measure <em>name</em>, averaging both the plan's stars and the benchmark. That second aggregation is not decoration, and the next box explains why.</li>
+                </ul>
+<pre class="code-block"><span class="kw">WITH</span> benchmark <span class="kw">AS</span> (                     <span class="cm">-- the LOD: level = Year, Measure CODE</span>
+    <span class="kw">SELECT</span> Year, Contract, MeasureCode, MeasureName, Stars,
+           <span class="kw">AVG</span>(Stars) <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> Year, MeasureCode) <span class="kw">AS</span> national_avg_by_measure
+    <span class="kw">FROM</span> measures
+    <span class="kw">WHERE</span> Stars <span class="kw">IS NOT NULL</span>
+)
+<span class="kw">SELECT</span> MeasureName,                       <span class="cm">-- the VIEW: level = Measure NAME</span>
+       <span class="kw">AVG</span>(Stars)                                <span class="kw">AS</span> la_care_stars,
+       <span class="kw">AVG</span>(national_avg_by_measure)              <span class="kw">AS</span> national_avg,
+       <span class="kw">AVG</span>(Stars) - <span class="kw">AVG</span>(national_avg_by_measure) <span class="kw">AS</span> gap_vs_national
+<span class="kw">FROM</span> benchmark
+<span class="kw">WHERE</span> Contract = <span class="st">'H1224'</span> <span class="kw">AND</span> Year = 2026
+<span class="kw">GROUP BY</span> MeasureName
+<span class="kw">ORDER BY</span> gap_vs_national;</pre>
+
+                <p class="subhead" style="margin-top:16px;">pandas</p>
+                <ul>
+                    <li><strong>The approach:</strong> two steps, in this order. First <code>groupby(['Year','MeasureCode']).transform('mean')</code> for the benchmark, on the unfiltered frame. Then <code>groupby('MeasureName').agg(...)</code> for the view.</li>
+                    <li><strong>Both terms are averaged</strong> at the view's level, which is what <code>AVG([Stars]) - AVG([National Avg by Measure])</code> literally says.</li>
+                </ul>
+<pre class="code-block">m = measures[measures.Stars.notna()].copy()
+
+<span class="cm"># the LOD: benchmark computed per measure CODE</span>
+m[<span class="st">'national_avg_by_measure'</span>] = (m.groupby([<span class="st">'Year'</span>, <span class="st">'MeasureCode'</span>])[<span class="st">'Stars'</span>]
+                                 .transform(<span class="st">'mean'</span>))
+
+<span class="cm"># the VIEW: aggregated per measure NAME</span>
+view = (m[(m.Contract == <span class="st">'H1224'</span>) &amp; (m.Year == 2026)]
+        .groupby(<span class="st">'MeasureName'</span>)
+        .agg(la_care_stars=(<span class="st">'Stars'</span>, <span class="st">'mean'</span>),
+             national_avg=(<span class="st">'national_avg_by_measure'</span>, <span class="st">'mean'</span>)))
+
+view[<span class="st">'gap_vs_national'</span>] = view.la_care_stars - view.national_avg</pre>
+
+                <div class="gotcha-box"><strong>The trap: the chart has 41 bars, but L.A. Care has 43 rated measures.</strong>
+                <p style="margin:8px 0 6px 0;">The LOD is computed at <code>[Measure Code]</code>. The view puts <code>[Measure Name]</code> on Rows. Two names are reused across a Part C and a Part D code:</p>
+                <ul style="margin-bottom:8px;">
+                    <li><strong>Call Center &ndash; Foreign Language Interpreter and TTY Availability.</strong> L.A. Care scores 4.0 on the Part C version (gap -0.164) and 5.0 on the Part D version (gap +0.590).</li>
+                    <li><strong>Members Choosing to Leave the Plan.</strong> Scored 5.0 on both sides.</li>
+                </ul>
+                <p style="margin-bottom:6px;">Tableau computes the benchmark per <em>code</em>, then the view averages the two codes together per <em>name</em>. The Call Center bar renders at <strong>+0.213</strong>, which is the mean of -0.164 and +0.590. Group the SQL by code instead of name and you get 43 rows and the wrong bar.</p>
+                <p style="margin-bottom:0;"><strong>The rule:</strong> a FIXED LOD fixes the level the <em>benchmark</em> is computed at. It does not fix the level the <em>view</em> aggregates at. Reproduce both, in that order.</p>
+                </div>
+
+                <table class="blog-table">
+                    <tr><th style="width:34%">Measure</th><th style="width:12%">L.A. Care</th><th style="width:14%">National avg</th><th style="width:12%">Gap</th><th style="width:9%">Tableau</th><th style="width:9%">SQL</th><th style="width:10%">pandas</th></tr>
+                    <tr><td>Medication Reconciliation Post-Discharge</td><td>1.0</td><td>3.831</td><td>-2.831</td><td>-2.831</td><td>-2.831</td><td class="match">-2.831</td></tr>
+                    <tr><td>Care Coordination</td><td>1.0</td><td>3.495</td><td>-2.495</td><td>-2.495</td><td>-2.495</td><td class="match">-2.495</td></tr>
+                    <tr><td>Customer Service</td><td>1.0</td><td>3.467</td><td>-2.467</td><td>-2.467</td><td>-2.467</td><td class="match">-2.467</td></tr>
+                    <tr><td>Call Center &ndash; Interpreter and TTY <em>(two codes, one bar)</em></td><td>4.5</td><td>4.287</td><td>+0.213</td><td>+0.213</td><td>+0.213</td><td class="match">+0.213</td></tr>
+                    <tr><td>Members Choosing to Leave the Plan <em>(two codes, one bar)</em></td><td>5.0</td><td>3.718</td><td>+1.282</td><td>+1.282</td><td>+1.282</td><td class="match">+1.282</td></tr>
+                    <tr><td>Reducing the Risk of Falling</td><td>5.0</td><td>2.713</td><td>+2.287</td><td>+2.287</td><td>+2.287</td><td class="match">+2.287</td></tr>
+                </table>
+            </div></details>
+
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- TAB 4: TABLE CALCULATIONS AND PARAMETERS                     -->
+        <!-- ============================================================ -->
+        <div id="tab-tablecalc" class="tab-content">
+            <div class="section-controls"><button onclick="setAllSections('tab-tablecalc', true)">Expand All</button><button onclick="setAllSections('tab-tablecalc', false)">Collapse All</button></div>
+
+            <details class="sec" open><summary>Introduction and the question</summary><div class="sec-body">
+                <div class="question-box"><strong>The question:</strong> which parent companies are getting better, and how do you let a reader decide how big a company has to be before it counts?</div>
+                <p><strong>The difference between an LOD and a table calculation, in one sentence:</strong> an LOD sends a different query to the database; a table calculation rearranges the numbers that already came back.</p>
+                <p>Both charts on the bottom half of the dashboard need both. The change since 2024 is a table calculation. The threshold that decides which companies appear is a parameter, which turns out to need a calculated field to work at all.</p>
+                <p><strong>Roadmap for this tab:</strong></p>
+                <ul>
+                    <li>Difference From, Relative to First, and why it is <code>FIRST_VALUE</code> in SQL</li>
+                    <li>Parameters, and the boolean bridge a parameter needs before it can drive a filter</li>
+                    <li>Why the size filter had to be a FIXED LOD and not a plain distinct count</li>
+                    <li>How CMS actually weights its measures, and the reference join and parameter swap needed to put that on a chart</li>
+                </ul>
+            </div></details>
+
+            <details class="sec" open><summary>Difference From, Relative to First</summary><div class="sec-body">
+                <p>The change table shows each company's average star relative to 2024, its first year in the data. In Tableau that is not a calculated field at all, it is a setting on an existing pill:</p>
+                <ul class="click-path">
+                    <li>Drop <code>AVG(Overall Stars)</code> on Text</li>
+                    <li>Right click it &rarr; <strong>Quick Table Calculation</strong> &rarr; <strong>Difference</strong></li>
+                    <li>Right click again &rarr; <strong>Edit Table Calculation</strong></li>
+                    <li>Compute Using: <strong>Table (across)</strong> &nbsp;&middot;&nbsp; Relative to: <strong>First</strong></li>
+                </ul>
+                <p>Those two settings are the whole calculation. <strong>Compute Using</strong> says which direction to walk the view, and <strong>Relative to</strong> says what to subtract.</p>
+
+                <p class="subhead">SQL</p>
+                <ul>
+                    <li><strong>The approach:</strong> aggregate to one row per company per year first, then use <code>FIRST_VALUE(...) OVER (PARTITION BY parent_org ORDER BY Year)</code> to put each company's 2024 baseline on every one of its rows, and subtract.</li>
+                    <li><strong>The mapping is exact:</strong> <code>FIRST_VALUE</code> <em>is</em> "Relative to: First". <code>PARTITION BY parent_org</code> <em>is</em> "Compute Using: Table (across)", because across means "walk the columns within a row of the table".</li>
+                    <li><strong>Why aggregate first:</strong> a table calculation operates on the view's numbers, and the view's numbers are already aggregated. The inner <code>GROUP BY</code> is the view.</li>
+                </ul>
+<pre class="code-block"><span class="kw">WITH</span> yearly <span class="kw">AS</span> (                                <span class="cm">-- this CTE is "the view"</span>
+    <span class="kw">SELECT</span> ParentOrgGroup <span class="kw">AS</span> parent_org, Year,
+           <span class="kw">AVG</span>(Overall_Stars) <span class="kw">AS</span> avg_star
+    <span class="kw">FROM</span> summary
+    <span class="kw">WHERE</span> Overall_Stars <span class="kw">IS NOT NULL</span>
+    <span class="kw">GROUP BY</span> 1, 2
+)
+<span class="kw">SELECT</span> parent_org, Year, avg_star,
+       avg_star - <span class="kw">FIRST_VALUE</span>(avg_star) <span class="kw">OVER</span> (      <span class="cm">-- Difference From, Relative to First</span>
+           <span class="kw">PARTITION BY</span> parent_org                    <span class="cm">-- Compute Using: Table (across)</span>
+           <span class="kw">ORDER BY</span> Year
+       ) <span class="kw">AS</span> diff_since_first
+<span class="kw">FROM</span> yearly
+<span class="kw">ORDER BY</span> parent_org, Year;</pre>
+
+                <p class="subhead" style="margin-top:16px;">pandas</p>
+                <ul>
+                    <li><strong>The approach:</strong> aggregate to company and year, sort by year, then group by company and subtract the first value in each group.</li>
+                    <li><strong><code>v.iloc[0]</code> is <code>FIRST_VALUE</code></strong>, and it only means "2024" because the frame is sorted by year first. A table calculation is order dependent, and so is this.</li>
+                </ul>
+<pre class="code-block">yearly = (summary[summary.Overall_Stars.notna()]
+          .groupby([<span class="st">'ParentOrgGroup'</span>, <span class="st">'Year'</span>], as_index=<span class="kw">False</span>)
+          .Overall_Stars.mean()
+          .sort_values([<span class="st">'ParentOrgGroup'</span>, <span class="st">'Year'</span>]))          <span class="cm"># order matters</span>
+
+yearly[<span class="st">'diff_since_first'</span>] = (yearly.groupby(<span class="st">'ParentOrgGroup'</span>).Overall_Stars
+                                 .transform(<span class="kw">lambda</span> v: v - v.iloc[0]))</pre>
+
+                <div class="insight-box"><strong>The self check:</strong> every company's 2024 cell must be exactly 0.0. That is not a coincidence, it is the definition of "relative to first". If a 2024 cell is non zero, the Compute Using direction is wrong.</div>
+
+                <table class="blog-table">
+                    <tr><th style="width:32%">Parent company</th><th style="width:10%">2024</th><th style="width:10%">2025</th><th style="width:10%">2026</th><th style="width:13%">Change since 2024</th><th style="width:12%">SQL</th><th style="width:13%">pandas</th></tr>
+                    <tr><td>Kaiser Foundation Health Plan</td><td>3.79</td><td>4.29</td><td>4.31</td><td>+0.5</td><td>+0.5</td><td class="match">+0.5</td></tr>
+                    <tr><td>Centene Corporation</td><td>2.93</td><td>3.20</td><td>3.31</td><td>+0.4</td><td>+0.4</td><td class="match">+0.4</td></tr>
+                    <tr><td>Molina Healthcare</td><td>3.00</td><td>3.08</td><td>3.27</td><td>+0.3</td><td>+0.3</td><td class="match">+0.3</td></tr>
+                    <tr><td>UnitedHealth Group</td><td>3.94</td><td>3.76</td><td>3.79</td><td>-0.1</td><td>-0.1</td><td class="match">-0.1</td></tr>
+                    <tr><td>Highmark Health</td><td>4.36</td><td>4.43</td><td>4.14</td><td>-0.2</td><td>-0.2</td><td class="match">-0.2</td></tr>
+                    <tr><td>Humana</td><td>3.94</td><td>3.66</td><td>3.40</td><td>-0.5</td><td>-0.5</td><td class="match">-0.5</td></tr>
+                    <tr><td>Devoted Health</td><td>4.40</td><td>4.00</td><td>3.89</td><td>-0.5</td><td>-0.5</td><td class="match">-0.5</td></tr>
+                </table>
+                <p class="caption">Companies with 7 or more rated plans in 2026. Centene, which owns Health Net, and Molina are the two lowest scorers on this list and the only two climbing meaningfully. L.A. Care's own change over the same window is zero.</p>
+            </div></details>
+
+            <details class="sec"><summary>Parameters, and the boolean bridge they need</summary><div class="sec-body">
+                <p><strong>The problem the parameter solves.</strong> Rank parent companies by average star with no minimum, and the leaderboard is nonsense: 69 of the 137 parent organizations have exactly one rated contract, and three of the "5.0 star" leaders are single contract companies that got lucky once. But hard coding a minimum of 5 is an arbitrary choice made on the reader's behalf. A parameter hands the choice over.</p>
+                <div class="calc-formula">Parameter:  Min Rated Contracts   (Integer, range 1 to 10, step 1)
+
+Rated Contracts     = COUNTD(IF NOT ISNULL([Overall Stars]) THEN [Contract] END)
+Meets Min Contracts = [Rated Contracts] &gt;= [Min Rated Contracts]        &larr; the bridge</div>
+
+                <div class="gotcha-box"><strong>Why the bridge exists.</strong> A parameter is inert. It does nothing at all until something references it. The obvious move, dragging <code>Rated Contracts</code> to the Filters shelf and typing the parameter into the "at least" box, does not work: <strong>a measure filter's value box will not accept a parameter.</strong> It wants a literal number. The way through is to wrap the comparison in a calculated field that returns True or False, and filter that field to True. The boolean is the bridge between the parameter and the filter.</div>
+
+                <p class="subhead">SQL</p>
+                <ul>
+                    <li><strong>The approach:</strong> aggregate per company, then filter on the aggregate with <code>HAVING</code>. The parameter becomes a bind variable.</li>
+                    <li><strong><code>HAVING</code> is the boolean bridge.</strong> It is SQL's measure filter: a condition evaluated after aggregation, on an aggregate. <code>WHERE</code> cannot do it, because at <code>WHERE</code> time the count does not exist yet.</li>
+                    <li><strong><code>COUNT(DISTINCT Contract)</code> with a null filter</strong> reproduces <code>Rated Contracts</code> exactly. Counting all contracts instead of rated ones would let a company qualify on plans that were never scored.</li>
+                </ul>
+<pre class="code-block"><span class="kw">SELECT</span> ParentOrgGroup            <span class="kw">AS</span> parent_org,
+       <span class="kw">COUNT</span>(<span class="kw">DISTINCT</span> Contract)  <span class="kw">AS</span> rated_contracts,
+       <span class="kw">AVG</span>(Overall_Stars)        <span class="kw">AS</span> avg_overall_stars
+<span class="kw">FROM</span> summary
+<span class="kw">WHERE</span> Year = 2026 <span class="kw">AND</span> Overall_Stars <span class="kw">IS NOT NULL</span>
+<span class="kw">GROUP BY</span> ParentOrgGroup
+<span class="kw">HAVING</span> <span class="kw">COUNT</span>(<span class="kw">DISTINCT</span> Contract) &gt;= ?    <span class="cm">-- the parameter, as a bind variable</span>
+<span class="kw">ORDER BY</span> avg_overall_stars <span class="kw">DESC</span>;</pre>
+
+                <p class="subhead" style="margin-top:16px;">pandas</p>
+                <ul>
+                    <li><strong>The approach:</strong> <code>groupby().agg()</code> for both numbers at once, then a boolean mask on the count.</li>
+                    <li><strong>The mask after the aggregation is the <code>HAVING</code></strong>, and it is the same thing as the Tableau boolean field. Three tools, one idea: filter the aggregate, not the rows.</li>
+                </ul>
+<pre class="code-block">MIN_CONTRACTS = 7                                        <span class="cm"># the parameter</span>
+
+d = summary[(summary.Year == 2026) &amp; summary.Overall_Stars.notna()]
+
+ranked = (d.groupby(<span class="st">'ParentOrgGroup'</span>)
+            .agg(rated_contracts=(<span class="st">'Contract'</span>, <span class="st">'nunique'</span>),
+                 avg_overall_stars=(<span class="st">'Overall_Stars'</span>, <span class="st">'mean'</span>))
+            .reset_index())
+
+ranked = ranked[ranked.rated_contracts &gt;= MIN_CONTRACTS]   <span class="cm"># HAVING</span>
+ranked.sort_values(<span class="st">'avg_overall_stars'</span>, ascending=<span class="kw">False</span>)</pre>
+
+                <table class="blog-table">
+                    <tr><th style="width:34%">Parent company</th><th style="width:14%">Rated plans</th><th style="width:16%">Avg overall star</th><th style="width:12%">Tableau</th><th style="width:12%">SQL</th><th style="width:12%">pandas</th></tr>
+                    <tr><td>Kaiser Foundation Health Plan</td><td>8</td><td>4.31</td><td>4.3</td><td>4.3</td><td class="match">4.3</td></tr>
+                    <tr><td>Highmark Health</td><td>7</td><td>4.14</td><td>4.1</td><td>4.1</td><td class="match">4.1</td></tr>
+                    <tr><td>Devoted Health</td><td>22</td><td>3.89</td><td>3.9</td><td>3.9</td><td class="match">3.9</td></tr>
+                    <tr><td>UnitedHealth Group</td><td>51</td><td>3.79</td><td>3.8</td><td>3.8</td><td class="match">3.8</td></tr>
+                    <tr><td>CVS Health</td><td>39</td><td>3.60</td><td>3.6</td><td>3.6</td><td class="match">3.6</td></tr>
+                    <tr><td>Elevance Health</td><td>37</td><td>3.59</td><td>3.6</td><td>3.6</td><td class="match">3.6</td></tr>
+                    <tr><td>Cambia Health Solutions</td><td>7</td><td>3.50</td><td>3.5</td><td>3.5</td><td class="match">3.5</td></tr>
+                    <tr><td>Humana</td><td>31</td><td>3.40</td><td>3.4</td><td>3.4</td><td class="match">3.4</td></tr>
+                    <tr><td>Centene Corporation</td><td>47</td><td>3.31</td><td>3.3</td><td>3.3</td><td class="match">3.3</td></tr>
+                    <tr><td>Health Care Service Corporation</td><td>24</td><td>3.27</td><td>3.3</td><td>3.3</td><td class="match">3.3</td></tr>
+                    <tr><td>Molina Healthcare</td><td>13</td><td>3.27</td><td>3.3</td><td>3.3</td><td class="match">3.3</td></tr>
+                </table>
+                <p class="caption">Min Rated Contracts = 7. The two smallest companies on the list are the two best. The two largest, UnitedHealth (51) and Centene (47), sit fourth and ninth.</p>
+
+                <div class="insight-box"><strong>The parameter earns its keep in the title.</strong> Inserting <code>&lt;Parameters.Min Rated Contracts&gt;</code> into the sheet title makes the chart describe its own scope: "Minimum 7 rated plans" updates live as the reader moves the slider. A chart whose caption cannot lie is worth building.</div>
+            </div></details>
+
+            <details class="sec"><summary>Weighting the gap: a reference join, and a parameter that swaps the measure</summary><div class="sec-body">
+                <div class="question-box"><strong>The question:</strong> the gap chart ranks 41 measures by how far behind L.A. Care is. But CMS does not treat those measures as equal. So is the biggest gap actually the biggest problem?</div>
+
+                <p class="subhead">How CMS actually builds a star rating</p>
+                <p>This is worth stating precisely, because almost every chart made from this data gets it wrong. CMS does <strong>not</strong> average the measure stars. It runs four steps:</p>
+
+                <div class="oo-strip">
+                    <div class="oo-cell fix"><div class="oo-name">1. Weighted mean</div><div class="oo-note">each measure counted 1, 2, 3, or 5 times</div></div>
+                    <div class="oo-cell"><div class="oo-name">2. Reward factor</div><div class="oo-note">bonus for high and consistent performance<br>(not published)</div></div>
+                    <div class="oo-cell"><div class="oo-name">3. Categorical Adjustment Index</div><div class="oo-note">adjustment for the share of members who are low income or disabled</div></div>
+                    <div class="oo-cell"><div class="oo-name">4. Round</div><div class="oo-note">to the nearest half star</div></div>
+                </div>
+
+                <p><strong>Step 1 is the one this chart cares about.</strong> The weights come from the measure's category, and they span a factor of five:</p>
+                <table class="blog-table">
+                    <tr><th style="width:10%">Weight</th><th style="width:30%">Category</th><th style="width:34%">What CMS is saying</th><th style="width:26%">Example</th></tr>
+                    <tr><td><strong>1</strong></td><td>Process</td><td>Did the plan do the thing it was supposed to do?</td><td>Breast Cancer Screening, Medication Reconciliation</td></tr>
+                    <tr><td><strong>2</strong></td><td>Patients' experience, complaints, and access</td><td>What do members say, and can they get in the door?</td><td>Care Coordination, Customer Service</td></tr>
+                    <tr><td><strong>3</strong></td><td>Outcome and intermediate outcome</td><td>Did the patient actually get better?</td><td>Plan All-Cause Readmissions, Controlling High Blood Pressure</td></tr>
+                    <tr><td><strong>5</strong></td><td>Improvement</td><td>Did the plan's own scores move since last year?</td><td>Health Plan Quality Improvement</td></tr>
+                </table>
+                <p class="caption">The logic is defensible: CMS pays most for outcomes and for movement, least for box ticking. Whether it is <em>right</em> is a policy question. That it is <em>true</em> is a data question, and it changes the chart.</p>
+
+                <div class="gotcha-box"><strong>None of this is in the data.</strong> The Star Ratings tables ship the measure stars and nothing else. The weights are published in a separate PDF, the data sources in a second one, and the adjustment values in a third. To weight a gap chart correctly you have to leave the dataset, key a reference table by hand, and join it back on. That is not an unusual situation, and it is the reason this section exists.</div>
+
+                <details class="sec"><summary>Worked examples: the arithmetic, done by hand</summary><div class="sec-body">
+                <p>Two calculations, both worked all the way through on real numbers, so nothing has to be taken on trust. Every figure below is asserted in the analysis notebooks.</p>
+
+                <p class="subhead">Example 1: the weighted gap on a single measure</p>
+                <p>This is the calculation behind every bar on the <code>Gap Explorer</code> chart when the toggle is set to <strong>Weighted gap</strong>. It is deliberately simple, and the point is what it does to the ranking.</p>
+
+                <div class="before-after">
+                    <div class="ba-table">
+                        <div class="ba-label">Plan All-Cause Readmissions &nbsp;&middot;&nbsp; weight 3</div>
+                        <table class="blog-table">
+                            <tr><td style="width:52%">L.A. Care's star</td><td style="width:20%; text-align:right;">1.000</td><td style="width:28%"></td></tr>
+                            <tr><td>National average on this measure</td><td style="text-align:right;">2.9473</td><td>the FIXED LOD</td></tr>
+                            <tr><td><strong>Raw gap</strong> &nbsp;(1.000 &minus; 2.9473)</td><td style="text-align:right;"><strong>-1.9473</strong></td><td>6th largest gap</td></tr>
+                            <tr><td>CMS weight (Outcome measure)</td><td style="text-align:right;">&times; 3</td><td></td></tr>
+                            <tr><td><strong>Weighted gap</strong></td><td style="text-align:right;" class="match"><strong>-5.8418</strong></td><td class="match"><strong>largest loss</strong></td></tr>
+                        </table>
+                    </div>
+                    <div class="ba-arrow">vs</div>
+                    <div class="ba-table">
+                        <div class="ba-label">Medication Reconciliation Post-Discharge &nbsp;&middot;&nbsp; weight 1</div>
+                        <table class="blog-table">
+                            <tr><td style="width:52%">L.A. Care's star</td><td style="width:20%; text-align:right;">1.000</td><td style="width:28%"></td></tr>
+                            <tr><td>National average on this measure</td><td style="text-align:right;">3.8308</td><td>the FIXED LOD</td></tr>
+                            <tr><td><strong>Raw gap</strong> &nbsp;(1.000 &minus; 3.8308)</td><td style="text-align:right;"><strong>-2.8308</strong></td><td class="match" style="color:var(--red);"><strong>largest gap</strong></td></tr>
+                            <tr><td>CMS weight (Process measure)</td><td style="text-align:right;">&times; 1</td><td></td></tr>
+                            <tr><td><strong>Weighted gap</strong></td><td style="text-align:right;"><strong>-2.8308</strong></td><td>6th largest loss</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <p class="caption">Same plan, same year, both scoring 1.0. The measure with the <em>smaller</em> gap costs more than twice as many stars, because CMS counts it three times.</p>
+
+                <hr class="light">
+
+                <p class="subhead">Example 2: rebuilding L.A. Care's Part C star from its 31 measures</p>
+                <p>The Part C summary star is not an average of the measure stars. It is a weighted mean, then adjusted, then rounded. Here it is in full.</p>
+
+                <p><strong>Step 1. Multiply each measure's star by its weight, and total both columns.</strong></p>
+                <table class="blog-table">
+                    <tr><th style="width:12%">Weight</th><th style="width:26%">Weighting category</th><th style="width:14%">Measures</th><th style="width:16%">Sum of stars</th><th style="width:16%">Total weight<br><span style="font-weight:400;color:#888">measures &times; weight</span></th><th style="width:16%">Weighted points<br><span style="font-weight:400;color:#888">stars &times; weight</span></th></tr>
+                    <tr><td><strong>1</strong></td><td>Process</td><td>16</td><td>45.0</td><td>16</td><td>45.0</td></tr>
+                    <tr><td><strong>2</strong></td><td>Patients' experience and access</td><td>11</td><td>30.0</td><td>22</td><td>60.0</td></tr>
+                    <tr><td><strong>3</strong></td><td>Outcome</td><td>3</td><td>7.0</td><td>9</td><td>21.0</td></tr>
+                    <tr><td><strong>5</strong></td><td>Improvement</td><td>1</td><td>3.0</td><td>5</td><td>15.0</td></tr>
+                    <tr><td colspan="2"><strong>Total</strong></td><td><strong>31</strong></td><td>85.0</td><td><strong>52</strong></td><td><strong>141.0</strong></td></tr>
+                </table>
+
+                <p style="margin-top:14px;"><strong>Step 2. Divide.</strong></p>
+                <div class="calc-formula">weighted mean = 141.0 &divide; 52 = <strong>2.7115</strong>
+
+(an unweighted mean would be 85.0 &divide; 31 = 2.7419, which is a different number)</div>
+
+                <p style="margin-top:12px;"><strong>Step 3. Add the Categorical Adjustment Index.</strong> L.A. Care's contract sits in Part C Final Adjustment Category <strong>6</strong>, which CMS publishes as a value of <strong>+0.059788</strong>. The category is set by the share of the plan's members who are low income or dual eligible, and the share who are disabled.</p>
+                <div class="calc-formula">2.7115 + 0.059788 = <strong>2.7713</strong></div>
+
+                <p style="margin-top:12px;"><strong>Step 4. Round to the nearest half star.</strong></p>
+                <div class="calc-formula">2.7713  is 0.2713 above 2.5
+2.7713  is 0.2287 below 3.0     &rarr;  rounds UP
+
+Part C star = <strong>3.0</strong>          CMS assigned: <strong>3.0</strong>  &#10003;</div>
+
+                <div class="gotcha-box"><strong>Look at what step 3 did.</strong> Without the adjustment, 2.7115 is closer to 2.5 than to 3.0, and L.A. Care's Part C star would be a <strong>2.5</strong>. The CAI adds six hundredths of a star, and six hundredths is enough to cross the rounding boundary. <strong>The 3.0 exists because of the adjustment.</strong> Nationally the CAI changes the rounded Part C star for 8% of contracts.</div>
+
+                <p class="subhead" style="margin-top:16px;">The same arithmetic, all three ratings</p>
+                <table class="blog-table">
+                    <tr><th style="width:12%">Rating</th><th style="width:12%">Measures</th><th style="width:16%">Weighted points &divide; total weight</th><th style="width:14%">Weighted mean</th><th style="width:12%">+ CAI</th><th style="width:14%">Adjusted</th><th style="width:10%">Rounded</th><th style="width:10%">CMS</th></tr>
+                    <tr><td><strong>Part C</strong></td><td>31</td><td>141.0 &divide; 52</td><td>2.7115</td><td>+0.0598</td><td>2.7713</td><td class="match">3.0</td><td class="match">3.0</td></tr>
+                    <tr><td><strong>Part D</strong></td><td>12</td><td>&mdash;</td><td>3.8148</td><td>+0.0723</td><td>3.8871</td><td class="match">4.0</td><td class="match">4.0</td></tr>
+                    <tr><td><strong>Overall</strong></td><td>43</td><td>&mdash;</td><td>3.0886</td><td>+0.1013</td><td>3.1899</td><td class="match">3.0</td><td class="match">3.0</td></tr>
+                </table>
+                <p class="caption">All three land on the star CMS actually assigned. Run across every contract in the country, the same arithmetic reproduces the assigned Part C star for 83% of them and lands within half a star for 100%. The residual is the reward factor, which CMS does not publish per contract.</p>
+
+                <div class="insight-box"><strong>Why this is worth doing at all.</strong> It is the only real check on a hand keyed reference table. If a weight were wrong, the rebuilt star would drift off the assigned one, and it does not. The weights can now be trusted enough to rank a chart with.</div>
+                </div></details>
+
+                <p class="subhead" style="margin-top:18px;">Step 1: the relationship (and why one key is not enough)</p>
+                <ul>
+                    <li><strong>The approach:</strong> the measure weights reference table is added to the measure data source and related on <strong>two</strong> fields, <code>Measure Code</code> and <code>Year</code>.</li>
+                    <li><strong>Why both:</strong> weights change between rating years. Patients' Experience measures were weight 4 before 2026 and weight 2 from 2026 on. The reference file holds only 2026, so joining on <code>Measure Code</code> alone would quietly stamp 2026 weights onto 2024 rows.</li>
+                    <li><strong>Tableau relationship, not a join:</strong> Tableau decides the join type per sheet based on what is in the view, so unmatched years come back null instead of vanishing. In SQL, the equivalent choice is <code>LEFT JOIN</code> versus <code>INNER JOIN</code>, and here the sheet is filtered to 2026 anyway, so the distinction does not bite.</li>
+                </ul>
+
+                <p class="subhead" style="margin-top:14px;">Step 2: the weighted gap</p>
+                <div class="calc-formula">Weighted Gap = [Gap vs National] * AVG([Weight])</div>
+                <p>The gap is already an aggregate, so the weight has to be aggregated too. <code>AVG</code> and not <code>SUM</code>: the two measures that carry two codes each would otherwise come back with double their weight.</p>
+
+                <p class="subhead" style="margin-top:14px;">Step 3: a parameter that swaps which field the bars plot</p>
+                <div class="calc-formula">Rank By       = a String parameter, list: "Raw gap" | "Weighted gap"
+
+Gap (Rank By) = IF [Rank By] = "Raw gap"
+                THEN [Gap vs National]
+                ELSE [Weighted Gap]
+                END</div>
+                <div class="insight-box"><strong>The pattern worth keeping.</strong> A parameter cannot be plotted. It has no data in it. It only becomes visible when a calculated field <em>reads</em> it, and that field is what goes on the shelf. So the chart is plotting one field whose definition changes underneath it. The same trick swaps a dimension, a date grain, or a whole metric.</div>
+                <p><strong>One thing that will catch you:</strong> the sort has to be re pointed at <code>Gap (Rank By)</code> as well. Sort it by <code>Gap vs National</code> and the bars change length when the toggle flips but stay in the old order, which is worse than not having the toggle at all.</p>
+
+                <p class="subhead" style="margin-top:16px;">SQL</p>
+                <ul>
+                    <li><strong>The join approach:</strong> an ordinary <code>JOIN ... USING (MeasureCode, Year)</code> against the reference table, inside the same CTE chain as the LOD.</li>
+                    <li><strong>The parameter approach:</strong> a <code>CASE</code> in the <code>SELECT</code> list, driven by a bind variable. The parameter is a query variable and nothing more exotic than that.</li>
+                    <li><strong>The order matters:</strong> the benchmark window runs first (over the unfiltered table), the join comes second, and the view aggregation last.</li>
+                </ul>
+<pre class="code-block"><span class="kw">WITH</span> benchmark <span class="kw">AS</span> (                     <span class="cm">-- the FIXED LOD, per Year and Measure Code</span>
+    <span class="kw">SELECT</span> Year, Contract, MeasureCode, MeasureName, Stars,
+           <span class="kw">AVG</span>(Stars) <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> Year, MeasureCode) <span class="kw">AS</span> national
+    <span class="kw">FROM</span> measures
+    <span class="kw">WHERE</span> Stars <span class="kw">IS NOT NULL</span>
+),
+joined <span class="kw">AS</span> (                            <span class="cm">-- the relationship: BOTH keys, not just the code</span>
+    <span class="kw">SELECT</span> b.*, w.Weight
+    <span class="kw">FROM</span> benchmark b
+    <span class="kw">JOIN</span> weights w <span class="kw">USING</span> (MeasureCode, Year)
+),
+view <span class="kw">AS</span> (                              <span class="cm">-- the view: aggregated to Measure NAME</span>
+    <span class="kw">SELECT</span> MeasureName,
+           <span class="kw">AVG</span>(Stars) - <span class="kw">AVG</span>(national) <span class="kw">AS</span> raw_gap,
+           <span class="kw">AVG</span>(Weight)                 <span class="kw">AS</span> weight
+    <span class="kw">FROM</span> joined
+    <span class="kw">WHERE</span> Contract = <span class="st">'H1224'</span> <span class="kw">AND</span> Year = 2026
+    <span class="kw">GROUP BY</span> MeasureName
+)
+<span class="kw">SELECT</span> MeasureName, raw_gap, weight,
+       raw_gap * weight <span class="kw">AS</span> weighted_gap,
+       <span class="kw">CASE WHEN</span> ? = <span class="st">'Raw gap'</span>                <span class="cm">-- the parameter, as a bind variable</span>
+            <span class="kw">THEN</span> raw_gap
+            <span class="kw">ELSE</span> raw_gap * weight
+       <span class="kw">END</span> <span class="kw">AS</span> gap_rank_by
+<span class="kw">FROM</span> view
+<span class="kw">ORDER BY</span> gap_rank_by;</pre>
+
+                <p class="subhead" style="margin-top:16px;">pandas</p>
+                <ul>
+                    <li><strong>The join approach:</strong> <code>merge</code> on both keys. Passing a list to <code>on=</code> is the whole difference between right and wrong here.</li>
+                    <li><strong>The parameter approach:</strong> a plain Python variable choosing which column to sort by. In pandas the "parameter" is so ordinary it barely has a name, which is exactly why it is a useful way to see what Tableau is doing.</li>
+                </ul>
+<pre class="code-block">RANK_BY = <span class="st">'Weighted gap'</span>                              <span class="cm"># the Tableau parameter</span>
+
+m = measures[measures.Stars.notna()].copy()
+m[<span class="st">'national'</span>] = (m.groupby([<span class="st">'Year'</span>, <span class="st">'MeasureCode'</span>])[<span class="st">'Stars'</span>]
+                 .transform(<span class="st">'mean'</span>))                    <span class="cm"># the LOD</span>
+
+m = m.merge(weights[[<span class="st">'Year'</span>, <span class="st">'MeasureCode'</span>, <span class="st">'Weight'</span>]],
+            on=[<span class="st">'Year'</span>, <span class="st">'MeasureCode'</span>])                    <span class="cm"># BOTH keys</span>
+
+view = (m[(m.Contract == <span class="st">'H1224'</span>) &amp; (m.Year == 2026)]
+        .groupby(<span class="st">'MeasureName'</span>)
+        .agg(la_care=(<span class="st">'Stars'</span>, <span class="st">'mean'</span>),
+             national=(<span class="st">'national'</span>, <span class="st">'mean'</span>),
+             weight=(<span class="st">'Weight'</span>, <span class="st">'mean'</span>))
+        .reset_index())
+
+view[<span class="st">'raw_gap'</span>]      = view.la_care - view.national
+view[<span class="st">'weighted_gap'</span>] = view.raw_gap * view.weight
+
+<span class="cm"># the swap: one field whose definition depends on the parameter</span>
+view[<span class="st">'gap_rank_by'</span>] = view.raw_gap <span class="kw">if</span> RANK_BY == <span class="st">'Raw gap'</span> <span class="kw">else</span> view.weighted_gap
+view.sort_values(<span class="st">'gap_rank_by'</span>)</pre>
+
+                <p class="subhead" style="margin-top:16px;">What the toggle does to the ranking</p>
+                <table class="blog-table">
+                    <tr><th style="width:6%">#</th><th style="width:33%">Ranked by raw gap</th><th style="width:9%">Gap</th><th style="width:33%">Ranked by weighted gap</th><th style="width:9%">Weight</th><th style="width:10%">Weighted</th></tr>
+                    <tr><td>1</td><td>Medication Reconciliation Post-Discharge</td><td>-2.83</td><td class="match" style="color:var(--red);">Plan All-Cause Readmissions</td><td>3</td><td class="match" style="color:var(--red);">-5.84</td></tr>
+                    <tr><td>2</td><td>Care Coordination</td><td>-2.50</td><td>Care Coordination</td><td>2</td><td>-4.99</td></tr>
+                    <tr><td>3</td><td>Customer Service</td><td>-2.47</td><td>Customer Service</td><td>2</td><td>-4.93</td></tr>
+                    <tr><td>4</td><td>Care for Older Adults &ndash; Medication Review</td><td>-2.16</td><td class="match" style="color:var(--red);">Medication Adherence for Cholesterol</td><td>3</td><td class="match" style="color:var(--red);">-3.63</td></tr>
+                    <tr><td>5</td><td>Transitions of Care</td><td>-2.11</td><td class="match" style="color:var(--red);">Reviewing Appeals Decisions</td><td>2</td><td class="match" style="color:var(--red);">-3.43</td></tr>
+                    <tr><td>6</td><td>Plan All-Cause Readmissions</td><td>-1.95</td><td>Medication Reconciliation Post-Discharge</td><td>1</td><td>-2.83</td></tr>
+                </table>
+                <p class="caption">Three of the top five change. Verified in Tableau, DuckDB SQL, and pandas; all figures asserted in the parity notebook.</p>
+
+                <div class="insight-box"><strong>The finding, and the reason the toggle exists.</strong> Plan All-Cause Readmissions is only L.A. Care's <em>sixth</em> largest gap, but it carries triple weight, so it is its largest loss of stars. Medication Reconciliation, the biggest bar on the raw chart and the one that would drive any conversation about it, drops out of the top five entirely once weighted. An analyst who ranked by the raw gap would send the plan after the wrong problem.</div>
+
+                <p style="margin-top:14px;">Flip the <strong>Rank By</strong> control on the dashboard and watch the order rearrange. That reordering, not either chart on its own, is the finding.</p>
+            </div></details>
+
+            <details class="sec"><summary>Why the size filter had to be a FIXED LOD</summary><div class="sec-body">
+                <p>The change table needs the same size threshold. The obvious version, a plain <code>COUNTD([Contract])</code> compared against the parameter, produces a broken chart, and the reason is worth the detour.</p>
+                <div class="calc-formula">Big Company = { FIXED [Parent Org (group)] :
+                  COUNTD(IF [Year] = 2026 AND NOT ISNULL([Overall Stars]) THEN [Contract] END) }
+              &gt;= [Min Rated Contracts]</div>
+                <ul>
+                    <li><strong>The view has Year on Columns.</strong> A view level <code>COUNTD</code> therefore counts contracts <em>per company per year</em>, not per company.</li>
+                    <li><strong>The consequence:</strong> a company with 6 rated plans in 2024 and 8 in 2026 would pass the threshold in some columns and fail in others. Its 2024 cell would simply not render, its baseline would silently become 2025, and its "change since first" would be measuring the wrong thing.</li>
+                    <li><strong>FIXED pins the count to the company,</strong> computed once, at the company grain, regardless of what is in the view. The filter then either lets a company in for all three years or none.</li>
+                </ul>
+                <p><strong>The SQL says it plainly:</strong> the eligibility test is a separate <code>GROUP BY ParentOrgGroup</code> with no year in it, joined back to the yearly figures. It cannot accidentally acquire a year, because the year is not in the grouping.</p>
+<pre class="code-block"><span class="kw">WITH</span> big <span class="kw">AS</span> (                                   <span class="cm">-- the FIXED [Parent Org] LOD: no Year in the GROUP BY</span>
+    <span class="kw">SELECT</span> ParentOrgGroup
+    <span class="kw">FROM</span> summary
+    <span class="kw">WHERE</span> Year = 2026 <span class="kw">AND</span> Overall_Stars <span class="kw">IS NOT NULL</span>
+    <span class="kw">GROUP BY</span> ParentOrgGroup
+    <span class="kw">HAVING</span> <span class="kw">COUNT</span>(<span class="kw">DISTINCT</span> Contract) &gt;= ?
+)
+<span class="kw">SELECT</span> s.ParentOrgGroup, s.Year, <span class="kw">AVG</span>(s.Overall_Stars) <span class="kw">AS</span> avg_star
+<span class="kw">FROM</span> summary s
+<span class="kw">JOIN</span> big <span class="kw">USING</span> (ParentOrgGroup)                <span class="cm">-- eligibility decided once, applied to every year</span>
+<span class="kw">WHERE</span> s.Overall_Stars <span class="kw">IS NOT NULL</span>
+<span class="kw">GROUP BY</span> 1, 2;</pre>
+                <div class="insight-box"><strong>The general rule:</strong> if a filter's answer should not depend on what is in the view, it has to be FIXED. Anything else is a filter that changes its mind column by column.</div>
+            </div></details>
+
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- TAB 5: CONTEXT AND DATA PREP                                 -->
+        <!-- ============================================================ -->
+        <div id="tab-context" class="tab-content">
+            <div class="section-controls"><button onclick="setAllSections('tab-context', true)">Expand All</button><button onclick="setAllSections('tab-context', false)">Collapse All</button></div>
+
+            <details class="sec" open><summary>Introduction and the question</summary><div class="sec-body">
+                <div class="question-box"><strong>The question:</strong> two things in Tableau change your numbers without ever appearing in a calculation. What are they, and where do their changes actually live?</div>
+                <p>This tab covers the two ideas that are easiest to get wrong precisely because they do not look like calculations.</p>
+                <ul>
+                    <li><strong>Context filters</strong> change <em>when</em> a filter runs. Get it wrong and a benchmark quietly collapses onto itself.</li>
+                    <li><strong>Groups and aliases</strong> change what the data looks like without touching the file underneath. One of them changes numbers. The other never does. Knowing which is which decides whether the notebook and the workbook can ever agree.</li>
+                </ul>
+            </div></details>
+
+            <details class="sec" open><summary>Context filters: moving the WHERE into the CTE</summary><div class="sec-body">
+                <p><strong>Tableau runs things in a fixed order.</strong> The only part that matters for this post is where the two kinds of filter sit relative to a FIXED expression.</p>
+
+                <div class="oo-strip">
+                    <div class="oo-cell hit"><div class="oo-name">1. Extract filters</div><div class="oo-note">rows never loaded</div></div>
+                    <div class="oo-cell hit"><div class="oo-name">2. Context filters</div><div class="oo-note">the grey ones</div></div>
+                    <div class="oo-cell fix"><div class="oo-name">3. FIXED LODs</div><div class="oo-note">your benchmark is computed HERE</div></div>
+                    <div class="oo-cell"><div class="oo-name">4. Dimension filters</div><div class="oo-note">ordinary pills on the Filters shelf</div></div>
+                    <div class="oo-cell"><div class="oo-name">5. Measure filters</div><div class="oo-note">HAVING</div></div>
+                    <div class="oo-cell"><div class="oo-name">6. Table calcs</div><div class="oo-note">on the result set</div></div>
+                </div>
+                <p class="caption">A FIXED expression sits between the two kinds of filter. Everything above it can shrink what it sees. Everything below it cannot.</p>
+
+                <p><strong>So a context filter is not a performance setting.</strong> It is a decision about what a FIXED expression is allowed to see, and it is one right click away from silently changing every benchmark on the sheet.</p>
+
+                <div class="insight-box"><strong>The translation, and the only sentence worth memorising from this tab:</strong> <strong>Add to Context = move the WHERE into the CTE.</strong></div>
+
+                <p class="subhead">The demonstration</p>
+                <ul>
+                    <li><strong>The setup:</strong> the same national benchmark, computed twice, on the same data, with the same window function. The only difference is which side of the CTE boundary the contract filter sits on.</li>
+                    <li><strong>Without context:</strong> the window runs over all 516 rated contracts, then the filter picks out L.A. Care. The benchmark is 3.65. This is what the dashboard shows.</li>
+                    <li><strong>With context:</strong> the filter runs first, so the window only ever sees one contract, and the "national average" becomes L.A. Care's own 3.0. On the chart the two lines land on top of each other and the benchmark disappears.</li>
+                </ul>
+<pre class="code-block"><span class="cm">-- WITHOUT context: filter OUTSIDE the CTE  ->  benchmark = 3.65</span>
+<span class="kw">WITH</span> benchmark <span class="kw">AS</span> (
+    <span class="kw">SELECT</span> Year, Contract, <span class="kw">AVG</span>(Overall_Stars) <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> Year) <span class="kw">AS</span> national
+    <span class="kw">FROM</span> summary                                  <span class="cm">-- the window sees all 516 contracts</span>
+)
+<span class="kw">SELECT DISTINCT</span> national <span class="kw">FROM</span> benchmark
+<span class="kw">WHERE</span> Year = 2026 <span class="kw">AND</span> Contract = <span class="st">'H1224'</span>;      <span class="cm">-- filter runs AFTER the window</span>
+
+
+<span class="cm">-- WITH context: filter INSIDE the CTE  ->  benchmark collapses to 3.00</span>
+<span class="kw">WITH</span> benchmark <span class="kw">AS</span> (
+    <span class="kw">SELECT</span> Year, Contract, <span class="kw">AVG</span>(Overall_Stars) <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> Year) <span class="kw">AS</span> national
+    <span class="kw">FROM</span> summary
+    <span class="kw">WHERE</span> Contract = <span class="st">'H1224'</span>                     <span class="cm">-- Add to Context</span>
+)
+<span class="kw">SELECT DISTINCT</span> national <span class="kw">FROM</span> benchmark
+<span class="kw">WHERE</span> Year = 2026;</pre>
+
+                <p class="subhead" style="margin-top:16px;">pandas</p>
+                <ul>
+                    <li><strong>The approach:</strong> the same distinction, expressed as <em>when</em> the frame is filtered relative to the groupby.</li>
+                    <li><strong>Line one</strong> groups the whole frame, so the mean is national. <strong>Line two</strong> filters first, so the mean is one plan's own score. In pandas the trap is visible on the page, which is exactly why it is worth writing out: in Tableau it is hidden behind a right click menu.</li>
+                </ul>
+<pre class="code-block"><span class="cm"># no context: group the whole frame, then look up L.A. Care's row</span>
+without_context = summary.groupby(<span class="st">'Year'</span>).Overall_Stars.mean().loc[2026]     <span class="cm"># 3.6521</span>
+
+<span class="cm"># context: filter FIRST, then group  ->  the benchmark is now one plan</span>
+with_context    = (summary[summary.Contract == <span class="st">'H1224'</span>]
+                   .groupby(<span class="st">'Year'</span>).Overall_Stars.mean().loc[2026])          <span class="cm"># 3.0000</span></pre>
+
+                <div class="before-after">
+                    <div class="ba-table">
+                        <div class="ba-label">Without context (correct)</div>
+                        <table class="blog-table">
+                            <tr><th>Year</th><th>L.A. Care</th><th>National avg</th></tr>
+                            <tr><td>2025</td><td>3.0</td><td>3.65</td></tr>
+                            <tr><td>2026</td><td>3.0</td><td>3.65</td></tr>
+                        </table>
+                    </div>
+                    <div class="ba-arrow">&rarr;</div>
+                    <div class="ba-table">
+                        <div class="ba-label">With the contract filter added to context</div>
+                        <table class="blog-table">
+                            <tr><th>Year</th><th>L.A. Care</th><th>National avg</th></tr>
+                            <tr><td>2025</td><td>3.0</td><td>3.00</td></tr>
+                            <tr><td>2026</td><td>3.0</td><td>3.00</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <p class="caption">Same calculation. Same data. The filter moved one line up in the query, and the benchmark changed by 0.65 stars.</p>
+
+                <div class="gotcha-box"><strong>When you actually want context.</strong> The collapse above is a bug, but the same mechanism is the fix for a different problem. If the benchmark should be the California average rather than the national one, then the state filter <em>must</em> be added to context, otherwise the FIXED expression keeps averaging all 50 states no matter what the reader selects. The rule is not "never use context", it is: <strong>a filter belongs in context exactly when the benchmark should shrink with it.</strong></div>
+            </div></details>
+
+            <details class="sec"><summary>Data prep inside Tableau: groups and aliases</summary><div class="sec-body">
+                <p>Two of the CMS quirks were fixed inside the workbook rather than the notebook, deliberately, because the exam tests them and because the difference between the two is the difference between a cosmetic change and a wrong number.</p>
+
+                <p class="subhead">What was actually wrong with the parent company field</p>
+                <ul>
+                    <li><strong>CMS truncates <code>Parent Organization</code> at 50 characters.</strong> "Santa Barbara San Luis Obispo Regional Health Auth" is not a typo, it is a limit.</li>
+                    <li><strong>Twelve names are in ALL CAPS</strong> while the rest are title case.</li>
+                    <li><strong>One company is spelled two ways.</strong> <code>Molina Healthcare, Inc.</code> and <code>Molina Healthcare, Inc.,</code> differ by a trailing comma. Same for <code>Samaritan Health Services</code> and <code>Samaritan Health Services, Inc.</code></li>
+                </ul>
+                <p>Two hundred and nineteen distinct parent organizations become 217 once the duplicates are merged. Molina's rated plan count goes from a split 12 and 1 to a single 13, which is the difference between clearing a threshold of 7 and not appearing on the chart at all.</p>
+
+                <table class="blog-table">
+                    <tr><th style="width:14%">Tool</th><th style="width:28%">What it does</th><th style="width:20%">Changes numbers?</th><th style="width:38%">SQL and pandas equivalent</th></tr>
+                    <tr><td><strong>Group</strong></td><td>Merges members of a field into one member. Select the members, right click, Group.</td><td class="match" style="color:var(--red);">YES. Two rows become one group, so every aggregate over it changes.</td><td><code>CASE WHEN parent = 'Molina Healthcare, Inc.,'
+  THEN 'Molina Healthcare, Inc.'
+  ELSE parent END</code><br><code>.replace({'Molina Healthcare, Inc.,': 'Molina Healthcare, Inc.'})</code></td></tr>
+                    <tr><td><strong>Alias</strong></td><td>Relabels one member. Right click the field, Aliases, type a new label.</td><td class="match">NO. It is a display label and nothing else.</td><td>None. There is nothing to write, because nothing happened to the data.</td></tr>
+                </table>
+
+                <div class="insight-box"><strong>The rule that follows, and it is the whole reason this section exists:</strong> an alias can live only in Tableau and nothing breaks. <strong>A group cannot.</strong> Any group that appears in a published figure must also exist in the notebook, or the SQL and pandas parity checks will fail, and they should. In this project the merge is mirrored as a derived column in the cleaning step, which is why the parent company chart reconciles to the digit.</div>
+
+                <p class="subhead">Two gotchas found the hard way</p>
+                <div class="gotcha-box">
+                    <p style="margin:0 0 8px 0;"><strong>Aliases do not carry into a group.</strong> Alias the ALL CAPS names on <code>Parent Org</code>, then build <code>Parent Org (group)</code> from it, and the group comes back shouting again. The group is a separate field with its own member list, built from the underlying values, not from the labels. <strong>Group first, then relabel</strong>, and relabel from inside the Edit Group dialog.</p>
+                    <p style="margin:0;"><strong>A group field has no Aliases option at all.</strong> To rename a single member of a group, make it a group of one, then rename that group. It looks like a workaround because it is one.</p>
+                </div>
+            </div></details>
+
+            <details class="sec"><summary>Where the changes actually exist: a data flow</summary><div class="sec-body">
+                <p>The most common confusion about Tableau's cleaning tools is spatial: people are not sure what they have edited. The answer is that nothing upstream is ever touched.</p>
+
+                <div class="flow">
+                    <div class="flow-box"><div class="fb-title">CMS raw archive</div>Unchanged. Downloaded once, never edited. The trailing comma on Molina is still in there.</div>
+                    <div class="flow-arrow">&rarr;</div>
+                    <div class="flow-box changed"><div class="fb-title">The cleaning step (Python)</div><strong>Changes here.</strong> Encoding, headers, the phantom period row, and the <code>ParentOrgGroup</code> merge. Written out to CSV.</div>
+                    <div class="flow-arrow">&rarr;</div>
+                    <div class="flow-box"><div class="fb-title">star_*_clean.csv</div>The analysis files. Reproducible from the raw archive at any time by re running the notebook.</div>
+                    <div class="flow-arrow">&rarr;</div>
+                    <div class="flow-box changed"><div class="fb-title">The .twbx workbook</div><strong>Changes here too.</strong> A presentation layer: groups, aliases, calculated fields. It sits on top of the CSV and does not alter it.</div>
+                </div>
+
+                <ul style="margin-top:12px;">
+                    <li><strong>The two green boxes are the only places anything changes,</strong> and they change different things. The notebook changes the data. The workbook changes how the data is shown, plus one group that also changes numbers, which is why that group is duplicated in the notebook.</li>
+                    <li><strong>A <code>.twbx</code> is a package, not a link.</strong> It embeds a copy of the CSV inside itself. Edit the CSV on disk and the workbook will not notice until the data source is refreshed. This is a feature, it makes the workbook portable, and it is also how a published dashboard silently goes stale.</li>
+                    <li><strong>Tableau Public accepts extracts only.</strong> A live database connection cannot be published there. Whatever is on Tableau Public is a snapshot, taken at the moment of publishing.</li>
+                </ul>
+            </div></details>
+
+        </div>
+
+        </div><!-- /.main-container -->
+      </div><!-- /.blog-container -->
+    </div><!-- /#content-wrap -->
+    <div w3-include-html="/folders/navbar_footer/footer.html"></div>
+  </div><!-- /#page-container -->
+
+  <script type="text/javascript" src="../../static/js/include.js"></script>
+  <script type='text/javascript'>
+      function setAllSections(tabId, open) {
+          document.getElementById(tabId).querySelectorAll('details.sec').forEach(d => d.open = open);
+      }
+      function switchTab(event, tabId) {
+          document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+          document.getElementById(tabId).classList.add('active');
+          event.currentTarget.classList.add('active');
+          window.scrollTo({ top: 0 });
+      }
+      // Responsive embed: scales to the container width. Fine for single sheets.
+      function embedViz(id, ratio) {
+          var d = document.getElementById(id);
+          if (!d) return;
+          var v = d.getElementsByTagName('object')[0];
+          if (!v) return;
+          var w = d.offsetWidth || 1140;   // fallback width so vizzes in hidden tabs still size correctly
+          v.style.width = '100%';
+          v.style.height = (w * ratio) + 'px';
+          var s = document.createElement('script');
+          s.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';
+          v.parentNode.insertBefore(s, v);
+      }
+
+      // Fixed-size embed: renders the dashboard at the exact size it was authored at, so Tableau
+      // never scales it down. Scaling a 1250 x 1927 dashboard into a narrower column squashes the
+      // 41 row measure chart until its labels overlap. The .viz-native wrapper scrolls sideways.
+      function embedVizNative(id, width, height) {
+          var d = document.getElementById(id);
+          if (!d) return;
+          var v = d.getElementsByTagName('object')[0];
+          if (!v) return;
+          v.style.width  = width + 'px';
+          v.style.height = height + 'px';
+          d.style.width  = width + 'px';
+          d.style.minWidth = width + 'px';
+          var s = document.createElement('script');
+          s.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';
+          v.parentNode.insertBefore(s, v);
+      }
+
+      embedVizNative('viz1783997847220', 1250, 1927);   // the full scorecard, authored at 1250 x 1927
+  </script>
+</body>
+</html>
