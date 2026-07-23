@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medi-Cal Market Share in Los Angeles, from Enrollment to Quality | Bitter Scientist</title>
+
+    <!-- Bootstrap 4.3.1 -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+
+    <!-- Site framework CSS -->
+    <link rel="stylesheet" type="text/css" href="../../static/css/navbar.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/footer.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/theme.css">
+
+    <style>
+        :root {
+            --navy: #1E2761;
+            --green: #2CA58D;
+            --red: #E15554;
+            --ice: #CADCFC;
+        }
+        * { box-sizing: border-box; }
+
+        /* ============ TYPE HIERARCHY (one font, five sizes) ============
+           h1 page title      1.5rem  bold
+           subtitle           0.95rem regular grey
+           section summary    1rem    semibold navy
+           body + tables      0.875rem
+           code + captions    0.8rem monospace / 0.75rem italic grey        */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; color: #333; line-height: 1.6; }
+        .main-container { max-width: 1300px; margin: 0 auto; padding: 20px; background-color: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); font-size: 0.875rem; }
+
+        /* The dashboard is a fixed 1250 x 2427 Tableau view, six panels stacked into one tall story.
+           Letting the embed scale it to a narrower container squashes the maps and bars into an
+           unreadable block, so it is rendered at native size inside a horizontally scrollable wrapper. */
+        .viz-native { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; padding-bottom: 6px; }
+        .page-header { text-align: center; margin-bottom: 26px; padding-bottom: 18px; border-bottom: 2px solid var(--navy); }
+        .page-header h1 { color: var(--navy); font-weight: 700; font-size: 1.5rem; }
+        .page-header .subtitle { color: #666; font-size: 0.95rem; margin-top: 8px; }
+        .page-header .meta { color: #999; font-size: 0.8rem; margin-top: 6px; }
+
+        .tab-navigation { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; border-bottom: 2px solid #e0e0e0; margin-bottom: 22px; position: sticky; top: 0; background: white; z-index: 50; padding-top: 6px; }
+        .nav-tab { border: none; background: none; padding: 10px 14px; font-size: 0.95rem; font-weight: 500; color: #555; cursor: pointer; border-bottom: 3px solid transparent; font-family: inherit; }
+        .nav-tab:hover { color: var(--navy); }
+        .nav-tab.active { color: var(--navy); border-bottom-color: var(--navy); font-weight: 600; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Nested sub-tabs inside the Methods tab */
+        .subtab-navigation { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; }
+        .subtab { border: 1px solid #c9cede; border-bottom: none; background: #f2f4fa; padding: 8px 16px; font-size: 0.9rem; font-weight: 500; color: #555; cursor: pointer; border-radius: 6px 6px 0 0; font-family: inherit; }
+        .subtab:hover { color: var(--navy); background: #e7ebf6; }
+        .subtab.active { color: var(--navy); background: white; font-weight: 600; border-bottom: 2px solid white; margin-bottom: -2px; }
+        .subtab-content { display: none; }
+        .subtab-content.active { display: block; }
+
+        /* Collapsible sections */
+        details.sec { border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 14px; background: white; }
+        details.sec > summary { cursor: pointer; padding: 12px 16px; font-size: 1rem; font-weight: 600; color: var(--navy); list-style: none; }
+        details.sec > summary::-webkit-details-marker { display: none; }
+        details.sec > summary::before { content: "\25B8"; margin-right: 10px; font-size: 0.9em; }
+        details.sec[open] > summary::before { content: "\25BE"; }
+        details.sec[open] > summary { border-bottom: 1px solid #eee; }
+        .sec-body { padding: 14px 16px; }
+
+        .question-box { background: var(--ice); border-left: 5px solid var(--navy); padding: 14px 18px; border-radius: 0 6px 6px 0; margin-bottom: 18px; font-size: 0.875rem; }
+        .question-box strong { color: var(--navy); }
+        .intro-box { padding: 4px 2px 10px 2px; margin-bottom: 18px; font-size: 0.875rem; border-bottom: 1px solid #ddd; }
+        .intro-box strong { color: var(--navy); }
+        .subhead { font-size: 1rem; font-weight: 600; color: var(--navy); margin: 16px 0 2px 0; }
+        hr.light { border: 0; border-top: 1px solid #e4e4e4; margin: 20px 0; }
+        .section-controls { text-align: center; margin-bottom: 10px; }
+        .section-controls button { background: none; border: 1px solid #c9cede; border-radius: 5px; color: var(--navy); font-size: 0.8rem; padding: 4px 12px; margin-left: 6px; cursor: pointer; font-family: inherit; }
+        .section-controls button:hover { background: #eef0f6; }
+
+        /* Data flow strip */
+        .flow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 14px 0 6px 0; }
+        .flow-box { flex: 1 1 180px; border: 1px solid #c9cede; border-radius: 8px; padding: 10px 12px; font-size: 0.78rem; background: #fbfcff; }
+        .flow-box .fb-title { font-weight: 700; color: var(--navy); font-size: 0.82rem; margin-bottom: 4px; }
+        .flow-arrow { flex: 0 0 auto; font-size: 1.5rem; color: var(--navy); }
+        .flow-box.changed { background: #f0faf7; border-color: var(--green); }
+
+        .calc-formula { background: #f4f4f8; border: 1px solid #ddd; border-radius: 6px; padding: 10px 14px; font-family: 'SF Mono', Menlo, Consolas, Monaco, 'Courier New', monospace; font-size: 0.8rem; margin: 10px 0; white-space: pre-wrap; }
+        .click-path { font-size: 0.85rem; color: #555; }
+        .click-path li { margin-bottom: 4px; }
+
+        .code-block { background-color: #1a1a2e; color: #e8e8e8; border-radius: 6px; padding: 14px 16px; font-family: 'SF Mono', Menlo, Consolas, Monaco, 'Courier New', monospace; font-size: 0.8rem; overflow-x: auto; white-space: pre; line-height: 1.5; margin: 0; }
+        .code-block .kw { color: #c792ea; }
+        .code-block .cm { color: #7a7a94; font-style: italic; }
+        .code-block .st { color: #c3e88d; }
+        code { font-family: 'SF Mono', Menlo, Consolas, Monaco, 'Courier New', monospace; font-size: 0.8rem; color: #e8e8e8; background: #1a1a2e; padding: 2px 7px; border-radius: 4px; white-space: pre-wrap; }
+        table.blog-table code { display: inline-block; padding: 4px 8px; line-height: 1.45; margin: 1px 0; }
+
+        table.blog-table { width: 100%; border-collapse: collapse; margin: 12px 0 6px 0; font-size: 0.8rem; font-family: inherit; }
+        table.blog-table th { background: #eef0f6; color: #333; font-weight: 600; padding: 7px 12px; text-align: left; font-size: 0.8rem; border-bottom: 2px solid #c9cede; }
+        table.blog-table td { padding: 7px 12px; border-bottom: 1px solid #e8e8e8; vertical-align: top; font-family: inherit; font-size: 0.8rem; }
+        table.blog-table tr:nth-child(even) { background: #f7f8fc; }
+        table.blog-table .match { color: var(--green); font-weight: 700; }
+        table.blog-table td.grp { background: #eef0f6; font-weight: 700; color: var(--navy); }
+        .caption { font-size: 0.75rem; color: #888; font-style: italic; margin: 4px 0 14px 0; }
+
+        .gotcha-box { background: #fdf3f3; border-left: 5px solid var(--red); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 16px 0; font-size: 0.875rem; }
+        .gotcha-box strong { color: var(--red); }
+        .insight-box { background: #f0faf7; border-left: 5px solid var(--green); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 16px 0; font-size: 0.875rem; }
+        .insight-box strong { color: var(--green); }
+
+        .main-container p, .main-container li { font-size: inherit; }
+        @media (max-width: 768px) { .nav-tab { font-size: 0.875rem; padding: 8px 8px; } }
+    </style>
+</head>
+<body>
+  <div id="page-container">
+    <div id="content-wrap">
+      <div w3-include-html="/folders/navbar_footer/navbar_pages.html"></div>
+      <div class="blog-container">
+    <div class="main-container">
+        <div class="page-header">
+            <h1>Medi-Cal Market Share in Los Angeles, from Enrollment to Quality</h1>
+            <div class="subtitle">Mapping Medi-Cal market share in Los Angeles County, with statewide context on penetration, quality, and provider networks, every calculation explained in SQL and pandas.</div>
+            <div class="meta">3 tabs &middot; 18 parity checks, all passing &middot; Live Tableau Public dashboard &middot; July 2026</div>
+        </div>
+
+        <div class="tab-navigation" id="tabNav">
+            <button class="nav-tab active" onclick="switchTab(event, 'tab-overview')">Overview</button>
+            <button class="nav-tab" onclick="switchTab(event, 'tab-dashboard')">The Dashboard</button>
+            <button class="nav-tab" onclick="switchTab(event, 'tab-methods')">Methods</button>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- TAB 1: OVERVIEW                                              -->
+        <!-- ============================================================ -->
+        <div id="tab-overview" class="tab-content active">
+            <div class="section-controls"><button onclick="setAllSections('tab-overview', true)">Expand All</button><button onclick="setAllSections('tab-overview', false)">Collapse All</button></div>
+
+            <details class="sec" open><summary>Introduction</summary><div class="sec-body">
+                <p>Health insurance is one of the largest pieces of the US health care system, and for most people it is how medical care gets paid for. Rather than pay the full cost of a doctor visit, a test, or a hospital stay yourself, you (or someone on your behalf) pay a health plan a set amount, and in return the plan covers most of the bill when you need care.</p>
+
+                <p class="subhead">Where coverage comes from</p>
+                <ul>
+                    <li><strong>Employer sponsored</strong> is the most common: your job offers a plan and the employer and worker split the cost. This is <em>commercial insurance</em>, coverage sold by private companies.</li>
+                    <li><strong>Individual market</strong> is commercial insurance you buy yourself, often through a government run marketplace, when a job does not provide it.</li>
+                    <li><strong>Medicare</strong> is public (government) insurance, mainly for people 65 and older, with a few exceptions such as certain disabilities.</li>
+                    <li><strong>Medicaid</strong> is public insurance for people with low incomes, of any age.</li>
+                </ul>
+
+                <p class="subhead">Why public insurance matters</p>
+                <ul>
+                    <li>Commercial coverage only reaches people with a job that offers it or the means to buy it.</li>
+                    <li>Public insurance fills the gap, a way to see a doctor for people who would otherwise be uninsured.</li>
+                    <li>Medicaid is the broadest of these programs. Unlike Medicare, which is tied to age, it is based on income and need, so it covers children, working age adults, and seniors alike.</li>
+                </ul>
+
+                <p class="subhead">Medicaid, in brief</p>
+                <ul>
+                    <li>It operates in all 50 states and the District of Columbia and covers more than 70 million people.</li>
+                    <li>It is <em>jointly funded</em>: the federal government pays a large share and each state pays the rest.</li>
+                    <li>Every state runs its own program within federal rules, which is why it goes by different names in different states.</li>
+                </ul>
+
+                <p class="subhead">California's Medicaid is Medi-Cal</p>
+                <ul>
+                    <li>Medi-Cal is the largest Medicaid program in the country, covering roughly 14 million people, about a third of the state.</li>
+                    <li>Members get their care one of two ways. In <strong>fee for service</strong>, the state pays each doctor or hospital bill directly. In <strong>managed care</strong>, the state hires a health plan and pays it a fixed amount per member each month, called <strong>capitation</strong> (a set payment per person, whether or not they use care that month), and the plan takes responsibility for that member's care.</li>
+                    <li>Most members are in managed care, and that is where the plans compete. This post is about the managed care side.</li>
+                </ul>
+
+                <p class="subhead">Where Medi-Cal is most concentrated</p>
+                <ul>
+                    <li>Medi-Cal reaches all 58 California counties, but it is densest in the large urban and inland ones.</li>
+                    <li>Los Angeles County is the biggest of all: the largest county Medicaid program in the country, more than three million Medi-Cal managed care members, more than the entire population of many states.</li>
+                </ul>
+
+                <p class="subhead">The market inside one county</p>
+                <ul>
+                    <li>Within a county, Medi-Cal managed care members pick from a short list of plans. The plan with the most members holds the most <strong>market share</strong> (its slice of the county's Medi-Cal managed care members) and therefore the most <strong>capitation revenue</strong> (the per member payments it collects from the state).</li>
+                    <li>This is a market inside one public program, not a ranking of every insurer in Los Angeles. Employer and marketplace plans cover different people and are not counted here.</li>
+                </ul>
+
+                <div class="question-box"><strong>What this post asks about Los Angeles Medi-Cal:</strong>
+                    <ul style="margin:8px 0 0 0;">
+                        <li>Who holds the market across the plans, and has that changed over 19 years?</li>
+                        <li>Is the largest plan also the highest quality?</li>
+                        <li>How heavily does each county lean on Medi-Cal, and where does that coverage run ahead of the supply of providers (the doctors, clinics, and specialists contracted to serve members)?</li>
+                    </ul>
+                </div>
+
+                <p class="subhead">Why Health Net and Kaiser appear in a public program</p>
+                <ul>
+                    <li>The state does not run the health plans itself. It hires plans to run Medi-Cal for it and pays each one per member.</li>
+                    <li>Some of the plans it hires are public agencies and some are commercial companies, but the coverage they run here is Medi-Cal either way, so they compete on equal terms for the same members.</li>
+                    <li>Los Angeles has three: <strong>L.A. Care</strong>, <strong>Health Net</strong>, and <strong>Kaiser Permanente</strong>. How they came to serve the county is the next section.</li>
+                </ul>
+
+                <p class="subhead">How the post is built</p>
+                <ul>
+                    <li>I used <strong>Python</strong> to prepare the data: pull the raw public files, clean them, and reshape them into analysis ready tables.</li>
+                    <li>I used <strong>Tableau</strong> to join those tables and turn them into visual arguments.</li>
+                    <li>It is organized in three tabs: <strong>The Dashboard</strong> (six panels, six findings, and the method behind each), <strong>Methods</strong> (the Tableau techniques in three parts, Context &amp; Data Prep, Joins &amp; Enrichment, and Level of Detail), and <strong>Overview</strong> (this tab, which also holds the three plans, the data sources, and a summary of results).</li>
+                </ul>
+            </div></details>
+
+            <details class="sec"><summary>How members choose a plan, and the three that serve Los Angeles</summary><div class="sec-body">
+
+                <p class="subhead">How someone ends up in one of these plans</p>
+                <ul>
+                    <li>A person qualifies for Medi-Cal on income and enrolls through the county or state.</li>
+                    <li><strong>Enrollment is year round.</strong> Unlike employer or marketplace coverage, which is bought during an annual open enrollment window, Medi-Cal has no such window, you can apply the moment you qualify.</li>
+                    <li>Once enrolled, they get a choice form listing the Medi-Cal managed care plans in their county, and have 30 days to pick one.</li>
+                    <li>If they do not pick, the state assigns one for them, keeping them with their current doctor where it can.</li>
+                    <li>Switching plans later runs through an annual plan enrollment window, with exceptions allowed for special circumstances.</li>
+                    <li>This choice is only about which Medi-Cal plan runs their coverage. It does not touch people with employer or marketplace insurance, who are not in Medi-Cal at all.</li>
+                </ul>
+
+                <p class="subhead">California's Two-Plan Model, in Los Angeles</p>
+                <ul>
+                    <li>The <strong>Two-Plan Model</strong> is one of the ways California organizes its Medi-Cal managed care, used in a number of counties. This is how it works in Los Angeles.</li>
+                    <li>When California moved Los Angeles Medi-Cal into managed care in 1997, it set up two competing Medi-Cal plans so members would always have a choice between them.</li>
+                    <li>One is a <strong>Local Initiative</strong>, a public plan the state created for the county. The other is a <strong>Commercial Plan</strong>, an existing private insurer the state selected through competition. "Commercial" describes the company, not the coverage, both run Medi-Cal.</li>
+                    <li>A third plan, Kaiser Permanente, began contracting directly in 2024, so Los Angeles Medi-Cal members today choose among three.</li>
+                    <li>The model governs only the Medi-Cal choice. Angelenos with other coverage were never limited to these plans.</li>
+                </ul>
+
+                <p style="margin:14px 0 4px 0;">Those plans sort into <strong>two Medi-Cal plan models</strong>, by who runs them:</p>
+
+                <p class="subhead" style="margin-top:4px;">Model 1 &mdash; L.A. Care, the public Local Initiative</p>
+                <ul>
+                    <li>The state <strong>created</strong> L.A. Care in 1997 as a new public agency, the Local Initiative Health Authority for Los Angeles County, to be the county's public Medi-Cal plan.</li>
+                    <li>It is now the largest publicly operated health plan in the country. Medi-Cal is essentially its whole business, and it has run continuously since 1997, which is why the data carries it from the first month.</li>
+                </ul>
+
+                <p class="subhead">Model 2 &mdash; Commercial companies that also contract to run Medi-Cal</p>
+                <ul>
+                    <li>These are private insurers best known for employer and marketplace coverage, but they also sign contracts with the state to run Medi-Cal lines. The coverage is the same public Medi-Cal; the difference is the kind of company behind it.</li>
+                </ul>
+
+                <div style="margin-left:20px; padding-left:16px; border-left:3px solid #e0e0e0;">
+                    <p class="subhead" style="margin-top:12px;">Health Net</p>
+                    <ul>
+                        <li>An existing commercial insurer the state <strong>selected</strong>, through a competitive process, as the county's Commercial Plan in 1997.</li>
+                        <li>It runs its Medi-Cal line as Health Net Community Solutions, and like L.A. Care has been in the data from the start.</li>
+                    </ul>
+
+                    <p class="subhead">Kaiser Permanente</p>
+                    <ul>
+                        <li>Kaiser served Los Angeles Medi-Cal members for years, but underneath the larger plans as a subcontractor, not a plan members could choose directly.</li>
+                        <li>That changed in January 2024, when Kaiser signed a direct Medi-Cal contract with the state across 32 counties. That is why Kaiser appears as its own line only from 2024, and why it does not yet have a Los Angeles quality score.</li>
+                    </ul>
+                </div>
+
+                <div class="insight-box"><strong>One line to keep:</strong> all three are Medi-Cal plans competing for the same members. In a capitated model members are revenue, so holding the county is the business, for the public plan and the commercial ones alike.</div>
+            </div></details>
+
+            <details class="sec"><summary>The data</summary><div class="sec-body">
+                <p>Five public files, joined in Tableau. The enrollment file is the spine; the other four enrich it.</p>
+                <table class="blog-table">
+                    <tr><th style="width:26%">File</th><th style="width:20%">Grain</th><th style="width:54%">What it adds</th></tr>
+                    <tr><td><strong>Medi-Cal Managed Care Enrollment Report</strong> (CalHHS)</td><td>month &times; county &times; plan</td><td>The spine: enrollees per plan per county per month, January 2007 to June 2026.</td></tr>
+                    <tr><td>CA county population (DOF E-2, 2024)</td><td>county</td><td>Denominator for the penetration map (members / residents).</td></tr>
+                    <tr><td>Medi-Cal Managed Care Provider Listing</td><td>county / provider</td><td>Distinct provider counts per county for the access map, and L.A. Care's own network by specialty.</td></tr>
+                    <tr><td>HEDIS quality (AQFS, LA region)</td><td>plan &times; year</td><td>The Aggregated Quality Factor Score for the share vs quality scatter.</td></tr>
+                </table>
+                <p class="caption">Enrollment is pulled through the CalHHS open data API so the pipeline does not break on the monthly filename change. Every figure in this post is reproduced in DuckDB SQL and pandas, 18 checks, all passing.</p>
+            </div></details>
+
+            <details class="sec" open><summary>Conclusion and summary of results</summary><div class="sec-body">
+                <p>Read as a single story, top to bottom: the Los Angeles Medi-Cal market grew, L.A. Care came to lead it on both size and quality, and the deeper a county's reliance on Medi-Cal runs, the thinner its provider network tends to be.</p>
+                <table class="blog-table">
+                    <tr><th style="width:34%">Finding</th><th style="width:66%">The numbers</th></tr>
+                    <tr><td><strong>L.A. Care holds the market.</strong></td><td>59.7% of Los Angeles Medi-Cal managed care members (2.10M of 3.52M) in June 2026, versus Health Net 30.7% (1.08M) and Kaiser 9.6% (0.34M).</td></tr>
+                    <tr><td><strong>The market tripled, then eased.</strong></td><td>1.18M members in 2007, roughly doubling after the 2014 ACA Medicaid expansion, peaking at 3.95M in June 2023, then falling to 3.52M by June 2026 as the post COVID eligibility redetermination unwinds.</td></tr>
+                    <tr><td><strong>The biggest plan is also the better one.</strong></td><td>On the 2023 HEDIS quality score, L.A. Care (59.33) sits above Health Net (52.00). Size and quality point the same way.</td></tr>
+                    <tr><td><strong>One in three Angelenos is on Medi-Cal.</strong></td><td>36.4% of Los Angeles residents are Medi-Cal managed care members. Statewide, reliance runs highest inland, above half in Tulare (55.1%) and Imperial (52.2%).</td></tr>
+                    <tr><td><strong>Coverage outruns access.</strong></td><td>The counties that lean hardest on Medi-Cal have the fewest providers per member: Imperial 2.9 and Tulare 6.7 per 1,000, against 13.1 in Los Angeles.</td></tr>
+                    <tr><td><strong>The network runs on primary care.</strong></td><td>L.A. Care's largest contracted specialties are Adult Primary Care (1,125), Nurse Practitioner (1,067), and Pediatric Primary Care (938).</td></tr>
+                </table>
+                <div class="insight-box"><strong>The one that ties it together:</strong> L.A. Care wins its market on both size and quality, but the Medi-Cal system around it has a coverage vs access gap, the counties that need it most are the ones where members are spread thinnest across providers.</div>
+                <div class="gotcha-box"><strong>Caveat on the access view:</strong> provider counts here are direct network contracts only. L.A. Care delegates part of its network to plan partners, so its members' true reach is understated. The access map is a signal of relative thinness across counties, not a precise adequacy audit.</div>
+            </div></details>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- TAB 2: THE DASHBOARD                                         -->
+        <!-- ============================================================ -->
+        <div id="tab-dashboard" class="tab-content">
+            <div class="section-controls"><button onclick="setAllSections('tab-dashboard', true)">Expand All</button><button onclick="setAllSections('tab-dashboard', false)">Collapse All</button></div>
+
+            <details class="sec" open><summary>Key findings</summary><div class="sec-body">
+                <p>Each finding comes from one panel of the dashboard, named in the middle column. The right column names the Tableau method that produces it, worked through in full under the Methods tab.</p>
+                <table class="blog-table">
+                    <tr><th style="width:42%">Finding</th><th style="width:30%">Dashboard panel</th><th style="width:28%">Method shown</th></tr>
+                    <tr><td><strong>L.A. Care holds 59.7% of the market</strong> (2.10M of 3.52M members), with Health Net at 30.7% and Kaiser at 9.6%.</td><td>L.A. Care Leads at 60%, and Slipping</td><td>A FIXED LOD that computes each month's total once, so every plan's share divides by the whole month, not by itself.</td></tr>
+                    <tr><td><strong>The market tripled in 19 years,</strong> from 1.18M (2007) to a 3.95M peak (June 2023), then eased to 3.52M as redetermination unwinds.</td><td>The LA Medi-Cal Market Tripled Since 2007</td><td>A running total of monthly enrollment, the same monthly sum that feeds the FIXED denominator.</td></tr>
+                    <tr><td><strong>The biggest plan is also the better one.</strong> L.A. Care scores 59.33 on 2023 HEDIS quality against Health Net's 52.00.</td><td>L.A. Care vs Health Net: Bigger and Higher Quality</td><td>A join on Brand and Year that attaches each plan's quality score to its market share.</td></tr>
+                    <tr><td><strong>One in three Angelenos is on Medi-Cal</strong> (36.4%); reliance runs highest inland (Tulare 55.1%, Imperial 52.2%).</td><td>Reliance on Medi-Cal Is Highest Inland</td><td>A join on County that divides members by residents, drawn as a choropleth.</td></tr>
+                    <tr><td><strong>The neediest counties have the thinnest networks.</strong> Imperial has 2.9 providers per 1,000 members and Tulare 6.7, against 13.1 in Los Angeles.</td><td>Fewest Providers Where Need Is Highest</td><td>A join on County plus a context filter that keeps tiny denominator counties from distorting the color scale.</td></tr>
+                    <tr><td><strong>The network runs on primary care.</strong> Adult Primary Care (1,125), Nurse Practitioner (1,067), and Pediatric Primary Care (938) lead L.A. Care's contracted specialties.</td><td>L.A. Care's Network Runs on Primary Care</td><td>A sum of distinct providers per specialty, with the catch all bucket excluded.</td></tr>
+                </table>
+                <div class="insight-box"><strong>The one that ties it together:</strong> read down the dashboard and the story assembles itself, the market grew, L.A. Care leads it and leads on quality, yet statewide the counties that lean hardest on Medi-Cal are exactly the ones where providers are thinnest.</div>
+            </div></details>
+
+            <details class="sec" open><summary>The dashboard</summary><div class="sec-body">
+                <p style="margin-bottom:12px;">Interactive. Hover any panel for the underlying numbers, and use the maps to compare counties. The dashboard is authored tall; on a narrow screen, scroll it sideways or open it full screen.</p>
+
+                <div class="viz-native">
+                <div class='tableauPlaceholder' id='viz1784773398214' style='position: relative'><noscript><a href='#'><img alt='The Largest Medi-Cal Plan in California, and the Access Gap Around It' src='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;la&#47;la_medi_cal_market_share&#47;Dashboard1&#47;1_rss.png' style='border: none' /></a></noscript><object class='tableauViz' style='display:none;'><param name='host_url' value='https%3A%2F%2Fpublic.tableau.com%2F' /><param name='embed_code_version' value='3' /><param name='site_root' value='' /><param name='name' value='la_medi_cal_market_share&#47;Dashboard1' /><param name='tabs' value='no' /><param name='toolbar' value='yes' /><param name='device' value='desktop' /><param name='static_image' value='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;la&#47;la_medi_cal_market_share&#47;Dashboard1&#47;1.png' /><param name='animate_transition' value='yes' /><param name='display_static_image' value='no' /><param name='display_spinner' value='yes' /><param name='display_overlay' value='yes' /><param name='display_count' value='yes' /><param name='language' value='en-US' /><param name='filter' value='publish=yes' /></object></div>
+                </div>
+
+                <p class="caption">The Largest Medi-Cal Plan in California, and the Access Gap Around It. Source: CalHHS Medi-Cal Managed Care Enrollment Report and Provider Listing, CA DOF population, HEDIS AQFS. Every figure verified in DuckDB SQL and pandas. <a href="https://public.tableau.com/views/la_medi_cal_market_share/Dashboard1" target="_blank">Open full screen on Tableau Public.</a></p>
+            </div></details>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- TAB 3: METHODS (nested sub-tabs)                             -->
+        <!-- ============================================================ -->
+        <div id="tab-methods" class="tab-content">
+
+            <div class="subtab-navigation">
+                <button class="subtab active" onclick="switchSubTab(event, 'sub-context')">Context &amp; Data Prep</button>
+                <button class="subtab" onclick="switchSubTab(event, 'sub-joins')">Joins &amp; Enrichment</button>
+                <button class="subtab" onclick="switchSubTab(event, 'sub-lod')">Level of Detail</button>
+            </div>
+
+            <!-- SUB-TAB A: CONTEXT & DATA PREP (default) -->
+            <div id="sub-context" class="subtab-content active">
+                <div class="section-controls"><button onclick="setAllSections('sub-context', true)">Expand All</button><button onclick="setAllSections('sub-context', false)">Collapse All</button></div>
+<details class="sec" open><summary>Introduction and the question</summary><div class="sec-body">
+                <div class="question-box"><strong>The question:</strong> why does the access map's size filter have to be a <em>context</em> filter, and not an ordinary one?</div>
+                <p>The access ratio is providers divided by members. In a county with only a few hundred members, one busy clinic can push the ratio to an absurd height and hijack the color scale, hiding the real pattern across the large counties. A minimum member filter fixes that, but only if it runs <em>before</em> the ratio and the color quantiles are computed. That ordering is what a context filter guarantees.</p>
+            </div></details>
+
+            <details class="sec" open><summary>Context filters: moving the filter before the calculation</summary><div class="sec-body">
+                <p><strong>What Add to Context does.</strong> An ordinary Tableau filter runs late, after aggregates and quantiles are formed. Promoting a filter to context runs it early, so everything downstream, the ratio, the percentile coloring, sees only the surviving rows. In SQL the analog is precise: put the condition in a CTE so it runs before the outer calculation, rather than in the outer <code>WHERE</code>.</p>
+                <p class="subhead">Without context, the small counties poison the scale</p>
+<pre class="code-block"><span class="cm"># the ratio is formed over ALL counties, then color quantiles are taken</span>
+<span class="cm"># a 300 member county with one clinic can post 100+ providers per 1,000</span>
+<span class="cm"># and every real county gets crushed into the bottom of the scale</span></pre>
+                <p class="subhead" style="margin-top:14px;">With context, the filter runs first</p>
+<pre class="code-block"><span class="kw">WITH</span> in_context <span class="kw">AS</span> (                              <span class="cm">-- Add to Context: runs BEFORE the ratio</span>
+    <span class="kw">SELECT</span> County, <span class="st">"Medi-Cal MC Enrollees"</span> <span class="kw">AS</span> members, Providers_All <span class="kw">AS</span> providers
+    <span class="kw">FROM</span> county <span class="kw">JOIN</span> prov <span class="kw">USING</span> (County)
+    <span class="kw">WHERE</span> <span class="st">"Medi-Cal MC Enrollees"</span> &gt;= 5000
+)
+<span class="kw">SELECT</span> County, providers / members * 1000 <span class="kw">AS</span> per_1k   <span class="cm">-- quantiles now see clean rows only</span>
+<span class="kw">FROM</span> in_context;</pre>
+                <div class="insight-box"><strong>The rule worth memorising:</strong> if a filter needs to change what a later calculation sees, not just what the view shows, it has to be a context filter. Everything that filters the color scale, a Top N, or an LOD denominator belongs in context.</div>
+                <div class="gotcha-box"><strong>The parallel to the last project:</strong> this is the same idea as the minimum contract threshold in the Star Ratings post, drop the unstable small denominator cases before ranking, so a tiny sample cannot win on noise.</div>
+            </div></details>
+
+            <details class="sec"><summary>Data prep: the three cleaning problems</summary><div class="sec-body">
+                <p>The raw enrollment file does not arrive analysis ready. Three problems have to be fixed before any share is trustworthy, and a fourth is a data quality note.</p>
+                <p class="subhead">1. The Plan Type label changed mid series (an era normalization)</p>
+                <p>From January 2007 to July 2018 the model was labeled <code>Two-Plan</code>. From August 2018 on it was split into <code>Local Initiative (2 Plan)</code> and <code>Commercial Plan (2 Plan)</code>. The two eras never overlap within a month, so mapping both onto one continuous scheme produces a clean 19 year series. This is a union style reconciliation, the same value under two names across time.</p>
+                <p class="subhead">2. Plan names have ALL CAPS and renamed variants (a group)</p>
+                <p><code>LA CARE</code> becomes <code>L.A. Care Health Plan/Los Angeles</code>; <code>Health Net / LA</code> becomes <code>Health Net Community Solutions/Los Angeles</code>. Collapsing the variants into one brand is a Group, the same lesson as the parent orgs in the Star Ratings post. A group changes the numbers, not just the labels, so it has to be applied before any share is computed.</p>
+                <p class="subhead">3. Six non medical product lines are mixed in (a filter)</p>
+                <p>Dental, PACE, SCAN, Cal MediConnect, PCCM, and Special Project are separate product lines. Market share is only meaningful over the medical managed care lines, so these are filtered out before any total is formed.</p>
+                <p class="subhead">4. Cell suppression (a data quality note)</p>
+                <p>Small counts are suppressed with an annotation code. These become nulls, not zeros, treating a suppressed cell as zero would understate a plan.</p>
+            </div></details>
+
+            <details class="sec"><summary>Where the changes actually exist: a data flow</summary><div class="sec-body">
+                <p>Data prep changes the data; Tableau changes how the data is shown and performs the joins. Nothing is cleaned twice.</p>
+                <div class="flow">
+                    <div class="flow-box"><div class="fb-title">Raw data</div>Monthly enrollment file, all product lines, both era labels, name variants.</div>
+                    <div class="flow-arrow">&rarr;</div>
+                    <div class="flow-box changed"><div class="fb-title">Clean</div>Era normalized, brands grouped, non medical lines filtered. Produces the share and county files.</div>
+                    <div class="flow-arrow">&rarr;</div>
+                    <div class="flow-box changed"><div class="fb-title">Enrich</div>Join ready reference files: population, quality, provider counts, network by type.</div>
+                    <div class="flow-arrow">&rarr;</div>
+                    <div class="flow-box"><div class="fb-title">Tableau</div>FIXED LOD share, three joins, context filter, six panels on one dashboard.</div>
+                </div>
+                <p class="caption">Every number the dashboard renders is reproduced in DuckDB SQL and pandas, 18 checks, all passing.</p>
+            </div></details>
+            </div>
+
+            <!-- SUB-TAB B: JOINS & ENRICHMENT -->
+            <div id="sub-joins" class="subtab-content">
+                <div class="section-controls"><button onclick="setAllSections('sub-joins', true)">Expand All</button><button onclick="setAllSections('sub-joins', false)">Collapse All</button></div>
+<details class="sec" open><summary>Introduction and the question</summary><div class="sec-body">
+                <div class="question-box"><strong>The question:</strong> the enrollment file only knows enrollees. Where do residents, providers, and quality scores come from, and how are they attached without inflating the counts?</div>
+                <p><strong>Three joins, all performed inside Tableau.</strong> The population, quality, and provider files are cleaned into join ready reference tables up front, but the joins themselves happen in the workbook, so this post is where they are explained. Each one attaches a new column on a shared key:</p>
+                <ul>
+                    <li><strong>Penetration</strong> joins county population on <code>County</code>, to divide members by residents.</li>
+                    <li><strong>Access</strong> joins provider counts on <code>County</code>, to divide providers by members.</li>
+                    <li><strong>Quality</strong> joins HEDIS scores on <code>Brand</code> and <code>Year</code>, to set share against quality.</li>
+                </ul>
+                <div class="insight-box"><strong>Why relationships, not physical joins:</strong> in Tableau these are modeled as relationships so the reference table cannot fan out the enrollment rows. A physical inner join on a one to many key would duplicate enrollment and silently double a total; a relationship keeps each table at its own grain and aggregates before combining.</div>
+            </div></details>
+
+            <details class="sec" open><summary>Penetration: a join on County</summary><div class="sec-body">
+                <div class="calc-formula">Penetration = SUM([Medi-Cal MC Enrollees]) / SUM([Population])</div>
+                <p>County enrollment joins county population on <code>County</code>. The result is the share of a county's residents who are Medi-Cal managed care members. Los Angeles sits at 36.4%; reliance runs highest inland.</p>
+                <p class="subhead">SQL and pandas</p>
+<pre class="code-block"><span class="cm"># SQL: a join on County</span>
+<span class="kw">SELECT</span> c.County,
+       c.<span class="st">"Medi-Cal MC Enrollees"</span> / p.Population <span class="kw">AS</span> penetration
+<span class="kw">FROM</span> county c <span class="kw">JOIN</span> pop p <span class="kw">ON</span> c.County = p.County;
+
+<span class="cm"># pandas: the same join, then a column division</span>
+m = county.merge(pop, on=<span class="st">'County'</span>)
+m[<span class="st">'penetration'</span>] = m[<span class="st">'Medi-Cal MC Enrollees'</span>] / m[<span class="st">'Population'</span>]</pre>
+                <table class="blog-table">
+                    <tr><th>County</th><th>Members</th><th>Residents</th><th>Penetration</th><th>Tableau</th><th>DuckDB SQL</th><th>pandas</th></tr>
+                    <tr><td>Los Angeles</td><td>3,521,674</td><td>9,663,000</td><td>36.4%</td><td>36.4</td><td>36.4</td><td class="match">36.4</td></tr>
+                    <tr><td>Tulare</td><td>266,287</td><td>483,000</td><td>55.1%</td><td>55.1</td><td>55.1</td><td class="match">55.1</td></tr>
+                    <tr><td>Imperial</td><td>94,031</td><td>180,000</td><td>52.2%</td><td>52.2</td><td>52.2</td><td class="match">52.2</td></tr>
+                </table>
+            </div></details>
+
+            <details class="sec"><summary>Access: a join on County, plus a context filter</summary><div class="sec-body">
+                <div class="calc-formula">Providers per 1,000 Members = SUM([Providers All]) / SUM([Medi-Cal MC Enrollees]) * 1000</div>
+                <p>The same county enrollment joins the provider counts on <code>County</code>. The ratio is providers per 1,000 members, a rough read on how thinly the network is stretched. Los Angeles has 13.1; the counties that lean hardest on Medi-Cal have the fewest, Imperial 2.9 and Tulare 6.7.</p>
+                <p>A <code>Medi-Cal MC Enrollees &gt;= 5,000</code> filter is set to <strong>Add to Context</strong> so a handful of tiny denominator counties (Alpine has a few hundred members) cannot post an absurd ratio and blow out the color scale. Exactly why that filter has to be a context filter is explained under Context &amp; Data Prep.</p>
+                <p class="subhead">SQL and pandas</p>
+<pre class="code-block"><span class="cm"># SQL: the size filter lives in the CTE (context), the ratio is formed outside it</span>
+<span class="kw">WITH</span> in_context <span class="kw">AS</span> (
+    <span class="kw">SELECT</span> c.County, c.<span class="st">"Medi-Cal MC Enrollees"</span> <span class="kw">AS</span> members, pr.Providers_All <span class="kw">AS</span> providers
+    <span class="kw">FROM</span> county c <span class="kw">JOIN</span> prov pr <span class="kw">ON</span> c.County = pr.County
+    <span class="kw">WHERE</span> c.<span class="st">"Medi-Cal MC Enrollees"</span> &gt;= 5000        <span class="cm">-- Add to Context</span>
+)
+<span class="kw">SELECT</span> County, providers / members * 1000 <span class="kw">AS</span> per_1k
+<span class="kw">FROM</span> in_context <span class="kw">ORDER BY</span> per_1k;
+
+<span class="cm"># pandas: filter the frame before forming the ratio</span>
+a = county.merge(prov, on=<span class="st">'County'</span>)
+a = a[a[<span class="st">'Medi-Cal MC Enrollees'</span>] &gt;= 5000]
+a[<span class="st">'per_1k'</span>] = a[<span class="st">'Providers_All'</span>] / a[<span class="st">'Medi-Cal MC Enrollees'</span>] * 1000</pre>
+                <table class="blog-table">
+                    <tr><th>County</th><th>Providers</th><th>Members</th><th>Per 1,000</th><th>Tableau</th><th>DuckDB SQL</th><th>pandas</th></tr>
+                    <tr><td>Los Angeles</td><td>46,237</td><td>3,521,674</td><td>13.1</td><td>13.1</td><td>13.1</td><td class="match">13.1</td></tr>
+                    <tr><td>Tulare</td><td>1,777</td><td>266,287</td><td>6.7</td><td>6.7</td><td>6.7</td><td class="match">6.7</td></tr>
+                    <tr><td>Imperial</td><td>272</td><td>94,031</td><td>2.9</td><td>2.9</td><td>2.9</td><td class="match">2.9</td></tr>
+                </table>
+                <div class="gotcha-box"><strong>The coverage vs access gap:</strong> Tulare and Imperial top the penetration map and sit at the bottom of the access map. The counties where Medi-Cal reaches the most people are the ones where those people are spread thinnest across providers.</div>
+            </div></details>
+
+            <details class="sec"><summary>Quality: a join on Brand and Year</summary><div class="sec-body">
+                <p>The LA market share joins the HEDIS quality reference on both <code>Brand</code> and <code>Year</code>, setting each plan's size against its Aggregated Quality Factor Score (AQFS) for the Los Angeles region. For 2023, L.A. Care (59.33) sits above Health Net (52.00), the larger plan is also the higher scoring one.</p>
+                <p class="subhead">SQL and pandas</p>
+<pre class="code-block"><span class="cm"># SQL: a join on two keys</span>
+<span class="kw">SELECT</span> Brand, AQFS <span class="kw">FROM</span> quality <span class="kw">WHERE</span> Year = 2023 <span class="kw">ORDER BY</span> AQFS <span class="kw">DESC</span>;
+
+<span class="cm"># pandas: merge on Brand and Year</span>
+share.merge(quality, on=[<span class="st">'Brand'</span>, <span class="st">'Year'</span>])</pre>
+                <table class="blog-table">
+                    <tr><th>Plan</th><th>2023 AQFS</th><th>Tableau</th><th>DuckDB SQL</th><th>pandas</th></tr>
+                    <tr><td>L.A. Care</td><td>59.33</td><td>59.33</td><td>59.33</td><td class="match">59.33</td></tr>
+                    <tr><td>Health Net</td><td>52.00</td><td>52.00</td><td>52.00</td><td class="match">52.00</td></tr>
+                </table>
+                <div class="gotcha-box"><strong>Why Kaiser is not on the scatter:</strong> the join is on <code>Brand</code> and <code>Year</code>, and Kaiser has no matching quality row. Its Los Angeles Medi-Cal line launched in 2024 and has no reported HEDIS score yet, so it has enrollees but no quality value to plot. The absence is a missing join key, not a dropped plan.</div>
+            </div></details>
+            </div>
+
+            <!-- SUB-TAB C: LEVEL OF DETAIL -->
+            <div id="sub-lod" class="subtab-content">
+                <div class="section-controls"><button onclick="setAllSections('sub-lod', true)">Expand All</button><button onclick="setAllSections('sub-lod', false)">Collapse All</button></div>
+<details class="sec" open><summary>Introduction and the question</summary><div class="sec-body">
+                <div class="question-box"><strong>The question:</strong> the market share chart shows each plan separately, yet every plan's share divides by the same monthly total. How does Tableau compute a per month total while the view is broken out by plan?</div>
+                <p><strong>The problem a FIXED expression solves.</strong> Market share is <code>this plan's enrollees / everyone's enrollees this month</code>. But the view is split by plan, so a plain <code>SUM([Enrollees])</code> only ever sees one plan's rows at a time. The denominator has to be computed at a coarser level of detail than the view, the whole month, and then handed back to each plan's row.</p>
+                <p><strong>That is what FIXED means.</strong> It fixes the grouping in the expression itself (here, by month), so the plan breakout in the view cannot shrink it. Every plan row for June 2026 receives the same June 2026 total, and the division gives a clean share.</p>
+            </div></details>
+
+            <details class="sec" open><summary>Market share: a FIXED LOD on the month</summary><div class="sec-body">
+                <div class="calc-formula">Month Total   = { FIXED [Enrollment Month] : SUM([Enrollees]) }
+Market Share  = SUM([Enrollees]) / SUM([Month Total])</div>
+                <p>Read it left to right: <em>for each month, take the total enrollees across all plans, and hand that number back to every plan row of that month.</em> The plan breakout in the view divides into it, so L.A. Care's row shows its own enrollees over the whole month, which is its share.</p>
+
+                <p class="subhead">SQL</p>
+                <ul>
+                    <li><strong>The approach:</strong> a window function, <code>SUM(...) OVER (PARTITION BY month)</code>, is the exact analog of the FIXED total. It computes the month's total once and repeats it on every plan row.</li>
+                    <li><strong>The share:</strong> each row's enrollees divided by that windowed total.</li>
+                </ul>
+<pre class="code-block"><span class="kw">WITH</span> totals <span class="kw">AS</span> (                                         <span class="cm">-- the FIXED [Month] total</span>
+    <span class="kw">SELECT</span> <span class="st">"Enrollment Month"</span> <span class="kw">AS</span> month, Brand, Enrollees,
+           <span class="kw">SUM</span>(Enrollees) <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> <span class="st">"Enrollment Month"</span>) <span class="kw">AS</span> month_total
+    <span class="kw">FROM</span> share
+)
+<span class="kw">SELECT</span> Brand, Enrollees / month_total <span class="kw">AS</span> market_share
+<span class="kw">FROM</span> totals
+<span class="kw">WHERE</span> month = <span class="st">'2026-06'</span>
+<span class="kw">ORDER BY</span> market_share <span class="kw">DESC</span>;</pre>
+
+                <p class="subhead" style="margin-top:16px;">pandas</p>
+                <ul>
+                    <li><strong>The approach:</strong> <code>groupby('Enrollment Month').transform('sum')</code> broadcasts the month total onto every plan row, then the share is a plain column division.</li>
+                    <li><strong>Why <code>transform</code> and not <code>agg</code>:</strong> <code>agg</code> collapses the frame to one row per month. <code>transform</code> keeps every plan row and glues the month total onto each, which is exactly the shape a FIXED LOD produces.</li>
+                </ul>
+<pre class="code-block">s = share.copy()
+s[<span class="st">'month_total'</span>]  = s.groupby(<span class="st">'Enrollment Month'</span>)[<span class="st">'Enrollees'</span>].transform(<span class="st">'sum'</span>)
+s[<span class="st">'market_share'</span>] = s[<span class="st">'Enrollees'</span>] / s[<span class="st">'month_total'</span>]
+
+s.loc[s[<span class="st">'Enrollment Month'</span>] == <span class="st">'2026-06'</span>, [<span class="st">'Brand'</span>, <span class="st">'market_share'</span>]]</pre>
+
+                <table class="blog-table">
+                    <tr><th>Plan</th><th>June 2026 enrollees</th><th>Market share</th><th>Tableau</th><th>DuckDB SQL</th><th>pandas</th></tr>
+                    <tr><td>L.A. Care</td><td>2,102,545</td><td>59.7%</td><td>0.5970</td><td>0.5970</td><td class="match">0.5970</td></tr>
+                    <tr><td>Health Net</td><td>1,079,978</td><td>30.7%</td><td>0.3067</td><td>0.3067</td><td class="match">0.3067</td></tr>
+                    <tr><td>Kaiser Permanente</td><td>339,151</td><td>9.6%</td><td>0.0963</td><td>0.0963</td><td class="match">0.0963</td></tr>
+                </table>
+                <p class="caption">Month total 3,521,674. The three shares sum to 1.0, the check that the FIXED denominator is the whole month.</p>
+            </div></details>
+
+            <details class="sec"><summary>The same monthly total, drawn as a trend</summary><div class="sec-body">
+                <p>The enrollment trend panel is the same monthly sum that feeds the FIXED denominator, just plotted over time instead of divided into. It is the plainest LOD there is, one number per month.</p>
+                <p class="subhead">SQL and pandas</p>
+<pre class="code-block"><span class="cm"># SQL</span>
+<span class="kw">SELECT</span> <span class="st">"Enrollment Month"</span> <span class="kw">AS</span> month, <span class="kw">SUM</span>(Enrollees) <span class="kw">AS</span> total
+<span class="kw">FROM</span> share <span class="kw">GROUP BY</span> month <span class="kw">ORDER BY</span> month;
+
+<span class="cm"># pandas</span>
+share.groupby(<span class="st">'Enrollment Month'</span>)[<span class="st">'Enrollees'</span>].sum()</pre>
+                <table class="blog-table">
+                    <tr><th>Month</th><th>Milestone</th><th>LA market total</th><th>Tableau</th><th>DuckDB SQL</th><th>pandas</th></tr>
+                    <tr><td>2007-01</td><td>Series opens</td><td>1,177,988</td><td>1,177,988</td><td>1,177,988</td><td class="match">1,177,988</td></tr>
+                    <tr><td>2014-01</td><td>ACA expansion</td><td>2,029,015</td><td>2,029,015</td><td>2,029,015</td><td class="match">2,029,015</td></tr>
+                    <tr><td>2023-06</td><td>Peak</td><td>3,950,362</td><td>3,950,362</td><td>3,950,362</td><td class="match">3,950,362</td></tr>
+                    <tr><td>2026-06</td><td>Latest, unwinding</td><td>3,521,674</td><td>3,521,674</td><td>3,521,674</td><td class="match">3,521,674</td></tr>
+                </table>
+            </div></details>
+            </div>
+
+        </div>
+
+        </div><!-- /.main-container -->
+      </div><!-- /.blog-container -->
+    </div><!-- /#content-wrap -->
+    <div w3-include-html="/folders/navbar_footer/footer.html"></div>
+  </div><!-- /#page-container -->
+
+  <script type="text/javascript" src="../../static/js/include.js"></script>
+  <script type='text/javascript'>
+      function setAllSections(tabId, open) {
+          document.getElementById(tabId).querySelectorAll('details.sec').forEach(d => d.open = open);
+      }
+      function switchTab(event, tabId) {
+          document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+          document.getElementById(tabId).classList.add('active');
+          event.currentTarget.classList.add('active');
+          window.scrollTo({ top: 0 });
+      }
+      function switchSubTab(event, subId) {
+          var methods = document.getElementById('tab-methods');
+          methods.querySelectorAll('.subtab-content').forEach(t => t.classList.remove('active'));
+          methods.querySelectorAll('.subtab').forEach(b => b.classList.remove('active'));
+          document.getElementById(subId).classList.add('active');
+          event.currentTarget.classList.add('active');
+      }
+      // Fixed-size embed: renders the dashboard at the exact size it was authored at, so Tableau
+      // never scales it down. Scaling the tall six panel dashboard into a narrower column squashes
+      // the maps and bars. The .viz-native wrapper scrolls sideways instead.
+      function embedVizNative(id, width, height) {
+          var d = document.getElementById(id);
+          if (!d) return;
+          var v = d.getElementsByTagName('object')[0];
+          if (!v) return;
+          v.style.width  = width + 'px';
+          v.style.height = height + 'px';
+          d.style.width  = width + 'px';
+          d.style.minWidth = width + 'px';
+          var s = document.createElement('script');
+          s.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';
+          v.parentNode.insertBefore(s, v);
+      }
+
+      embedVizNative('viz1784773398214', 1250, 2427);   // the dashboard, authored at 1250 x 2427
+  </script>
+</body>
+</html>
