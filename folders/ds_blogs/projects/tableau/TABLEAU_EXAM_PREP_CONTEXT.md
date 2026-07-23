@@ -2,7 +2,7 @@
 
 Durable context for the Tableau certification prep track. It lives in the repo (git), so it persists even if the Cowork session changes. Claude should read this at the start of any session on this work.
 
-Last updated: July 10, 2026.
+Last updated: July 22, 2026.
 
 ---
 
@@ -16,7 +16,9 @@ Last updated: July 10, 2026.
 - **Show title and tab-name options and WAIT for approval** before applying a name across the page, landing page, and posts.json. Do not make global naming changes unilaterally.
 - **Instructions must be executable in order:** never reference a field, parameter, or variable that was not created in an earlier step; state prerequisites at the top.
 - **Verify every figure programmatically** (DuckDB SQL and pandas) before it appears in a post; the user has caught rounding errors, so accuracy matters.
-- **No jargon or acronyms left undefined;** no analogies unless asked.
+- **No jargon or acronyms left undefined;** no analogies unless asked. Health-care and business terms (capitation, managed care, penetration, market share, etc.) must be defined in lay language on first use.
+- **No post in this series references a notebook.** Never mention `nb00`/`nb01`/`nb02`, `.ipynb`, or the word "notebook" in a published post. Frame data prep as "data prep" or "the cleaning step," and describe the workflow as "Python to prepare the data, Tableau to join and visualize." All four posts were scrubbed of notebook references on July 22, 2026; keep new posts clean from the start.
+- **Section headers are concise statements, not questions.** Use short bold `.subhead` labels followed by bullets, not blocks of text.
 
 ### Tableau walkthrough format (STRICT — this is how the build sessions run)
 
@@ -98,6 +100,21 @@ Trinidad builds every sheet herself in Tableau Desktop. Claude guides her **one 
 
 ## 6. Current status and next step
 
-- Two Medi-Cal posts complete, published to Tableau Public, scrubbed of "we," and ready to git push.
-- Three exam-prep READMEs scaffolded (see above).
-- **Next:** Project 1 (`tableau_star_ratings`), Phase 0 — write `nb00` to pull the CMS Star Ratings files and profile them for the user to review before the Tableau build.
+Last updated July 22, 2026.
+
+**Four posts complete and live** (all published to Tableau Public, verified in DuckDB SQL and pandas, scrubbed of "we" and of all notebook references, registered in `posts.json` + the Data Stories landing):
+
+1. `ds_tableau_sql_pandas_medi_cal.html` — "How Tableau Thinks" (Medi-Cal enrollment). Post 1.
+2. `ds_tableau_sql_pandas_hedis.html` — Medi-Cal HEDIS plan quality. Post 2.
+3. `ds_tableau_sql_pandas_star_ratings.html` — CMS Star Ratings (plan quality; the Snowflake live-connection project). Post 3.
+4. `ds_tableau_sql_pandas_la_market_share.html` — "Medi-Cal Market Share in Los Angeles, from Enrollment to Quality". Post 4 (detail below).
+
+**Post 4 detail (`tableau_la_market_share`), finished July 22, 2026.** Reframed from the original MA-enrollment idea to Medi-Cal LA County market share because Medi-Cal is L.A. Care's core business. Dashboard `Dashboard1` in workbook `la_medi_cal_market_share`, published at https://public.tableau.com/views/la_medi_cal_market_share/Dashboard1 (authored 1250x2427, embed uses `device=desktop`). Six panels: Enrollment Over Time; Market Share (FIXED LOD `{FIXED [Enrollment Month]:SUM([Enrollees])}`); Share vs Quality (join on Brand+Year, Kaiser absent because its 2024 line has no quality score yet); Penetration Map (join on County); Access Map (join on County + a context filter `>= 5,000` members, orange Percentile quantile coloring); LA Care Providers by Type. `nb02` parity = 18/18 pass. Three enrichment reference files are joined INSIDE Tableau (county population, HEDIS quality, provider counts). Blog has 3 top-level tabs: Overview, The Dashboard, and Methods (nested sub-tabs, default order: Context & Data Prep, Joins & Enrichment, Level of Detail).
+
+**Framing rules established for Post 4 (reuse for any Medi-Cal market post):** scope every claim to the *Medi-Cal managed care market* (NOT all insurance — Kaiser is far larger overall via commercial coverage); define managed care vs fee-for-service; "commercial" describes the company, not the coverage (Health Net and Kaiser both run Medi-Cal lines); the Two-Plan Model is a California Medi-Cal construct and Los Angeles is one instance of it; Model 1 = L.A. Care (public Local Initiative, state-*created* in 1997), Model 2 = commercial companies that also contract to run Medi-Cal (Health Net *selected* 1997; Kaiser direct contract Jan 2024). Medi-Cal enrollment is year-round (no open-enrollment window); plan switching runs through an annual window with exceptions.
+
+**Git note:** the raw provider extract is ~1.5 GB and exceeds GitHub's 100 MB limit. `folders/ds_blogs/projects/tableau/tableau_la_market_share/data/raw/` is now gitignored (also `*.twbr` Tableau autosave temps). Never commit raw extracts; they re-pull from the CalHHS / CA open-data API. The four-post commit was pushed after removing the raw folder from the commit.
+
+**Not built (from the original 3-project plan):** `tableau_ma_enrollment` (superseded by `tableau_la_market_share`) and `tableau_county_health` (maps + Analytics-pane project) remain scaffolded READMEs only.
+
+**Next:** starting a new post; topic is open. Preferred candidates are the `tableau_county_health` maps/Analytics-pane project, or another L.A. Care-relevant dataset (Trinidad starts a data analyst role at L.A. Care around late July 2026, so L.A. Care-relevant topics are best). Confirm the topic and dataset with Trinidad first, then run the standard pipeline: `nb00` extract → `nb01` clean → Tableau build (she drives, ONE step at a time) → publish to Tableau Public → `nb02` parity → blog page → register in `posts.json` + landing. There is a personal (NOT in the public repo) L.A. Care business briefing at `~/Documents/Claude/Projects/trinidadcisneros.com/la_care_business_and_data_briefing.html` with business-model context.
