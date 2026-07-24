@@ -15,6 +15,7 @@ Last updated: July 22, 2026.
 - **No "we"** in any blog or written output. Use first person "I" or third person.
 - **Show title and tab-name options and WAIT for approval** before applying a name across the page, landing page, and posts.json. Do not make global naming changes unilaterally.
 - **Instructions must be executable in order:** never reference a field, parameter, or variable that was not created in an earlier step; state prerequisites at the top.
+- **Files are ALWAYS overwritten in place, never versioned:** when Claude updates any repo file it must write directly to the existing path on disk (no chat attachment deliveries, which create `name_1.html`, `name_2.html` download copies). One path, one file, overwritten. Trinidad never wants numbered duplicate copies anywhere.
 - **Verify every figure programmatically** (DuckDB SQL and pandas) before it appears in a post; the user has caught rounding errors, so accuracy matters.
 - **No jargon or acronyms left undefined;** no analogies unless asked. Health-care and business terms (capitation, managed care, penetration, market share, etc.) must be defined in lay language on first use.
 - **No post in this series references a notebook.** Never mention `nb00`/`nb01`/`nb02`, `.ipynb`, or the word "notebook" in a published post. Frame data prep as "data prep" or "the cleaning step," and describe the workflow as "Python to prepare the data, Tableau to join and visualize." All four posts were scrubbed of notebook references on July 22, 2026; keep new posts clean from the start.
