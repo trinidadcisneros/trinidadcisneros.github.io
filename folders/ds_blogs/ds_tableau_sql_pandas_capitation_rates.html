@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Price of a Member: Medi-Cal Capitation Rates in Los Angeles | Bitter Scientist</title>
+
+    <!-- Bootstrap 4.3.1 -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+
+    <!-- Site framework CSS -->
+    <link rel="stylesheet" type="text/css" href="../../static/css/navbar.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/footer.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/theme.css">
+
+    <style>
+        :root {
+            --navy: #1E2761;
+            --green: #2CA58D;
+            --red: #E15554;
+            --ice: #CADCFC;
+        }
+        * { box-sizing: border-box; }
+
+        /* ============ TYPE HIERARCHY (one font, five sizes) ============
+           h1 page title      1.5rem  bold
+           subtitle           0.95rem regular grey
+           section summary    1rem    semibold navy
+           body + tables      0.875rem
+           code + captions    0.8rem monospace / 0.75rem italic grey        */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; color: #333; line-height: 1.6; }
+        .main-container { max-width: 1300px; margin: 0 auto; padding: 20px; background-color: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); font-size: 0.875rem; }
+
+        /* The dashboard is a fixed 1250 x 1400 Tableau view, four panels stacked into one story.
+           Letting the embed scale it to a narrower container squashes the maps and bars into an
+           unreadable block, so it is rendered at native size inside a horizontally scrollable wrapper. */
+        .viz-native { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; padding-bottom: 6px; }
+        .page-header { text-align: center; margin-bottom: 26px; padding-bottom: 18px; border-bottom: 2px solid var(--navy); }
+        .page-header h1 { color: var(--navy); font-weight: 700; font-size: 1.5rem; }
+        .page-header .subtitle { color: #666; font-size: 0.95rem; margin-top: 8px; }
+        .page-header .meta { color: #999; font-size: 0.8rem; margin-top: 6px; }
+
+        .tab-navigation { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; border-bottom: 2px solid #e0e0e0; margin-bottom: 22px; position: sticky; top: 0; background: white; z-index: 50; padding-top: 6px; }
+        .nav-tab { border: none; background: none; padding: 10px 14px; font-size: 0.95rem; font-weight: 500; color: #555; cursor: pointer; border-bottom: 3px solid transparent; font-family: inherit; }
+        .nav-tab:hover { color: var(--navy); }
+        .nav-tab.active { color: var(--navy); border-bottom-color: var(--navy); font-weight: 600; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Nested sub-tabs inside the Methods tab */
+        .subtab-navigation { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; }
+        .subtab { border: 1px solid #c9cede; border-bottom: none; background: #f2f4fa; padding: 8px 16px; font-size: 0.9rem; font-weight: 500; color: #555; cursor: pointer; border-radius: 6px 6px 0 0; font-family: inherit; }
+        .subtab:hover { color: var(--navy); background: #e7ebf6; }
+        .subtab.active { color: var(--navy); background: white; font-weight: 600; border-bottom: 2px solid white; margin-bottom: -2px; }
+        .subtab-content { display: none; }
+        .subtab-content.active { display: block; }
+
+        /* Collapsible sections */
+        details.sec { border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 14px; background: white; }
+        details.sec > summary { cursor: pointer; padding: 12px 16px; font-size: 1rem; font-weight: 600; color: var(--navy); list-style: none; }
+        details.sec > summary::-webkit-details-marker { display: none; }
+        details.sec > summary::before { content: "\25B8"; margin-right: 10px; font-size: 0.9em; }
+        details.sec[open] > summary::before { content: "\25BE"; }
+        details.sec[open] > summary { border-bottom: 1px solid #eee; }
+        .sec-body { padding: 14px 16px; }
+
+        .question-box { background: var(--ice); border-left: 5px solid var(--navy); padding: 14px 18px; border-radius: 0 6px 6px 0; margin-bottom: 18px; font-size: 0.875rem; }
+        .question-box strong { color: var(--navy); }
+        .intro-box { padding: 4px 2px 10px 2px; margin-bottom: 18px; font-size: 0.875rem; border-bottom: 1px solid #ddd; }
+        .intro-box strong { color: var(--navy); }
+        .subhead { font-size: 1rem; font-weight: 600; color: var(--navy); margin: 16px 0 2px 0; }
+        hr.light { border: 0; border-top: 1px solid #e4e4e4; margin: 20px 0; }
+        .section-controls { text-align: center; margin-bottom: 10px; }
+        .section-controls button { background: none; border: 1px solid #c9cede; border-radius: 5px; color: var(--navy); font-size: 0.8rem; padding: 4px 12px; margin-left: 6px; cursor: pointer; font-family: inherit; }
+        .section-controls button:hover { background: #eef0f6; }
+
+        /* Data flow strip */
+        .flow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 14px 0 6px 0; }
+        .flow-box { flex: 1 1 180px; border: 1px solid #c9cede; border-radius: 8px; padding: 10px 12px; font-size: 0.78rem; background: #fbfcff; }
+        .flow-box .fb-title { font-weight: 700; color: var(--navy); font-size: 0.82rem; margin-bottom: 4px; }
+        .flow-arrow { flex: 0 0 auto; font-size: 1.5rem; color: var(--navy); }
+        .flow-box.changed { background: #f0faf7; border-color: var(--green); }
+
+        .calc-formula { background: #f4f4f8; border: 1px solid #ddd; border-radius: 6px; padding: 10px 14px; font-family: 'SF Mono', Menlo, Consolas, Monaco, 'Courier New', monospace; font-size: 0.8rem; margin: 10px 0; white-space: pre-wrap; }
+        .click-path { font-size: 0.85rem; color: #555; }
+        .click-path li { margin-bottom: 4px; }
+
+        .code-block { background-color: #1a1a2e; color: #e8e8e8; border-radius: 6px; padding: 14px 16px; font-family: 'SF Mono', Menlo, Consolas, Monaco, 'Courier New', monospace; font-size: 0.8rem; overflow-x: auto; white-space: pre; line-height: 1.5; margin: 0; }
+        .code-block .kw { color: #c792ea; }
+        .code-block .cm { color: #7a7a94; font-style: italic; }
+        .code-block .st { color: #c3e88d; }
+        code { font-family: 'SF Mono', Menlo, Consolas, Monaco, 'Courier New', monospace; font-size: 0.8rem; color: #e8e8e8; background: #1a1a2e; padding: 2px 7px; border-radius: 4px; white-space: pre-wrap; }
+        table.blog-table code { display: inline-block; padding: 4px 8px; line-height: 1.45; margin: 1px 0; }
+
+        table.blog-table { width: 100%; border-collapse: collapse; margin: 12px 0 6px 0; font-size: 0.8rem; font-family: inherit; }
+        table.blog-table th { background: #eef0f6; color: #333; font-weight: 600; padding: 7px 12px; text-align: left; font-size: 0.8rem; border-bottom: 2px solid #c9cede; }
+        table.blog-table td { padding: 7px 12px; border-bottom: 1px solid #e8e8e8; vertical-align: top; font-family: inherit; font-size: 0.8rem; }
+        table.blog-table tr:nth-child(even) { background: #f7f8fc; }
+        table.blog-table .match { color: var(--green); font-weight: 700; }
+        table.blog-table td.grp { background: #eef0f6; font-weight: 700; color: var(--navy); }
+        .caption { font-size: 0.75rem; color: #888; font-style: italic; margin: 4px 0 14px 0; }
+
+        .gotcha-box { background: #fdf3f3; border-left: 5px solid var(--red); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 16px 0; font-size: 0.875rem; }
+        .gotcha-box strong { color: var(--red); }
+        .insight-box { background: #f0faf7; border-left: 5px solid var(--green); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 16px 0; font-size: 0.875rem; }
+        .insight-box strong { color: var(--green); }
+
+        .main-container p, .main-container li { font-size: inherit; }
+        @media (max-width: 768px) { .nav-tab { font-size: 0.875rem; padding: 8px 8px; } }
+    </style>
+</head>
+<body>
+  <div id="page-container">
+    <div id="content-wrap">
+      <div w3-include-html="/folders/navbar_footer/navbar_pages.html"></div>
+      <div class="blog-container">
+    <div class="main-container">
+                <div class="page-header">
+            <h1>The Price of a Member: Medi-Cal Capitation Rates in Los Angeles</h1>
+            <div class="subtitle">Tracking what the state pays Los Angeles health plans per adult member per month across six years, with the statewide benchmark, year over year changes, and a what if dial that turns rate moves into revenue, every calculation explained in SQL and pandas.</div>
+            <div class="meta">3 tabs &middot; 149 parity checks, all passing &middot; Live Tableau Public dashboard &middot; July 2026</div>
+        </div>
+
+        <div class="tab-navigation" id="tabNav">
+            <button class="nav-tab active" onclick="switchTab(event, 'tab-overview')">Overview</button>
+            <button class="nav-tab" onclick="switchTab(event, 'tab-dashboard')">The Dashboard</button>
+            <button class="nav-tab" onclick="switchTab(event, 'tab-methods')">Methods</button>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- TAB 1: OVERVIEW                                              -->
+        <!-- ============================================================ -->
+        <div id="tab-overview" class="tab-content active">
+            <div class="section-controls"><button onclick="setAllSections('tab-overview', true)">Expand All</button><button onclick="setAllSections('tab-overview', false)">Collapse All</button></div>
+
+            <details class="sec" open><summary>Introduction</summary><div class="sec-body">
+                <p>The last post in this series mapped who holds the Los Angeles Medi-Cal market. This one prices it: what the state actually pays a health plan for each member, how that price has moved over six years, and what a change in it is worth in dollars.</p>
+
+                <p class="subhead">How a Medi-Cal health plan gets paid</p>
+                <ul>
+                    <li><strong>Medi-Cal</strong> is California's Medicaid program, public health insurance for people with low incomes. Most members get their coverage through <strong>managed care</strong>: the state hires a health plan to run their care rather than paying each doctor bill itself.</li>
+                    <li>The plan is paid by <strong>capitation</strong>: a fixed amount per member, per month, whether or not that member sees a doctor. The unit is often written <strong>PMPM</strong>, per member per month.</li>
+                    <li>That fixed monthly amount is the <strong>capitation rate</strong>, and it is the subject of this post. For a Medi-Cal plan the rate is effectively the price of everything: multiply it by members and months, and that is the revenue.</li>
+                </ul>
+
+                <p class="subhead">Who sets the price</p>
+                <ul>
+                    <li>The plan does not set it. The <strong>Department of Health Care Services (DHCS)</strong>, the state agency that runs Medi-Cal, develops the rates with actuaries (specialists who price risk) and certifies them to the federal government.</li>
+                    <li>The plan cannot raise the price, discount it, or negotiate it the way a commercial insurer prices employer coverage. When the state moves the rate, the plan's revenue per member moves with it.</li>
+                    <li>Rates are published as a <strong>range</strong> for each group of members: a lower bound, an upper bound, and, through 2023, a midpoint. What happened to the midpoint after 2023 becomes one of this post's methods.</li>
+                </ul>
+
+                <p class="subhead">The market this post prices</p>
+                <ul>
+                    <li>The setting is the same as the market share post: Los Angeles County, the largest county Medicaid market in the country, organized under California's <strong>Two-Plan Model</strong>, with three competing Medi-Cal plans.</li>
+                    <li><strong>L.A. Care</strong> is the public plan the state created in 1997; <strong>Health Net</strong> is the commercial plan it selected in 1997; <strong>Kaiser Permanente</strong> joined by direct state contract in January 2024.</li>
+                    <li>The focus is the <strong>adult rate</strong>, the price for a working age adult member, the everyday center of the program. Children, seniors, maternity, and other groups each carry their own rate, and those categories are explained in the next section.</li>
+                </ul>
+
+                <div class="question-box"><strong>What this post asks about the price of a Los Angeles member:</strong>
+                    <ul style="margin:8px 0 0 0;">
+                        <li>What does the state pay each plan per adult member per month, and how has it moved from 2021 to 2026?</li>
+                        <li>Do Los Angeles plans get paid more or less than the statewide average for the same kind of member?</li>
+                        <li>What do the rates mean in revenue when multiplied across millions of member months, and what is a rate move worth in dollars?</li>
+                    </ul>
+                </div>
+
+                <p class="subhead">How the post is built</p>
+                <ul>
+                    <li>I used <strong>Python</strong> to prepare the data: pull the public rate files, clean them, and standardize the plan names.</li>
+                    <li>I used <strong>Tableau</strong> to stack the files, relate them to enrollment, and turn the result into the dashboard, a union, a relationship, a Level of Detail expression, context filters, a parameter, and a table calculation, each worked through under Methods.</li>
+                    <li>It is organized in three tabs: <strong>The Dashboard</strong> (four panels and the method behind each), <strong>Methods</strong> (four parts: Context &amp; Data Prep, Unions &amp; Relationships, Level of Detail &amp; Context Filters, Parameters &amp; Table Calculations), and <strong>Overview</strong> (this tab, which also holds the rate card, the data sources, and a summary of results).</li>
+                </ul>
+            </div></details>
+
+            <details class="sec"><summary>The rate card: how one price is written</summary><div class="sec-body">
+                <p>A capitation rate is not one number per plan. Each plan's contract is a card of prices, one per kind of member, and reading the card takes three definitions.</p>
+
+                <p class="subhead">Categories of aid: a price per kind of member</p>
+                <ul>
+                    <li>A <strong>category of aid</strong> is the state's label for a group of members who cost roughly the same to cover: Child, Adult, Maternity, SPD (Seniors and Persons with Disabilities), and more.</li>
+                    <li>The differences are large. In 2021 Los Angeles, L.A. Care's adult rate was $216.59 per member per month while its maternity rate was $7,575.48, about 35 times higher, because the expected care is that much costlier.</li>
+                    <li>Comparing plans is only fair within one category, which is why this post follows the adult rate everywhere.</li>
+                </ul>
+
+                <p class="subhead">The adult category changed its name in 2023</p>
+                <ul>
+                    <li>Through 2022 the card had a plain <strong>Adult</strong> row. From 2023 the state split every category by immigration status: <strong>SIS</strong> (Satisfactory Immigration Status) and <strong>UIS</strong> (Unsatisfactory Immigration Status) variants.</li>
+                    <li>The adult series in this post is Adult through 2022 and Adult - SIS from 2023 on, the direct continuation of the same population. No year carries both labels, so the series never double counts.</li>
+                </ul>
+
+                <p class="subhead">Rates are published as ranges, and the midpoint vanished</p>
+                <ul>
+                    <li>Each rate is a <strong>range</strong>: a lower bound, an upper bound, and through 2023 a published midpoint.</li>
+                    <li>From 2024 on, the state publishes only the bounds. Every chart in this post uses a <strong>working rate</strong>: the published midpoint when it exists, otherwise the halfway point of the bounds. The calculation is worked through under Methods.</li>
+                </ul>
+
+                <div class="insight-box"><strong>One line to keep:</strong> a capitation rate card is a price list for people, priced by how much care their group is expected to need. The adult row is the fairest single line to follow across plans and years.</div>
+            </div></details>
+
+            <details class="sec"><summary>The data</summary><div class="sec-body">
+                <p>Two public sources. The rate files are the spine; the enrollment file turns prices into dollars.</p>
+                <table class="blog-table">
+                    <tr><th style="width:30%">File</th><th style="width:22%">Grain</th><th style="width:48%">What it adds</th></tr>
+                    <tr><td><strong>Medi-Cal Managed Care Capitation Rates</strong> (CalHHS open data, published by DHCS)</td><td>year &times; county &times; plan &times; category</td><td>The spine: seven files, one per plan model, 14,323 rate rows for 2021 to 2026. Los Angeles sits in the Two-Plan file.</td></tr>
+                    <tr><td><strong>Medi-Cal Managed Care Enrollment</strong> (from the market share post)</td><td>month &times; plan</td><td>Monthly member counts per Los Angeles plan, related to the rates in Tableau to estimate revenue.</td></tr>
+                </table>
+                <p class="caption">The rate files are pulled through the CalHHS open data API. The seven files cover the state's plan models: Two-Plan, County Organized Health Systems (COHS), Geographic Managed Care (GMC), Regional, Single Plan, SCAN (Senior Care Action Network), and PACE (Program of All-Inclusive Care for the Elderly). Every figure in this post is reproduced in DuckDB SQL and pandas, 149 checks, all passing.</p>
+            </div></details>
+
+            <details class="sec" open><summary>Conclusion and summary of results</summary><div class="sec-body">
+                <p>Read as one story: the state cut the adult price in 2022, rebuilt it sharply from 2024, has paid Los Angeles plans below the statewide average the whole time, and every point of movement is worth tens of millions of dollars to the county's plans.</p>
+                <table class="blog-table">
+                    <tr><th style="width:34%">Finding</th><th style="width:66%">The numbers</th></tr>
+                    <tr><td><strong>The 2022 cut was steep.</strong></td><td>L.A. Care's adult rate fell 13.56% ($216.59 to $187.23 per member per month) and Health Net's fell 15.14%. Same members, about $29 less revenue per member each month.</td></tr>
+                    <tr><td><strong>2024 rebuilt the price, with caveats.</strong></td><td>Adult rates jumped 25.04% (L.A. Care) and 29.75% (Health Net) in 2024, then kept climbing 7% to 11% a year through 2026.</td></tr>
+                    <tr><td><strong>Los Angeles is paid below the state.</strong></td><td>The statewide Two-Plan adult average runs above every Los Angeles plan in every year: $256.28 vs L.A. Care's $216.59 in 2021, and $337.14 vs $293.70 in 2026.</td></tr>
+                    <tr><td><strong>Kaiser entered as the best paid.</strong></td><td>Kaiser Permanente's first adult rate (2024) was $279.25, above both incumbents, then its increases ran smallest, 7.90% and 6.58%.</td></tr>
+                    <tr><td><strong>The rates are billions at scale.</strong></td><td>At the adult rate, L.A. Care's member months imply roughly $5.9B of revenue in 2021 rising to $7.5B in 2025; Health Net implies $2.5B to $3.5B.</td></tr>
+                    <tr><td><strong>One dial point is real money.</strong></td><td>A 5% rate move is worth about $375 million to L.A. Care in 2025 alone, which is what the dashboard's what if dial makes visible.</td></tr>
+                </table>
+                <div class="insight-box"><strong>The one that ties it together:</strong> a capitated plan cannot vote on its price. The state writes the rate, and the rate writes the revenue, so the whole story of these six years, the cut, the rebuild, the below average county, plays out on the plans' income statements.</div>
+                <div class="gotcha-box"><strong>Two caveats that travel with every number here:</strong> the revenue figures are illustrative, they apply the adult rate to every member month because membership by category is not published, and real revenue weights each category at its own price. And part of the 2024 jump can be bookkeeping rather than pure price: 2024 is when the midpoint stopped being published (the working rate switches to the halfway point of the bounds) and when the category definitions changed, in the middle of the eligibility recheck era that left a sicker average membership behind.</div>
+            </div></details>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- TAB 2: THE DASHBOARD                                         -->
+        <!-- ============================================================ -->
+        <div id="tab-dashboard" class="tab-content">
+            <div class="section-controls"><button onclick="setAllSections('tab-dashboard', true)">Expand All</button><button onclick="setAllSections('tab-dashboard', false)">Collapse All</button></div>
+
+            <details class="sec" open><summary>Key findings</summary><div class="sec-body">
+                <p>Each finding comes from one panel of the dashboard, named in the middle column. The right column names the Tableau method that produces it, worked through in full under the Methods tab.</p>
+                <table class="blog-table">
+                    <tr><th style="width:42%">Finding</th><th style="width:28%">Dashboard panel</th><th style="width:30%">Method shown</th></tr>
+                    <tr><td><strong>Adult rates dipped in 2022, then climbed past their start.</strong> L.A. Care ran $216.59 &rarr; $187.23 &rarr; $293.70 across the six years, and every Los Angeles line sits below the gray statewide benchmark in every year.</td><td>Adult Rate by Plan: Los Angeles vs the Statewide Average</td><td>A FIXED Level of Detail expression computes the statewide average on the same chart that ordinary filters hold to Los Angeles, overlaid on a synchronized dual axis.</td></tr>
+                    <tr><td><strong>The price moved in two acts:</strong> a 13% to 15% cut in 2022, then a 25% to 30% rebuild in 2024 that settled to 7% to 11% growth.</td><td>Year Over Year Change in the Adult Rate</td><td>A percent difference table calculation, the visual analog of a SQL LAG window.</td></tr>
+                    <tr><td><strong>At the adult rate, the county's plans are billion dollar books:</strong> roughly $5.9B to $7.5B a year implied for L.A. Care, $2.5B to $3.5B for Health Net, about $1B for Kaiser.</td><td>Estimated Annual Revenue at the Adult Rate</td><td>Member months from the enrollment table multiplied by the rate across a relationship, aggregates first so nothing double counts.</td></tr>
+                    <tr><td><strong>A 5% rate move is about $375M to L.A. Care in 2025.</strong> Turn the dial and the cells shade blue for gains, orange for losses, deeper as the dollars grow.</td><td>The Rate Adjustment % dial</td><td>A what if parameter feeding a scenario calculation, with cell color driven by the dollar change on a diverging scale centered at zero.</td></tr>
+                </table>
+                <div class="insight-box"><strong>The one that ties it together:</strong> the top chart shows the price, the middle table shows its motion, and the bottom table shows the money; the dial connects them, one percent on the price is tens of millions on the book.</div>
+            </div></details>
+
+            <details class="sec" open><summary>The dashboard</summary><div class="sec-body">
+                <p style="margin-bottom:12px;">Interactive. Hover any line or cell for the underlying numbers, and drag the Rate Adjustment % dial to price a scenario, the revenue cells shade blue for gains and orange for losses in proportion to the dollars. On a narrow screen, scroll sideways or open it full screen.</p>
+
+                <div class="viz-native">
+                <div class='tableauPlaceholder' id='viz1784858143392' style='position: relative'><noscript><a href='#'><img alt='Medi-Cal Capitation Rates in Los Angeles: Rates, the Statewide Benchmark, and What They Mean in Dollars ' src='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;me&#47;medi_cal_capitation_rates&#47;Dashboard1&#47;1_rss.png' style='border: none' /></a></noscript><object class='tableauViz' style='display:none;'><param name='host_url' value='https%3A%2F%2Fpublic.tableau.com%2F' /><param name='embed_code_version' value='3' /><param name='site_root' value='' /><param name='name' value='medi_cal_capitation_rates&#47;Dashboard1' /><param name='tabs' value='no' /><param name='toolbar' value='yes' /><param name='static_image' value='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;me&#47;medi_cal_capitation_rates&#47;Dashboard1&#47;1.png' /><param name='animate_transition' value='yes' /><param name='display_static_image' value='no' /><param name='display_spinner' value='yes' /><param name='display_overlay' value='yes' /><param name='display_count' value='yes' /><param name='language' value='en-US' /><param name='filter' value='publish=yes' /></object></div>
+                </div>
+
+                <p class="caption">Medi-Cal Capitation Rates in Los Angeles: Rates, the Statewide Benchmark, and What They Mean in Dollars. Source: CalHHS Medi-Cal Managed Care Capitation Rates (DHCS) and Medi-Cal Managed Care Enrollment. Every figure verified in DuckDB SQL and pandas. <a href="https://public.tableau.com/views/medi_cal_capitation_rates/Dashboard1" target="_blank">Open full screen on Tableau Public.</a></p>
+            </div></details>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- TAB 3: METHODS (nested sub-tabs)                             -->
+        <!-- ============================================================ -->
+        <div id="tab-methods" class="tab-content">
+
+            <div class="subtab-navigation">
+                <button class="subtab active" onclick="switchSubTab(event, 'sub-context')">Context &amp; Data Prep</button>
+                <button class="subtab" onclick="switchSubTab(event, 'sub-unions')">Unions &amp; Relationships</button>
+                <button class="subtab" onclick="switchSubTab(event, 'sub-lod')">Level of Detail &amp; Context Filters</button>
+                <button class="subtab" onclick="switchSubTab(event, 'sub-params')">Parameters &amp; Table Calculations</button>
+            </div>
+
+            <!-- SUB-TAB A: CONTEXT & DATA PREP (default) -->
+            <div id="sub-context" class="subtab-content active">
+                <div class="section-controls"><button onclick="setAllSections('sub-context', true)">Expand All</button><button onclick="setAllSections('sub-context', false)">Collapse All</button></div>
+<details class="sec" open><summary>Introduction and the question</summary><div class="sec-body">
+                <div class="question-box"><strong>The question:</strong> the published rate files were not built for analysis, seven files, four header spellings, dollar signs, duplicated rows, and a midpoint that stops existing in 2024. What has to happen before a single trustworthy chart can be drawn?</div>
+                <p>The cleaning step runs in Python and changes the data; Tableau then stacks, relates, and displays it. This sub tab covers what the cleaning fixed and the one calculated field that papers over the state's own format change. The next sub tabs cover how the seven files become one table and how the enrollment numbers attach without inflating anything.</p>
+            </div></details>
+
+            <details class="sec" open><summary>Data prep: the four cleaning problems</summary><div class="sec-body">
+                <p class="subhead">1. The seven files disagree on their own column names (a standardization)</p>
+                <ul>
+                    <li>The Geographic Managed Care file says <code>Rate Period</code> and <code>Calendar</code> where the others say <code>Rating Period</code> and <code>Calendar Year</code>; the PACE (Program of All-Inclusive Care for the Elderly) file calls its plan column <code>PACE Organization</code>; the SCAN (Senior Care Action Network) file omits the plan column entirely.</li>
+                    <li>The cleaning maps every variant onto one nine column layout so the files can stack. A union is only as good as the agreement of its columns.</li>
+                </ul>
+                <p class="subhead">2. Rates arrive as text (a type conversion)</p>
+                <ul>
+                    <li>Values appear as <code>$1,234.56</code> with dollar signs, commas, and stray spaces, and missing rates appear as <code>$-</code>. All become plain numbers, and <code>$-</code> becomes a proper null rather than a zero, a zero would be a claim that the state pays nothing.</li>
+                </ul>
+                <p class="subhead">3. Plan names drift across years (a standardization into Brand)</p>
+                <ul>
+                    <li>The same plan appears as <code>LA Care</code>, <code>LA Care HP</code>, and <code>LA Care Health Plan</code> in different years. Forty variants collapse into one <code>Brand</code> per plan.</li>
+                    <li>This matters beyond tidiness: Brand is the key the enrollment table is related on. A name that drifts is a join that silently drops years.</li>
+                </ul>
+                <p class="subhead">4. The source prints a few rows twice (a deduplication)</p>
+                <ul>
+                    <li>Four PACE rows for late 2021 appear twice in the state's own file, identical in every column. Exact duplicates are dropped; left in, any sum over that program would double count them.</li>
+                </ul>
+            </div></details>
+
+            <details class="sec" open><summary>The working rate: one comparable number per year</summary><div class="sec-body">
+                <p>Through 2023 the state published each rate range with a midpoint. From 2024 it publishes only the lower and upper bounds. A chart that plots the midpoint goes blank at 2024, not because the price vanished but because the paperwork changed.</p>
+                <div class="calc-formula">Working Rate = IFNULL([Midpoint], ([Lower Bound] + [Upper Bound]) / 2)</div>
+                <p>Read it left to right: <em>use the published midpoint when there is one; otherwise take the halfway point of the published bounds.</em> For 2021 to 2023 that is exactly the state's number; for 2024 on it is the natural center of the range the state still publishes.</p>
+                <p class="subhead">SQL</p>
+                <ul>
+                    <li><strong>The approach:</strong> <code>COALESCE</code>, which returns the first non null argument, is the exact analog of IFNULL.</li>
+                </ul>
+<pre class="code-block"><span class="kw">SELECT</span> Brand, <span class="st">"Calendar Year"</span>,
+       <span class="kw">COALESCE</span>(<span class="st">"Midpoint"</span>, (<span class="st">"Lower Bound"</span> + <span class="st">"Upper Bound"</span>) / 2) <span class="kw">AS</span> working_rate
+<span class="kw">FROM</span> rates;</pre>
+                <p class="subhead" style="margin-top:16px;">pandas</p>
+                <ul>
+                    <li><strong>The approach:</strong> <code>fillna</code> fills the missing midpoints from a second column built as the bounds' average.</li>
+                </ul>
+<pre class="code-block">rates[<span class="st">'working_rate'</span>] = rates[<span class="st">'Midpoint'</span>].fillna(
+    (rates[<span class="st">'Lower Bound'</span>] + rates[<span class="st">'Upper Bound'</span>]) / 2)</pre>
+                <table class="blog-table">
+                    <tr><th>Plan, 2024 adult rate</th><th>Lower</th><th>Upper</th><th>Working rate</th><th>Tableau</th><th>DuckDB SQL</th><th>pandas</th></tr>
+                    <tr><td>L.A. Care</td><td>235.45</td><td>253.51</td><td>244.48</td><td>244.48</td><td>244.48</td><td class="match">244.48</td></tr>
+                    <tr><td>Kaiser Permanente</td><td>268.85</td><td>289.64</td><td>279.25</td><td>279.25</td><td>279.25</td><td class="match">279.25</td></tr>
+                    <tr><td>Health Net</td><td>222.22</td><td>239.27</td><td>230.75</td><td>230.75</td><td>230.75</td><td class="match">230.75</td></tr>
+                </table>
+                <div class="gotcha-box"><strong>The honest footnote this creates:</strong> from 2024 on, the plotted rate is a halfway point, not a state certified midpoint. Part of the big 2024 jump in the year over year table rides on that definition change, which is why the finding carries the caveat everywhere it appears.</div>
+            </div></details>
+
+            <details class="sec"><summary>Where the changes actually exist: a data flow</summary><div class="sec-body">
+                <p>The cleaning changes the data; Tableau changes how the data is combined and shown. Nothing is cleaned twice.</p>
+                <div class="flow">
+                    <div class="flow-box"><div class="fb-title">Raw data</div>Seven rate files, four header spellings, dollar sign text, duplicated rows.</div>
+                    <div class="flow-arrow">&rarr;</div>
+                    <div class="flow-box changed"><div class="fb-title">Clean</div>One nine column layout, numeric rates, one Brand per plan, duplicates dropped.</div>
+                    <div class="flow-arrow">&rarr;</div>
+                    <div class="flow-box"><div class="fb-title">Tableau</div>Wildcard union, relationship to enrollment, working rate, FIXED benchmark, dial.</div>
+                </div>
+                <p class="caption">Every number the dashboard renders is reproduced in DuckDB SQL and pandas, 149 checks, all passing. The context filters this sub tab is named for get their own treatment under Level of Detail &amp; Context Filters, where the benchmark they protect is built.</p>
+            </div></details>
+            </div>
+
+            <!-- SUB-TAB B: UNIONS & RELATIONSHIPS -->
+            <div id="sub-unions" class="subtab-content">
+                <div class="section-controls"><button onclick="setAllSections('sub-unions', true)">Expand All</button><button onclick="setAllSections('sub-unions', false)">Collapse All</button></div>
+<details class="sec" open><summary>Introduction and the question</summary><div class="sec-body">
+                <div class="question-box"><strong>The question:</strong> the rates live in seven files at one row per year, and the members live in another file at one row per month. How do they become one dashboard without any number getting counted twice?</div>
+                <p>Two mechanisms, and the difference between them is the difference between right and wrong totals: a <strong>union</strong> stacks tables that describe the same kind of thing, and a <strong>relationship</strong> connects tables that describe different kinds of things without merging their rows.</p>
+            </div></details>
+
+            <details class="sec" open><summary>The wildcard union: seven files, one stack</summary><div class="sec-body">
+                <p>The seven model files share one layout after cleaning, so they stack vertically, the same rows, more of them. In Tableau this is a <strong>wildcard union</strong>: point the connection at <code>clean_*.csv</code> and every matching file, present or future, joins the stack, with a <code>Path</code> field recording which file each row came from.</p>
+                <p class="subhead">SQL</p>
+                <ul>
+                    <li><strong>The approach:</strong> DuckDB reads the same wildcard directly; <code>union_by_name</code> aligns columns by header the way Tableau does.</li>
+                </ul>
+<pre class="code-block"><span class="kw">SELECT COUNT</span>(*) <span class="kw">FROM</span> read_csv_auto(<span class="st">'clean_*.csv'</span>, union_by_name = <span class="kw">true</span>);</pre>
+                <p class="subhead" style="margin-top:16px;">pandas</p>
+                <ul>
+                    <li><strong>The approach:</strong> read each file and <code>concat</code> the frames, a vertical stack, the analog of SQL's UNION ALL.</li>
+                </ul>
+<pre class="code-block">frames = [pd.read_csv(f) <span class="kw">for</span> f <span class="kw">in</span> glob.glob(<span class="st">'clean_*.csv'</span>)]
+rates  = pd.concat(frames, ignore_index=<span class="kw">True</span>)</pre>
+                <table class="blog-table">
+                    <tr><th>Check</th><th>Tableau</th><th>DuckDB SQL</th><th>pandas</th></tr>
+                    <tr><td>Rows in the union of seven files</td><td>14,323</td><td>14,323</td><td class="match">14,323</td></tr>
+                </table>
+            </div></details>
+
+            <details class="sec" open><summary>Relationships vs joins: the fan out pitfall</summary><div class="sec-body">
+                <p>The rates are yearly, about 23 category rows per plan per year. The members are monthly, 12 rows per plan per year. Gluing the tables together row by row, a hard join, multiplies them.</p>
+                <p class="subhead">The wrong way: a row level merge</p>
+                <ul>
+                    <li><strong>The approach (do not use it):</strong> a pandas merge on plan and year matches every rate row to every month row.</li>
+                </ul>
+<pre class="code-block">merged = rates.merge(enroll,
+    left_on=[<span class="st">'Brand'</span>, <span class="st">'Calendar Year'</span>], right_on=[<span class="st">'Brand'</span>, <span class="st">'Year'</span>])
+<span class="cm"># every rate row now appears 12 times (once per month)</span>
+<span class="cm"># every monthly member row now appears ~23 times (once per rate category)</span></pre>
+                <table class="blog-table">
+                    <tr><th></th><th>What a sum returns</th><th>Verdict</th></tr>
+                    <tr><td><strong>Wrong:</strong> sum the merged table</td><td>Rates inflate 12 fold, member months inflate about 23 fold, every total is fiction.</td><td style="color:var(--red); font-weight:700;">&#10007;</td></tr>
+                    <tr><td><strong>Right:</strong> aggregate each table first, then combine</td><td>One rate and one member month total per plan and year, totals stay honest.</td><td class="match">&#10003;</td></tr>
+                </table>
+                <p class="subhead" style="margin-top:14px;">The right way, which is what a Tableau relationship does</p>
+                <ul>
+                    <li><strong>The approach:</strong> aggregate each side to plan and year, then combine the two small results. A relationship stores no merged rows at all; it matches the tables at whatever grain each chart asks for.</li>
+                </ul>
+<pre class="code-block"><span class="cm"># pandas: aggregate first, then merge the aggregates</span>
+rate_y = (rates.groupby([<span class="st">'Brand'</span>, <span class="st">'Calendar Year'</span>], as_index=<span class="kw">False</span>)
+          [<span class="st">'working_rate'</span>].sum())
+mm_y   = (enroll.groupby([<span class="st">'Brand'</span>, <span class="st">'Year'</span>], as_index=<span class="kw">False</span>)
+          [<span class="st">'Enrollees'</span>].sum())          <span class="cm"># member months: the 12 monthly counts, added</span>
+out = rate_y.merge(mm_y, left_on=[<span class="st">'Brand'</span>, <span class="st">'Calendar Year'</span>],
+                         right_on=[<span class="st">'Brand'</span>, <span class="st">'Year'</span>])</pre>
+<pre class="code-block" style="margin-top:10px;"><span class="cm">-- SQL: the same shape, two aggregate CTEs joined on the keys</span>
+<span class="kw">WITH</span> r <span class="kw">AS</span> (
+    <span class="kw">SELECT</span> Brand, <span class="st">"Calendar Year"</span> <span class="kw">AS</span> yr, <span class="kw">SUM</span>(working_rate) <span class="kw">AS</span> rate
+    <span class="kw">FROM</span> rates <span class="kw">WHERE</span> County = <span class="st">'Los Angeles'</span> <span class="kw">GROUP BY</span> 1, 2
+), m <span class="kw">AS</span> (
+    <span class="kw">SELECT</span> Brand, Year <span class="kw">AS</span> yr, <span class="kw">SUM</span>(Enrollees) <span class="kw">AS</span> member_months
+    <span class="kw">FROM</span> enroll <span class="kw">GROUP BY</span> 1, 2
+)
+<span class="kw">SELECT</span> r.Brand, r.yr, m.member_months * r.rate <span class="kw">AS</span> revenue
+<span class="kw">FROM</span> r <span class="kw">JOIN</span> m <span class="kw">ON</span> r.Brand = m.Brand <span class="kw">AND</span> r.yr = m.yr;</pre>
+                <table class="blog-table">
+                    <tr><th>Plan, year</th><th>Member months</th><th>Adult rate</th><th>Implied revenue</th><th>Tableau</th><th>DuckDB SQL</th><th>pandas</th></tr>
+                    <tr><td>L.A. Care, 2021</td><td>27,185,468</td><td>$216.59</td><td>$5.9B</td><td>$5.9B</td><td>$5.9B</td><td class="match">$5.9B</td></tr>
+                    <tr><td>L.A. Care, 2025</td><td>28,266,681</td><td>$265.25</td><td>$7.5B</td><td>$7.5B</td><td>$7.5B</td><td class="match">$7.5B</td></tr>
+                    <tr><td>Health Net, 2021</td><td>11,862,307</td><td>$206.93</td><td>$2.5B</td><td>$2.5B</td><td>$2.5B</td><td class="match">$2.5B</td></tr>
+                    <tr><td>Kaiser Permanente, 2024</td><td>3,542,469</td><td>$279.25</td><td>$1.0B</td><td>$1.0B</td><td>$1.0B</td><td class="match">$1.0B</td></tr>
+                </table>
+                <p class="caption">A member month is one member covered for one month; a year's revenue is the rate times the year's member months. 2026 shows half sized figures because the enrollment data runs through June 2026.</p>
+                <div class="gotcha-box"><strong>Why Kaiser's early cells are empty:</strong> the relationship matches on Brand and year, and Kaiser has no Los Angeles rate rows before its 2024 direct contract. Empty cells are a missing match, not a zero.</div>
+            </div></details>
+            </div>
+
+            <!-- SUB-TAB C: LEVEL OF DETAIL & CONTEXT FILTERS -->
+            <div id="sub-lod" class="subtab-content">
+                <div class="section-controls"><button onclick="setAllSections('sub-lod', true)">Expand All</button><button onclick="setAllSections('sub-lod', false)">Collapse All</button></div>
+<details class="sec" open><summary>Introduction and the question</summary><div class="sec-body">
+                <div class="question-box"><strong>The question:</strong> the top chart is filtered to Los Angeles, yet its gray benchmark line is a statewide average. How does one chart hold both, and why did the benchmark's first draft come out ten times too high?</div>
+                <p><strong>The tool is a FIXED Level of Detail (LOD) expression,</strong> a calculation that declares its own grouping and deliberately ignores the sheet's ordinary filters. That independence is exactly what a benchmark needs, and exactly what makes it dangerous until the filters it should respect are promoted to context.</p>
+            </div></details>
+
+            <details class="sec" open><summary>FIXED: an average that ignores the county filter</summary><div class="sec-body">
+                <div class="calc-formula">Statewide Average Rate = { FIXED [Calendar Year] : AVG([Working Rate]) }</div>
+                <p>Read it left to right: <em>for each year, average the working rate over every row the calculation can see, regardless of what the sheet filters to.</em> The sheet's County filter holds the plan lines to Los Angeles; the FIXED average sails past it and spans the state. One chart, two scopes.</p>
+                <p class="subhead">SQL</p>
+                <ul>
+                    <li><strong>The approach:</strong> compute the yearly average in its own aggregate, without the county condition, and join it back by year, the FIXED expression is precisely a subquery with fewer WHERE clauses than the outer query.</li>
+                </ul>
+<pre class="code-block"><span class="kw">WITH</span> statewide <span class="kw">AS</span> (                        <span class="cm">-- no County condition here: that is the point</span>
+    <span class="kw">SELECT</span> <span class="st">"Calendar Year"</span> <span class="kw">AS</span> yr, <span class="kw">AVG</span>(working_rate) <span class="kw">AS</span> benchmark
+    <span class="kw">FROM</span> rates
+    <span class="kw">WHERE</span> Model = <span class="st">'Two-Plan'</span> <span class="kw">AND</span> <span class="st">"Category of Aid"</span> <span class="kw">IN</span> (<span class="st">'Adult'</span>, <span class="st">'Adult - SIS'</span>)
+    <span class="kw">GROUP BY</span> 1
+)
+<span class="kw">SELECT</span> la.Brand, la.yr, la.rate, s.benchmark
+<span class="kw">FROM</span> la_rates la <span class="kw">JOIN</span> statewide s <span class="kw">ON</span> la.yr = s.yr;</pre>
+                <p class="subhead" style="margin-top:16px;">pandas</p>
+                <ul>
+                    <li><strong>The approach:</strong> compute the benchmark on the unfiltered frame, then map it onto the Los Angeles rows by year, computing on one scope and attaching to another is the whole trick.</li>
+                </ul>
+<pre class="code-block">two_plan_adult = rates[(rates[<span class="st">'Model'</span>] == <span class="st">'Two-Plan'</span>)
+    &amp; (rates[<span class="st">'Category of Aid'</span>].isin([<span class="st">'Adult'</span>, <span class="st">'Adult - SIS'</span>]))]
+benchmark = two_plan_adult.groupby(<span class="st">'Calendar Year'</span>)[<span class="st">'working_rate'</span>].mean()
+
+la = two_plan_adult[two_plan_adult[<span class="st">'County'</span>] == <span class="st">'Los Angeles'</span>].copy()
+la[<span class="st">'benchmark'</span>] = la[<span class="st">'Calendar Year'</span>].map(benchmark)</pre>
+                <table class="blog-table">
+                    <tr><th>Year</th><th>L.A. Care</th><th>Statewide benchmark</th><th>Tableau</th><th>DuckDB SQL</th><th>pandas</th></tr>
+                    <tr><td>2021</td><td>216.59</td><td>256.28</td><td>256.28</td><td>256.28</td><td class="match">256.28</td></tr>
+                    <tr><td>2023</td><td>195.52</td><td>217.84</td><td>217.84</td><td>217.84</td><td class="match">217.84</td></tr>
+                    <tr><td>2026</td><td>293.70</td><td>337.14</td><td>337.14</td><td>337.14</td><td class="match">337.14</td></tr>
+                </table>
+                <div class="insight-box"><strong>The finding this builds:</strong> the statewide Two-Plan adult average sits above every Los Angeles plan in every one of the six years. The state's largest county Medicaid market runs on below average adult prices.</div>
+            </div></details>
+
+            <details class="sec" open><summary>Context filters: the WHERE clause that runs before the benchmark</summary><div class="sec-body">
+                <p>FIXED ignores <em>ordinary</em> filters, all of them. The sheet also filters Model to Two-Plan and the category to the adult rows, and the benchmark must respect those two, otherwise it averages every program in the union, including elderly care programs priced in the thousands per month.</p>
+                <p><strong>What Add to Context does.</strong> A context filter runs before FIXED expressions are computed, an ordinary filter runs after. Promoting Model and Category of Aid to context feeds the benchmark clean rows; leaving County ordinary keeps the benchmark statewide. The filter placement is the calculation.</p>
+                <table class="blog-table">
+                    <tr><th></th><th>2021 benchmark</th><th>What it averaged</th><th>Verdict</th></tr>
+                    <tr><td><strong>Wrong:</strong> Model and category as ordinary filters</td><td>2,763.81</td><td>Every program and category in the union, dominated by PACE (Program of All-Inclusive Care for the Elderly) rows priced in the thousands.</td><td style="color:var(--red); font-weight:700;">&#10007;</td></tr>
+                    <tr><td><strong>Right:</strong> Model and category promoted to context</td><td>256.28</td><td>Two-Plan adult rows only, every county.</td><td class="match">&#10003;</td></tr>
+                </table>
+                <p class="subhead">The order of operations, in one line each</p>
+                <ul>
+                    <li><strong>Context filters</strong> run first: Model = Two-Plan, Category of Aid = Adult and Adult - SIS.</li>
+                    <li><strong>FIXED expressions</strong> run next, seeing only what context allowed: the statewide benchmark.</li>
+                    <li><strong>Ordinary filters</strong> run last, shaping the view without touching the benchmark: County = Los Angeles.</li>
+                </ul>
+                <p class="subhead">SQL</p>
+                <ul>
+                    <li><strong>The approach:</strong> context filters live in the inner CTE (before the average), the ordinary county filter lives in the outer query (after it), the SQL from the previous section is already written this way.</li>
+                </ul>
+                <div class="insight-box"><strong>The rule worth memorising:</strong> a filter that must change what a FIXED calculation sees goes to context; a filter that must not, stays ordinary. Here both directions are used at once, and the gray line is only correct because of it.</div>
+                <div class="gotcha-box"><strong>The parallel to the last post:</strong> the market share post promoted a minimum member filter to context so tiny counties could not hijack a color scale. Same lever, different reason: there it protected quantiles, here it protects an LOD benchmark.</div>
+            </div></details>
+            </div>
+
+            <!-- SUB-TAB D: PARAMETERS & TABLE CALCULATIONS -->
+            <div id="sub-params" class="subtab-content">
+                <div class="section-controls"><button onclick="setAllSections('sub-params', true)">Expand All</button><button onclick="setAllSections('sub-params', false)">Collapse All</button></div>
+<details class="sec" open><summary>Introduction and the question</summary><div class="sec-body">
+                <div class="question-box"><strong>The question:</strong> the year over year table says the price moved 25% in 2024, and the dial claims a 5% move is worth $375 million. Where do those two kinds of numbers come from?</div>
+                <p>Two mechanisms finish the workbook: a <strong>table calculation</strong> turns the rate series into period over period change without touching the data, and a <strong>parameter</strong> puts a reader controlled number into a calculation, the what if dial.</p>
+            </div></details>
+
+            <details class="sec" open><summary>Percent difference: the LAG window</summary><div class="sec-body">
+                <p>The middle dashboard panel is the same rate series as the top chart, displayed as percent change from the prior year. In Tableau that is a quick table calculation, Percent Difference, computed per plan across the years.</p>
+                <p class="subhead">SQL</p>
+                <ul>
+                    <li><strong>The approach:</strong> <code>LAG</code>, a window function, fetches the prior year's rate on each row; the change is the difference over the prior value, partitioned by plan so each brand compares only with itself.</li>
+                </ul>
+<pre class="code-block"><span class="kw">SELECT</span> Brand, yr,
+       (rate - <span class="kw">LAG</span>(rate) <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> Brand <span class="kw">ORDER BY</span> yr))
+       / <span class="kw">LAG</span>(rate) <span class="kw">OVER</span> (<span class="kw">PARTITION BY</span> Brand <span class="kw">ORDER BY</span> yr) * 100 <span class="kw">AS</span> pct_change
+<span class="kw">FROM</span> la_rates;</pre>
+                <p class="subhead" style="margin-top:16px;">pandas</p>
+                <ul>
+                    <li><strong>The approach:</strong> <code>pct_change</code> down each plan's column does the lag, divide, and subtract in one call.</li>
+                </ul>
+<pre class="code-block">wide = la.pivot_table(index=<span class="st">'Calendar Year'</span>, columns=<span class="st">'Brand'</span>, values=<span class="st">'working_rate'</span>)
+yoy  = wide.pct_change() * 100</pre>
+                <table class="blog-table">
+                    <tr><th>Year, L.A. Care</th><th>Change</th><th>Tableau</th><th>DuckDB SQL</th><th>pandas</th></tr>
+                    <tr><td>2022</td><td>-13.56%</td><td>-13.56</td><td>-13.56</td><td class="match">-13.56</td></tr>
+                    <tr><td>2024</td><td>+25.04%</td><td>25.04</td><td>25.04</td><td class="match">25.04</td></tr>
+                    <tr><td>2026</td><td>+10.73%</td><td>10.73</td><td>10.73</td><td class="match">10.73</td></tr>
+                </table>
+                <p class="caption">2021 is blank by construction, there is no earlier year to compare against, and Kaiser's series starts in 2025, its first year with a prior year.</p>
+            </div></details>
+
+            <details class="sec" open><summary>The what if parameter: one dial, every cell</summary><div class="sec-body">
+                <p>A <strong>parameter</strong> is a single value the reader controls, here <code>Rate Adjustment %</code>, a dial from -10% to +10%. It feeds a scenario calculation that reprices every cell of the revenue table as the dial turns.</p>
+                <div class="calc-formula">Estimated Revenue = SUM([Enrollees]) * SUM([Working Rate])
+Scenario Revenue  = SUM([Enrollees]) * SUM([Working Rate]) * (1 + [Rate Adjustment %])
+Revenue Change    = [Scenario Revenue] - [Estimated Revenue]</div>
+                <p class="subhead">SQL and pandas</p>
+                <ul>
+                    <li><strong>The approach:</strong> a parameter is just a scalar in the arithmetic; SQL and pandas each multiply the same aggregate by (1 + the dial).</li>
+                </ul>
+<pre class="code-block"><span class="cm">-- SQL: the dial as a scalar</span>
+<span class="kw">SELECT</span> Brand, yr, member_months * rate * (1 + 0.05) <span class="kw">AS</span> scenario_revenue
+<span class="kw">FROM</span> revenue_base;
+
+<span class="cm"># pandas: the same scalar</span>
+out[<span class="st">'scenario'</span>] = out[<span class="st">'revenue'</span>] * (1 + 0.05)
+out[<span class="st">'change'</span>]   = out[<span class="st">'scenario'</span>] - out[<span class="st">'revenue'</span>]</pre>
+                <table class="blog-table">
+                    <tr><th>Scenario</th><th>Change</th><th>Tableau</th><th>DuckDB SQL</th><th>pandas</th></tr>
+                    <tr><td>L.A. Care 2025, dial at +5%</td><td>+$375M</td><td>$375M</td><td>$375M</td><td class="match">$375M</td></tr>
+                </table>
+                <div class="insight-box"><strong>Why the dial matters:</strong> capitation revenue is members times rate, and the members are counted in tens of millions of member months. The dial makes the leverage tangible, one point of rate is roughly $75 million a year to L.A. Care.</div>
+            </div></details>
+
+            <details class="sec"><summary>The highlight table: color as a measure</summary><div class="sec-body">
+                <p>The revenue table doubles as the dial's display. Each cell's background is driven by Revenue Change on a diverging scale, blue for gains, orange for losses, centered on a fixed zero with fixed ends at plus and minus $750 million.</p>
+                <ul>
+                    <li><strong>Why the ends are fixed:</strong> left automatic, the scale would rescale to whatever the dial produces, so 1% and 10% would look identical and 0% would render dark. Pinned ends make the shading proportional to the dollars: pale near zero, deeper as the dial grows, always deepest for the biggest book.</li>
+                    <li><strong>Why the center is zero:</strong> zero change is the neutral state regardless of where the dial sits, so the midpoint of the color scale belongs to it.</li>
+                </ul>
+                <p class="caption">This closes the loop on the series requirement list: a union, a relationship, a Level of Detail expression, context filters, a parameter, and a table calculation, all in one workbook, every number verified twice.</p>
+            </div></details>
+            </div>
+
+        </div>
+
+        </div><!-- /.main-container -->
+      </div><!-- /.blog-container -->
+    </div><!-- /#content-wrap -->
+    <div w3-include-html="/folders/navbar_footer/footer.html"></div>
+  </div><!-- /#page-container -->
+
+  <script type="text/javascript" src="../../static/js/include.js"></script>
+  <script type='text/javascript'>
+      function setAllSections(tabId, open) {
+          document.getElementById(tabId).querySelectorAll('details.sec').forEach(d => d.open = open);
+      }
+      function switchTab(event, tabId) {
+          document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+          document.getElementById(tabId).classList.add('active');
+          event.currentTarget.classList.add('active');
+          window.scrollTo({ top: 0 });
+      }
+      function switchSubTab(event, subId) {
+          var methods = document.getElementById('tab-methods');
+          methods.querySelectorAll('.subtab-content').forEach(t => t.classList.remove('active'));
+          methods.querySelectorAll('.subtab').forEach(b => b.classList.remove('active'));
+          document.getElementById(subId).classList.add('active');
+          event.currentTarget.classList.add('active');
+      }
+      // Fixed-size embed: renders the dashboard at the exact size it was authored at, so Tableau
+      // never scales it down. The .viz-native wrapper scrolls sideways on narrow screens instead.
+      function embedVizNative(id, width, height) {
+          var d = document.getElementById(id);
+          if (!d) return;
+          var v = d.getElementsByTagName('object')[0];
+          if (!v) return;
+          v.style.width  = width + 'px';
+          v.style.height = height + 'px';
+          d.style.width  = width + 'px';
+          d.style.minWidth = width + 'px';
+          var s = document.createElement('script');
+          s.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';
+          v.parentNode.insertBefore(s, v);
+      }
+
+      embedVizNative('viz1784858143392', 1250, 1440);   // authored 1250 x 1400 + the Tableau toolbar, so no inner scrollbar steals width
+  </script>
+</body>
+</html>
